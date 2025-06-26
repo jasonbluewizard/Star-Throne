@@ -78,9 +78,9 @@ export default class TerritorialConquest {
         this.canvas.addEventListener('wheel', (e) => this.handleWheel(e));
         
         // Touch events for mobile
-        this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e));
-        this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e));
-        this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e));
+        this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
+        this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
+        this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e), { passive: false });
         
         // Keyboard events
         window.addEventListener('keydown', (e) => this.handleKeyDown(e));
@@ -424,6 +424,18 @@ export default class TerritorialConquest {
     }
     
     handleTerritorySelection(worldPos) {
+        // Check for restart button on game over screen (mobile-friendly)
+        if (this.gameState === 'ended' && this.ui && this.ui.restartButton) {
+            const button = this.ui.restartButton;
+            const screenPos = this.camera.worldToScreen(worldPos.x, worldPos.y);
+            
+            if (screenPos.x >= button.x && screenPos.x <= button.x + button.width &&
+                screenPos.y >= button.y && screenPos.y <= button.y + button.height) {
+                this.restartGame();
+                return;
+            }
+        }
+        
         if (this.gameState !== 'playing') return;
         
         // Find clicked territory
@@ -519,35 +531,112 @@ export default class TerritorialConquest {
     // Touch event handlers for mobile
     handleTouchStart(e) {
         e.preventDefault();
+        
         if (e.touches.length === 1) {
+            // Single touch - territory selection
             const touch = e.touches[0];
-            const mouseEvent = new MouseEvent('mousedown', {
-                clientX: touch.clientX,
-                clientY: touch.clientY,
-                button: 0
-            });
-            this.handleMouseDown(mouseEvent);
+            const rect = this.canvas.getBoundingClientRect();
+            this.mousePos = {
+                x: touch.clientX - rect.left,
+                y: touch.clientY - rect.top
+            };
+            this.lastMousePos = { ...this.mousePos };
+            
+            const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+            this.handleTerritorySelection(worldPos);
+            
+        } else if (e.touches.length === 2) {
+            // Two touches - prepare for pinch zoom or pan
+            this.isDragging = true;
+            const touch1 = e.touches[0];
+            const touch2 = e.touches[1];
+            
+            // Store initial touch positions for pan/zoom
+            this.touchStartDistance = Math.hypot(
+                touch2.clientX - touch1.clientX,
+                touch2.clientY - touch1.clientY
+            );
+            
+            const rect = this.canvas.getBoundingClientRect();
+            this.lastMousePos = {
+                x: ((touch1.clientX + touch2.clientX) / 2) - rect.left,
+                y: ((touch1.clientY + touch2.clientY) / 2) - rect.top
+            };
         }
     }
     
     handleTouchMove(e) {
         e.preventDefault();
-        if (e.touches.length === 1) {
+        
+        if (e.touches.length === 1 && this.isDragging) {
+            // Single touch drag - pan
             const touch = e.touches[0];
-            const mouseEvent = new MouseEvent('mousemove', {
-                clientX: touch.clientX,
-                clientY: touch.clientY
-            });
-            this.handleMouseMove(mouseEvent);
+            const rect = this.canvas.getBoundingClientRect();
+            this.mousePos = {
+                x: touch.clientX - rect.left,
+                y: touch.clientY - rect.top
+            };
+            
+            const deltaX = this.mousePos.x - this.lastMousePos.x;
+            const deltaY = this.mousePos.y - this.lastMousePos.y;
+            
+            this.camera.pan(-deltaX, -deltaY);
+            this.lastMousePos = { ...this.mousePos };
+            
+        } else if (e.touches.length === 2) {
+            // Two touches - pinch zoom and pan
+            const touch1 = e.touches[0];
+            const touch2 = e.touches[1];
+            
+            // Calculate current distance for zoom
+            const currentDistance = Math.hypot(
+                touch2.clientX - touch1.clientX,
+                touch2.clientY - touch1.clientY
+            );
+            
+            if (this.touchStartDistance) {
+                const zoomFactor = currentDistance / this.touchStartDistance;
+                const rect = this.canvas.getBoundingClientRect();
+                const centerX = ((touch1.clientX + touch2.clientX) / 2) - rect.left;
+                const centerY = ((touch1.clientY + touch2.clientY) / 2) - rect.top;
+                
+                this.camera.zoom(zoomFactor, centerX, centerY);
+                this.touchStartDistance = currentDistance;
+            }
+            
+            // Pan based on center point movement
+            const rect = this.canvas.getBoundingClientRect();
+            const currentCenter = {
+                x: ((touch1.clientX + touch2.clientX) / 2) - rect.left,
+                y: ((touch1.clientY + touch2.clientY) / 2) - rect.top
+            };
+            
+            if (this.lastMousePos) {
+                const deltaX = currentCenter.x - this.lastMousePos.x;
+                const deltaY = currentCenter.y - this.lastMousePos.y;
+                this.camera.pan(-deltaX, -deltaY);
+            }
+            
+            this.lastMousePos = currentCenter;
         }
     }
     
     handleTouchEnd(e) {
         e.preventDefault();
-        const mouseEvent = new MouseEvent('mouseup', {
-            button: 0
-        });
-        this.handleMouseUp(mouseEvent);
+        
+        if (e.touches.length === 0) {
+            this.isDragging = false;
+            this.touchStartDistance = null;
+        } else if (e.touches.length === 1) {
+            // If one finger lifted during two-finger gesture, start single touch
+            this.isDragging = true;
+            const touch = e.touches[0];
+            const rect = this.canvas.getBoundingClientRect();
+            this.lastMousePos = {
+                x: touch.clientX - rect.left,
+                y: touch.clientY - rect.top
+            };
+        }
     }
     
     handleKeyDown(e) {

@@ -96,6 +96,14 @@ Territorial Conquest is a browser-based real-time strategy game built with React
 
 Changelog:
 - June 26, 2025. Initial setup
+- June 26, 2025. Enhanced mobile support with touch controls:
+  * Single tap for territory selection and attacks
+  * Single finger drag for camera panning
+  * Two-finger pinch gestures for zoom in/out
+  * Two-finger pan for simultaneous camera movement
+  * Mobile-friendly restart button on game over screen
+  * Responsive UI elements for smaller screens
+  * Touch-optimized control instructions
 
 ## User Preferences
 

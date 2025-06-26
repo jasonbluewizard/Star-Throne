@@ -105,9 +105,34 @@ export class GameUI {
         // Final leaderboard
         this.renderFinalLeaderboard(ctx, gameData);
         
-        // Restart instruction
-        ctx.font = '18px Arial';
-        ctx.fillText('Press R to restart', this.canvas.width / 2, this.canvas.height - 50);
+        // Mobile-friendly restart button
+        const buttonWidth = 200;
+        const buttonHeight = 50;
+        const buttonX = this.canvas.width / 2 - buttonWidth / 2;
+        const buttonY = this.canvas.height - 100;
+        
+        // Restart button background
+        ctx.fillStyle = this.accentColor;
+        ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);
+        
+        // Button border
+        ctx.strokeStyle = this.textColor;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(buttonX, buttonY, buttonWidth, buttonHeight);
+        
+        // Button text
+        ctx.fillStyle = this.textColor;
+        ctx.font = 'bold 20px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Tap to Restart', this.canvas.width / 2, buttonY + 32);
+        
+        // Store button area for touch detection
+        this.restartButton = {
+            x: buttonX,
+            y: buttonY,
+            width: buttonWidth,
+            height: buttonHeight
+        };
     }
     
     renderTopBar(ctx, gameData) {
@@ -307,7 +332,7 @@ export class GameUI {
         const startX = 20;
         const startY = 80;
         const width = 200;
-        const height = 120;
+        const height = 140;
         
         // Background
         ctx.fillStyle = this.bgColor;
@@ -319,13 +344,14 @@ export class GameUI {
         ctx.textAlign = 'left';
         ctx.fillText('Controls', startX + 10, startY + 18);
         
-        // Help text
+        // Help text - mobile-friendly
         ctx.fillStyle = this.textColor;
         ctx.font = '12px Arial';
         const helpLines = [
-            'Left Click: Select/Attack',
-            'Right Click + Drag: Pan',
-            'Mouse Wheel: Zoom',
+            'Tap: Select/Attack',
+            'Drag: Pan camera',
+            'Pinch: Zoom in/out',
+            'Two finger: Pan & zoom',
             'ESC: Deselect',
             'R: Restart (when ended)'
         ];
