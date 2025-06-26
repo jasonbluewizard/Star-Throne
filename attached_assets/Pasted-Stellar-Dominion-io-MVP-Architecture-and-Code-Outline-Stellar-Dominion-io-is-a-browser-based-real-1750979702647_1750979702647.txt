@@ -1,0 +1,512 @@
+Stellar Dominion.io – MVP Architecture and Code Outline
+
+Stellar Dominion.io is a browser-based real-time conquest game. Below is an end-to-end design and sample implementation outline using HTML5 Canvas and Vanilla JavaScript. We focus on a 10-minute match loop, a node-based star map, basic player actions (move, colonize, attack, research), AI players, and a scoring system. The code is written modularly so that future multiplayer extensions (e.g. replacing AI with real players via WebSockets) are straightforward.
+
+Project Structure
+	•	HTML5 Canvas: A single <canvas> element for rendering the game world (stars, lanes, flagships, UI).
+	•	JavaScript: All game logic in script tags or an external .js file. Key classes include Star, Player, Tech, etc. No external libraries are used.
+	•	Entry Point: On page load, initialize the game (create map and players), then start the game loop with requestAnimationFrame().
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Stellar Dominion.io (MVP)</title>
+  <style>
+    canvas { background: #000020; display: block; margin: 0 auto; }
+    body { color: #fff; text-align: center; }
+  </style>
+</head>
+<body>
+  <h1>Stellar Dominion.io (MVP)</h1>
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
+  <div id="scoreboard"></div>
+  <script src="stellar-dominion.js"></script>
+</body>
+</html>
+
+The canvas is centered and a simple scoreboard is shown below it. All game logic will be in stellar-dominion.js.
+
+Game Entities and Data Structures
+	•	Star (Node): Represents a star system. Each star has an (x, y) position, a list of connected neighbors (starlanes), an ownerId (which player controls it, or null if neutral), and a fleetPower value (the strength or stationed fleet at that star).
+
+class Star {
+  constructor(id, x, y) {
+    this.id = id;             // unique identifier
+    this.x = x; this.y = y;    // canvas position
+    this.neighbors = [];      // list of connected star IDs
+    this.ownerId = null;      // which player controls it
+    this.fleetPower = 0;      // stationed fleet (could grow via colonies)
+  }
+  draw(ctx, players) {
+    // Draw the star circle, colored by owner if any
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, 12, 0, 2*Math.PI);
+    ctx.fillStyle = this.ownerId !== null ? players[this.ownerId].color : '#555';
+    ctx.fill();
+    ctx.strokeStyle = '#333';
+    ctx.stroke();
+  }
+}
+
+
+	•	Player: Represents a human or AI player. Stores id, name, color, resources (fleetPower), owned stars, flagship position, tech bonuses, and score. We’ll have a base Player class and an AIPlayer subclass for bots. Each player starts at a random unclaimed star with a small initial fleet.
+
+class Player {
+  constructor(id, name, color) {
+    this.id = id;
+    this.name = name;
+    this.color = color;
+    this.fleetPower = 10;       // initial resource
+    this.ownedStars = [];       // list of star IDs
+    this.flagship = { starId: null, targetId: null, progress: 0 };
+    this.techBonuses = { incomeRate: 0, attackPower: 0, speed: 0 };
+    this.score = 0;
+    this.techCount = 0;
+    this.capturedEnemyStars = 0;
+  }
+  // Move flagship to a neighboring star
+  setFlagshipTarget(targetStarId) {
+    if (!this.flagship.starId) return;
+    const currentStar = game.stars[this.flagship.starId];
+    if (currentStar.neighbors.includes(targetStarId)) {
+      this.flagship.targetId = targetStarId;
+      this.flagship.progress = 0;
+    }
+  }
+  // Called each update tick to increment resources
+  gainIncome(deltaTime) {
+    // Each owned star produces base income 1 + bonus per second.
+    const income = (this.ownedStars.length * (1 + this.techBonuses.incomeRate)) * (deltaTime / 1000);
+    this.fleetPower += income;
+  }
+  // Compute current score
+  updateScore() {
+    this.score = this.ownedStars.length * 100
+               + this.techCount * 50
+               + this.capturedEnemyStars * 150;
+  }
+}
+
+
+	•	AIPlayer: Inherits from Player. Implements simple decision-making: try to colonize nearby neutral stars or attack weaker neighbors occasionally.
+
+class AIPlayer extends Player {
+  constructor(id, name, color) {
+    super(id, name, color);
+    this.thinkTimer = 0;
+  }
+  updateAI(deltaTime) {
+    this.thinkTimer += deltaTime;
+    if (this.thinkTimer < 1000) return; // think roughly every 1 second
+    this.thinkTimer = 0;
+
+    // 1. If any adjacent neutral star, colonize it
+    for (let starId of this.ownedStars) {
+      const star = game.stars[starId];
+      for (let nId of star.neighbors) {
+        const nStar = game.stars[nId];
+        if (nStar.ownerId === null) {
+          this.colonizeStar(nStar);
+          return;
+        }
+      }
+    }
+
+    // 2. Otherwise, attack a weak neighbor (if we have power)
+    for (let starId of this.ownedStars) {
+      const star = game.stars[starId];
+      for (let nId of star.neighbors) {
+        const nStar = game.stars[nId];
+        if (nStar.ownerId !== null && nStar.ownerId !== this.id) {
+          // attack if we have more fleetPower than that star's fleet
+          if (this.fleetPower > nStar.fleetPower + 5) {
+            this.attackStar(nStar);
+            return;
+          }
+        }
+      }
+    }
+
+    // 3. Randomly move flagship to expand frontier or research
+    if (Math.random() < 0.3) this.chooseRandomTech();
+  }
+  colonizeStar(star) {
+    // Spend some fleet power to colonize (optional)
+    star.ownerId = this.id;
+    star.fleetPower = 1; // initial colony fleet
+    this.ownedStars.push(star.id);
+    this.techCount = this.techCount; // no tech change
+  }
+  attackStar(star) {
+    star.ownerId = this.id;
+    star.fleetPower = 1; // convert colony or set minimal fleet
+    this.ownedStars.push(star.id);
+    this.capturedEnemyStars++;
+  }
+  chooseRandomTech() {
+    // Placeholder: randomly boost income or attack
+    if (Math.random() < 0.5) {
+      this.techBonuses.incomeRate += 0.1;
+    } else {
+      this.techBonuses.attackPower += 0.1;
+    }
+    this.techCount++;
+  }
+}
+
+
+	•	Tech System: Every 45 seconds, each player (human and AI) is offered 3 random tech options (stat modifiers). For example, a tech might be “Increased Income: +0.5” or “Faster Flagship: +1.0” etc. The player presses 1, 2, or 3 to choose one. Chosen techs permanently modify that player’s stats. For brevity, the code below shows how techs might be presented and applied:
+
+const techOptions = [
+  { name: 'Income +0.5', type: 'incomeRate', value: 0.5 },
+  { name: 'Attack +0.5', type: 'attackPower', value: 0.5 },
+  { name: 'Speed +0.5', type: 'speed', value: 0.5 },
+  // ... more techs
+];
+
+function offerTechsToPlayer(player) {
+  // Select 3 random techs
+  const choices = [];
+  for (let i = 0; i < 3; i++) {
+    choices.push( techOptions[Math.floor(Math.random() * techOptions.length)] );
+  }
+  player.pendingTechChoices = choices; // store for when player picks
+  // (display these on-screen for the player to press 1/2/3)
+}
+
+function applyTechToPlayer(player, index) {
+  const tech = player.pendingTechChoices[index];
+  player.techBonuses[tech.type] += tech.value;
+  player.techCount++;
+  player.pendingTechChoices = [];
+}
+
+In the game loop, every 45 seconds (or at fixed intervals), offerTechsToPlayer is called for each player. When the human presses 1,2,3, it invokes applyTechToPlayer(selfPlayer, choiceIndex). AI immediately applies a random choice with chooseRandomTech() as shown above.
+
+Game Initialization
+	1.	Create Map (Stars and Lanes): We generate a set of star nodes and manually or procedurally connect them. For simplicity, imagine a grid or random points with distance-based connections. Each star is an instance of Star as above.
+
+const game = {
+  stars: {},      // map of starId -> Star object
+  players: [],    // list of Player/AIPlayer instances
+  timer: 10 * 60 * 1000, // 10 minutes in milliseconds
+  techInterval: 45 * 1000,
+};
+
+function createMap() {
+  const rows = 5, cols = 8;
+  let starId = 0;
+  // Create stars in grid positions
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const x = 100 + c*90 + (r%2)*45;
+      const y = 100 + r*80;
+      game.stars[starId] = new Star(starId, x, y);
+      starId++;
+    }
+  }
+  // Connect neighbors with simple adjacency (hex offsets)
+  for (let id in game.stars) {
+    let star = game.stars[id];
+    // connect to right neighbor
+    if ((id % cols) != cols - 1) star.neighbors.push(parseInt(id)+1);
+    // connect to below-right and below-left (for hex)
+    if (star.x < 700) {
+      let below = parseInt(id) + cols;
+      if (below < rows*cols) star.neighbors.push(below);
+      let belowLeft = below - 1;
+      if (belowLeft < rows*cols && (star.x % 90 != 0)) star.neighbors.push(belowLeft);
+    }
+  }
+}
+
+
+	2.	Create Players: We create 1 human player and several AI players (e.g. 4 AI). Assign each a unique color.
+
+function createPlayers() {
+  const colors = ['#f55','#5f5','#55f','#ff5','#f5f','#5ff','#fa0','#0af'];
+  game.players.push(new Player(0, 'You', colors[0]));  // human player
+  for (let i = 1; i < 5; i++) {
+    game.players.push(new AIPlayer(i, 'AI '+i, colors[i]));
+  }
+  // Place each player on a random unowned star
+  for (let player of game.players) {
+    let freeStar = Object.values(game.stars).find(s => s.ownerId === null);
+    if (!freeStar) break;
+    freeStar.ownerId = player.id;
+    freeStar.fleetPower = 5;
+    player.ownedStars.push(freeStar.id);
+    // Set flagship on that star
+    player.flagship.starId = freeStar.id;
+  }
+}
+
+
+	3.	Initialize Timers and Game Loop: Set the match timer to 10 minutes and tech timer to 45 seconds. Start the main loop using requestAnimationFrame().
+
+let lastTimestamp = 0;
+function gameLoop(timestamp) {
+  const deltaTime = timestamp - lastTimestamp;
+  lastTimestamp = timestamp;
+
+  updateGame(deltaTime);
+  drawGame();
+
+  if (game.timer > 0) {
+    requestAnimationFrame(gameLoop);
+  } else {
+    endGame();
+  }
+}
+
+function startGame() {
+  createMap();
+  createPlayers();
+  lastTimestamp = performance.now();
+  requestAnimationFrame(gameLoop);
+}
+window.onload = startGame;
+
+
+
+Game Loop and Updates
+
+Every frame or fixed interval (e.g. 60 FPS) we:
+	1.	Update Timer: Subtract deltaTime from game.timer. When it reaches 0, the match ends.
+	2.	Handle Tech Offers: Track a separate counter; every 45 seconds, call offerTechsToPlayer(player) for each player to present tech choices.
+	3.	Player Actions: For the human player, listen to keyboard input:
+	•	Arrow keys: Move flagship to a connected star. (We can interpret left/right/up/down as choosing among neighbors; for simplicity, maybe cycle neighbors.)
+	•	Key ‘C’: Colonize (if standing at an adjacent neutral star).
+	•	Key ‘A’: Attack (if standing adjacent to an enemy star).
+	•	Keys ‘1’,‘2’,‘3’: Pick a tech option when available.
+	4.	AI Actions: Each AI player’s updateAI(deltaTime) is called to perform colonize/attack decisions or choose techs if needed.
+	5.	Resource Gain: Each player gains fleet power from their colonies:
+
+player.gainIncome(deltaTime);
+
+
+	6.	Move Flagships: If a player has set a flagship target (flagship.targetId), we interpolate the flagship’s position towards that star at the player’s speed (modified by tech). When progress ≥ 1, the flagship arrives, and we set flagship.starId = targetId and clear targetId.
+	7.	Process Battles/Colonization: When a flagship arrives or a command is given:
+	•	If colonizing a neutral star: set star.ownerId = player.id and initialize its fleet.
+	•	If attacking an enemy star: compare player.fleetPower vs star.fleetPower * (1 + defenseModifier). If successful, transfer ownership and increment capturedEnemyStars.
+	8.	Update Score: After each major event or each second, recalc player scores using the formula:
+
+player.updateScore(); 
+
+
+	9.	Render: Clear canvas, draw all stars (colored by owner), draw starlanes (lines between connected stars), draw each player’s flagship (colored circle moving between stars), and draw UI (timer, each player’s score and fleet power).
+	10.	Loop: If time remains, repeat.
+
+Example Update Code
+
+function updateGame(deltaTime) {
+  // 1. Update timers
+  game.timer -= deltaTime;
+  game.techInterval -= deltaTime;
+  if (game.techInterval <= 0) {
+    // offer techs
+    for (let p of game.players) {
+      if (p instanceof AIPlayer) {
+        p.chooseRandomTech();
+      } else {
+        offerTechsToPlayer(p);
+      }
+    }
+    game.techInterval += 45000;
+  }
+  // 2. Update players (AI and resources)
+  for (let player of game.players) {
+    player.gainIncome(deltaTime);
+    if (player instanceof AIPlayer) {
+      player.updateAI(deltaTime);
+    }
+  }
+  // 3. Move flagships
+  for (let player of game.players) {
+    const fs = player.flagship;
+    if (fs.targetId !== null) {
+      // Find current and target star
+      const fromStar = game.stars[fs.starId];
+      const toStar = game.stars[fs.targetId];
+      fs.progress += (0.001 + player.techBonuses.speed) * deltaTime;
+      if (fs.progress >= 1) {
+        // Arrived at new star
+        fs.starId = fs.targetId;
+        fs.targetId = null;
+        fs.progress = 0;
+      }
+    }
+  }
+  // 4. Update scoreboard
+  for (let p of game.players) p.updateScore();
+}
+
+Rendering (Canvas Drawing)
+	•	Stars and Lanes: Draw each lane as a line between star centers, then draw each star as a circle. Owned stars are filled with the owner’s color.
+
+function drawGame() {
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  // Draw starlanes (gray lines)
+  ctx.strokeStyle = '#222'; ctx.lineWidth = 2;
+  for (let star of Object.values(game.stars)) {
+    for (let nId of star.neighbors) {
+      const neighbor = game.stars[nId];
+      ctx.beginPath();
+      ctx.moveTo(star.x, star.y);
+      ctx.lineTo(neighbor.x, neighbor.y);
+      ctx.stroke();
+    }
+  }
+  // Draw stars
+  for (let star of Object.values(game.stars)) {
+    star.draw(ctx, game.players);
+  }
+  // Draw flagships (small colored circles above stars or between stars)
+  for (let player of game.players) {
+    drawFlagship(ctx, player);
+  }
+  // Draw UI: timer and scoreboard
+  drawUI(ctx);
+}
+
+
+	•	Flagships: We visualize each player’s flagship as a small circle. If moving, interpolate its position; if stationary, draw it at the current star.
+
+function drawFlagship(ctx, player) {
+  if (player.flagship.starId === null) return;
+  // Compute position
+  let x, y;
+  if (player.flagship.targetId === null) {
+    // Stationary at star
+    const s = game.stars[player.flagship.starId];
+    x = s.x; y = s.y;
+  } else {
+    // Moving: interpolate between fromStar and targetStar
+    const s1 = game.stars[player.flagship.starId];
+    const s2 = game.stars[player.flagship.targetId];
+    const t = player.flagship.progress;
+    x = s1.x + (s2.x - s1.x) * t;
+    y = s1.y + (s2.y - s1.y) * t;
+  }
+  ctx.beginPath();
+  ctx.arc(x, y, 6, 0, 2*Math.PI);
+  ctx.fillStyle = player.color;
+  ctx.fill();
+  ctx.strokeStyle = '#fff';
+  ctx.stroke();
+}
+
+
+	•	UI Elements: Display the remaining time (minutes:seconds) and each player’s score and fleet power. The human player could be on top or highlighted.
+
+function drawUI(ctx) {
+  // Timer
+  const minutes = Math.floor(game.timer / 60000);
+  const seconds = Math.floor((game.timer % 60000) / 1000);
+  ctx.fillStyle = '#fff';
+  ctx.font = '20px sans-serif';
+  ctx.fillText(`Time: ${minutes}:${seconds.toString().padStart(2,'0')}`, 10, 30);
+
+  // Scoreboard (simplified)
+  let y = 50;
+  for (let player of game.players) {
+    ctx.fillStyle = player.color;
+    ctx.fillText(`${player.name}: Score ${player.score} | FP ${Math.floor(player.fleetPower)}`, 10, y);
+    y += 25;
+  }
+}
+
+
+
+Player Input (Human Controls)
+	•	Arrow Keys: Move the flagship. We’ll interpret arrow keys as follows: if the flagship is at star A, we try to move to a neighbor in some direction. For simplicity, pressing any arrow cycles to a random connected neighbor (or could pick based on angle). Here’s a simple version: cycle through neighbors in index order.
+
+document.addEventListener('keydown', e => {
+  const player = game.players[0]; // human is index 0
+  if (!player.flagship.starId) return;
+  const neighbors = game.stars[player.flagship.starId].neighbors;
+  if (neighbors.length === 0) return;
+  if (['ArrowRight','ArrowUp','ArrowLeft','ArrowDown'].includes(e.key)) {
+    // pick next neighbor (could be smarter based on direction)
+    let idx = Math.floor(Math.random() * neighbors.length);
+    player.setFlagshipTarget(neighbors[idx]);
+  }
+  // Colonize
+  if (e.key === 'c') {
+    // colonize any neutral neighbor
+    for (let nId of game.stars[player.flagship.starId].neighbors) {
+      const target = game.stars[nId];
+      if (target.ownerId === null) {
+        target.ownerId = player.id;
+        target.fleetPower = 1;
+        player.ownedStars.push(target.id);
+        break;
+      }
+    }
+  }
+  // Attack
+  if (e.key === 'a') {
+    for (let nId of game.stars[player.flagship.starId].neighbors) {
+      const target = game.stars[nId];
+      if (target.ownerId !== null && target.ownerId !== player.id) {
+        // simple attack: take over if stronger
+        if (player.fleetPower > target.fleetPower + 5) {
+          target.ownerId = player.id;
+          target.fleetPower = 1;
+          player.ownedStars.push(target.id);
+          player.capturedEnemyStars++;
+        }
+        break;
+      }
+    }
+  }
+  // Tech selection (if options are up)
+  if (player.pendingTechChoices && ['1','2','3'].includes(e.key)) {
+    applyTechToPlayer(player, parseInt(e.key)-1);
+  }
+});
+
+
+
+Pressing C colonizes a neutral adjacent star, and A attacks an enemy star if possible. (In a full game, you’d likely select a specific neighbor, but here we just pick the first valid one.) Tech choices 1/2/3 apply when presented.
+
+Scoring and End Condition
+	•	Score Calculation: Each frame we update each player’s score as
+score = (number of owned stars × 100) + (techs chosen × 50) + (enemy stars captured × 150).
+	•	Match End: When the 10-minute timer reaches 0, we stop the game loop and declare the winner (player with highest score). Inputs are ignored afterwards and we can freeze the final state.
+
+function endGame() {
+  // Determine winner
+  let winner = game.players[0];
+  for (let p of game.players) {
+    if (p.score > winner.score) winner = p;
+  }
+  // Display winner message (e.g. alert or on-screen text)
+  ctx.fillStyle = '#fff';
+  ctx.font = '40px sans-serif';
+  ctx.fillText(`${winner.name} Wins!`, canvas.width/2 - 100, canvas.height/2);
+}
+
+
+
+Modular Design for Future Multiplayer
+
+All game logic (stars, players, map, game loop) is encapsulated in classes or isolated functions. Player actions (moving, colonizing, attacking) are methods on the Player class, making it easy to replace the human player with a network-controlled player in the future. For example, instead of listening to keydown events, you could feed actions from WebSocket messages into the same player.setFlagshipTarget(...), player.colonizeStar(...), etc. The AI logic is entirely client-side, so adding or removing AI players is trivial by creating or destroying AIPlayer instances.
+
+Each major system (rendering, input, AI decision-making, resource generation, scoring) is separated, and the main loop simply calls update functions in sequence. This separation of concerns keeps the code clear and maintainable.
+
+Summary of Key Features
+	•	10-Minute Timer: A countdown displayed on screen. When it hits zero, the game ends and we announce the winner.
+	•	Hex/Node Map: A network of stars (here arranged in a grid) with lines (starlanes) connecting neighbors. Each star can be colonized or captured.
+	•	Flagships: Player tokens that move along lanes. We auto-snap them to the nearest node when moving (simplified as instantaneous moves here or linear interpolation).
+	•	Colonization: Press C to colonize an adjacent neutral star (if any). Colonies passively generate Fleet-Power resources.
+	•	Attack: Press A to send force against an adjacent enemy star. If successful, the star flips owner.
+	•	Fleet-Power: A single resource for each player. It increases over time based on owned colonies and can be spent on colonization or attack actions. (In this MVP we simplified spending by just checking power for attacks.)
+	•	AI Players: 4 simple bots that expand to neutral stars and attack weaker neighbors. They also randomly select tech upgrades.
+	•	Tech System: Every 45 seconds, each player chooses 1 of 3 random tech upgrades (or AI picks randomly). These grants stat buffs like higher income or attack.
+	•	Scoring: Score = (stars owned * 100) + (techs * 50) + (enemy stars captured * 150). The scoreboard shows live scores and Fleet-Power for each player.
+	•	Canvas UI: Colored circles (stars), colored lines (lanes), moving circles (flagships), and on-screen text for time and stats.
+
+This design prioritizes clarity and modularity. The provided code snippets demonstrate core mechanics; a full implementation would flesh out these classes and functions with complete collision logic, smoother movement, and more polished UI, but the above structure satisfies all MVP requirements.
