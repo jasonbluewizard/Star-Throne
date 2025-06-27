@@ -102,6 +102,7 @@ export default class TerritorialConquest {
         this.isMultiTouch = false;
         this.touchDebugInfo = '';
         this.showTouchDebug = true; // Turn on debug to help with mobile zoom
+        this.leaderboardMinimized = false;
         
         // Keyboard events
         window.addEventListener('keydown', (e) => this.handleKeyDown(e));
@@ -387,7 +388,8 @@ export default class TerritorialConquest {
                 currentPlayers: this.currentPlayers,
                 maxPlayers: this.maxPlayers,
                 touchDebugInfo: this.touchDebugInfo,
-                showTouchDebug: this.showTouchDebug
+                showTouchDebug: this.showTouchDebug,
+                leaderboardMinimized: this.leaderboardMinimized
             });
         }
     }
@@ -445,7 +447,7 @@ export default class TerritorialConquest {
         const zoomFactor = e.deltaY > 0 ? 0.85 : 1.15;
         this.camera.zoom(zoomFactor, mouseX, mouseY);
         
-        console.log('Zoom:', zoomFactor, 'Current zoom:', this.camera.zoom);
+        console.log('Zoom:', zoomFactor, 'Current zoom:', this.camera.targetZoom);
     }
     
     handleTerritorySelection(worldPos) {
@@ -461,6 +463,20 @@ export default class TerritorialConquest {
             }
         }
         
+        // Check for leaderboard click (screen coordinates, not world coordinates)
+        const screenPos = this.camera.worldToScreen(worldPos.x, worldPos.y);
+        const leaderboardX = this.canvas.width - 220;
+        const leaderboardY = 60;
+        const leaderboardWidth = 200;
+        const leaderboardHeight = this.leaderboardMinimized ? 30 : 200;
+        
+        if (screenPos.x >= leaderboardX && screenPos.x <= leaderboardX + leaderboardWidth &&
+            screenPos.y >= leaderboardY && screenPos.y <= leaderboardY + leaderboardHeight) {
+            this.leaderboardMinimized = !this.leaderboardMinimized;
+            console.log('Leaderboard toggled:', this.leaderboardMinimized ? 'minimized' : 'maximized');
+            return;
+        }
+        
         if (this.gameState !== 'playing') return;
         
         // Find clicked territory
@@ -471,8 +487,20 @@ export default class TerritorialConquest {
             return;
         }
         
-        // If clicking on own territory, select it
+        // If clicking on own territory
         if (clickedTerritory.ownerId === this.humanPlayer.id) {
+            // If we already have a territory selected and clicking another owned territory
+            if (this.selectedTerritory && 
+                this.selectedTerritory.ownerId === this.humanPlayer.id &&
+                this.selectedTerritory.id !== clickedTerritory.id &&
+                this.selectedTerritory.neighbors.includes(clickedTerritory.id)) {
+                
+                // Transfer half the fleet from selected to clicked territory
+                this.transferFleet(this.selectedTerritory, clickedTerritory);
+                this.selectedTerritory = null;
+                return;
+            }
+            
             this.selectedTerritory = clickedTerritory;
             return;
         }
@@ -486,6 +514,20 @@ export default class TerritorialConquest {
         }
         
         this.selectedTerritory = clickedTerritory;
+    }
+    
+    transferFleet(fromTerritory, toTerritory) {
+        if (fromTerritory.armySize <= 1) {
+            console.log('Not enough armies to transfer!');
+            return;
+        }
+        
+        // Transfer half the armies, leaving at least 1
+        const transferAmount = Math.floor(fromTerritory.armySize / 2);
+        fromTerritory.armySize -= transferAmount;
+        toTerritory.armySize += transferAmount;
+        
+        console.log(`Transferred ${transferAmount} armies from territory ${fromTerritory.id} to ${toTerritory.id}`);
     }
     
     findTerritoryAt(x, y) {

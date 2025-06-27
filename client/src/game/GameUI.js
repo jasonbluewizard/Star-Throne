@@ -175,6 +175,24 @@ export class GameUI {
         const width = 230;
         const itemHeight = 25;
         
+        if (gameData.leaderboardMinimized) {
+            // Minimized leaderboard - just show title bar
+            ctx.fillStyle = this.bgColor;
+            ctx.fillRect(startX, startY, width, 35);
+            
+            ctx.fillStyle = this.accentColor;
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Leaderboard (tap to expand)', startX + width / 2, startY + 22);
+            
+            // Add minimize indicator
+            ctx.fillStyle = this.textColor;
+            ctx.font = '16px Arial';
+            ctx.textAlign = 'right';
+            ctx.fillText('▼', startX + width - 10, startY + 22);
+            return;
+        }
+        
         // Sort players by score
         const sortedPlayers = gameData.players
             .filter(p => !p.isEliminated)
@@ -187,11 +205,17 @@ export class GameUI {
         ctx.fillStyle = this.bgColor;
         ctx.fillRect(startX, startY, width, height);
         
-        // Title
+        // Title with minimize indicator
         ctx.fillStyle = this.accentColor;
         ctx.font = 'bold 16px Arial';
         ctx.textAlign = 'center';
         ctx.fillText('Leaderboard', startX + width / 2, startY + 20);
+        
+        // Add minimize indicator
+        ctx.fillStyle = this.textColor;
+        ctx.font = '16px Arial';
+        ctx.textAlign = 'right';
+        ctx.fillText('▲', startX + width - 10, startY + 20);
         
         // Player entries
         sortedPlayers.forEach((player, index) => {
