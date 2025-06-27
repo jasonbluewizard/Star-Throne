@@ -366,6 +366,17 @@ export class GameUI {
         ctx.font = '12px Arial';
         ctx.textAlign = 'right';
         ctx.fillText(`FPS: ${gameData.fps}`, this.canvas.width - 20, this.canvas.height - 10);
+        
+        // Mobile touch debug info
+        if (gameData.touchDebugInfo && gameData.showTouchDebug) {
+            ctx.fillStyle = this.accentColor;
+            ctx.font = '14px Arial';
+            ctx.textAlign = 'left';
+            const lines = gameData.touchDebugInfo.split('\n');
+            lines.forEach((line, index) => {
+                ctx.fillText(line, 10, this.canvas.height - 60 + (index * 16));
+            });
+        }
     }
     
     renderMinimap(ctx, gameData) {

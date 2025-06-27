@@ -385,7 +385,9 @@ export default class TerritorialConquest {
                 selectedTerritory: this.selectedTerritory,
                 fps: this.fps,
                 currentPlayers: this.currentPlayers,
-                maxPlayers: this.maxPlayers
+                maxPlayers: this.maxPlayers,
+                touchDebugInfo: this.touchDebugInfo,
+                showTouchDebug: this.showTouchDebug
             });
         }
     }
@@ -552,10 +554,11 @@ export default class TerritorialConquest {
     // Touch event handlers for mobile
     handleTouchStart(e) {
         e.preventDefault();
-        console.log('Touch start:', e.touches.length, 'touches');
         
         this.touchStartTime = Date.now();
         const rect = this.canvas.getBoundingClientRect();
+        
+        this.touchDebugInfo = `TouchStart: ${e.touches.length} touches\nTime: ${new Date().toLocaleTimeString()}`;
         
         if (e.touches.length === 1) {
             // Single touch - prepare for selection or pan
@@ -567,6 +570,8 @@ export default class TerritorialConquest {
             this.lastMousePos = { ...this.mousePos };
             this.isDragging = false;
             this.isMultiTouch = false;
+            
+            this.touchDebugInfo += `\nSingle: ${Math.round(this.mousePos.x)}, ${Math.round(this.mousePos.y)}`;
             
         } else if (e.touches.length === 2) {
             // Two touches - prepare for pinch zoom and pan
@@ -586,7 +591,7 @@ export default class TerritorialConquest {
                 y: ((touch1.clientY + touch2.clientY) / 2) - rect.top
             };
             
-            console.log('Two finger touch started, distance:', this.touchStartDistance);
+            this.touchDebugInfo += `\nPinch: dist ${Math.round(this.touchStartDistance)}`;
         }
     }
     
