@@ -464,8 +464,8 @@ export default class TerritorialConquest {
     renderConnections() {
         const viewBounds = this.camera.getViewBounds();
         
-        this.ctx.lineWidth = 2;
-        this.ctx.globalAlpha = 0.6;
+        this.ctx.lineWidth = 4; // Thicker lines for better visibility
+        this.ctx.globalAlpha = 0.7;
         
         Object.values(this.gameMap.territories).forEach(territory => {
             // Skip if territory is outside view

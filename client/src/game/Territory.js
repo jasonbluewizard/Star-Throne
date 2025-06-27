@@ -116,6 +116,17 @@ export class Territory {
             this.renderHumanFlag(ctx);
         }
         
+        // Draw army count for neutral territories
+        if (this.ownerId === null) {
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#ffffff';
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 3;
+            ctx.strokeText(this.armySize.toString(), this.x, this.y + 4);
+            ctx.fillText(this.armySize.toString(), this.x, this.y + 4);
+        }
+        
         // Draw territory ID (for debugging)
         if (isSelected) {
             ctx.fillStyle = '#ffffff';
