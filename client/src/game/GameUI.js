@@ -88,6 +88,12 @@ export class GameUI {
         
         // Zoom controls
         this.renderZoomControls(ctx, gameData);
+        
+        // Game over screen for human player
+        const humanPlayer = gameData.humanPlayer;
+        if (humanPlayer && humanPlayer.territories.length === 0) {
+            this.renderGameOverScreen(ctx, gameData);
+        }
     }
     
     renderEndGameUI(ctx, gameData) {
@@ -522,6 +528,45 @@ export class GameUI {
         ctx.font = '12px Arial';
         ctx.textAlign = 'center';
         this.renderTextWithShadow(ctx, `${zoomPercent}%`, zoomOutX + buttonSize/2, zoomOutY - 8, this.textColor);
+    }
+    
+    renderGameOverScreen(ctx, gameData) {
+        // Semi-transparent overlay
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Game Over title
+        ctx.font = 'bold 48px Arial';
+        ctx.textAlign = 'center';
+        this.renderTextWithShadow(ctx, 'GAME OVER', this.canvas.width / 2, this.canvas.height / 2 - 100, '#ff4444');
+        
+        // Subtitle
+        ctx.font = '24px Arial';
+        this.renderTextWithShadow(ctx, 'All your territories have been conquered!', this.canvas.width / 2, this.canvas.height / 2 - 50, this.textColor);
+        
+        // Spectator message
+        ctx.font = '18px Arial';
+        this.renderTextWithShadow(ctx, 'You can continue watching the game...', this.canvas.width / 2, this.canvas.height / 2, this.textColor);
+        
+        // Play Again button
+        const buttonWidth = 200;
+        const buttonHeight = 60;
+        const buttonX = this.canvas.width / 2 - buttonWidth / 2;
+        const buttonY = this.canvas.height / 2 + 50;
+        
+        // Button background
+        ctx.fillStyle = this.accentColor;
+        ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);
+        
+        // Button border
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(buttonX, buttonY, buttonWidth, buttonHeight);
+        
+        // Button text
+        ctx.font = 'bold 20px Arial';
+        ctx.textAlign = 'center';
+        this.renderTextWithShadow(ctx, 'PLAY AGAIN', buttonX + buttonWidth / 2, buttonY + buttonHeight / 2 + 7, '#ffffff');
     }
     
     renderFinalLeaderboard(ctx, gameData) {

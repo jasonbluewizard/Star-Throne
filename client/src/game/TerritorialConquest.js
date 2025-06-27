@@ -712,10 +712,26 @@ export default class TerritorialConquest {
     }
     
     handleTerritorySelection(worldPos) {
+        const screenPos = this.camera.worldToScreen(worldPos.x, worldPos.y);
+        
+        // Check for "PLAY AGAIN" button when human player is eliminated
+        const humanPlayer = this.humanPlayer;
+        if (humanPlayer && humanPlayer.territories.length === 0) {
+            const buttonWidth = 200;
+            const buttonHeight = 60;
+            const buttonX = this.canvas.width / 2 - buttonWidth / 2;
+            const buttonY = this.canvas.height / 2 + 50;
+            
+            if (screenPos.x >= buttonX && screenPos.x <= buttonX + buttonWidth &&
+                screenPos.y >= buttonY && screenPos.y <= buttonY + buttonHeight) {
+                this.restartGame();
+                return;
+            }
+        }
+        
         // Check for restart button on game over screen (mobile-friendly)
         if (this.gameState === 'ended' && this.ui && this.ui.restartButton) {
             const button = this.ui.restartButton;
-            const screenPos = this.camera.worldToScreen(worldPos.x, worldPos.y);
             
             if (screenPos.x >= button.x && screenPos.x <= button.x + button.width &&
                 screenPos.y >= button.y && screenPos.y <= button.y + button.height) {
@@ -725,7 +741,6 @@ export default class TerritorialConquest {
         }
         
         // Check for leaderboard click (screen coordinates, not world coordinates)
-        const screenPos = this.camera.worldToScreen(worldPos.x, worldPos.y);
         const leaderboardX = this.canvas.width - 220;
         const leaderboardY = 60;
         const leaderboardWidth = 200;
