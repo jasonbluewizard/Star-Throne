@@ -127,6 +127,10 @@ Changelog:
   * Fixed neutral territory armies: neutral grey planets now have static army counts (1-10) that never change or generate new armies
   * Enhanced connection visibility: thicker colored lines between same-owned territories for better visual clarity
   * Neutral territory army labels: white text with black outlines clearly shows army strength on all neutral planets
+  * Colonizable planet system: 20% of planets are colonizable (marked with "?"), have no visible star lanes initially
+  * Probe colonization mechanics: tap colonizable planet from owned territory to launch probe costing 10 fleet power
+  * Real-time probe movement: probes travel slowly across map, colonize with strength 10, reveal hidden star lanes
+  * Hidden connection system: colonizable planets have hidden connections that become visible after colonization
 
 ## User Preferences
 

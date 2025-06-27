@@ -173,6 +173,13 @@ export default class TerritorialConquest {
         });
     }
     
+    // Render probes
+    renderProbes() {
+        this.probes.forEach(probe => {
+            probe.render(this.ctx);
+        });
+    }
+    
     // Easing function for smooth animation
     easeInOutQuad(t) {
         return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
@@ -487,6 +494,7 @@ export default class TerritorialConquest {
         this.renderTerritories();
         this.renderConnections();
         this.renderShipAnimations();
+        this.renderProbes();
         this.renderArmies();
         
         // Restore context
