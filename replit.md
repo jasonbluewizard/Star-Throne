@@ -119,6 +119,8 @@ Changelog:
   * Improved army count visibility: bold white text with dark shadows on territory markers
   * Human player starts with only one territory (AI players get 1-3 territories)
   * Re-enabled minimap with minimizable functionality: tap minimap area to minimize/maximize like leaderboard
+  * Dynamic star lane coloring: connections between same-owned territories now match player colors
+  * Minimap defaults to minimized state for cleaner initial interface
 
 ## User Preferences
 

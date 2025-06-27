@@ -34,7 +34,7 @@ export default class TerritorialConquest {
         // Ship movement animations
         this.shipAnimations = [];
         this.leaderboardMinimized = false;
-        this.minimapMinimized = false;
+        this.minimapMinimized = true; // Default minimap to off
         
         this.init();
     }
@@ -410,7 +410,6 @@ export default class TerritorialConquest {
     renderConnections() {
         const viewBounds = this.camera.getViewBounds();
         
-        this.ctx.strokeStyle = '#666677';
         this.ctx.lineWidth = 2;
         this.ctx.globalAlpha = 0.6;
         
@@ -426,6 +425,19 @@ export default class TerritorialConquest {
             territory.neighbors.forEach(neighborId => {
                 const neighbor = this.gameMap.territories[neighborId];
                 if (neighbor && neighborId > territory.id) { // Draw each connection only once
+                    
+                    // Check if both territories have the same owner
+                    if (territory.ownerId !== null && 
+                        neighbor.ownerId !== null && 
+                        territory.ownerId === neighbor.ownerId) {
+                        // Same owner - use the player's color
+                        const owner = this.players[territory.ownerId];
+                        this.ctx.strokeStyle = owner ? owner.color : '#666677';
+                    } else {
+                        // Different owners or one is neutral - use default gray
+                        this.ctx.strokeStyle = '#666677';
+                    }
+                    
                     this.ctx.beginPath();
                     this.ctx.moveTo(territory.x, territory.y);
                     this.ctx.lineTo(neighbor.x, neighbor.y);
