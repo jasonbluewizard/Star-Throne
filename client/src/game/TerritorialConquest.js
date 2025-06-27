@@ -126,14 +126,31 @@ export default class TerritorialConquest {
         canvasElement.id = 'gameCanvas';
         canvasElement.width = window.innerWidth;
         canvasElement.height = window.innerHeight;
+        canvasElement.style.display = 'block';
+        canvasElement.style.background = '#1a1a2e';
+        
+        console.log('Creating canvas:', canvasElement.width, 'x', canvasElement.height);
         
         // Replace the root div content
         const root = document.getElementById('root');
-        root.innerHTML = '';
-        root.appendChild(canvasElement);
+        if (root) {
+            root.innerHTML = '';
+            root.appendChild(canvasElement);
+            console.log('Canvas appended to root');
+        } else {
+            console.error('Root element not found!');
+            return;
+        }
         
         this.canvas = canvasElement;
         this.ctx = canvasElement.getContext('2d');
+        
+        if (!this.ctx) {
+            console.error('Failed to get 2D context!');
+            return;
+        }
+        
+        console.log('Canvas setup complete');
         
         // Handle window resize
         window.addEventListener('resize', () => {
