@@ -212,6 +212,10 @@ export class Player {
     executeAttack(attackingTerritory, defendingTerritory, gameMap) {
         if (attackingTerritory.armySize <= 1) return;
         
+        // Trigger combat flash on both territories
+        attackingTerritory.triggerCombatFlash();
+        defendingTerritory.triggerCombatFlash();
+        
         // Reduced logging to prevent console spam
         if (Math.random() < 0.05) { // Only log 5% of attacks
             console.log(`AI ${this.name} attacking territory ${defendingTerritory.id} from ${attackingTerritory.id}`);

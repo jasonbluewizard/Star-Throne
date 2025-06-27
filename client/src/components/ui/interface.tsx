@@ -9,17 +9,7 @@ export function Interface() {
 
   return (
     <div className="absolute inset-0 pointer-events-none z-10">
-      {/* Mobile-optimized control panel */}
-      <div className="absolute top-2 right-2 flex flex-col gap-2 pointer-events-auto">
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={toggleMute}
-          className="bg-black/70 border-gray-600 hover:bg-gray-800 touch-manipulation min-h-[44px] min-w-[44px]"
-        >
-          {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
-        </Button>
-      </div>
+
 
       {/* Mobile zoom controls */}
       <div className="absolute bottom-4 right-4 flex flex-col gap-2 pointer-events-auto md:hidden">

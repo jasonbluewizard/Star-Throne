@@ -17,6 +17,10 @@ export class Territory {
         this.pulsePhase = Math.random() * Math.PI * 2;
         this.lastArmyGeneration = 0;
         this.armyGenerationRate = 2000; // Generate army every 2 seconds
+        
+        // Combat flash effect
+        this.combatFlashTime = 0;
+        this.combatFlashDuration = 800; // Flash for 800ms
     }
     
     addNeighbor(territoryId) {
@@ -27,6 +31,10 @@ export class Territory {
     
     isNeutral() {
         return this.ownerId === null;
+    }
+    
+    triggerCombatFlash() {
+        this.combatFlashTime = Date.now();
     }
     
     generateArmies(deltaTime, player) {
@@ -52,6 +60,16 @@ export class Territory {
         let fillColor = this.neutralColor;
         if (this.ownerId !== null && players[this.ownerId]) {
             fillColor = players[this.ownerId].color;
+        }
+        
+        // Add combat flash effect
+        const currentTime = Date.now();
+        if (this.combatFlashTime > 0 && currentTime - this.combatFlashTime < this.combatFlashDuration) {
+            const flashProgress = (currentTime - this.combatFlashTime) / this.combatFlashDuration;
+            const flashIntensity = Math.sin(flashProgress * Math.PI * 6) * (1 - flashProgress);
+            if (flashIntensity > 0) {
+                fillColor = this.adjustColorBrightness('#ff4444', 1 + flashIntensity * 0.8);
+            }
         }
         
         // Add selection highlighting

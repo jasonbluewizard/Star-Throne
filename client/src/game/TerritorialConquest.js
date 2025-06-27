@@ -546,6 +546,10 @@ export default class TerritorialConquest {
             return;
         }
         
+        // Trigger combat flash on both territories
+        attackingTerritory.triggerCombatFlash();
+        defendingTerritory.triggerCombatFlash();
+        
         // Use 75% of armies for attack
         const attackingArmies = Math.floor(attackingTerritory.armySize * 0.75);
         const defendingArmies = defendingTerritory.armySize;
