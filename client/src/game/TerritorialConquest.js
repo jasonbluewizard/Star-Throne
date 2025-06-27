@@ -101,7 +101,7 @@ export default class TerritorialConquest {
         this.touchStartDistance = null;
         this.isMultiTouch = false;
         this.touchDebugInfo = '';
-        this.showTouchDebug = true;
+        this.showTouchDebug = false; // Turn off debug by default
         
         // Keyboard events
         window.addEventListener('keydown', (e) => this.handleKeyDown(e));
@@ -599,6 +599,8 @@ export default class TerritorialConquest {
         e.preventDefault();
         const rect = this.canvas.getBoundingClientRect();
         
+        this.touchDebugInfo = `TouchMove: ${e.touches.length} touches\nTime: ${new Date().toLocaleTimeString()}`;
+        
         if (e.touches.length === 1) {
             // Single touch drag - pan
             const touch = e.touches[0];
@@ -606,6 +608,8 @@ export default class TerritorialConquest {
                 x: touch.clientX - rect.left,
                 y: touch.clientY - rect.top
             };
+            
+            this.touchDebugInfo += `\nSingle: ${Math.round(currentPos.x)}, ${Math.round(currentPos.y)}`;
             
             if (this.lastMousePos) {
                 const deltaX = currentPos.x - this.lastMousePos.x;
@@ -615,12 +619,12 @@ export default class TerritorialConquest {
                 // Start dragging if moved more than 10 pixels
                 if (!this.isDragging && distance > 10) {
                     this.isDragging = true;
-                    console.log('Started single finger drag');
+                    this.touchDebugInfo += `\nStarted Pan`;
                 }
                 
                 if (this.isDragging && !this.isMultiTouch) {
                     this.camera.pan(-deltaX, -deltaY);
-                    console.log('Panning:', deltaX, deltaY);
+                    this.touchDebugInfo += `\nPan: ${Math.round(deltaX)}, ${Math.round(deltaY)}`;
                 }
             }
             
@@ -708,6 +712,10 @@ export default class TerritorialConquest {
                 if (this.gameState === 'ended') {
                     this.restartGame();
                 }
+                break;
+            case 'd':
+            case 'D':
+                this.showTouchDebug = !this.showTouchDebug;
                 break;
         }
     }

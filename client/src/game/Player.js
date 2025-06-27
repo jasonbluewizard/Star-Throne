@@ -212,7 +212,10 @@ export class Player {
     executeAttack(attackingTerritory, defendingTerritory, gameMap) {
         if (attackingTerritory.armySize <= 1) return;
         
-        console.log(`AI ${this.name} attacking territory ${defendingTerritory.id} from ${attackingTerritory.id}`);
+        // Reduced logging to prevent console spam
+        if (Math.random() < 0.05) { // Only log 5% of attacks
+            console.log(`AI ${this.name} attacking territory ${defendingTerritory.id} from ${attackingTerritory.id}`);
+        }
         
         // Use 70% of armies for attack
         const attackingArmies = Math.floor(attackingTerritory.armySize * 0.7);
