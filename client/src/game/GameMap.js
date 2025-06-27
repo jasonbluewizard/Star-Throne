@@ -15,29 +15,24 @@ export class GameMap {
         // Generate territories using Poisson disk sampling for even distribution
         const territories = this.poissonDiskSampling(count);
         
-        // Create Territory objects with fixed neutral army sizes
+        // Create Territory objects - ALL are now colonizable requiring probes
         territories.forEach((pos, index) => {
-            // 20% chance to make a territory colonizable
-            const isColonizable = Math.random() < 0.2;
-            const territory = new Territory(index, pos.x, pos.y, 25, isColonizable);
+            // ALL territories are now colonizable
+            const territory = new Territory(index, pos.x, pos.y, 25, true);
             
-            if (isColonizable) {
-                // Colonizable planets have no initial army count
-                territory.armySize = 0;
-            } else {
-                // Set fixed army size for regular neutral territories (1-10)
-                territory.armySize = Math.floor(Math.random() * 10) + 1;
-            }
+            // Hidden army count from 1 to 50, only revealed when probed
+            territory.hiddenArmySize = Math.floor(Math.random() * 50) + 1;
+            territory.armySize = 0; // Unknown until colonized
+            
             this.territories[index] = territory;
         });
         
         // Connect neighboring territories
         this.connectTerritories();
         
-        // Count colonizable planets for debugging
-        const colonizableCount = Object.values(this.territories).filter(t => t.isColonizable).length;
+        // All territories are now colonizable
         console.log(`Generated ${Object.keys(this.territories).length} territories with connections`);
-        console.log(`Colonizable planets: ${colonizableCount} (${(colonizableCount/Object.keys(this.territories).length*100).toFixed(1)}%)`);
+        console.log(`All territories are colonizable planets requiring probes`);
         
         // Ensure connectivity by connecting isolated territories
         this.ensureConnectivity();
