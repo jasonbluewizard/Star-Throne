@@ -79,28 +79,7 @@ export class GameUI {
             this.renderLeaderboard(ctx, gameData);
         }
         
-        // Selected territory info
-        if (gameData.selectedTerritory) {
-            this.renderTerritoryInfo(ctx, gameData);
-        }
-        
-        // Human player stats
-        if (gameData.humanPlayer && !gameData.humanPlayer.isEliminated) {
-            this.renderPlayerStats(ctx, gameData);
-        } else if (gameData.humanPlayer && gameData.humanPlayer.isEliminated) {
-            this.renderSpectatorMessage(ctx);
-        }
-        
-        // Help panel
-        this.renderHelpPanel(ctx);
-        
-        // Performance info
-        this.renderPerformanceInfo(ctx, gameData);
-        
-        // Minimap
-        if (this.showMinimap) {
-            this.renderMinimap(ctx, gameData);
-        }
+        // All UI panels removed for minimal clean interface
     }
     
     renderEndGameUI(ctx, gameData) {
