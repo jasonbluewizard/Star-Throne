@@ -550,6 +550,11 @@ export default class TerritorialConquest {
                 const neighbor = this.gameMap.territories[neighborId];
                 if (neighbor && neighborId > territory.id) { // Draw each connection only once
                     
+                    // Skip connections to/from colonizable planets
+                    if (territory.isColonizable || neighbor.isColonizable) {
+                        return;
+                    }
+                    
                     // Check if both territories have the same owner
                     if (territory.ownerId !== null && 
                         neighbor.ownerId !== null && 
@@ -808,10 +813,11 @@ export default class TerritorialConquest {
             return;
         }
         
-        // If we have a selected territory and clicking on a neighbor, attack
+        // If we have a selected territory and clicking on a neighbor, attack (but not colonizable planets)
         if (this.selectedTerritory && 
             this.selectedTerritory.ownerId === this.humanPlayer.id &&
-            this.selectedTerritory.neighbors.includes(clickedTerritory.id)) {
+            this.selectedTerritory.neighbors.includes(clickedTerritory.id) &&
+            !clickedTerritory.isColonizable) {
             
             this.attackTerritory(this.selectedTerritory, clickedTerritory);
         }

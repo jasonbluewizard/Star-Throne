@@ -175,7 +175,7 @@ export class Player {
     findAttackTargets(territory, gameMap) {
         return territory.neighbors
             .map(id => gameMap.territories[id])
-            .filter(neighbor => neighbor !== null);
+            .filter(neighbor => neighbor !== null && !neighbor.isColonizable);
     }
     
     calculateWinChance(attackingTerritory, defendingTerritory) {
