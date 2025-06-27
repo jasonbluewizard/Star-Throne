@@ -140,6 +140,10 @@ Changelog:
   * Fixed minimap expansion: tap minimap area to properly minimize/maximize display
   * Game over screen: "PLAY AGAIN" button appears when human player loses all territories, allows continued spectating
   * Improved click handling: fixed coordinate system for all UI elements including minimap, leaderboard, and zoom controls
+  * All-colonizable planet system: ALL neutral planets now require probes for colonization, no visible star lanes until probed
+  * Hidden army counts: colonizable planets have unknown army sizes (1-50) revealed only when successfully probed
+  * M key minimap toggle: press M to minimize/maximize minimap display
+  * One planet per player: each player starts with exactly one colonized territory for balanced gameplay
 
 ## User Preferences
 

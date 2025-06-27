@@ -346,33 +346,29 @@ export default class TerritorialConquest {
     }
     
     distributeStartingTerritories() {
-        // Filter out colonizable planets from starting territory distribution
-        const availableTerritoryIds = Object.keys(this.gameMap.territories).filter(id => {
-            const territory = this.gameMap.territories[id];
-            return !territory.isColonizable;
-        });
+        // Since all territories are now colonizable, manually colonize starting territories
+        const allTerritoryIds = Object.keys(this.gameMap.territories);
+        const shuffledIds = this.shuffleArray([...allTerritoryIds]);
         
-        const shuffledIds = this.shuffleArray([...availableTerritoryIds]);
+        console.log(`Available territories for distribution: ${allTerritoryIds.length} (all are colonizable planets)`);
         
-        console.log(`Available territories for distribution: ${availableTerritoryIds.length} (excluding colonizable planets)`);
-        
-        // Give each player starting territories
-        let territoryIndex = 0;
-        for (const player of this.players) {
-            // Human player gets only 1 territory, AI players get 1-3
-            const startingTerritories = player.type === 'human' ? 1 : Math.floor(Math.random() * 3) + 1;
+        // Give each player exactly one starting territory
+        for (let i = 0; i < this.players.length && i < shuffledIds.length; i++) {
+            const territoryId = shuffledIds[i];
+            const territory = this.gameMap.territories[territoryId];
+            const player = this.players[i];
             
-            for (let i = 0; i < startingTerritories && territoryIndex < shuffledIds.length; i++) {
-                const territoryId = shuffledIds[territoryIndex];
-                const territory = this.gameMap.territories[territoryId];
+            if (territory && player) {
+                // Manually colonize this territory for the player
+                territory.ownerId = player.id;
+                territory.isColonizable = false; // Make it a normal territory
+                territory.armySize = territory.hiddenArmySize || Math.floor(Math.random() * 20) + 10;
                 
-                if (territory && !territory.ownerId && !territory.isColonizable) {
-                    territory.ownerId = player.id;
-                    territory.armySize = Math.floor(Math.random() * 20) + 10;
-                    player.territories.push(parseInt(territoryId));
-                    player.totalArmies += territory.armySize;
-                    territoryIndex++;
-                }
+                // Reveal connections for starting territories
+                territory.revealConnections();
+                
+                player.territories.push(parseInt(territoryId));
+                player.totalArmies += territory.armySize;
             }
         }
         
