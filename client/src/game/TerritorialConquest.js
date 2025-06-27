@@ -113,9 +113,9 @@ export default class TerritorialConquest {
         
         console.log(`Probe colonizing planet ${planet.id} for player ${player.name}`);
         
-        // Set ownership and reveal hidden army strength
+        // Set ownership and start with 1 army
         planet.ownerId = player.id;
-        planet.armySize = planet.hiddenArmySize || 10; // Reveal the hidden army count
+        planet.armySize = 1; // Colonized planets always start with 1 army
         
         // Add to player's territories
         player.territories.push(planet.id);
@@ -134,7 +134,7 @@ export default class TerritorialConquest {
         // Update player stats
         player.updateStats();
         
-        console.log(`Planet ${planet.id} colonized! Army count: ${planet.armySize}, revealed ${planet.neighbors.length} connections.`);
+        console.log(`Planet ${planet.id} colonized! Started with 1 army, revealed ${planet.neighbors.length} connections.`);
     }
     
     // Render ship animations

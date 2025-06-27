@@ -144,6 +144,8 @@ Changelog:
   * Hidden army counts: colonizable planets have unknown army sizes (1-50) revealed only when successfully probed
   * M key minimap toggle: press M to minimize/maximize minimap display
   * One planet per player: each player starts with exactly one colonized territory for balanced gameplay
+  * Slower probe movement: probes now travel at half speed (25 pixels/second) for more strategic timing
+  * Standardized colonization: all colonized planets start with exactly 1 army regardless of hidden strength
 
 ## User Preferences
 

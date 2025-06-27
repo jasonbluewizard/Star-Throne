@@ -22,8 +22,8 @@ export class Probe {
         this.totalDistance = distance;
         this.traveledDistance = 0;
         
-        // Probe moves slowly - 50 pixels per second
-        this.speed = 50;
+        // Probe moves slowly - 25 pixels per second (half speed)
+        this.speed = 25;
         
         // Visual properties
         this.size = 4;
