@@ -45,6 +45,12 @@ export default class TerritorialConquest {
         this.gameMap = new GameMap(2000, 1500); // Large map
         this.gameMap.game = this; // Reference for AI animations
         this.camera = new Camera(this.canvas.width, this.canvas.height);
+        
+        // Center camera on map and set appropriate zoom
+        this.camera.centerOn(1000, 750); // Center of 2000x1500 map
+        this.camera.targetZoom = 0.4; // Zoom out to see more territories
+        this.camera.zoom = 0.4;
+        
         this.ui = new GameUI(this.canvas, this.camera);
         
         this.startGame();
@@ -385,7 +391,12 @@ export default class TerritorialConquest {
     }
     
     render() {
-        // Clear canvas
+        if (!this.ctx || !this.canvas) {
+            console.error('No canvas context available for rendering');
+            return;
+        }
+        
+        // Clear canvas with space background
         this.ctx.fillStyle = '#001122';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
@@ -410,6 +421,7 @@ export default class TerritorialConquest {
     
     renderTerritories() {
         const viewBounds = this.camera.getViewBounds();
+        let visibleCount = 0;
         
         Object.values(this.gameMap.territories).forEach(territory => {
             // Frustum culling - only render visible territories
@@ -420,8 +432,15 @@ export default class TerritorialConquest {
                 return;
             }
             
+            visibleCount++;
             territory.render(this.ctx, this.players, this.selectedTerritory);
         });
+        
+        // Debug: log territory count occasionally
+        if (this.frameCount % 120 === 0) { // Every 2 seconds at 60fps
+            console.log(`Rendering ${visibleCount} territories. Camera at (${this.camera.x.toFixed(0)}, ${this.camera.y.toFixed(0)}) zoom: ${this.camera.zoom.toFixed(2)}`);
+            console.log(`View bounds:`, viewBounds);
+        }
     }
     
     renderConnections() {
