@@ -38,6 +38,7 @@ export class Territory {
     }
     
     generateArmies(deltaTime, player) {
+        // Neutral territories have fixed army sizes and don't generate armies
         if (this.ownerId === null) return;
         
         this.lastArmyGeneration += deltaTime;

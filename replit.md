@@ -124,6 +124,7 @@ Changelog:
   * Enhanced player identification: unique AI colors with no duplicates, human territories marked with distinctive cyan flags
   * Visual flag system: small cyan flags with white stars on all human-owned territories for easy identification
   * Manual zoom controls: plus/minus buttons in bottom left corner with real-time zoom percentage display
+  * Fixed neutral territory armies: neutral grey planets now have static army counts (1-10) that never change or generate new armies
 
 ## User Preferences
 

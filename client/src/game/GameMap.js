@@ -15,9 +15,12 @@ export class GameMap {
         // Generate territories using Poisson disk sampling for even distribution
         const territories = this.poissonDiskSampling(count);
         
-        // Create Territory objects
+        // Create Territory objects with fixed neutral army sizes
         territories.forEach((pos, index) => {
-            this.territories[index] = new Territory(index, pos.x, pos.y);
+            const territory = new Territory(index, pos.x, pos.y);
+            // Set fixed army size for neutral territories (1-10)
+            territory.armySize = Math.floor(Math.random() * 10) + 1;
+            this.territories[index] = territory;
         });
         
         // Connect neighboring territories
