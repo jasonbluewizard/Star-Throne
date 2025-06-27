@@ -114,6 +114,9 @@ Changelog:
   * Better attack feedback and territory selection indicators
   * Combat flash indicators: red flashing effect on territories during combat for visual feedback
   * Removed controls panel for cleaner interface - only zoom buttons remain on mobile
+  * Ship movement animations: visual projectiles show fleet movement during attacks (red) and transfers (green)
+  * Enhanced text readability: all UI text now uses shadows for better contrast against any background
+  * Improved army count visibility: bold white text with dark shadows on territory markers
 
 ## User Preferences
 
