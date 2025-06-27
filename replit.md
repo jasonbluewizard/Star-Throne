@@ -104,6 +104,14 @@ Changelog:
   * Mobile-friendly restart button on game over screen
   * Responsive UI elements for smaller screens
   * Touch-optimized control instructions
+- June 27, 2025. Advanced gameplay features and improved mobile experience:
+  * Fleet transfer system: tap owned territory then adjacent owned territory to transfer half the armies
+  * Collapsible leaderboard: tap leaderboard area to minimize/maximize display
+  * Enhanced zoom functionality: mobile zoom buttons and improved pinch-to-zoom sensitivity
+  * Human player visual distinction: cyan territories with special glow and thick borders
+  * Improved territory connections visibility: changed from black to light gray
+  * Touch debug system for troubleshooting mobile issues
+  * Better attack feedback and territory selection indicators
 
 ## User Preferences
 
