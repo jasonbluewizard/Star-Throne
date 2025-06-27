@@ -216,6 +216,11 @@ export class Player {
         attackingTerritory.triggerCombatFlash();
         defendingTerritory.triggerCombatFlash();
         
+        // Create ship animation for AI attack (access via gameMap reference)
+        if (gameMap.game) {
+            gameMap.game.createShipAnimation(attackingTerritory, defendingTerritory, true);
+        }
+        
         // Reduced logging to prevent console spam
         if (Math.random() < 0.05) { // Only log 5% of attacks
             console.log(`AI ${this.name} attacking territory ${defendingTerritory.id} from ${attackingTerritory.id}`);

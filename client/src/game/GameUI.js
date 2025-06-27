@@ -218,16 +218,14 @@ export class GameUI {
         ctx.fillRect(startX, startY, width, height);
         
         // Title with minimize indicator
-        ctx.fillStyle = this.accentColor;
         ctx.font = 'bold 16px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText('Leaderboard', startX + width / 2, startY + 20);
+        this.renderTextWithShadow(ctx, 'Leaderboard', startX + width / 2, startY + 20, this.accentColor);
         
         // Add minimize indicator
-        ctx.fillStyle = this.textColor;
         ctx.font = '16px Arial';
         ctx.textAlign = 'right';
-        ctx.fillText('▲', startX + width - 10, startY + 20);
+        this.renderTextWithShadow(ctx, '▲', startX + width - 10, startY + 20, this.textColor);
         
         // Player entries
         sortedPlayers.forEach((player, index) => {

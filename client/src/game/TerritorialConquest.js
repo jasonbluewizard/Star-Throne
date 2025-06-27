@@ -42,6 +42,7 @@ export default class TerritorialConquest {
         this.setupCanvas();
         this.setupEventListeners();
         this.gameMap = new GameMap(2000, 1500); // Large map
+        this.gameMap.game = this; // Reference for AI animations
         this.camera = new Camera(this.canvas.width, this.canvas.height);
         this.ui = new GameUI(this.canvas, this.camera);
         
@@ -311,6 +312,9 @@ export default class TerritorialConquest {
             }
         });
         
+        // Update ship animations
+        this.updateShipAnimations(deltaTime);
+        
         // Check for player elimination
         this.checkPlayerElimination();
         
@@ -371,6 +375,7 @@ export default class TerritorialConquest {
         // Render game world
         this.renderTerritories();
         this.renderConnections();
+        this.renderShipAnimations();
         this.renderArmies();
         
         // Restore context
@@ -591,6 +596,9 @@ export default class TerritorialConquest {
             return;
         }
         
+        // Create ship animation for transfer
+        this.createShipAnimation(fromTerritory, toTerritory, false);
+        
         // Transfer half the armies, leaving at least 1
         const transferAmount = Math.floor(fromTerritory.armySize / 2);
         fromTerritory.armySize -= transferAmount;
@@ -618,6 +626,9 @@ export default class TerritorialConquest {
         // Trigger combat flash on both territories
         attackingTerritory.triggerCombatFlash();
         defendingTerritory.triggerCombatFlash();
+        
+        // Create ship animation for attack
+        this.createShipAnimation(attackingTerritory, defendingTerritory, true);
         
         // Use 75% of armies for attack
         const attackingArmies = Math.floor(attackingTerritory.armySize * 0.75);
