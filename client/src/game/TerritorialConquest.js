@@ -31,6 +31,10 @@ export default class TerritorialConquest {
         this.frameCount = 0;
         this.lastFpsUpdate = 0;
         
+        // Ship movement animations
+        this.shipAnimations = [];
+        this.leaderboardMinimized = false;
+        
         this.init();
     }
     
@@ -43,6 +47,71 @@ export default class TerritorialConquest {
         
         this.startGame();
         this.gameLoop();
+    }
+    
+    // Create ship movement animation
+    createShipAnimation(fromTerritory, toTerritory, isAttack = false) {
+        this.shipAnimations.push({
+            fromX: fromTerritory.x,
+            fromY: fromTerritory.y,
+            toX: toTerritory.x,
+            toY: toTerritory.y,
+            progress: 0,
+            duration: 1000, // 1 second
+            startTime: Date.now(),
+            isAttack: isAttack,
+            id: Math.random()
+        });
+    }
+    
+    // Update ship animations
+    updateShipAnimations(deltaTime) {
+        const currentTime = Date.now();
+        this.shipAnimations = this.shipAnimations.filter(animation => {
+            animation.progress = (currentTime - animation.startTime) / animation.duration;
+            return animation.progress < 1;
+        });
+    }
+    
+    // Render ship animations
+    renderShipAnimations() {
+        this.shipAnimations.forEach(animation => {
+            const progress = Math.min(1, animation.progress);
+            const eased = this.easeInOutQuad(progress);
+            
+            const x = animation.fromX + (animation.toX - animation.fromX) * eased;
+            const y = animation.fromY + (animation.toY - animation.fromY) * eased;
+            
+            // Draw ship
+            this.ctx.save();
+            this.ctx.fillStyle = animation.isAttack ? '#ff4444' : '#44ff88';
+            this.ctx.shadowColor = animation.isAttack ? '#ff0000' : '#00ff00';
+            this.ctx.shadowBlur = 8;
+            
+            this.ctx.beginPath();
+            this.ctx.arc(x, y, 4, 0, Math.PI * 2);
+            this.ctx.fill();
+            
+            // Add trail effect
+            const trailLength = 5;
+            for (let i = 1; i <= trailLength; i++) {
+                const trailProgress = Math.max(0, eased - (i * 0.1));
+                const trailX = animation.fromX + (animation.toX - animation.fromX) * trailProgress;
+                const trailY = animation.fromY + (animation.toY - animation.fromY) * trailProgress;
+                
+                this.ctx.globalAlpha = (trailLength - i) / trailLength * 0.5;
+                this.ctx.beginPath();
+                this.ctx.arc(trailX, trailY, 2, 0, Math.PI * 2);
+                this.ctx.fill();
+            }
+            
+            this.ctx.restore();
+        });
+    }
+    
+    // Easing function for smooth animation
+    easeInOutQuad(t) {
+        return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
     }
     
     setupCanvas() {

@@ -12,12 +12,24 @@ export class GameUI {
         // Animation
         this.animationPhase = 0;
         
-        // Colors
-        this.bgColor = 'rgba(0, 0, 0, 0.7)';
+        // Colors with better contrast
+        this.bgColor = 'rgba(0, 0, 0, 0.85)';
         this.textColor = '#ffffff';
-        this.accentColor = '#00aaff';
+        this.accentColor = '#00ddff';
         this.warningColor = '#ff4444';
         this.successColor = '#44ff44';
+        this.shadowColor = 'rgba(0, 0, 0, 0.8)';
+    }
+
+    // Helper function to render text with shadow for better readability
+    renderTextWithShadow(ctx, text, x, y, fillColor = this.textColor, shadowOffset = 2) {
+        // Draw shadow
+        ctx.fillStyle = this.shadowColor;
+        ctx.fillText(text, x + shadowOffset, y + shadowOffset);
+        
+        // Draw main text
+        ctx.fillStyle = fillColor;
+        ctx.fillText(text, x, y);
     }
     
     render(ctx, gameData) {
