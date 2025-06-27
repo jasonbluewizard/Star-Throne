@@ -77,10 +77,31 @@ export default class TerritorialConquest {
         this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
         this.canvas.addEventListener('wheel', (e) => this.handleWheel(e));
         
-        // Touch events for mobile
+        // Touch events for mobile - with better event handling
         this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
         this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
         this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e), { passive: false });
+        this.canvas.addEventListener('touchcancel', (e) => this.handleTouchEnd(e), { passive: false });
+        
+        // Also add document-level listeners to catch events outside canvas
+        document.addEventListener('touchmove', (e) => {
+            if (e.target === this.canvas) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+        
+        document.addEventListener('touchstart', (e) => {
+            if (e.target === this.canvas) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+        
+        // Additional touch state tracking
+        this.touchStartTime = 0;
+        this.touchStartDistance = null;
+        this.isMultiTouch = false;
+        this.touchDebugInfo = '';
+        this.showTouchDebug = true;
         
         // Keyboard events
         window.addEventListener('keydown', (e) => this.handleKeyDown(e));
@@ -531,22 +552,25 @@ export default class TerritorialConquest {
     // Touch event handlers for mobile
     handleTouchStart(e) {
         e.preventDefault();
+        console.log('Touch start:', e.touches.length, 'touches');
+        
+        this.touchStartTime = Date.now();
+        const rect = this.canvas.getBoundingClientRect();
         
         if (e.touches.length === 1) {
-            // Single touch - territory selection
+            // Single touch - prepare for selection or pan
             const touch = e.touches[0];
-            const rect = this.canvas.getBoundingClientRect();
             this.mousePos = {
                 x: touch.clientX - rect.left,
                 y: touch.clientY - rect.top
             };
             this.lastMousePos = { ...this.mousePos };
-            
-            const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
-            this.handleTerritorySelection(worldPos);
+            this.isDragging = false;
+            this.isMultiTouch = false;
             
         } else if (e.touches.length === 2) {
-            // Two touches - prepare for pinch zoom or pan
+            // Two touches - prepare for pinch zoom and pan
+            this.isMultiTouch = true;
             this.isDragging = true;
             const touch1 = e.touches[0];
             const touch2 = e.touches[1];
@@ -557,31 +581,45 @@ export default class TerritorialConquest {
                 touch2.clientY - touch1.clientY
             );
             
-            const rect = this.canvas.getBoundingClientRect();
             this.lastMousePos = {
                 x: ((touch1.clientX + touch2.clientX) / 2) - rect.left,
                 y: ((touch1.clientY + touch2.clientY) / 2) - rect.top
             };
+            
+            console.log('Two finger touch started, distance:', this.touchStartDistance);
         }
     }
     
     handleTouchMove(e) {
         e.preventDefault();
+        const rect = this.canvas.getBoundingClientRect();
         
-        if (e.touches.length === 1 && this.isDragging) {
+        if (e.touches.length === 1) {
             // Single touch drag - pan
             const touch = e.touches[0];
-            const rect = this.canvas.getBoundingClientRect();
-            this.mousePos = {
+            const currentPos = {
                 x: touch.clientX - rect.left,
                 y: touch.clientY - rect.top
             };
             
-            const deltaX = this.mousePos.x - this.lastMousePos.x;
-            const deltaY = this.mousePos.y - this.lastMousePos.y;
+            if (this.lastMousePos) {
+                const deltaX = currentPos.x - this.lastMousePos.x;
+                const deltaY = currentPos.y - this.lastMousePos.y;
+                const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                
+                // Start dragging if moved more than 10 pixels
+                if (!this.isDragging && distance > 10) {
+                    this.isDragging = true;
+                    console.log('Started single finger drag');
+                }
+                
+                if (this.isDragging && !this.isMultiTouch) {
+                    this.camera.pan(-deltaX, -deltaY);
+                    console.log('Panning:', deltaX, deltaY);
+                }
+            }
             
-            this.camera.pan(-deltaX, -deltaY);
-            this.lastMousePos = { ...this.mousePos };
+            this.lastMousePos = currentPos;
             
         } else if (e.touches.length === 2) {
             // Two touches - pinch zoom and pan
@@ -594,18 +632,17 @@ export default class TerritorialConquest {
                 touch2.clientY - touch1.clientY
             );
             
-            if (this.touchStartDistance) {
+            if (this.touchStartDistance && Math.abs(currentDistance - this.touchStartDistance) > 10) {
                 const zoomFactor = currentDistance / this.touchStartDistance;
-                const rect = this.canvas.getBoundingClientRect();
                 const centerX = ((touch1.clientX + touch2.clientX) / 2) - rect.left;
                 const centerY = ((touch1.clientY + touch2.clientY) / 2) - rect.top;
                 
                 this.camera.zoom(zoomFactor, centerX, centerY);
                 this.touchStartDistance = currentDistance;
+                console.log('Pinch zoom:', zoomFactor);
             }
             
             // Pan based on center point movement
-            const rect = this.canvas.getBoundingClientRect();
             const currentCenter = {
                 x: ((touch1.clientX + touch2.clientX) / 2) - rect.left,
                 y: ((touch1.clientY + touch2.clientY) / 2) - rect.top
@@ -614,7 +651,10 @@ export default class TerritorialConquest {
             if (this.lastMousePos) {
                 const deltaX = currentCenter.x - this.lastMousePos.x;
                 const deltaY = currentCenter.y - this.lastMousePos.y;
-                this.camera.pan(-deltaX, -deltaY);
+                if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) {
+                    this.camera.pan(-deltaX, -deltaY);
+                    console.log('Two finger pan:', deltaX, deltaY);
+                }
             }
             
             this.lastMousePos = currentCenter;
@@ -623,13 +663,27 @@ export default class TerritorialConquest {
     
     handleTouchEnd(e) {
         e.preventDefault();
+        const touchDuration = Date.now() - this.touchStartTime;
+        console.log('Touch end:', e.touches.length, 'remaining touches, duration:', touchDuration);
         
         if (e.touches.length === 0) {
+            // All fingers lifted
+            if (!this.isDragging && touchDuration < 500 && this.mousePos) {
+                // Quick tap - handle territory selection
+                const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+                this.handleTerritorySelection(worldPos);
+                console.log('Territory selection at:', worldPos);
+            }
+            
             this.isDragging = false;
+            this.isMultiTouch = false;
             this.touchStartDistance = null;
+            this.lastMousePos = null;
+            
         } else if (e.touches.length === 1) {
-            // If one finger lifted during two-finger gesture, start single touch
-            this.isDragging = true;
+            // One finger lifted during multi-touch - continue with single touch
+            this.isMultiTouch = false;
+            this.touchStartDistance = null;
             const touch = e.touches[0];
             const rect = this.canvas.getBoundingClientRect();
             this.lastMousePos = {

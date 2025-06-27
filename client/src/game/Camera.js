@@ -82,7 +82,9 @@ export class Camera {
     }
     
     zoom(factor, screenX, screenY) {
-        this.zoomTo(this.targetZoom * factor, screenX, screenY);
+        // Clamp zoom factor to prevent extreme zooming
+        const clampedFactor = Math.max(0.5, Math.min(2.0, factor));
+        this.zoomTo(this.targetZoom * clampedFactor, screenX, screenY);
     }
     
     centerOn(worldX, worldY) {
