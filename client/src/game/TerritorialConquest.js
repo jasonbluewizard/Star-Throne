@@ -140,8 +140,8 @@ export default class TerritorialConquest {
             '#ff6644', '#66ff44', '#4466ff', '#ff4466', '#66ff88', '#6644ff'
         ];
         
-        // Create human player
-        this.humanPlayer = new Player(0, 'You', colors[0], 'human');
+        // Create human player with bright cyan color
+        this.humanPlayer = new Player(0, 'You', '#00ffff', 'human');
         this.players.push(this.humanPlayer);
         
         // Create AI players
@@ -329,9 +329,9 @@ export default class TerritorialConquest {
     renderConnections() {
         const viewBounds = this.camera.getViewBounds();
         
-        this.ctx.strokeStyle = '#334455';
-        this.ctx.lineWidth = 1;
-        this.ctx.globalAlpha = 0.3;
+        this.ctx.strokeStyle = '#666677';
+        this.ctx.lineWidth = 2;
+        this.ctx.globalAlpha = 0.6;
         
         Object.values(this.gameMap.territories).forEach(territory => {
             // Skip if territory is outside view
@@ -442,8 +442,10 @@ export default class TerritorialConquest {
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
         
-        const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+        const zoomFactor = e.deltaY > 0 ? 0.85 : 1.15;
         this.camera.zoom(zoomFactor, mouseX, mouseY);
+        
+        console.log('Zoom:', zoomFactor, 'Current zoom:', this.camera.zoom);
     }
     
     handleTerritorySelection(worldPos) {

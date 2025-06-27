@@ -7,8 +7,8 @@ export class Camera {
         this.viewportHeight = viewportHeight;
         
         // Zoom constraints
-        this.minZoom = 0.1;
-        this.maxZoom = 3.0;
+        this.minZoom = 0.3;
+        this.maxZoom = 5.0;
         
         // Smooth movement
         this.targetX = 0;
