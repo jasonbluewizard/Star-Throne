@@ -346,8 +346,15 @@ export default class TerritorialConquest {
     }
     
     distributeStartingTerritories() {
-        const territoryIds = Object.keys(this.gameMap.territories);
-        const shuffledIds = this.shuffleArray([...territoryIds]);
+        // Filter out colonizable planets from starting territory distribution
+        const availableTerritoryIds = Object.keys(this.gameMap.territories).filter(id => {
+            const territory = this.gameMap.territories[id];
+            return !territory.isColonizable;
+        });
+        
+        const shuffledIds = this.shuffleArray([...availableTerritoryIds]);
+        
+        console.log(`Available territories for distribution: ${availableTerritoryIds.length} (excluding colonizable planets)`);
         
         // Give each player starting territories
         let territoryIndex = 0;
@@ -359,7 +366,7 @@ export default class TerritorialConquest {
                 const territoryId = shuffledIds[territoryIndex];
                 const territory = this.gameMap.territories[territoryId];
                 
-                if (territory && !territory.ownerId) {
+                if (territory && !territory.ownerId && !territory.isColonizable) {
                     territory.ownerId = player.id;
                     territory.armySize = Math.floor(Math.random() * 20) + 10;
                     player.territories.push(parseInt(territoryId));

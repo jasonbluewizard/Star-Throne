@@ -12,8 +12,8 @@ export class Territory {
         
         // Visual properties
         this.baseColor = '#444444';
-        this.neutralColor = isColonizable ? '#333333' : '#666666'; // Darker for colonizable
-        this.strokeColor = '#888888';
+        this.neutralColor = isColonizable ? '#222222' : '#666666'; // Much darker for colonizable
+        this.strokeColor = isColonizable ? '#444444' : '#888888'; // Different stroke for colonizable
         
         // Animation
         this.pulsePhase = Math.random() * Math.PI * 2;
@@ -135,13 +135,36 @@ export class Territory {
         if (this.ownerId === null) {
             ctx.font = 'bold 14px Arial';
             ctx.textAlign = 'center';
-            ctx.fillStyle = '#ffffff';
-            ctx.strokeStyle = '#000000';
-            ctx.lineWidth = 3;
             
-            const displayText = this.isColonizable ? '?' : this.armySize.toString();
-            ctx.strokeText(displayText, this.x, this.y + 4);
-            ctx.fillText(displayText, this.x, this.y + 4);
+            if (this.isColonizable) {
+                // Special styling for colonizable planets
+                ctx.fillStyle = '#ffff00'; // Bright yellow for "?"
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 3;
+                
+                const displayText = '?';
+                ctx.strokeText(displayText, this.x, this.y + 4);
+                ctx.fillText(displayText, this.x, this.y + 4);
+                
+                // Add pulsing border effect
+                const pulseIntensity = 0.5 + 0.5 * Math.sin(Date.now() * 0.003 + this.pulsePhase);
+                ctx.strokeStyle = `rgba(255, 255, 0, ${pulseIntensity})`;
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius + 3, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            } else {
+                // Regular neutral territory styling
+                ctx.fillStyle = '#ffffff';
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 3;
+                
+                const displayText = this.armySize.toString();
+                ctx.strokeText(displayText, this.x, this.y + 4);
+                ctx.fillText(displayText, this.x, this.y + 4);
+            }
         }
         
         // Draw territory ID (for debugging)

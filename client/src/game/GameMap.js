@@ -34,7 +34,13 @@ export class GameMap {
         // Connect neighboring territories
         this.connectTerritories();
         
+        // Count colonizable planets for debugging
+        const colonizableCount = Object.values(this.territories).filter(t => t.isColonizable).length;
         console.log(`Generated ${Object.keys(this.territories).length} territories with connections`);
+        console.log(`Colonizable planets: ${colonizableCount} (${(colonizableCount/Object.keys(this.territories).length*100).toFixed(1)}%)`);
+        
+        // Ensure connectivity by connecting isolated territories
+        this.ensureConnectivity();
     }
     
     poissonDiskSampling(numSamples) {
