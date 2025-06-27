@@ -52,6 +52,9 @@ export default class TerritorialConquest {
     
     // Create ship movement animation
     createShipAnimation(fromTerritory, toTerritory, isAttack = false) {
+        const player = this.players[fromTerritory.ownerId];
+        const playerColor = player ? player.color : '#ffffff';
+        
         this.shipAnimations.push({
             fromX: fromTerritory.x,
             fromY: fromTerritory.y,
@@ -61,6 +64,7 @@ export default class TerritorialConquest {
             duration: 1000, // 1 second
             startTime: Date.now(),
             isAttack: isAttack,
+            playerColor: playerColor,
             id: Math.random()
         });
     }
@@ -83,10 +87,10 @@ export default class TerritorialConquest {
             const x = animation.fromX + (animation.toX - animation.fromX) * eased;
             const y = animation.fromY + (animation.toY - animation.fromY) * eased;
             
-            // Draw ship
+            // Draw ship using player's color
             this.ctx.save();
-            this.ctx.fillStyle = animation.isAttack ? '#ff4444' : '#44ff88';
-            this.ctx.shadowColor = animation.isAttack ? '#ff0000' : '#00ff00';
+            this.ctx.fillStyle = animation.playerColor;
+            this.ctx.shadowColor = animation.playerColor;
             this.ctx.shadowBlur = 8;
             
             this.ctx.beginPath();
