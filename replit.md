@@ -112,6 +112,8 @@ Changelog:
   * Improved territory connections visibility: changed from black to light gray
   * Touch debug system for troubleshooting mobile issues
   * Better attack feedback and territory selection indicators
+  * Combat flash indicators: red flashing effect on territories during combat for visual feedback
+  * Removed controls panel for cleaner interface - only zoom buttons remain on mobile
 
 ## User Preferences
 

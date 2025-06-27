@@ -1,11 +1,7 @@
-import { useGame } from "@/lib/stores/useGame";
-import { useAudio } from "@/lib/stores/useAudio";
 import { Button } from "./button";
-import { VolumeX, Volume2, ZoomIn, ZoomOut } from "lucide-react";
+import { ZoomIn, ZoomOut } from "lucide-react";
 
 export function Interface() {
-  const phase = useGame((state) => state.phase);
-  const { isMuted, toggleMute } = useAudio();
 
   return (
     <div className="absolute inset-0 pointer-events-none z-10">
