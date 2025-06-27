@@ -22,21 +22,26 @@ export function Interface() {
       </div>
 
       {/* Mobile instructions overlay */}
-      <div className="absolute top-2 left-2 bg-black/70 text-white text-xs p-2 rounded pointer-events-none max-w-[200px] md:hidden">
-        <div>Tap: Select territory</div>
-        <div>Drag: Pan camera</div>
-        <div>Pinch: Zoom</div>
-        <div className="text-gray-400 text-[10px] mt-1">Press 'D' to toggle debug</div>
+      <div className="absolute top-2 left-2 bg-black/80 text-white text-xs p-3 rounded pointer-events-none max-w-[220px] md:hidden">
+        <div className="text-cyan-300 font-bold mb-1">YOU ARE CYAN</div>
+        <div>1. Tap your territory (cyan glow)</div>
+        <div>2. Tap neighbor to attack</div>
+        <div>Drag: Pan • Pinch: Zoom</div>
+        <div className="text-gray-400 text-[10px] mt-1">Press 'D' for debug</div>
       </div>
 
       {/* Desktop instructions */}
-      <div className="hidden md:block absolute bottom-4 left-4 bg-black/70 text-white text-sm p-3 rounded pointer-events-none max-w-[250px]">
-        <div className="font-semibold mb-2">Territorial Conquest</div>
-        <div>Click: Select territory</div>
-        <div>Drag: Pan camera</div>
-        <div>Scroll: Zoom</div>
-        <div>R: Restart (when game ends)</div>
-        <div className="text-gray-400 text-xs mt-1">Press 'D' to toggle debug info</div>
+      <div className="hidden md:block absolute bottom-4 left-4 bg-black/80 text-white text-sm p-4 rounded pointer-events-none max-w-[280px]">
+        <div className="font-semibold mb-2 text-cyan-300">YOU ARE THE CYAN PLAYER</div>
+        <div className="mb-2">How to Attack:</div>
+        <div>1. Click your territory (cyan glow)</div>
+        <div>2. Click neighboring enemy territory</div>
+        <div className="mt-2 text-gray-300">
+          <div>Mouse drag: Pan camera</div>
+          <div>Mouse wheel: Zoom</div>
+          <div>R: Restart (when game ends)</div>
+        </div>
+        <div className="text-gray-400 text-xs mt-2">Press 'D' to toggle debug info</div>
       </div>
     </div>
   );

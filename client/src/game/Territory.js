@@ -68,10 +68,29 @@ export class Territory {
         ctx.fillStyle = fillColor;
         ctx.fill();
         
-        // Draw border
-        ctx.strokeStyle = isSelected ? '#ffffff' : this.strokeColor;
-        ctx.lineWidth = isSelected ? 3 : 1;
+        // Draw border with special styling for human player
+        const player = players.find(p => p.id === this.ownerId);
+        const isHumanPlayer = player && player.type === 'human';
+        
+        if (isSelected) {
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 4;
+        } else if (isHumanPlayer) {
+            ctx.strokeStyle = '#00ffff';
+            ctx.lineWidth = 3;
+        } else {
+            ctx.strokeStyle = this.strokeColor;
+            ctx.lineWidth = 1;
+        }
         ctx.stroke();
+        
+        // Add extra glow for human player territories
+        if (isHumanPlayer && !isSelected) {
+            ctx.shadowColor = '#00ffff';
+            ctx.shadowBlur = 8;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+        }
         
         // Draw territory ID (for debugging)
         if (isSelected) {
@@ -88,8 +107,19 @@ export class Territory {
     }
     
     renderPotentialTargets(ctx, players) {
-        // This would be called from the main render loop to show attack options
-        // Implementation would highlight neighboring territories
+        // Show attackable neighbors with red outline
+        this.neighbors.forEach(neighborId => {
+            const neighbor = this.gameMap?.territories[neighborId];
+            if (neighbor && neighbor.ownerId !== this.ownerId) {
+                ctx.strokeStyle = '#ff4444';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.arc(neighbor.x, neighbor.y, neighbor.radius + 5, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        });
     }
     
     adjustColorBrightness(hex, factor) {
