@@ -546,7 +546,8 @@ export default class TerritorialConquest {
                 touchDebugInfo: this.touchDebugInfo,
                 showTouchDebug: this.showTouchDebug,
                 leaderboardMinimized: this.leaderboardMinimized,
-                minimapMinimized: this.minimapMinimized
+                minimapMinimized: this.minimapMinimized,
+                camera: this.camera
             });
         }
     }
@@ -644,6 +645,31 @@ export default class TerritorialConquest {
             screenPos.y >= minimapY && screenPos.y <= minimapY + minimapHeight) {
             this.minimapMinimized = !this.minimapMinimized;
             console.log('Minimap toggled:', this.minimapMinimized ? 'minimized' : 'maximized');
+            return;
+        }
+        
+        // Check for zoom controls click
+        const buttonSize = 50;
+        const margin = 20;
+        const spacing = 5;
+        const zoomInX = margin;
+        const zoomInY = this.canvas.height - margin - buttonSize;
+        const zoomOutX = margin;
+        const zoomOutY = this.canvas.height - margin - (buttonSize * 2) - spacing;
+        
+        // Zoom In button
+        if (screenPos.x >= zoomInX && screenPos.x <= zoomInX + buttonSize &&
+            screenPos.y >= zoomInY && screenPos.y <= zoomInY + buttonSize) {
+            this.camera.targetZoom = Math.min(this.camera.maxZoom, this.camera.targetZoom * 1.2);
+            console.log('Zoom In - new zoom:', (this.camera.targetZoom * 100).toFixed(0) + '%');
+            return;
+        }
+        
+        // Zoom Out button
+        if (screenPos.x >= zoomOutX && screenPos.x <= zoomOutX + buttonSize &&
+            screenPos.y >= zoomOutY && screenPos.y <= zoomOutY + buttonSize) {
+            this.camera.targetZoom = Math.max(this.camera.minZoom, this.camera.targetZoom / 1.2);
+            console.log('Zoom Out - new zoom:', (this.camera.targetZoom * 100).toFixed(0) + '%');
             return;
         }
         

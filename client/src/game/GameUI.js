@@ -85,6 +85,9 @@ export class GameUI {
         if (this.showMinimap) {
             this.renderMinimap(ctx, gameData);
         }
+        
+        // Zoom controls
+        this.renderZoomControls(ctx, gameData);
     }
     
     renderEndGameUI(ctx, gameData) {
@@ -477,6 +480,48 @@ export class GameUI {
         ctx.font = '10px Arial';
         ctx.textAlign = 'right';
         this.renderTextWithShadow(ctx, '▼', startX + size - 5, startY - 5, this.textColor);
+    }
+    
+    renderZoomControls(ctx, gameData) {
+        const buttonSize = 50;
+        const margin = 20;
+        const spacing = 5;
+        
+        // Position in bottom left
+        const zoomInX = margin;
+        const zoomInY = this.canvas.height - margin - buttonSize;
+        const zoomOutX = margin;
+        const zoomOutY = this.canvas.height - margin - (buttonSize * 2) - spacing;
+        
+        // Current zoom percentage
+        const zoomPercent = Math.round(gameData.camera?.zoom * 100) || 40;
+        
+        // Zoom Out button (-)
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillRect(zoomOutX, zoomOutY, buttonSize, buttonSize);
+        ctx.strokeStyle = this.accentColor;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(zoomOutX, zoomOutY, buttonSize, buttonSize);
+        
+        ctx.font = 'bold 24px Arial';
+        ctx.textAlign = 'center';
+        this.renderTextWithShadow(ctx, '-', zoomOutX + buttonSize/2, zoomOutY + buttonSize/2 + 8, '#ffffff');
+        
+        // Zoom In button (+)
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillRect(zoomInX, zoomInY, buttonSize, buttonSize);
+        ctx.strokeStyle = this.accentColor;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(zoomInX, zoomInY, buttonSize, buttonSize);
+        
+        ctx.font = 'bold 24px Arial';
+        ctx.textAlign = 'center';
+        this.renderTextWithShadow(ctx, '+', zoomInX + buttonSize/2, zoomInY + buttonSize/2 + 8, '#ffffff');
+        
+        // Zoom level display
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'center';
+        this.renderTextWithShadow(ctx, `${zoomPercent}%`, zoomOutX + buttonSize/2, zoomOutY - 8, this.textColor);
     }
     
     renderFinalLeaderboard(ctx, gameData) {
