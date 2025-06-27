@@ -75,6 +75,13 @@ export class Player {
         
         if (attackableTerritories.length === 0) return;
         
+        // 30% chance to consider probe colonization instead of regular attacks
+        if (Math.random() < 0.3) {
+            if (this.considerProbeColonization(attackableTerritories, gameMap)) {
+                return; // Probe launched, skip regular attack this turn
+            }
+        }
+        
         // Select strategy-based action
         switch (this.aiStrategy) {
             case 'aggressive':
@@ -307,5 +314,71 @@ export class Player {
             battlesWon: this.battlesWon,
             battlesLost: this.battlesLost
         };
+    }
+    
+    considerProbeColonization(attackableTerritories, gameMap) {
+        // Find territories with enough fleet power for probes (need 10+ armies)
+        const probeCapableTerritories = attackableTerritories.filter(t => t.armySize >= 15); // Keep some buffer
+        
+        if (probeCapableTerritories.length === 0) return false;
+        
+        // Find visible colonizable planets (within reasonable distance)
+        const colonizableTargets = [];
+        
+        for (const territory of probeCapableTerritories) {
+            // Look for colonizable planets within a reasonable range
+            Object.values(gameMap.territories).forEach(target => {
+                if (target.isColonizable && target.ownerId === null) {
+                    const distance = Math.sqrt(
+                        (territory.x - target.x) ** 2 + (territory.y - target.y) ** 2
+                    );
+                    
+                    // Only consider colonizable planets within reasonable probe range
+                    if (distance < 300) { // Adjust range as needed
+                        colonizableTargets.push({
+                            from: territory,
+                            to: target,
+                            distance: distance,
+                            strategicValue: this.calculateColonizationValue(target, gameMap)
+                        });
+                    }
+                }
+            });
+        }
+        
+        if (colonizableTargets.length === 0) return false;
+        
+        // Sort by strategic value and distance
+        colonizableTargets.sort((a, b) => {
+            const scoreA = a.strategicValue - (a.distance * 0.001);
+            const scoreB = b.strategicValue - (b.distance * 0.001);
+            return scoreB - scoreA;
+        });
+        
+        // Launch probe to best target
+        const bestTarget = colonizableTargets[0];
+        if (gameMap.game && gameMap.game.launchAIProbe) {
+            gameMap.game.launchAIProbe(bestTarget.from, bestTarget.to, this);
+            return true;
+        }
+        
+        return false;
+    }
+    
+    calculateColonizationValue(territory, gameMap) {
+        let value = 1;
+        
+        // Higher value for territories that would connect to our existing territories
+        const nearbyOwned = territory.hiddenNeighbors.filter(id => {
+            const neighbor = gameMap.territories[id];
+            return neighbor && neighbor.ownerId === this.id;
+        }).length;
+        
+        value += nearbyOwned * 2; // High value for connecting territories
+        
+        // Value based on potential connections
+        value += territory.hiddenNeighbors.length * 0.2;
+        
+        return value;
     }
 }

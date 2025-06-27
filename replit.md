@@ -135,6 +135,8 @@ Changelog:
   * Hidden connection system: colonizable planets have hidden connections that become visible after colonization
   * Enhanced PC controls: mouse wheel zoom with smooth scaling, left-click drag for camera panning
   * Improved mouse interaction: distinguishes between clicks and drags, supports both left-click selection and right-click drag
+  * AI probe colonization: AI players now launch probes at colonizable planets using strategic evaluation
+  * Strategic AI expansion: AI considers distance, connections, and territorial value when selecting colonization targets
 
 ## User Preferences
 

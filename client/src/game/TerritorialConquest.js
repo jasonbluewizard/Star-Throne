@@ -848,6 +848,28 @@ export default class TerritorialConquest {
         console.log(`Probe launched from territory ${fromTerritory.id} to colonizable planet ${toTerritory.id}`);
     }
     
+    launchAIProbe(fromTerritory, toTerritory, player) {
+        const probeCost = 10;
+        
+        if (fromTerritory.armySize < probeCost) {
+            return;
+        }
+        
+        // Create AI probe
+        const probe = new Probe(
+            this.nextProbeId++,
+            fromTerritory,
+            toTerritory,
+            player.id,
+            player.color
+        );
+        
+        this.probes.push(probe);
+        fromTerritory.armySize -= probeCost;
+        
+        console.log(`AI ${player.name} launched probe from territory ${fromTerritory.id} to colonizable planet ${toTerritory.id}`);
+    }
+    
     transferFleet(fromTerritory, toTerritory) {
         if (fromTerritory.armySize <= 1) {
             console.log('Not enough armies to transfer!');
