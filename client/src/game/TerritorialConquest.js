@@ -712,7 +712,9 @@ export default class TerritorialConquest {
     }
     
     handleTerritorySelection(worldPos) {
-        const screenPos = this.camera.worldToScreen(worldPos.x, worldPos.y);
+        // Convert to screen coordinates for UI element checks
+        const screenX = this.mousePos.x;
+        const screenY = this.mousePos.y;
         
         // Check for "PLAY AGAIN" button when human player is eliminated
         const humanPlayer = this.humanPlayer;
@@ -722,8 +724,8 @@ export default class TerritorialConquest {
             const buttonX = this.canvas.width / 2 - buttonWidth / 2;
             const buttonY = this.canvas.height / 2 + 50;
             
-            if (screenPos.x >= buttonX && screenPos.x <= buttonX + buttonWidth &&
-                screenPos.y >= buttonY && screenPos.y <= buttonY + buttonHeight) {
+            if (screenX >= buttonX && screenX <= buttonX + buttonWidth &&
+                screenY >= buttonY && screenY <= buttonY + buttonHeight) {
                 this.restartGame();
                 return;
             }
@@ -733,8 +735,8 @@ export default class TerritorialConquest {
         if (this.gameState === 'ended' && this.ui && this.ui.restartButton) {
             const button = this.ui.restartButton;
             
-            if (screenPos.x >= button.x && screenPos.x <= button.x + button.width &&
-                screenPos.y >= button.y && screenPos.y <= button.y + button.height) {
+            if (screenX >= button.x && screenX <= button.x + button.width &&
+                screenY >= button.y && screenY <= button.y + button.height) {
                 this.restartGame();
                 return;
             }
@@ -746,8 +748,8 @@ export default class TerritorialConquest {
         const leaderboardWidth = 200;
         const leaderboardHeight = this.leaderboardMinimized ? 30 : 200;
         
-        if (screenPos.x >= leaderboardX && screenPos.x <= leaderboardX + leaderboardWidth &&
-            screenPos.y >= leaderboardY && screenPos.y <= leaderboardY + leaderboardHeight) {
+        if (screenX >= leaderboardX && screenX <= leaderboardX + leaderboardWidth &&
+            screenY >= leaderboardY && screenY <= leaderboardY + leaderboardHeight) {
             this.leaderboardMinimized = !this.leaderboardMinimized;
             console.log('Leaderboard toggled:', this.leaderboardMinimized ? 'minimized' : 'maximized');
             return;
@@ -759,8 +761,8 @@ export default class TerritorialConquest {
         const minimapY = this.canvas.height - minimapSize - 20;
         const minimapHeight = this.minimapMinimized ? 30 : minimapSize;
         
-        if (screenPos.x >= minimapX && screenPos.x <= minimapX + minimapSize &&
-            screenPos.y >= minimapY && screenPos.y <= minimapY + minimapHeight) {
+        if (screenX >= minimapX && screenX <= minimapX + minimapSize &&
+            screenY >= minimapY && screenY <= minimapY + minimapHeight) {
             this.minimapMinimized = !this.minimapMinimized;
             console.log('Minimap toggled:', this.minimapMinimized ? 'minimized' : 'maximized');
             return;
@@ -776,16 +778,16 @@ export default class TerritorialConquest {
         const zoomOutY = this.canvas.height - margin - (buttonSize * 2) - spacing;
         
         // Zoom In button
-        if (screenPos.x >= zoomInX && screenPos.x <= zoomInX + buttonSize &&
-            screenPos.y >= zoomInY && screenPos.y <= zoomInY + buttonSize) {
+        if (screenX >= zoomInX && screenX <= zoomInX + buttonSize &&
+            screenY >= zoomInY && screenY <= zoomInY + buttonSize) {
             this.camera.targetZoom = Math.min(this.camera.maxZoom, this.camera.targetZoom * 1.2);
             console.log('Zoom In - new zoom:', (this.camera.targetZoom * 100).toFixed(0) + '%');
             return;
         }
         
         // Zoom Out button
-        if (screenPos.x >= zoomOutX && screenPos.x <= zoomOutX + buttonSize &&
-            screenPos.y >= zoomOutY && screenPos.y <= zoomOutY + buttonSize) {
+        if (screenX >= zoomOutX && screenX <= zoomOutX + buttonSize &&
+            screenY >= zoomOutY && screenY <= zoomOutY + buttonSize) {
             this.camera.targetZoom = Math.max(this.camera.minZoom, this.camera.targetZoom / 1.2);
             console.log('Zoom Out - new zoom:', (this.camera.targetZoom * 100).toFixed(0) + '%');
             return;

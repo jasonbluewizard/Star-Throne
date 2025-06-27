@@ -137,6 +137,9 @@ Changelog:
   * Improved mouse interaction: distinguishes between clicks and drags, supports both left-click selection and right-click drag
   * AI probe colonization: AI players now launch probes at colonizable planets using strategic evaluation
   * Strategic AI expansion: AI considers distance, connections, and territorial value when selecting colonization targets
+  * Fixed minimap expansion: tap minimap area to properly minimize/maximize display
+  * Game over screen: "PLAY AGAIN" button appears when human player loses all territories, allows continued spectating
+  * Improved click handling: fixed coordinate system for all UI elements including minimap, leaderboard, and zoom controls
 
 ## User Preferences
 
