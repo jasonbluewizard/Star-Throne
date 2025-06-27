@@ -101,7 +101,7 @@ export default class TerritorialConquest {
         this.touchStartDistance = null;
         this.isMultiTouch = false;
         this.touchDebugInfo = '';
-        this.showTouchDebug = false; // Turn off debug by default
+        this.showTouchDebug = true; // Turn on debug to help with mobile zoom
         
         // Keyboard events
         window.addEventListener('keydown', (e) => this.handleKeyDown(e));
@@ -643,14 +643,18 @@ export default class TerritorialConquest {
                 touch2.clientY - touch1.clientY
             );
             
-            if (this.touchStartDistance && Math.abs(currentDistance - this.touchStartDistance) > 10) {
-                const zoomFactor = currentDistance / this.touchStartDistance;
+            if (this.touchStartDistance && Math.abs(currentDistance - this.touchStartDistance) > 5) {
+                // More sensitive zoom with smaller threshold
+                const rawZoomFactor = currentDistance / this.touchStartDistance;
+                // Smooth the zoom factor to prevent jarring movements
+                const zoomFactor = 1 + (rawZoomFactor - 1) * 0.5;
                 const centerX = ((touch1.clientX + touch2.clientX) / 2) - rect.left;
                 const centerY = ((touch1.clientY + touch2.clientY) / 2) - rect.top;
                 
                 this.camera.zoom(zoomFactor, centerX, centerY);
                 this.touchStartDistance = currentDistance;
-                console.log('Pinch zoom:', zoomFactor);
+                
+                this.touchDebugInfo += `\nZoom: ${zoomFactor.toFixed(2)} (${this.camera.zoom.toFixed(2)})`;
             }
             
             // Pan based on center point movement

@@ -13,6 +13,8 @@ function App() {
         try {
           const { default: TerritorialConquest } = await import('./game/TerritorialConquest.js');
           gameRef.current = new TerritorialConquest();
+          // Make game globally accessible for mobile zoom buttons
+          (window as any).game = gameRef.current;
           console.log('Territorial Conquest game initialized');
         } catch (error) {
           console.error('Failed to initialize game:', error);
