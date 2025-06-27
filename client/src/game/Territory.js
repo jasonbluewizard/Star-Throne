@@ -110,6 +110,11 @@ export class Territory {
             ctx.shadowBlur = 0;
         }
         
+        // Draw flag for human player territories
+        if (isHumanPlayer) {
+            this.renderHumanFlag(ctx);
+        }
+        
         // Draw territory ID (for debugging)
         if (isSelected) {
             ctx.fillStyle = '#ffffff';
@@ -122,6 +127,41 @@ export class Territory {
         if (isSelected && this.ownerId !== null) {
             this.renderPotentialTargets(ctx, players);
         }
+    }
+    
+    renderHumanFlag(ctx) {
+        // Small flag pole and flag for human territories
+        const flagX = this.x + this.radius * 0.6;
+        const flagY = this.y - this.radius * 0.8;
+        const poleHeight = this.radius * 0.7;
+        const flagWidth = this.radius * 0.4;
+        const flagHeight = this.radius * 0.25;
+        
+        // Draw flag pole
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(flagX, flagY);
+        ctx.lineTo(flagX, flagY + poleHeight);
+        ctx.stroke();
+        
+        // Draw flag
+        ctx.fillStyle = '#00ffff';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(flagX, flagY);
+        ctx.lineTo(flagX + flagWidth, flagY + flagHeight / 2);
+        ctx.lineTo(flagX, flagY + flagHeight);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        // Add small star on flag
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `${Math.max(8, this.radius * 0.3)}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.fillText('★', flagX + flagWidth * 0.4, flagY + flagHeight * 0.7);
     }
     
     renderPotentialTargets(ctx, players) {

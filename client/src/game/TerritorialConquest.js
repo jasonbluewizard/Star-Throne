@@ -232,22 +232,44 @@ export default class TerritorialConquest {
     }
     
     createPlayers(numPlayers) {
-        const colors = [
-            '#ff4444', '#44ff44', '#4444ff', '#ffff44', '#ff44ff', '#44ffff',
+        // Expanded unique color palette - no duplicates
+        const baseColors = [
+            '#ff4444', '#44ff44', '#4444ff', '#ffff44', '#ff44ff', 
             '#ff8844', '#88ff44', '#4488ff', '#ff4488', '#88ff88', '#8844ff',
             '#ffaa44', '#aaff44', '#44aaff', '#ff44aa', '#aaff88', '#aa44ff',
-            '#ff6644', '#66ff44', '#4466ff', '#ff4466', '#66ff88', '#6644ff'
+            '#ff6644', '#66ff44', '#4466ff', '#ff4466', '#66ff88', '#6644ff',
+            '#ff9944', '#99ff44', '#4499ff', '#ff4499', '#99ff88', '#9944ff',
+            '#ffcc44', '#ccff44', '#44ccff', '#ff44cc', '#ccff88', '#cc44ff',
+            '#ff7744', '#77ff44', '#4477ff', '#ff4477', '#77ff88', '#7744ff',
+            '#ffdd44', '#ddff44', '#44ddff', '#ff44dd', '#ddff88', '#dd44ff'
         ];
         
-        // Create human player with bright cyan color
+        // Create human player with distinctive bright cyan color
         this.humanPlayer = new Player(0, 'You', '#00ffff', 'human');
         this.players.push(this.humanPlayer);
         
-        // Create AI players
+        // Create AI players with unique colors (no brightness adjustment to avoid duplicates)
+        const usedColors = new Set(['#00ffff']); // Reserve human color
+        
         for (let i = 1; i < numPlayers && i < this.maxPlayers; i++) {
-            const color = colors[i % colors.length];
-            const adjustedColor = this.adjustColorBrightness(color, Math.random() * 0.4 - 0.2);
-            this.players.push(new Player(i, `Player ${i}`, adjustedColor, 'ai'));
+            let playerColor;
+            let attempts = 0;
+            
+            // Find a unique color
+            do {
+                const colorIndex = (i - 1) % baseColors.length;
+                playerColor = baseColors[colorIndex];
+                
+                // If we've used this color, generate a slight variation
+                if (usedColors.has(playerColor)) {
+                    const variation = Math.floor(attempts / baseColors.length) * 0.1 + 0.1;
+                    playerColor = this.adjustColorBrightness(playerColor, variation);
+                }
+                attempts++;
+            } while (usedColors.has(playerColor) && attempts < 100);
+            
+            usedColors.add(playerColor);
+            this.players.push(new Player(i, `AI Player ${i}`, playerColor, 'ai'));
         }
         
         this.currentPlayers = this.players.length;
@@ -436,11 +458,7 @@ export default class TerritorialConquest {
             territory.render(this.ctx, this.players, this.selectedTerritory);
         });
         
-        // Debug: log territory count occasionally
-        if (this.frameCount % 120 === 0) { // Every 2 seconds at 60fps
-            console.log(`Rendering ${visibleCount} territories. Camera at (${this.camera.x.toFixed(0)}, ${this.camera.y.toFixed(0)}) zoom: ${this.camera.zoom.toFixed(2)}`);
-            console.log(`View bounds:`, viewBounds);
-        }
+        // Removed debug logging for cleaner console output
     }
     
     renderConnections() {
