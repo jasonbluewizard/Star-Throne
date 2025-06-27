@@ -80,6 +80,11 @@ export class GameUI {
         }
         
         // All UI panels removed for minimal clean interface
+        
+        // Minimap (minimizable)
+        if (this.showMinimap) {
+            this.renderMinimap(ctx, gameData);
+        }
     }
     
     renderEndGameUI(ctx, gameData) {
@@ -397,6 +402,22 @@ export class GameUI {
         const startX = this.canvas.width - size - 20;
         const startY = this.canvas.height - size - 20;
         
+        if (gameData.minimapMinimized) {
+            // Minimized minimap - just show title bar
+            ctx.fillStyle = this.bgColor;
+            ctx.fillRect(startX, startY + size - 30, size, 30);
+            
+            ctx.font = 'bold 12px Arial';
+            ctx.textAlign = 'center';
+            this.renderTextWithShadow(ctx, 'Map (tap to expand)', startX + size / 2, startY + size - 12, this.accentColor);
+            
+            // Add expand indicator
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'right';
+            this.renderTextWithShadow(ctx, '▲', startX + size - 10, startY + size - 12, this.textColor);
+            return;
+        }
+        
         // Background
         ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
         ctx.fillRect(startX, startY, size, size);
@@ -447,11 +468,15 @@ export class GameUI {
             ctx.strokeRect(viewX, viewY, viewWidth, viewHeight);
         }
         
-        // Minimap title
-        ctx.fillStyle = this.textColor;
+        // Minimap title with minimize indicator
         ctx.font = '12px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText('Map', startX + size / 2, startY - 5);
+        this.renderTextWithShadow(ctx, 'Map', startX + size / 2, startY - 5, this.textColor);
+        
+        // Add minimize indicator
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'right';
+        this.renderTextWithShadow(ctx, '▼', startX + size - 5, startY - 5, this.textColor);
     }
     
     renderFinalLeaderboard(ctx, gameData) {

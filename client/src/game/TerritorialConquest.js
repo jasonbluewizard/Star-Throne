@@ -34,6 +34,7 @@ export default class TerritorialConquest {
         // Ship movement animations
         this.shipAnimations = [];
         this.leaderboardMinimized = false;
+        this.minimapMinimized = false;
         
         this.init();
     }
@@ -244,10 +245,11 @@ export default class TerritorialConquest {
         const territoryIds = Object.keys(this.gameMap.territories);
         const shuffledIds = this.shuffleArray([...territoryIds]);
         
-        // Give each player 1-3 starting territories
+        // Give each player starting territories
         let territoryIndex = 0;
         for (const player of this.players) {
-            const startingTerritories = Math.floor(Math.random() * 3) + 1;
+            // Human player gets only 1 territory, AI players get 1-3
+            const startingTerritories = player.type === 'human' ? 1 : Math.floor(Math.random() * 3) + 1;
             
             for (let i = 0; i < startingTerritories && territoryIndex < shuffledIds.length; i++) {
                 const territoryId = shuffledIds[territoryIndex];
@@ -477,7 +479,8 @@ export default class TerritorialConquest {
                 maxPlayers: this.maxPlayers,
                 touchDebugInfo: this.touchDebugInfo,
                 showTouchDebug: this.showTouchDebug,
-                leaderboardMinimized: this.leaderboardMinimized
+                leaderboardMinimized: this.leaderboardMinimized,
+                minimapMinimized: this.minimapMinimized
             });
         }
     }
@@ -562,6 +565,19 @@ export default class TerritorialConquest {
             screenPos.y >= leaderboardY && screenPos.y <= leaderboardY + leaderboardHeight) {
             this.leaderboardMinimized = !this.leaderboardMinimized;
             console.log('Leaderboard toggled:', this.leaderboardMinimized ? 'minimized' : 'maximized');
+            return;
+        }
+        
+        // Check for minimap click
+        const minimapSize = 150;
+        const minimapX = this.canvas.width - minimapSize - 20;
+        const minimapY = this.canvas.height - minimapSize - 20;
+        const minimapHeight = this.minimapMinimized ? 30 : minimapSize;
+        
+        if (screenPos.x >= minimapX && screenPos.x <= minimapX + minimapSize &&
+            screenPos.y >= minimapY && screenPos.y <= minimapY + minimapHeight) {
+            this.minimapMinimized = !this.minimapMinimized;
+            console.log('Minimap toggled:', this.minimapMinimized ? 'minimized' : 'maximized');
             return;
         }
         

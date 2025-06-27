@@ -117,6 +117,8 @@ Changelog:
   * Ship movement animations: visual projectiles match each player's color during attacks and transfers
   * Enhanced text readability: all UI text now uses shadows for better contrast against any background
   * Improved army count visibility: bold white text with dark shadows on territory markers
+  * Human player starts with only one territory (AI players get 1-3 territories)
+  * Re-enabled minimap with minimizable functionality: tap minimap area to minimize/maximize like leaderboard
 
 ## User Preferences
 
