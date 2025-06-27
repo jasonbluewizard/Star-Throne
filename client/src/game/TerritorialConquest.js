@@ -2,6 +2,7 @@ import { GameMap } from './GameMap.js';
 import { Player } from './Player.js';
 import { GameUI } from './GameUI.js';
 import { Camera } from './Camera.js';
+import { Probe } from './Probe.js';
 
 export default class TerritorialConquest {
     constructor() {
@@ -35,6 +36,10 @@ export default class TerritorialConquest {
         this.shipAnimations = [];
         this.leaderboardMinimized = false;
         this.minimapMinimized = true; // Default minimap to off
+        
+        // Probe system
+        this.probes = [];
+        this.nextProbeId = 0;
         
         this.init();
     }

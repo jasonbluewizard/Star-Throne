@@ -1,16 +1,18 @@
 export class Territory {
-    constructor(id, x, y, radius = 25) {
+    constructor(id, x, y, radius = 25, isColonizable = false) {
         this.id = id;
         this.x = x;
         this.y = y;
         this.radius = radius;
         this.neighbors = [];
+        this.hiddenNeighbors = []; // Connections revealed after colonization
         this.ownerId = null; // null for neutral, or player ID
         this.armySize = 0;
+        this.isColonizable = isColonizable; // Special planets requiring probe colonization
         
         // Visual properties
         this.baseColor = '#444444';
-        this.neutralColor = '#666666';
+        this.neutralColor = isColonizable ? '#333333' : '#666666'; // Darker for colonizable
         this.strokeColor = '#888888';
         
         // Animation
@@ -27,6 +29,19 @@ export class Territory {
         if (!this.neighbors.includes(territoryId)) {
             this.neighbors.push(territoryId);
         }
+    }
+    
+    addHiddenNeighbor(territoryId) {
+        if (!this.hiddenNeighbors.includes(territoryId)) {
+            this.hiddenNeighbors.push(territoryId);
+        }
+    }
+    
+    revealConnections() {
+        // Move hidden connections to visible neighbors when colonized
+        this.neighbors.push(...this.hiddenNeighbors);
+        this.hiddenNeighbors = [];
+        this.isColonizable = false; // No longer colonizable
     }
     
     isNeutral() {
@@ -116,15 +131,17 @@ export class Territory {
             this.renderHumanFlag(ctx);
         }
         
-        // Draw army count for neutral territories
+        // Draw army count for neutral territories or "?" for colonizable
         if (this.ownerId === null) {
             ctx.font = 'bold 14px Arial';
             ctx.textAlign = 'center';
             ctx.fillStyle = '#ffffff';
             ctx.strokeStyle = '#000000';
             ctx.lineWidth = 3;
-            ctx.strokeText(this.armySize.toString(), this.x, this.y + 4);
-            ctx.fillText(this.armySize.toString(), this.x, this.y + 4);
+            
+            const displayText = this.isColonizable ? '?' : this.armySize.toString();
+            ctx.strokeText(displayText, this.x, this.y + 4);
+            ctx.fillText(displayText, this.x, this.y + 4);
         }
         
         // Draw territory ID (for debugging)
