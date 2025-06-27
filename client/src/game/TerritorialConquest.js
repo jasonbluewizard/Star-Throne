@@ -661,14 +661,25 @@ export default class TerritorialConquest {
     handleWheel(e) {
         e.preventDefault();
         
+        if (!this.camera) return;
+        
         const rect = this.canvas.getBoundingClientRect();
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
         
-        const zoomFactor = e.deltaY > 0 ? 0.85 : 1.15;
-        this.camera.zoom(zoomFactor, mouseX, mouseY);
+        const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1; // Smoother zoom increments
         
-        console.log('Zoom:', zoomFactor, 'Current zoom:', this.camera.targetZoom);
+        // Use the camera's zoom method
+        if (typeof this.camera.zoom === 'function') {
+            this.camera.zoom(zoomFactor, mouseX, mouseY);
+        } else {
+            // Fallback: directly modify zoom level
+            const newZoom = Math.max(0.1, Math.min(3.0, this.camera.targetZoom * zoomFactor));
+            this.camera.targetZoom = newZoom;
+            this.camera.zoom = newZoom;
+        }
+        
+        console.log('Mouse wheel zoom:', Math.round(this.camera.targetZoom * 100) + '%');
     }
     
     handleTerritorySelection(worldPos) {
