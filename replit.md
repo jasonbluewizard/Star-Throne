@@ -131,6 +131,8 @@ Changelog:
   * Probe colonization mechanics: tap colonizable planet from owned territory to launch probe costing 10 fleet power
   * Real-time probe movement: probes travel slowly across map, colonize with strength 10, reveal hidden star lanes
   * Hidden connection system: colonizable planets have hidden connections that become visible after colonization
+  * Enhanced PC controls: mouse wheel zoom with smooth scaling, left-click drag for camera panning
+  * Improved mouse interaction: distinguishes between clicks and drags, supports both left-click selection and right-click drag
 
 ## User Preferences
 

@@ -624,38 +624,61 @@ export default class TerritorialConquest {
         };
         
         this.lastMousePos = { ...this.mousePos };
+        this.dragStartPos = { ...this.mousePos };
+        this.dragStartTime = Date.now();
+        this.isDragging = false;
         
-        // Convert screen coordinates to world coordinates
-        const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
-        
-        if (e.button === 0) { // Left click
-            this.handleTerritorySelection(worldPos);
-        } else if (e.button === 2) { // Right click
+        if (e.button === 2) { // Right click starts immediate drag
             this.isDragging = true;
         }
     }
     
     handleMouseMove(e) {
         const rect = this.canvas.getBoundingClientRect();
-        this.mousePos = {
+        const newMousePos = {
             x: e.clientX - rect.left,
             y: e.clientY - rect.top
         };
         
-        if (this.isDragging) {
-            const deltaX = this.mousePos.x - this.lastMousePos.x;
-            const deltaY = this.mousePos.y - this.lastMousePos.y;
+        // Check if we should start dragging (left click held and moved)
+        if (this.dragStartPos && !this.isDragging && e.buttons === 1) {
+            const dragDistance = Math.sqrt(
+                (newMousePos.x - this.dragStartPos.x) ** 2 + 
+                (newMousePos.y - this.dragStartPos.y) ** 2
+            );
             
-            this.camera.pan(-deltaX, -deltaY);
+            if (dragDistance > 8) {
+                this.isDragging = true;
+            }
         }
         
-        this.lastMousePos = { ...this.mousePos };
+        // Pan camera if dragging
+        if (this.isDragging && this.mousePos) {
+            const deltaX = newMousePos.x - this.mousePos.x;
+            const deltaY = newMousePos.y - this.mousePos.y;
+            
+            // Apply camera panning scaled by zoom level
+            this.camera.pan(-deltaX / this.camera.zoom, -deltaY / this.camera.zoom);
+        }
+        
+        this.mousePos = newMousePos;
     }
     
     handleMouseUp(e) {
-        if (e.button === 2) { // Right click
-            this.isDragging = false;
+        // Check if this was a quick click (not a drag)
+        const clickDuration = Date.now() - (this.dragStartTime || 0);
+        const wasQuickClick = clickDuration < 300 && !this.isDragging;
+        
+        if (e.button === 0 && (wasQuickClick || !this.isDragging)) {
+            // Left click - handle territory selection
+            const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+            this.handleTerritorySelection(worldPos);
         }
+        
+        // Reset drag state
+        this.isDragging = false;
+        this.dragStartPos = null;
+        this.dragStartTime = null;
     }
     
     handleWheel(e) {
@@ -667,17 +690,11 @@ export default class TerritorialConquest {
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
         
-        const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1; // Smoother zoom increments
+        const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
         
-        // Use the camera's zoom method
-        if (typeof this.camera.zoom === 'function') {
-            this.camera.zoom(zoomFactor, mouseX, mouseY);
-        } else {
-            // Fallback: directly modify zoom level
-            const newZoom = Math.max(0.1, Math.min(3.0, this.camera.targetZoom * zoomFactor));
-            this.camera.targetZoom = newZoom;
-            this.camera.zoom = newZoom;
-        }
+        // Use the camera's zoomTo method directly to avoid naming conflict
+        const newZoom = Math.max(0.1, Math.min(3.0, this.camera.targetZoom * zoomFactor));
+        this.camera.zoomTo(newZoom, mouseX, mouseY);
         
         console.log('Mouse wheel zoom:', Math.round(this.camera.targetZoom * 100) + '%');
     }
