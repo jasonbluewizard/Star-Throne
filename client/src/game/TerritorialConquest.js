@@ -90,6 +90,53 @@ export default class TerritorialConquest {
         });
     }
     
+    // Update probes
+    updateProbes(deltaTime) {
+        for (let i = this.probes.length - 1; i >= 0; i--) {
+            const probe = this.probes[i];
+            const reachedDestination = probe.update(deltaTime);
+            
+            if (reachedDestination) {
+                // Probe reached destination - colonize the planet
+                this.colonizePlanet(probe);
+                this.probes.splice(i, 1);
+            }
+        }
+    }
+    
+    // Colonize planet when probe arrives
+    colonizePlanet(probe) {
+        const planet = probe.toTerritory;
+        const player = this.players.find(p => p.id === probe.playerId);
+        
+        if (!planet || !player) return;
+        
+        console.log(`Probe colonizing planet ${planet.id} for player ${player.name}`);
+        
+        // Set ownership and initial army strength
+        planet.ownerId = player.id;
+        planet.armySize = 10; // Probes colonize with strength 10
+        
+        // Add to player's territories
+        player.territories.push(planet.id);
+        
+        // Reveal hidden connections
+        planet.revealConnections();
+        
+        // Update neighboring territories' connections
+        Object.values(this.gameMap.territories).forEach(territory => {
+            if (territory.hiddenNeighbors.includes(planet.id)) {
+                territory.hiddenNeighbors = territory.hiddenNeighbors.filter(id => id !== planet.id);
+                territory.neighbors.push(planet.id);
+            }
+        });
+        
+        // Update player stats
+        player.updateStats();
+        
+        console.log(`Planet ${planet.id} colonized! Revealed ${planet.neighbors.length} connections.`);
+    }
+    
     // Render ship animations
     renderShipAnimations() {
         this.shipAnimations.forEach(animation => {
@@ -370,6 +417,9 @@ export default class TerritorialConquest {
         
         // Update ship animations
         this.updateShipAnimations(deltaTime);
+        
+        // Update probes
+        this.updateProbes(deltaTime);
         
         // Check for player elimination
         this.checkPlayerElimination();
@@ -706,6 +756,15 @@ export default class TerritorialConquest {
             return;
         }
         
+        // If clicking on a colonizable planet, launch a probe
+        if (clickedTerritory.isColonizable && this.selectedTerritory && 
+            this.selectedTerritory.ownerId === this.humanPlayer.id) {
+            
+            this.launchProbe(this.selectedTerritory, clickedTerritory);
+            this.selectedTerritory = null;
+            return;
+        }
+        
         // If we have a selected territory and clicking on a neighbor, attack
         if (this.selectedTerritory && 
             this.selectedTerritory.ownerId === this.humanPlayer.id &&
@@ -715,6 +774,29 @@ export default class TerritorialConquest {
         }
         
         this.selectedTerritory = clickedTerritory;
+    }
+    
+    launchProbe(fromTerritory, toTerritory) {
+        const probeCost = 10;
+        
+        if (fromTerritory.armySize < probeCost) {
+            console.log('Not enough fleet power to launch probe! Need 10 fleet power.');
+            return;
+        }
+        
+        // Create probe
+        const probe = new Probe(
+            this.nextProbeId++,
+            fromTerritory,
+            toTerritory,
+            this.humanPlayer.id,
+            this.humanPlayer.color
+        );
+        
+        this.probes.push(probe);
+        fromTerritory.armySize -= probeCost;
+        
+        console.log(`Probe launched from territory ${fromTerritory.id} to colonizable planet ${toTerritory.id}`);
     }
     
     transferFleet(fromTerritory, toTerritory) {

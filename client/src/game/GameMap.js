@@ -17,9 +17,17 @@ export class GameMap {
         
         // Create Territory objects with fixed neutral army sizes
         territories.forEach((pos, index) => {
-            const territory = new Territory(index, pos.x, pos.y);
-            // Set fixed army size for neutral territories (1-10)
-            territory.armySize = Math.floor(Math.random() * 10) + 1;
+            // 20% chance to make a territory colonizable
+            const isColonizable = Math.random() < 0.2;
+            const territory = new Territory(index, pos.x, pos.y, 25, isColonizable);
+            
+            if (isColonizable) {
+                // Colonizable planets have no initial army count
+                territory.armySize = 0;
+            } else {
+                // Set fixed army size for regular neutral territories (1-10)
+                territory.armySize = Math.floor(Math.random() * 10) + 1;
+            }
             this.territories[index] = territory;
         });
         
@@ -152,8 +160,15 @@ export class GameMap {
             
             for (let k = 0; k < numConnections && k < nearbyTerritories.length; k++) {
                 const neighbor = nearbyTerritories[k].territory;
-                territory.addNeighbor(neighbor.id);
-                neighbor.addNeighbor(territory.id);
+                
+                // If either territory is colonizable, make it a hidden connection
+                if (territory.isColonizable || neighbor.isColonizable) {
+                    territory.addHiddenNeighbor(neighbor.id);
+                    neighbor.addHiddenNeighbor(territory.id);
+                } else {
+                    territory.addNeighbor(neighbor.id);
+                    neighbor.addNeighbor(territory.id);
+                }
             }
         }
         
