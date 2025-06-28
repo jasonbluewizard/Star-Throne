@@ -759,20 +759,21 @@ export default class TerritorialConquest {
             if (territory.ownerId !== null && territory.armySize > 0) {
                 const owner = this.players[territory.ownerId];
                 if (owner) {
-                    // Render army count with shadow for better readability
+                    // Render army count with white outline for contrast
                     this.ctx.font = 'bold 14px Arial';
                     this.ctx.textAlign = 'center';
                     
-                    // Draw shadow
-                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-                    this.ctx.fillText(
+                    // Draw white outline for contrast
+                    this.ctx.strokeStyle = '#ffffff';
+                    this.ctx.lineWidth = 3;
+                    this.ctx.strokeText(
                         territory.armySize.toString(),
-                        territory.x + 1,
-                        territory.y + 6
+                        territory.x,
+                        territory.y + 5
                     );
                     
-                    // Draw main text
-                    this.ctx.fillStyle = '#ffffff';
+                    // Draw main black text
+                    this.ctx.fillStyle = '#000000';
                     this.ctx.fillText(
                         territory.armySize.toString(),
                         territory.x,

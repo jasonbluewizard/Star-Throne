@@ -195,6 +195,11 @@ Changelog:
   * All game logic now validated server-side before execution
   * Command protocol with validation: ATTACK_TERRITORY, TRANSFER_ARMIES, LAUNCH_PROBE, CREATE_SUPPLY_ROUTE
   * Server acts as single source of truth for all game state and rules
+- June 28, 2025. Improved font legibility:
+  * Changed all planet army count text to black with white outlines for better readability
+  * Updated neutral territory numbers to use black text with white contrast borders
+  * Modified colonizable planet "?" markers to use black text with yellow outlines
+  * Enhanced text visibility across all planet colors and backgrounds
 
 ## User Preferences
 

@@ -158,9 +158,9 @@ export class Territory {
             
             if (this.isColonizable) {
                 // Special styling for colonizable planets
-                ctx.fillStyle = '#ffff00'; // Bright yellow for "?"
-                ctx.strokeStyle = '#000000';
-                ctx.lineWidth = 3;
+                ctx.fillStyle = '#000000'; // Black text
+                ctx.strokeStyle = '#ffff00'; // Yellow outline for contrast
+                ctx.lineWidth = 2;
                 
                 const displayText = '?';
                 ctx.strokeText(displayText, this.x, this.y + 4);
@@ -177,9 +177,9 @@ export class Territory {
                 ctx.setLineDash([]);
             } else {
                 // Regular neutral territory styling
-                ctx.fillStyle = '#ffffff';
-                ctx.strokeStyle = '#000000';
-                ctx.lineWidth = 3;
+                ctx.fillStyle = '#000000'; // Black text
+                ctx.strokeStyle = '#ffffff'; // White outline for contrast
+                ctx.lineWidth = 2;
                 
                 const displayText = this.armySize.toString();
                 ctx.strokeText(displayText, this.x, this.y + 4);
