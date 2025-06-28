@@ -85,6 +85,20 @@ export class SocketClient {
       this.onGameUpdateCallback?.(update);
     });
 
+    this.socket.on('game-state-update', (update: any) => {
+      this.onGameUpdateCallback?.(update);
+    });
+
+    this.socket.on('combat-result', (result: any) => {
+      console.log('Combat result:', result);
+      this.onGameUpdateCallback?.(result);
+    });
+
+    this.socket.on('command-error', (error: any) => {
+      console.error('Command error:', error);
+      this.onErrorCallback?.(error);
+    });
+
     this.socket.on('player-joined', (data: { player: PlayerInfo }) => {
       this.onPlayerJoinedCallback?.(data.player);
     });
@@ -129,7 +143,13 @@ export class SocketClient {
     this.socket.emit('player-ready');
   }
 
-  // Game actions
+  // Secure command protocol (server-authoritative)
+  sendPlayerCommand(command: any) {
+    if (!this.socket || !this.currentRoom) return;
+    this.socket.emit('player-command', command);
+  }
+
+  // Legacy game actions (for backward compatibility)
   sendGameAction(action: string, payload: any) {
     if (!this.socket || !this.currentRoom) return;
     this.socket.emit('game-action', { action, payload });
