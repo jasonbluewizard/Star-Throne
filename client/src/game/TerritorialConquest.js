@@ -32,6 +32,12 @@ export default class TerritorialConquest {
         this.frameCount = 0;
         this.lastFpsUpdate = 0;
         
+        // Performance optimizations
+        this.visibleTerritories = [];
+        this.lastCullUpdate = 0;
+        this.cullInterval = 100; // Update visibility every 100ms
+        this.renderQuadTree = null;
+        
         // Ship movement animations
         this.shipAnimations = [];
         this.leaderboardMinimized = false;
@@ -424,12 +430,17 @@ export default class TerritorialConquest {
             return;
         }
         
-        // Update players (AI logic, army generation)
-        this.players.forEach(player => {
-            if (!player.isEliminated) {
+        // Optimize AI updates - only update a subset each frame
+        const playersPerFrame = Math.ceil(this.players.length / 3); // Update 1/3 of players per frame
+        const startIndex = (this.frameCount % 3) * playersPerFrame;
+        const endIndex = Math.min(startIndex + playersPerFrame, this.players.length);
+        
+        for (let i = startIndex; i < endIndex; i++) {
+            const player = this.players[i];
+            if (player && !player.isEliminated) {
                 player.update(deltaTime, this.gameMap);
             }
-        });
+        }
         
         // Update ship animations
         this.updateShipAnimations(deltaTime);
@@ -437,9 +448,13 @@ export default class TerritorialConquest {
         // Update probes
         this.updateProbes(deltaTime);
         
-        // Update supply routes
-        this.validateSupplyRoutes();
-        this.processSupplyRoutes();
+        // Update supply routes (throttled for performance)
+        if (this.frameCount % 30 === 0) { // Every 30 frames (~0.5 seconds)
+            this.validateSupplyRoutes();
+        }
+        if (this.frameCount % 60 === 0) { // Every 60 frames (~1 second)
+            this.processSupplyRoutes();
+        }
         
         // Check for player elimination
         this.checkPlayerElimination();
@@ -519,67 +534,76 @@ export default class TerritorialConquest {
         this.renderUI();
     }
     
-    renderTerritories() {
+    updateVisibleTerritories() {
+        const now = Date.now();
+        if (now - this.lastCullUpdate < this.cullInterval) {
+            return; // Skip update if too recent
+        }
+        
+        this.lastCullUpdate = now;
         const viewBounds = this.camera.getViewBounds();
-        let visibleCount = 0;
+        this.visibleTerritories = [];
         
         Object.values(this.gameMap.territories).forEach(territory => {
-            // Frustum culling - only render visible territories
-            if (territory.x + territory.radius < viewBounds.left ||
-                territory.x - territory.radius > viewBounds.right ||
-                territory.y + territory.radius < viewBounds.top ||
-                territory.y - territory.radius > viewBounds.bottom) {
-                return;
+            // Frustum culling with small margin for smooth entry/exit
+            const margin = 50;
+            if (territory.x + territory.radius + margin >= viewBounds.left &&
+                territory.x - territory.radius - margin <= viewBounds.right &&
+                territory.y + territory.radius + margin >= viewBounds.top &&
+                territory.y - territory.radius - margin <= viewBounds.bottom) {
+                this.visibleTerritories.push(territory);
             }
-            
-            visibleCount++;
+        });
+    }
+    
+    renderTerritories() {
+        this.updateVisibleTerritories();
+        
+        // Render only visible territories
+        this.visibleTerritories.forEach(territory => {
             territory.render(this.ctx, this.players, this.selectedTerritory);
         });
-        
-        // Removed debug logging for cleaner console output
     }
     
     renderConnections() {
-        const viewBounds = this.camera.getViewBounds();
-        
-        this.ctx.lineWidth = 4; // Thicker lines for better visibility
+        this.ctx.lineWidth = 4;
         this.ctx.globalAlpha = 0.7;
         
-        Object.values(this.gameMap.territories).forEach(territory => {
-            // Skip if territory is outside view
-            if (territory.x + territory.radius < viewBounds.left ||
-                territory.x - territory.radius > viewBounds.right ||
-                territory.y + territory.radius < viewBounds.top ||
-                territory.y - territory.radius > viewBounds.bottom) {
-                return;
-            }
-            
+        // Cache connections to avoid duplicate rendering
+        const drawnConnections = new Set();
+        
+        this.visibleTerritories.forEach(territory => {
             territory.neighbors.forEach(neighborId => {
                 const neighbor = this.gameMap.territories[neighborId];
-                if (neighbor && neighborId > territory.id) { // Draw each connection only once
-                    
-                    // Skip connections to/from colonizable planets
-                    if (territory.isColonizable || neighbor.isColonizable) {
-                        return;
-                    }
-                    
-                    // Check if both territories have the same owner
-                    if (territory.ownerId !== null && 
-                        neighbor.ownerId !== null && 
-                        territory.ownerId === neighbor.ownerId) {
-                        // Same owner - use the player's color
-                        const owner = this.players[territory.ownerId];
-                        this.ctx.strokeStyle = owner ? owner.color : '#666677';
-                    } else {
-                        // Different owners or one is neutral - use default gray
-                        this.ctx.strokeStyle = '#666677';
-                    }
-                    
-                    this.ctx.beginPath();
-                    this.ctx.moveTo(territory.x, territory.y);
-                    this.ctx.lineTo(neighbor.x, neighbor.y);
-                    this.ctx.stroke();
+                if (!neighbor) return;
+                
+                // Create unique connection ID (smaller ID first)
+                const connectionId = territory.id < neighborId 
+                    ? `${territory.id}-${neighborId}` 
+                    : `${neighborId}-${territory.id}`;
+                
+                if (drawnConnections.has(connectionId)) return;
+                drawnConnections.add(connectionId);
+                
+                // Skip connections to/from colonizable planets
+                if (territory.isColonizable || neighbor.isColonizable) {
+                    return;
                 }
+                
+                // Set color based on ownership
+                if (territory.ownerId !== null && 
+                    neighbor.ownerId !== null && 
+                    territory.ownerId === neighbor.ownerId) {
+                    const owner = this.players[territory.ownerId];
+                    this.ctx.strokeStyle = owner ? owner.color : '#666677';
+                } else {
+                    this.ctx.strokeStyle = '#666677';
+                }
+                
+                this.ctx.beginPath();
+                this.ctx.moveTo(territory.x, territory.y);
+                this.ctx.lineTo(neighbor.x, neighbor.y);
+                this.ctx.stroke();
             });
         });
         
