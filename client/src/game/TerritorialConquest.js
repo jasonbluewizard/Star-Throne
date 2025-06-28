@@ -5,7 +5,7 @@ import { Camera } from './Camera.js';
 import { Probe } from './Probe.js';
 
 export default class TerritorialConquest {
-    constructor() {
+    constructor(config = {}) {
         this.canvas = null;
         this.ctx = null;
         this.gameMap = null;
@@ -13,6 +13,14 @@ export default class TerritorialConquest {
         this.humanPlayer = null;
         this.camera = null;
         this.ui = null;
+        
+        // Game configuration from config screen
+        this.config = {
+            playerName: config.playerName || 'Player',
+            aiCount: config.aiCount || 19,
+            mapSize: config.mapSize || 200,
+            ...config
+        };
         
         // Game state
         this.gameState = 'lobby'; // lobby, playing, ended
@@ -301,13 +309,19 @@ export default class TerritorialConquest {
     }
     
     startGame() {
-        console.log('Starting Territorial Conquest game...');
+        console.log('Starting Territorial Conquest game with config:', this.config);
         
-        // Generate territories
-        this.gameMap.generateTerritories(150); // 150 territories for large-scale gameplay
+        // Generate territories using configured map size
+        this.gameMap.generateTerritories(this.config.mapSize);
         
-        // Create players (1 human + up to 99 AI)
-        this.createPlayers(20); // Start with 20 players for testing
+        // Create players: 1 human + configured AI count
+        const totalPlayers = 1 + this.config.aiCount;
+        this.createPlayers(Math.min(totalPlayers, this.maxPlayers));
+        
+        // Update human player name from config
+        if (this.humanPlayer) {
+            this.humanPlayer.name = this.config.playerName;
+        }
         
         // Distribute initial territories
         this.distributeStartingTerritories();
@@ -319,7 +333,7 @@ export default class TerritorialConquest {
         }
         
         this.gameState = 'playing';
-        console.log(`Game started with ${this.players.length} players and ${Object.keys(this.gameMap.territories).length} territories`);
+        console.log(`Game started with ${this.players.length} players (${this.config.playerName} + ${this.config.aiCount} AI) and ${Object.keys(this.gameMap.territories).length} territories`);
     }
     
     createPlayers(numPlayers) {

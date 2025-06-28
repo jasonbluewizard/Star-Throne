@@ -172,6 +172,14 @@ Changelog:
   * Connection rendering uses cached duplicate detection for better performance
   * AI thinking intervals increased to 2-5 seconds with limited actions per update
   * Probe colonization chance reduced to 20% to decrease computational load
+- June 28, 2025. Single player configuration screen:
+  * Added GameConfigScreen component with customizable map size (50-400 territories)
+  * AI player count selection (5-99 opponents) with difficulty descriptions
+  * Player name input with validation and preview information
+  * Dynamic configuration descriptions: Small/Medium/Large/Massive maps
+  * Game preview showing total territories, AI count, and feature list
+  * Slider controls for intuitive parameter adjustment
+  * Integration with existing single-player game initialization
 
 ## User Preferences
 

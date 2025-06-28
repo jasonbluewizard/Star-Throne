@@ -6,6 +6,7 @@ type GameMode = 'single' | 'multiplayer' | null;
 interface GameData {
   playerName: string;
   aiCount?: number;
+  mapSize?: number;
   room?: any;
 }
 
@@ -18,10 +19,10 @@ function App() {
   const initSinglePlayerGame = async (data: GameData) => {
     try {
       const { default: TerritorialConquest } = await import('./game/TerritorialConquest.js');
-      gameRef.current = new TerritorialConquest();
+      gameRef.current = new TerritorialConquest(data);
       // Make game globally accessible for mobile zoom buttons
       (window as any).game = gameRef.current;
-      console.log('Single-player Territorial Conquest game initialized');
+      console.log('Single-player Territorial Conquest game initialized with config:', data);
     } catch (error) {
       console.error('Failed to initialize single-player game:', error);
     }
