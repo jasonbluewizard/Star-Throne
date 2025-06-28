@@ -1,0 +1,2061 @@
+# Territorial Conquest - Complete Codebase and Architecture
+
+## PROJECT OVERVIEW
+Territorial Conquest is a browser-based real-time strategy game built with React and HTML5 Canvas. Players compete to control territories on a large map through strategic army placement and territorial expansion. The game features a custom 2D Canvas-based rendering engine with up to 100 AI players, real-time gameplay mechanics, and a polished UI built with Radix UI components.
+
+## SYSTEM ARCHITECTURE
+
+### Frontend Architecture
+- React 18 with TypeScript for component-based UI development
+- HTML5 Canvas for high-performance 2D game rendering
+- Custom Game Engine built in vanilla JavaScript for game logic and rendering
+- Socket.IO Client for real-time multiplayer communication
+- Game Mode Selector supporting single-player and multiplayer modes
+- Zustand for lightweight state management (game state, audio controls)
+- Radix UI component library for accessible, polished UI elements
+- Tailwind CSS for styling with a modern design system
+- Vite as the build tool and development server
+
+### Backend Architecture
+- Express.js server with TypeScript
+- Socket.IO WebSocket server for real-time multiplayer communication
+- In-memory storage using Map-based data structures for MVP
+- Game room management supporting both single-player and multiplayer modes
+- RESTful API structure ready for future endpoints
+- Session management prepared with connect-pg-simple
+- Drizzle ORM configured for PostgreSQL database integration
+
+### Game Engine Components
+1. TerritorialConquest.js - Main game controller and initialization
+2. GameMap.js - Territory generation using Poisson disk sampling
+3. Territory.js - Individual territory logic and rendering
+4. Player.js - Player state management and AI behavior
+5. Camera.js - Viewport management with smooth panning and zooming
+6. GameUI.js - In-game overlay UI rendering
+
+## CORE SOURCE FILES
+
+### package.json
+```json
+{
+  "name": "rest-express",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc && vite build",
+    "dev": "tsx server/index.ts",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@fontsource/inter": "latest",
+    "@jridgewell/trace-mapping": "latest",
+    "@neondatabase/serverless": "latest",
+    "@radix-ui/react-accordion": "latest",
+    "@radix-ui/react-alert-dialog": "latest",
+    "@radix-ui/react-aspect-ratio": "latest",
+    "@radix-ui/react-avatar": "latest",
+    "@radix-ui/react-checkbox": "latest",
+    "@radix-ui/react-collapsible": "latest",
+    "@radix-ui/react-context-menu": "latest",
+    "@radix-ui/react-dialog": "latest",
+    "@radix-ui/react-dropdown-menu": "latest",
+    "@radix-ui/react-hover-card": "latest",
+    "@radix-ui/react-label": "latest",
+    "@radix-ui/react-menubar": "latest",
+    "@radix-ui/react-navigation-menu": "latest",
+    "@radix-ui/react-popover": "latest",
+    "@radix-ui/react-progress": "latest",
+    "@radix-ui/react-radio-group": "latest",
+    "@radix-ui/react-scroll-area": "latest",
+    "@radix-ui/react-select": "latest",
+    "@radix-ui/react-separator": "latest",
+    "@radix-ui/react-slider": "latest",
+    "@radix-ui/react-slot": "latest",
+    "@radix-ui/react-switch": "latest",
+    "@radix-ui/react-tabs": "latest",
+    "@radix-ui/react-toast": "latest",
+    "@radix-ui/react-toggle": "latest",
+    "@radix-ui/react-toggle-group": "latest",
+    "@radix-ui/react-tooltip": "latest",
+    "@react-three/drei": "latest",
+    "@react-three/fiber": "latest",
+    "@react-three/postprocessing": "latest",
+    "@replit/vite-plugin-runtime-error-modal": "latest",
+    "@tailwindcss/typography": "latest",
+    "@tanstack/react-query": "latest",
+    "@types/connect-pg-simple": "latest",
+    "@types/express": "latest",
+    "@types/express-session": "latest",
+    "@types/node": "latest",
+    "@types/passport": "latest",
+    "@types/passport-local": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@types/ws": "latest",
+    "@vitejs/plugin-react": "latest",
+    "autoprefixer": "latest",
+    "class-variance-authority": "latest",
+    "clsx": "latest",
+    "cmdk": "latest",
+    "connect-pg-simple": "latest",
+    "date-fns": "latest",
+    "drizzle-kit": "latest",
+    "drizzle-orm": "latest",
+    "drizzle-zod": "latest",
+    "embla-carousel-react": "latest",
+    "esbuild": "latest",
+    "express": "latest",
+    "express-session": "latest",
+    "framer-motion": "latest",
+    "gl-matrix": "latest",
+    "gsap": "latest",
+    "howler": "latest",
+    "input-otp": "latest",
+    "lucide-react": "latest",
+    "matter-js": "latest",
+    "memorystore": "latest",
+    "meshline": "latest",
+    "next-themes": "latest",
+    "ogl": "latest",
+    "passport": "latest",
+    "passport-local": "latest",
+    "pixi.js": "latest",
+    "postcss": "latest",
+    "postprocessing": "latest",
+    "r3f-perf": "latest",
+    "react": "latest",
+    "react-confetti": "latest",
+    "react-day-picker": "latest",
+    "react-dom": "latest",
+    "react-haiku": "latest",
+    "react-helmet-async": "latest",
+    "react-hook-form": "latest",
+    "react-icons": "latest",
+    "react-leaflet": "latest",
+    "react-resizable-panels": "latest",
+    "react-router-dom": "latest",
+    "react-syntax-highlighter": "latest",
+    "react-use-gesture": "latest",
+    "react-useanimations": "latest",
+    "recharts": "latest",
+    "socket.io": "latest",
+    "socket.io-client": "latest",
+    "sonner": "latest",
+    "tailwind-merge": "latest",
+    "tailwind-scrollbar": "latest",
+    "tailwindcss": "latest",
+    "tailwindcss-animate": "latest",
+    "three": "latest",
+    "tsx": "latest",
+    "typescript": "latest",
+    "vaul": "latest",
+    "vite": "latest",
+    "vite-plugin-glsl": "latest",
+    "wouter": "latest",
+    "ws": "latest",
+    "zod": "latest",
+    "zod-validation-error": "latest",
+    "zustand": "latest"
+  }
+}
+```
+
+### server/index.ts
+```typescript
+import express, { type Request, Response, NextFunction } from "express";
+import { registerRoutes } from "./routes";
+import { setupVite, serveStatic, log } from "./vite";
+import { GameServer } from "./gameServer";
+
+function logError(message: string, err: any) {
+  const timeStamp = new Date().toLocaleString();
+  console.error(`[${timeStamp}] ERROR: ${message}`, err);
+}
+
+const app = express();
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+
+(async () => {
+  try {
+    const server = await registerRoutes(app);
+    
+    // Initialize WebSocket game server
+    const gameServer = new GameServer(server);
+    
+    const { NODE_ENV = "development" } = process.env;
+    if (NODE_ENV === "development") {
+      await setupVite(app, server);
+    } else {
+      serveStatic(app);
+    }
+
+    // Error handling middleware
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
+
+      logError(`Unhandled application error: ${message}`, err);
+
+      res.status(status).json({ message, ...(NODE_ENV === "development" && { stack: err.stack }) });
+    });
+
+    const PORT = parseInt(process.env.PORT || "5000", 10);
+    server.listen(PORT, "0.0.0.0", () => {
+      log(`Server with WebSocket support running on port ${PORT}`, "express");
+    });
+
+  } catch (error) {
+    logError("Failed to start server", error);
+    process.exit(1);
+  }
+})();
+```
+
+### server/routes.ts
+```typescript
+import type { Express } from "express";
+import { createServer, type Server } from "http";
+import { storage } from "./storage";
+
+export async function registerRoutes(app: Express): Promise<Server> {
+  const server = createServer(app);
+
+  app.get("/api/health", (_req, res) => {
+    res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
+  app.get("/api/users", async (_req, res) => {
+    try {
+      const users = await storage.getUser(1);
+      res.json(users);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
+  return server;
+}
+```
+
+### server/gameServer.ts
+```typescript
+import { Server as SocketServer, Socket } from 'socket.io';
+import { Server } from 'http';
+
+interface Player {
+  id: string;
+  name: string;
+  color: string;
+  type: 'human' | 'ai';
+  socketId?: string;
+  territories: number[];
+  armyGenRate: number;
+  totalArmies: number;
+  territoriesOwned: number;
+  isEliminated: boolean;
+}
+
+interface GameRoom {
+  id: string;
+  name: string;
+  players: Map<string, Player>;
+  gameState: any;
+  isStarted: boolean;
+  maxPlayers: number;
+  aiPlayerCount: number;
+  gameMode: 'single' | 'multiplayer';
+  lastUpdate: number;
+}
+
+export class GameServer {
+  private io: SocketServer;
+  private rooms: Map<string, GameRoom> = new Map();
+  private playerToRoom: Map<string, string> = new Map();
+
+  constructor(server: Server) {
+    this.io = new SocketServer(server, {
+      cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+      }
+    });
+
+    this.setupSocketHandlers();
+  }
+
+  private setupSocketHandlers() {
+    this.io.on('connection', (socket: Socket) => {
+      console.log('Player connected:', socket.id);
+
+      socket.on('create-room', (data: { roomName: string, playerName: string, maxPlayers?: number, aiCount?: number }) => {
+        const roomId = this.generateRoomId();
+        const room: GameRoom = {
+          id: roomId,
+          name: data.roomName,
+          players: new Map(),
+          gameState: null,
+          isStarted: false,
+          maxPlayers: data.maxPlayers || 10,
+          aiPlayerCount: data.aiCount || 90,
+          gameMode: 'multiplayer',
+          lastUpdate: Date.now()
+        };
+
+        this.rooms.set(roomId, room);
+        this.joinRoom(socket, roomId, data.playerName);
+
+        socket.emit('room-created', { roomId, room: this.getRoomInfo(room) });
+        console.log(`Room ${roomId} created by ${data.playerName}`);
+      });
+
+      socket.on('start-single-player', (data: { playerName: string, aiCount?: number }) => {
+        const roomId = this.generateRoomId();
+        const room: GameRoom = {
+          id: roomId,
+          name: 'Single Player Game',
+          players: new Map(),
+          gameState: null,
+          isStarted: false,
+          maxPlayers: 1,
+          aiPlayerCount: data.aiCount || 19,
+          gameMode: 'single',
+          lastUpdate: Date.now()
+        };
+
+        this.rooms.set(roomId, room);
+        this.joinRoom(socket, roomId, data.playerName);
+        this.startGame(roomId);
+
+        socket.emit('single-player-started', { roomId, room: this.getRoomInfo(room) });
+        console.log(`Single player game ${roomId} started by ${data.playerName}`);
+      });
+
+      socket.on('join-room', (data: { roomId: string, playerName: string }) => {
+        this.joinRoom(socket, data.roomId, data.playerName);
+      });
+
+      socket.on('game-action', (data: { action: string, payload: any }) => {
+        const roomId = this.playerToRoom.get(socket.id);
+        if (!roomId) return;
+
+        const room = this.rooms.get(roomId);
+        if (!room || !room.isStarted) return;
+
+        this.handleGameAction(socket, room, data.action, data.payload);
+      });
+
+      socket.on('disconnect', () => {
+        this.handleDisconnect(socket);
+      });
+    });
+  }
+
+  private joinRoom(socket: any, roomId: string, playerName: string) {
+    const room = this.rooms.get(roomId);
+    if (!room) {
+      socket.emit('error', { message: 'Room not found' });
+      return;
+    }
+
+    if (room.players.size >= room.maxPlayers) {
+      socket.emit('error', { message: 'Room is full' });
+      return;
+    }
+
+    const player: Player = {
+      id: socket.id,
+      name: playerName,
+      color: this.generatePlayerColor(room.players.size),
+      type: 'human',
+      socketId: socket.id,
+      territories: [],
+      armyGenRate: 1,
+      totalArmies: 0,
+      territoriesOwned: 0,
+      isEliminated: false
+    };
+
+    room.players.set(socket.id, player);
+    this.playerToRoom.set(socket.id, roomId);
+
+    socket.join(roomId);
+    socket.emit('room-joined', { room: this.getRoomInfo(room) });
+    socket.to(roomId).emit('player-joined', { player: this.getPlayerInfo(player) });
+
+    console.log(`${playerName} joined room ${roomId}`);
+  }
+
+  private startGame(roomId: string) {
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+
+    room.isStarted = true;
+    
+    // Initialize game state (this would connect to your existing game logic)
+    room.gameState = {
+      phase: 'playing',
+      territories: [],
+      gameMap: null,
+      tick: 0
+    };
+
+    // Notify all players in the room
+    this.io.to(roomId).emit('game-started', { 
+      gameState: room.gameState,
+      players: Array.from(room.players.values()).map(p => this.getPlayerInfo(p))
+    });
+
+    console.log(`Game started in room ${roomId} with ${room.players.size} human players and ${room.aiPlayerCount} AI players`);
+  }
+
+  private handleGameAction(socket: any, room: GameRoom, action: string, payload: any) {
+    // Broadcast the action to all other players in the room
+    socket.to(room.id).emit('game-update', { action, payload, playerId: socket.id });
+    
+    // Update room's game state based on the action
+    room.lastUpdate = Date.now();
+  }
+
+  private broadcastGameUpdate(roomId: string, update: any) {
+    this.io.to(roomId).emit('game-update', update);
+  }
+
+  private handleDisconnect(socket: any) {
+    const roomId = this.playerToRoom.get(socket.id);
+    if (!roomId) return;
+
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+
+    const player = room.players.get(socket.id);
+    if (player) {
+      room.players.delete(socket.id);
+      this.playerToRoom.delete(socket.id);
+      
+      socket.to(roomId).emit('player-left', { playerId: socket.id });
+      
+      // Clean up empty rooms
+      if (room.players.size === 0) {
+        this.rooms.delete(roomId);
+        console.log(`Room ${roomId} cleaned up (empty)`);
+      }
+      
+      console.log(`${player.name} left room ${roomId}`);
+    }
+  }
+
+  private generateRoomId(): string {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
+  }
+
+  private generatePlayerColor(index: number): string {
+    const colors = ['#ff4444', '#44ff44', '#4444ff', '#ffff44', '#ff44ff', '#44ffff'];
+    return colors[index % colors.length];
+  }
+
+  private getRoomInfo(room: GameRoom) {
+    return {
+      id: room.id,
+      name: room.name,
+      playerCount: room.players.size,
+      maxPlayers: room.maxPlayers,
+      aiPlayerCount: room.aiPlayerCount,
+      isStarted: room.isStarted,
+      gameMode: room.gameMode,
+      players: Array.from(room.players.values()).map(p => this.getPlayerInfo(p))
+    };
+  }
+
+  private getPlayerInfo(player: Player) {
+    return {
+      id: player.id,
+      name: player.name,
+      color: player.color,
+      type: player.type,
+      territoriesOwned: player.territoriesOwned,
+      totalArmies: player.totalArmies,
+      isEliminated: player.isEliminated
+    };
+  }
+
+  public getRoomsList() {
+    return Array.from(this.rooms.values()).map(room => this.getRoomInfo(room));
+  }
+}
+```
+
+### client/src/App.tsx
+```typescript
+import React, { useRef, useEffect, useState } from 'react';
+import { GameModeSelector } from './components/GameModeSelector';
+import { Interface } from './components/Interface';
+
+type GameMode = 'single' | 'multiplayer' | null;
+
+interface GameData {
+  playerName: string;
+  aiCount?: number;
+  mapSize?: number;
+  room?: any;
+}
+
+function App() {
+  const gameRef = useRef<any>(null);
+  const mountedRef = useRef(false);
+  const [gameMode, setGameMode] = useState<GameMode>(null);
+  const [gameData, setGameData] = useState<GameData | null>(null);
+
+  const initSinglePlayerGame = async (data: GameData) => {
+    try {
+      const { default: TerritorialConquest } = await import('./game/TerritorialConquest.js');
+      gameRef.current = new TerritorialConquest(data);
+      // Make game globally accessible for mobile zoom buttons
+      (window as any).game = gameRef.current;
+      console.log('Single-player Territorial Conquest game initialized with config:', data);
+    } catch (error) {
+      console.error('Failed to initialize single-player game:', error);
+    }
+  };
+
+  const initMultiplayerGame = async (data: GameData) => {
+    try {
+      const { default: TerritorialConquest } = await import('./game/TerritorialConquest.js');
+      gameRef.current = new TerritorialConquest(data);
+      // Make game globally accessible for mobile zoom buttons
+      (window as any).game = gameRef.current;
+      console.log('Multiplayer Territorial Conquest game initialized');
+    } catch (error) {
+      console.error('Failed to initialize multiplayer game:', error);
+    }
+  };
+
+  const handleModeSelected = (mode: GameMode, data?: GameData) => {
+    setGameMode(mode);
+    setGameData(data || null);
+    
+    if (mode === 'single' && data) {
+      initSinglePlayerGame(data);
+    } else if (mode === 'multiplayer' && data) {
+      initMultiplayerGame(data);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-900">
+      {!gameMode && (
+        <GameModeSelector onModeSelected={handleModeSelected} />
+      )}
+      
+      {gameMode && (
+        <>
+          <canvas id="gameCanvas" className="w-full h-screen"></canvas>
+          <Interface gameRef={gameRef} />
+        </>
+      )}
+    </div>
+  );
+}
+
+export default App;
+```
+
+### client/src/components/GameModeSelector.tsx
+```typescript
+import React, { useState } from 'react';
+import { Button } from './ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { GameConfigScreen, type GameConfig } from './GameConfigScreen';
+
+interface GameModeSelectorProps {
+  onModeSelected: (mode: 'single' | 'multiplayer', data?: any) => void;
+}
+
+export function GameModeSelector({ onModeSelected }: GameModeSelectorProps) {
+  const [showConfig, setShowConfig] = useState(false);
+
+  const handleConfigStart = (config: GameConfig) => {
+    onModeSelected('single', {
+      playerName: config.playerName,
+      aiCount: config.aiPlayerCount,
+      mapSize: config.mapSize
+    });
+  };
+
+  if (showConfig) {
+    return (
+      <GameConfigScreen 
+        onStartGame={handleConfigStart}
+        onBack={() => setShowConfig(false)}
+      />
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 flex items-center justify-center p-4">
+      <div className="max-w-4xl w-full">
+        <div className="text-center mb-12">
+          <h1 className="text-6xl font-bold text-white mb-4 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+            Territorial Conquest
+          </h1>
+          <p className="text-xl text-gray-300">
+            Strategic multiplayer territory domination
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-8">
+          <Card className="bg-gray-800/50 border-gray-700 hover:bg-gray-800/70 transition-colors">
+            <CardHeader>
+              <CardTitle className="text-white text-2xl">Single Player</CardTitle>
+              <CardDescription className="text-gray-300">
+                Battle against AI opponents in customizable scenarios
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="text-sm text-gray-400">
+                  <div>• Customizable map size (50-400 territories)</div>
+                  <div>• Choose AI opponent count (5-99 players)</div>
+                  <div>• Probe-based colonization system</div>
+                  <div>• Advanced AI strategies</div>
+                </div>
+                <Button 
+                  onClick={() => setShowConfig(true)}
+                  className="w-full bg-blue-600 hover:bg-blue-700"
+                  size="lg"
+                >
+                  Configure & Start
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gray-800/50 border-gray-700 hover:bg-gray-800/70 transition-colors">
+            <CardHeader>
+              <CardTitle className="text-white text-2xl">Multiplayer</CardTitle>
+              <CardDescription className="text-gray-300">
+                Real-time battles with human players worldwide
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="text-sm text-gray-400">
+                  <div>• Real-time WebSocket multiplayer</div>
+                  <div>• Up to 100 players per game</div>
+                  <div>• Room-based matchmaking</div>
+                  <div>• Competitive leaderboards</div>
+                </div>
+                <Button 
+                  onClick={() => onModeSelected('multiplayer')}
+                  className="w-full bg-purple-600 hover:bg-purple-700"
+                  size="lg"
+                  disabled
+                >
+                  Coming Soon
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="text-center mt-8">
+          <p className="text-gray-400 text-sm">
+            Choose your conquest mode and dominate the galaxy
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+### client/src/components/GameConfigScreen.tsx
+```typescript
+import React, { useState } from 'react';
+import { Button } from './ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Label } from './ui/label';
+import { Input } from './ui/input';
+import { Slider } from './ui/slider';
+import { ArrowLeft } from 'lucide-react';
+
+interface GameConfigScreenProps {
+  onStartGame: (config: GameConfig) => void;
+  onBack: () => void;
+}
+
+export interface GameConfig {
+  mapSize: number;
+  aiPlayerCount: number;
+  playerName: string;
+}
+
+export function GameConfigScreen({ onStartGame, onBack }: GameConfigScreenProps) {
+  const [config, setConfig] = useState<GameConfig>({
+    mapSize: 200,
+    aiPlayerCount: 19,
+    playerName: 'Commander'
+  });
+
+  const getMapSizeDescription = (size: number) => {
+    if (size <= 100) return 'Small';
+    if (size <= 200) return 'Medium';
+    if (size <= 300) return 'Large';
+    return 'Massive';
+  };
+
+  const getDifficultyDescription = (aiCount: number) => {
+    if (aiCount <= 10) return 'Easy - Few opponents';
+    if (aiCount <= 25) return 'Medium - Balanced competition';
+    if (aiCount <= 50) return 'Hard - Many rivals';
+    return 'Extreme - Overwhelming odds';
+  };
+
+  const handleStart = () => {
+    if (config.playerName.trim()) {
+      onStartGame(config);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 flex items-center justify-center p-4">
+      <div className="max-w-2xl w-full">
+        <div className="mb-6">
+          <Button 
+            onClick={onBack}
+            variant="ghost" 
+            className="text-gray-300 hover:text-white"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Menu
+          </Button>
+        </div>
+
+        <Card className="bg-gray-800/50 border-gray-700">
+          <CardHeader>
+            <CardTitle className="text-white text-3xl text-center">Configure Your Campaign</CardTitle>
+            <CardDescription className="text-gray-300 text-center">
+              Customize your single-player conquest experience
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-8">
+            
+            {/* Player Name */}
+            <div className="space-y-2">
+              <Label htmlFor="playerName" className="text-white">Commander Name</Label>
+              <Input
+                id="playerName"
+                value={config.playerName}
+                onChange={(e) => setConfig(prev => ({ ...prev, playerName: e.target.value }))}
+                className="bg-gray-700 border-gray-600 text-white"
+                placeholder="Enter your name"
+              />
+            </div>
+
+            {/* Map Size */}
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <Label className="text-white">Galaxy Size</Label>
+                <span className="text-blue-400 font-medium">
+                  {config.mapSize} territories ({getMapSizeDescription(config.mapSize)})
+                </span>
+              </div>
+              <Slider
+                value={[config.mapSize]}
+                onValueChange={(value) => setConfig(prev => ({ ...prev, mapSize: value[0] }))}
+                min={50}
+                max={400}
+                step={25}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-gray-400">
+                <span>Small (50)</span>
+                <span>Medium (200)</span>
+                <span>Large (300)</span>
+                <span>Massive (400)</span>
+              </div>
+            </div>
+
+            {/* AI Count */}
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <Label className="text-white">Enemy Factions</Label>
+                <span className="text-purple-400 font-medium">
+                  {config.aiPlayerCount} opponents ({getDifficultyDescription(config.aiPlayerCount)})
+                </span>
+              </div>
+              <Slider
+                value={[config.aiPlayerCount]}
+                onValueChange={(value) => setConfig(prev => ({ ...prev, aiPlayerCount: value[0] }))}
+                min={5}
+                max={99}
+                step={1}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-gray-400">
+                <span>Easy (5)</span>
+                <span>Medium (25)</span>
+                <span>Hard (50)</span>
+                <span>Extreme (99)</span>
+              </div>
+            </div>
+
+            {/* Game Preview */}
+            <div className="bg-gray-700/50 rounded-lg p-4 space-y-2">
+              <h3 className="text-white font-medium">Campaign Preview</h3>
+              <div className="text-sm text-gray-300 space-y-1">
+                <div>• Total Territories: <span className="text-blue-400">{config.mapSize}</span></div>
+                <div>• AI Opponents: <span className="text-purple-400">{config.aiPlayerCount}</span></div>
+                <div>• Probe-based colonization system</div>
+                <div>• Hidden army counts on neutral planets</div>
+                <div>• Real-time strategy gameplay</div>
+              </div>
+            </div>
+
+            <Button 
+              onClick={handleStart}
+              disabled={!config.playerName.trim()}
+              className="w-full bg-green-600 hover:bg-green-700"
+              size="lg"
+            >
+              Launch Campaign
+            </Button>
+            
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+```
+
+### client/src/game/TerritorialConquest.js
+```javascript
+import { GameMap } from './GameMap.js';
+import { Player } from './Player.js';
+import { GameUI } from './GameUI.js';
+import { Camera } from './Camera.js';
+import { Probe } from './Probe.js';
+
+export default class TerritorialConquest {
+    constructor(config = {}) {
+        this.canvas = null;
+        this.ctx = null;
+        this.gameMap = null;
+        this.players = [];
+        this.humanPlayer = null;
+        this.camera = null;
+        this.ui = null;
+        
+        // Game configuration from config screen
+        this.config = {
+            playerName: config.playerName || 'Player',
+            aiCount: config.aiCount || 19,
+            mapSize: config.mapSize || 200,
+            ...config
+        };
+        
+        // Game state
+        this.gameState = 'lobby'; // lobby, playing, ended
+        this.gameTimer = 10 * 60 * 1000; // 10 minutes
+        this.maxPlayers = 100;
+        this.currentPlayers = 0;
+        
+        // Input state
+        this.mousePos = { x: 0, y: 0 };
+        this.isDragging = false;
+        this.dragStart = { x: 0, y: 0 };
+        this.selectedTerritory = null;
+        this.dragPreview = null;
+        
+        // Performance tracking
+        this.fps = 0;
+        this.frameCount = 0;
+        this.lastFPSUpdate = 0;
+        this.lastFrameTime = 0;
+        
+        // Touch state for mobile
+        this.touchState = {
+            touches: [],
+            lastTap: 0,
+            isZooming: false,
+            isPanning: false,
+            initialDistance: 0,
+            lastZoom: 1
+        };
+        
+        // Supply routes system
+        this.supplyRoutes = [];
+        this.delayedTransfers = [];
+        
+        // Ship animations
+        this.shipAnimations = [];
+        this.shipAnimationPool = [];
+        
+        // Probes system
+        this.probes = [];
+        
+        // Optimization
+        this.visibleTerritories = new Set();
+        this.lastCullingUpdate = 0;
+        this.aiUpdateIndex = 0;
+        this.supplyRouteValidationFrame = 0;
+        
+        this.init();
+    }
+
+    init() {
+        this.setupCanvas();
+        this.gameMap = new GameMap(2000, 2000);
+        this.camera = new Camera(this.canvas.width, this.canvas.height);
+        this.ui = new GameUI(this.canvas, this.camera);
+        this.setupEventListeners();
+        this.startGame();
+        this.gameLoop();
+    }
+
+    createShipAnimation(fromTerritory, toTerritory, isAttack = false) {
+        // Use object pool for better performance
+        let animation = this.shipAnimationPool.pop();
+        if (!animation) {
+            animation = {
+                from: null,
+                to: null,
+                progress: 0,
+                duration: 0,
+                color: '',
+                isAttack: false,
+                active: false
+            };
+        }
+        
+        const distance = Math.sqrt(
+            Math.pow(toTerritory.x - fromTerritory.x, 2) +
+            Math.pow(toTerritory.y - fromTerritory.y, 2)
+        );
+        
+        animation.from = fromTerritory;
+        animation.to = toTerritory;
+        animation.progress = 0;
+        animation.duration = Math.max(500, distance * 2); // 2ms per pixel
+        animation.color = fromTerritory.owner ? this.players.find(p => p.id === fromTerritory.owner)?.color || '#ffffff' : '#ffffff';
+        animation.isAttack = isAttack;
+        animation.active = true;
+        
+        this.shipAnimations.push(animation);
+    }
+
+    updateShipAnimations(deltaTime) {
+        for (let i = this.shipAnimations.length - 1; i >= 0; i--) {
+            const animation = this.shipAnimations[i];
+            animation.progress += deltaTime;
+            
+            if (animation.progress >= animation.duration) {
+                // Return to pool
+                animation.active = false;
+                this.shipAnimationPool.push(animation);
+                this.shipAnimations.splice(i, 1);
+            }
+        }
+    }
+
+    updateProbes(deltaTime) {
+        for (let i = this.probes.length - 1; i >= 0; i--) {
+            const probe = this.probes[i];
+            probe.update(deltaTime);
+            
+            if (probe.getProgress() >= 1.0) {
+                this.colonizePlanet(probe);
+                this.probes.splice(i, 1);
+            }
+        }
+    }
+
+    colonizePlanet(probe) {
+        const territory = this.gameMap.territories[probe.toTerritory];
+        if (!territory || territory.owner !== null) return;
+        
+        const player = this.players.find(p => p.id === probe.playerId);
+        if (!player) return;
+        
+        // Colonize with exactly 1 army regardless of hidden strength
+        territory.owner = player.id;
+        territory.armySize = 1;
+        territory.isColonizable = false;
+        
+        // Reveal hidden connections
+        territory.revealConnections();
+        
+        // Update player stats
+        player.territories.push(probe.toTerritory);
+        player.updateStats();
+        
+        console.log(`${player.name} colonized territory ${probe.toTerritory} (was hidden strength ${territory.hiddenArmySize})`);
+    }
+
+    renderShipAnimations() {
+        for (const animation of this.shipAnimations) {
+            if (!animation.active) continue;
+            
+            const progress = this.easeInOutQuad(animation.progress / animation.duration);
+            const x = animation.from.x + (animation.to.x - animation.from.x) * progress;
+            const y = animation.from.y + (animation.to.y - animation.from.y) * progress;
+            
+            this.ctx.fillStyle = animation.color;
+            this.ctx.beginPath();
+            this.ctx.arc(x, y, 3, 0, Math.PI * 2);
+            this.ctx.fill();
+        }
+    }
+
+    renderProbes() {
+        for (const probe of this.probes) {
+            probe.render(this.ctx);
+        }
+    }
+
+    easeInOutQuad(t) {
+        return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    }
+
+    setupCanvas() {
+        this.canvas = document.getElementById('gameCanvas');
+        if (!this.canvas) {
+            console.error('Canvas element not found');
+            return;
+        }
+        
+        this.ctx = this.canvas.getContext('2d');
+        
+        // Set canvas size to full window
+        const resizeCanvas = () => {
+            this.canvas.width = window.innerWidth;
+            this.canvas.height = window.innerHeight;
+            if (this.camera) {
+                this.camera.updateViewport(this.canvas.width, this.canvas.height);
+            }
+        };
+        
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+    }
+
+    setupEventListeners() {
+        // Mouse events
+        this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
+        this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
+        this.canvas.addEventListener('mouseup', this.handleMouseUp.bind(this));
+        this.canvas.addEventListener('wheel', this.handleWheel.bind(this));
+        
+        // Touch events for mobile
+        this.canvas.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
+        this.canvas.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
+        this.canvas.addEventListener('touchend', this.handleTouchEnd.bind(this), { passive: false });
+        
+        // Keyboard events
+        document.addEventListener('keydown', this.handleKeyDown.bind(this));
+        
+        // Prevent context menu
+        this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    }
+    
+    startGame() {
+        console.log('Starting Territorial Conquest game with config:', this.config);
+        
+        // Generate territories using configured map size
+        this.gameMap.generateTerritories(this.config.mapSize);
+        
+        // Create players: 1 human + configured AI count
+        const totalPlayers = 1 + this.config.aiCount;
+        this.createPlayers(Math.min(totalPlayers, this.maxPlayers));
+        
+        // Update human player name from config
+        if (this.humanPlayer) {
+            this.humanPlayer.name = this.config.playerName;
+        }
+        
+        // Distribute initial territories
+        this.distributeStartingTerritories();
+        
+        // Center camera on human player's starting territory
+        if (this.humanPlayer && this.humanPlayer.territories.length > 0) {
+            const startTerritory = this.gameMap.territories[this.humanPlayer.territories[0]];
+            this.camera.centerOn(startTerritory.x, startTerritory.y);
+        }
+        
+        this.gameState = 'playing';
+        console.log(`Game started with ${this.players.length} players (${this.config.playerName} + ${this.config.aiCount} AI) and ${Object.keys(this.gameMap.territories).length} territories`);
+    }
+    
+    generateAIName(index) {
+        const firstNames = [
+            'Alex', 'Blake', 'Casey', 'Dana', 'Emma', 'Felix', 'Grace', 'Hunter', 'Iris', 'Jack',
+            'Kai', 'Luna', 'Max', 'Nova', 'Owen', 'Piper', 'Quinn', 'Riley', 'Sage', 'Tyler',
+            'Uma', 'Victor', 'Wade', 'Xara', 'Yuki', 'Zara', 'Ash', 'Beck', 'Cole', 'Drew',
+            'Echo', 'Finn', 'Gale', 'Hope', 'Ivan', 'Jade', 'Kane', 'Lexi', 'Mika', 'Nora',
+            'Orion', 'Phoenix', 'Raven', 'Storm', 'Tara', 'Vale', 'Wren', 'Zane', 'Aria', 'Brix',
+            'Coda', 'Dex', 'Eden', 'Fox', 'Gray', 'Hawk', 'Juno', 'Kira', 'Lux', 'Moss',
+            'Neo', 'Oslo', 'Pike', 'Rain', 'Sky', 'Tex', 'Vex', 'Wolf', 'Zed', 'Atlas',
+            'Bear', 'Cruz', 'Dash', 'Enzo', 'Flint', 'Ghost', 'Haze', 'Jett', 'Knox', 'Link'
+        ];
+        
+        const clanNames = [
+            'StarForge', 'VoidHunters', 'NebulaRise', 'CosmicFury', 'SolarFlare', 'DarkMatter',
+            'GalaxyCorp', 'NovaStrike', 'CelestialWar', 'SpaceRaiders', 'StellarWolves', 'OrbitClan',
+            'AstroElite', 'CubClan', 'ZenithForce', 'PlasmaBorn', 'StarDust', 'VoidWalkers',
+            'QuantumLeap', 'PhotonStorm', 'EtherGuard', 'CosmoKnights', 'StarVeins', 'NebulaCrest',
+            'VortexClan', 'AstralFire', 'MeteoRiders', 'IonStorm', 'PulsarWave', 'GravityWell',
+            'SolarWind', 'BlackHole', 'RedGiant', 'WhiteDwarf', 'SuperNova', 'Constellation',
+            'MilkyWay', 'Andromeda', 'Centauri', 'Proxima', 'Kepler', 'Hubble', 'Armstrong',
+            'Gagarin', 'Apollo', 'Artemis', 'Orion', 'Pegasus', 'Phoenix', 'Dragon', 'Falcon'
+        ];
+        
+        const firstName = firstNames[index % firstNames.length];
+        const clanName = clanNames[Math.floor(index / firstNames.length) % clanNames.length];
+        
+        return `[${clanName}] ${firstName}`;
+    }
+
+    createPlayers(numPlayers) {
+        // Expanded unique color palette - no duplicates
+        const baseColors = [
+            '#ff4444', '#44ff44', '#4444ff', '#ffff44', '#ff44ff', 
+            '#ff8844', '#88ff44', '#4488ff', '#ff4488', '#88ff88', '#8844ff',
+            '#ffaa44', '#aaff44', '#44aaff', '#ff44aa', '#aaff88', '#aa44ff',
+            '#ff6644', '#66ff44', '#4466ff', '#ff4466', '#66ff88', '#6644ff',
+            '#ff9944', '#99ff44', '#4499ff', '#ff4499', '#99ff88', '#9944ff',
+            '#ffcc44', '#ccff44', '#44ccff', '#ff44cc', '#ccff88', '#cc44ff',
+            '#ff7744', '#77ff44', '#4477ff', '#ff4477', '#77ff88', '#7744ff',
+            '#ffdd44', '#ddff44', '#44ddff', '#ff44dd', '#ddff88', '#dd44ff'
+        ];
+        
+        // Create human player with distinctive bright cyan color
+        this.humanPlayer = new Player(0, 'You', '#00ffff', 'human');
+        this.players.push(this.humanPlayer);
+        
+        // Create AI players with unique colors and human-like names
+        const usedColors = new Set(['#00ffff']); // Reserve human color
+        
+        for (let i = 1; i < numPlayers && i < this.maxPlayers; i++) {
+            let playerColor;
+            let attempts = 0;
+            
+            // Find a unique color
+            do {
+                const colorIndex = (i - 1) % baseColors.length;
+                playerColor = baseColors[colorIndex];
+                
+                // If we've used this color, generate a slight variation
+                if (usedColors.has(playerColor)) {
+                    const variation = Math.floor(attempts / baseColors.length) * 0.1 + 0.1;
+                    playerColor = this.adjustColorBrightness(playerColor, variation);
+                }
+                attempts++;
+            } while (usedColors.has(playerColor) && attempts < 100);
+            
+            usedColors.add(playerColor);
+            
+            // Generate human-like name with clan designation
+            const aiName = this.generateAIName(i - 1);
+            this.players.push(new Player(i, aiName, playerColor, 'ai'));
+        }
+        
+        this.currentPlayers = this.players.length;
+    }
+    
+    adjustColorBrightness(hex, percent) {
+        const num = parseInt(hex.replace("#", ""), 16);
+        const amt = Math.round(2.55 * percent * 100);
+        const R = (num >> 16) + amt;
+        const G = (num >> 8 & 0x00FF) + amt;
+        const B = (num & 0x0000FF) + amt;
+        return "#" + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+            (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+            (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1);
+    }
+    
+    distributeStartingTerritories() {
+        const territories = Object.values(this.gameMap.territories);
+        const availableTerritories = territories.slice();
+        this.shuffleArray(availableTerritories);
+        
+        // Each player gets exactly one starting territory
+        for (let i = 0; i < this.players.length && availableTerritories.length > 0; i++) {
+            const player = this.players[i];
+            const territory = availableTerritories.pop();
+            
+            // Colonize the territory
+            territory.owner = player.id;
+            territory.armySize = 1; // Start with 1 army
+            territory.isColonizable = false;
+            territory.revealConnections();
+            
+            player.territories.push(territory.id);
+        }
+        
+        // Update all player stats
+        this.players.forEach(player => player.updateStats());
+        
+        console.log(`Distributed ${this.players.length} starting territories`);
+    }
+    
+    shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+    }
+    
+    gameLoop(currentTime = 0) {
+        const deltaTime = currentTime - this.lastFrameTime;
+        this.lastFrameTime = currentTime;
+        
+        this.updateFPS(currentTime);
+        this.update(deltaTime);
+        this.render();
+        
+        requestAnimationFrame(this.gameLoop.bind(this));
+    }
+    
+    updateFPS(currentTime) {
+        this.frameCount++;
+        if (currentTime - this.lastFPSUpdate >= 1000) {
+            this.fps = this.frameCount;
+            this.frameCount = 0;
+            this.lastFPSUpdate = currentTime;
+        }
+    }
+    
+    update(deltaTime) {
+        if (this.gameState !== 'playing') return;
+        
+        // Update camera
+        this.camera.update(deltaTime);
+        
+        // Update ship animations
+        this.updateShipAnimations(deltaTime);
+        
+        // Update probes
+        this.updateProbes(deltaTime);
+        
+        // Throttled visible territories update (every 100ms)
+        if (Date.now() - this.lastCullingUpdate > 100) {
+            this.updateVisibleTerritories();
+            this.lastCullingUpdate = Date.now();
+        }
+        
+        // Throttled AI updates - process 1/3 of players per frame
+        const playersPerFrame = Math.ceil(this.players.length / 3);
+        for (let i = 0; i < playersPerFrame; i++) {
+            const playerIndex = (this.aiUpdateIndex + i) % this.players.length;
+            const player = this.players[playerIndex];
+            if (player && player.type === 'ai') {
+                player.update(deltaTime, this.gameMap);
+            }
+        }
+        this.aiUpdateIndex = (this.aiUpdateIndex + playersPerFrame) % this.players.length;
+        
+        // Generate armies for all territories
+        Object.values(this.gameMap.territories).forEach(territory => {
+            if (territory.owner !== null) {
+                const player = this.players.find(p => p.id === territory.owner);
+                if (player) {
+                    territory.generateArmies(deltaTime, player);
+                }
+            }
+        });
+        
+        // Throttled supply route validation (every 30 frames, process every 60 frames)
+        this.supplyRouteValidationFrame++;
+        if (this.supplyRouteValidationFrame % 30 === 0) {
+            this.validateSupplyRoutes();
+        }
+        if (this.supplyRouteValidationFrame % 60 === 0) {
+            this.processSupplyRoutes();
+        }
+        
+        // Process delayed transfers
+        for (let i = this.delayedTransfers.length - 1; i >= 0; i--) {
+            const transfer = this.delayedTransfers[i];
+            transfer.delay -= deltaTime;
+            
+            if (transfer.delay <= 0) {
+                const fromTerritory = this.gameMap.territories[transfer.from];
+                const toTerritory = this.gameMap.territories[transfer.to];
+                
+                if (fromTerritory && toTerritory && 
+                    fromTerritory.owner === toTerritory.owner &&
+                    fromTerritory.armySize > transfer.shipCount) {
+                    
+                    fromTerritory.armySize -= transfer.shipCount;
+                    toTerritory.armySize += transfer.shipCount;
+                    
+                    // Create visual ship animation
+                    this.createShipAnimation(fromTerritory, toTerritory, false);
+                }
+                
+                this.delayedTransfers.splice(i, 1);
+            }
+        }
+        
+        // Check win conditions
+        this.checkPlayerElimination();
+        this.checkWinConditions();
+    }
+    
+    checkPlayerElimination() {
+        for (const player of this.players) {
+            if (!player.isEliminated && player.territories.length === 0) {
+                player.isEliminated = true;
+                console.log(`${player.name} has been eliminated!`);
+                
+                if (player === this.humanPlayer) {
+                    console.log('Human player eliminated - game over!');
+                }
+            }
+        }
+    }
+    
+    checkWinConditions() {
+        const alivePlayers = this.players.filter(p => !p.isEliminated);
+        if (alivePlayers.length === 1) {
+            this.endGame(alivePlayers[0]);
+        }
+    }
+    
+    endGame(winner = null) {
+        this.gameState = 'ended';
+        console.log('Game ended!', winner ? `Winner: ${winner.name}` : 'No winner');
+    }
+    
+    render() {
+        // Clear canvas
+        this.ctx.fillStyle = '#000011';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Apply camera transform
+        this.ctx.save();
+        this.camera.applyTransform(this.ctx);
+        
+        // Render game world
+        this.renderConnections();
+        this.renderSupplyRoutes();
+        this.renderTerritories();
+        this.renderShipAnimations();
+        this.renderProbes();
+        this.renderDragPreview();
+        
+        this.ctx.restore();
+        
+        // Render UI (not affected by camera)
+        this.renderUI();
+    }
+    
+    updateVisibleTerritories() {
+        const bounds = this.camera.getViewBounds();
+        this.visibleTerritories.clear();
+        
+        Object.values(this.gameMap.territories).forEach(territory => {
+            if (this.camera.isPointVisible(territory.x, territory.y, 50)) {
+                this.visibleTerritories.add(territory.id);
+            }
+        });
+    }
+    
+    renderTerritories() {
+        const territories = Object.values(this.gameMap.territories);
+        
+        for (const territory of territories) {
+            // Skip territories outside viewport for performance
+            if (!this.visibleTerritories.has(territory.id)) continue;
+            
+            this.ctx.save();
+            territory.render(this.ctx, this.players, this.selectedTerritory);
+            this.ctx.restore();
+        }
+    }
+    
+    renderConnections() {
+        const drawnConnections = new Set();
+        
+        for (const territory of Object.values(this.gameMap.territories)) {
+            if (!this.visibleTerritories.has(territory.id)) continue;
+            
+            for (const neighborId of territory.neighbors) {
+                // Avoid drawing the same connection twice
+                const connectionKey = `${Math.min(territory.id, neighborId)}-${Math.max(territory.id, neighborId)}`;
+                if (drawnConnections.has(connectionKey)) continue;
+                drawnConnections.add(connectionKey);
+                
+                const neighbor = this.gameMap.territories[neighborId];
+                if (!neighbor) continue;
+                
+                // Color connections between same-owned territories
+                if (territory.owner !== null && territory.owner === neighbor.owner) {
+                    const player = this.players.find(p => p.id === territory.owner);
+                    if (player) {
+                        this.ctx.strokeStyle = player.color;
+                        this.ctx.lineWidth = 3;
+                        this.ctx.globalAlpha = 0.6;
+                    }
+                } else {
+                    this.ctx.strokeStyle = '#444444';
+                    this.ctx.lineWidth = 1;
+                    this.ctx.globalAlpha = 0.3;
+                }
+                
+                this.ctx.beginPath();
+                this.ctx.moveTo(territory.x, territory.y);
+                this.ctx.lineTo(neighbor.x, neighbor.y);
+                this.ctx.stroke();
+                this.ctx.globalAlpha = 1;
+            }
+        }
+    }
+    
+    renderSupplyRoutes() {
+        const currentTime = Date.now();
+        
+        for (const route of this.supplyRoutes) {
+            const fromTerritory = this.gameMap.territories[route.from];
+            const toTerritory = this.gameMap.territories[route.to];
+            
+            if (!fromTerritory || !toTerritory) continue;
+            
+            // Animated dashed line
+            this.ctx.strokeStyle = '#00ffff';
+            this.ctx.lineWidth = 2;
+            this.ctx.globalAlpha = 0.8;
+            
+            const dashOffset = (currentTime * 0.01) % 20;
+            this.ctx.setLineDash([10, 10]);
+            this.ctx.lineDashOffset = -dashOffset;
+            
+            this.ctx.beginPath();
+            this.ctx.moveTo(fromTerritory.x, fromTerritory.y);
+            this.ctx.lineTo(toTerritory.x, toTerritory.y);
+            this.ctx.stroke();
+            
+            // Draw arrow
+            const angle = Math.atan2(toTerritory.y - fromTerritory.y, toTerritory.x - fromTerritory.x);
+            const arrowSize = 8;
+            const arrowX = toTerritory.x - Math.cos(angle) * 30;
+            const arrowY = toTerritory.y - Math.sin(angle) * 30;
+            
+            this.ctx.fillStyle = '#00ffff';
+            this.ctx.beginPath();
+            this.ctx.moveTo(arrowX, arrowY);
+            this.ctx.lineTo(
+                arrowX - arrowSize * Math.cos(angle - Math.PI / 6),
+                arrowY - arrowSize * Math.sin(angle - Math.PI / 6)
+            );
+            this.ctx.lineTo(
+                arrowX - arrowSize * Math.cos(angle + Math.PI / 6),
+                arrowY - arrowSize * Math.sin(angle + Math.PI / 6)
+            );
+            this.ctx.closePath();
+            this.ctx.fill();
+            
+            this.ctx.setLineDash([]);
+            this.ctx.globalAlpha = 1;
+        }
+    }
+    
+    renderDragPreview() {
+        if (this.dragPreview && this.selectedTerritory) {
+            const fromTerritory = this.gameMap.territories[this.selectedTerritory];
+            if (fromTerritory) {
+                this.ctx.strokeStyle = '#ffffff';
+                this.ctx.lineWidth = 2;
+                this.ctx.globalAlpha = 0.5;
+                this.ctx.setLineDash([5, 5]);
+                
+                this.ctx.beginPath();
+                this.ctx.moveTo(fromTerritory.x, fromTerritory.y);
+                this.ctx.lineTo(this.dragPreview.x, this.dragPreview.y);
+                this.ctx.stroke();
+                
+                this.ctx.setLineDash([]);
+                this.ctx.globalAlpha = 1;
+            }
+        }
+    }
+    
+    renderArmies() {
+        // Armies are now rendered within territory.render() for better performance
+    }
+    
+    renderUI() {
+        if (this.ui) {
+            this.ui.render(this.ctx, {
+                players: this.players,
+                humanPlayer: this.humanPlayer,
+                gameState: this.gameState,
+                fps: this.fps,
+                selectedTerritory: this.selectedTerritory ? this.gameMap.territories[this.selectedTerritory] : null,
+                gameMap: this.gameMap,
+                camera: this.camera,
+                territories: this.gameMap.territories
+            });
+        }
+    }
+    
+    handleMouseDown(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const clientX = e.clientX - rect.left;
+        const clientY = e.clientY - rect.top;
+        
+        this.mousePos = { x: clientX, y: clientY };
+        this.isDragging = false;
+        this.dragStart = { x: clientX, y: clientY };
+        
+        // Check UI interactions first
+        if (this.ui && this.ui.handleClick) {
+            if (this.ui.handleClick(clientX, clientY)) {
+                return; // UI handled the click
+            }
+        }
+        
+        if (e.button === 0) { // Left click
+            const worldPos = this.camera.screenToWorld(clientX, clientY);
+            this.handleTerritorySelection(worldPos);
+        }
+    }
+    
+    handleMouseMove(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const clientX = e.clientX - rect.left;
+        const clientY = e.clientY - rect.top;
+        
+        const deltaX = clientX - this.mousePos.x;
+        const deltaY = clientY - this.mousePos.y;
+        
+        // Determine if this is a drag
+        const dragDistance = Math.sqrt(
+            Math.pow(clientX - this.dragStart.x, 2) + 
+            Math.pow(clientY - this.dragStart.y, 2)
+        );
+        
+        if (dragDistance > 5) {
+            this.isDragging = true;
+        }
+        
+        if (this.isDragging) {
+            if (this.selectedTerritory) {
+                // Update drag preview
+                const worldPos = this.camera.screenToWorld(clientX, clientY);
+                this.dragPreview = worldPos;
+            } else {
+                // Pan camera
+                this.camera.pan(-deltaX, -deltaY);
+            }
+        }
+        
+        this.mousePos = { x: clientX, y: clientY };
+    }
+    
+    handleMouseUp(e) {
+        if (this.isDragging && this.selectedTerritory && this.dragPreview) {
+            // Handle drag action
+            const targetTerritory = this.findTerritoryAt(this.dragPreview.x, this.dragPreview.y);
+            if (targetTerritory) {
+                const fromTerritory = this.gameMap.territories[this.selectedTerritory];
+                
+                if (targetTerritory.isColonizable && targetTerritory.owner === null) {
+                    // Launch probe to colonizable planet
+                    this.launchProbe(fromTerritory, targetTerritory);
+                } else if (fromTerritory.owner === this.humanPlayer.id) {
+                    if (targetTerritory.owner === this.humanPlayer.id && fromTerritory.isNeighborOf(targetTerritory)) {
+                        // Transfer fleet between owned territories
+                        this.transferFleet(fromTerritory, targetTerritory);
+                    } else if (targetTerritory.owner !== this.humanPlayer.id && fromTerritory.isNeighborOf(targetTerritory)) {
+                        // Attack enemy territory
+                        this.attackTerritory(fromTerritory, targetTerritory);
+                    } else if (targetTerritory.owner === this.humanPlayer.id) {
+                        // Create supply route
+                        this.createSupplyRoute(fromTerritory, targetTerritory);
+                    }
+                }
+            }
+        }
+        
+        this.isDragging = false;
+        this.dragPreview = null;
+    }
+    
+    handleWheel(e) {
+        e.preventDefault();
+        
+        const rect = this.canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        
+        const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+        this.camera.zoom(zoomFactor, mouseX, mouseY);
+    }
+    
+    handleTerritorySelection(worldPos) {
+        const territory = this.findTerritoryAt(worldPos.x, worldPos.y);
+        
+        if (territory) {
+            if (this.selectedTerritory === territory.id) {
+                // Deselect if clicking the same territory
+                this.selectedTerritory = null;
+            } else {
+                // Select new territory
+                this.selectedTerritory = territory.id;
+            }
+        } else {
+            // Clear selection if clicking empty space
+            this.selectedTerritory = null;
+        }
+    }
+    
+    launchProbe(fromTerritory, toTerritory) {
+        if (!fromTerritory || !toTerritory) return;
+        if (fromTerritory.owner !== this.humanPlayer.id) return;
+        if (fromTerritory.armySize < 10) return; // Need at least 10 ships to launch probe
+        if (!toTerritory.isColonizable || toTerritory.owner !== null) return;
+        
+        // Cost: 10 fleet power
+        fromTerritory.armySize -= 10;
+        
+        // Create probe
+        const probe = new Probe(
+            this.probes.length,
+            fromTerritory.id,
+            toTerritory.id,
+            this.humanPlayer.id,
+            this.humanPlayer.color
+        );
+        
+        this.probes.push(probe);
+        
+        console.log(`Probe launched from ${fromTerritory.id} to ${toTerritory.id}`);
+    }
+    
+    launchAIProbe(fromTerritory, toTerritory, player) {
+        if (!fromTerritory || !toTerritory) return;
+        if (fromTerritory.owner !== player.id) return;
+        if (fromTerritory.armySize < 10) return;
+        if (!toTerritory.isColonizable || toTerritory.owner !== null) return;
+        
+        fromTerritory.armySize -= 10;
+        
+        const probe = new Probe(
+            this.probes.length,
+            fromTerritory.id,
+            toTerritory.id,
+            player.id,
+            player.color
+        );
+        
+        this.probes.push(probe);
+        
+        console.log(`AI Probe launched by ${player.name} from ${fromTerritory.id} to ${toTerritory.id}`);
+    }
+    
+    transferFleet(fromTerritory, toTerritory) {
+        if (fromTerritory.armySize <= 1) return; // Keep at least 1 army
+        
+        const transferAmount = Math.floor(fromTerritory.armySize / 2);
+        fromTerritory.armySize -= transferAmount;
+        toTerritory.armySize += transferAmount;
+        
+        // Create ship animation
+        this.createShipAnimation(fromTerritory, toTerritory, false);
+        
+        console.log(`Transferred ${transferAmount} armies from ${fromTerritory.id} to ${toTerritory.id}`);
+    }
+    
+    createSupplyRoute(fromTerritory, toTerritory) {
+        // Check if route already exists
+        const existingRoute = this.supplyRoutes.find(route => 
+            (route.from === fromTerritory.id && route.to === toTerritory.id) ||
+            (route.from === toTerritory.id && route.to === fromTerritory.id)
+        );
+        
+        if (existingRoute) {
+            console.log('Supply route already exists');
+            return;
+        }
+        
+        // Find path between territories
+        const path = this.findPathBetweenTerritories(fromTerritory, toTerritory);
+        if (!path) {
+            console.log('No valid path found for supply route');
+            return;
+        }
+        
+        // Create the supply route
+        this.supplyRoutes.push({
+            from: fromTerritory.id,
+            to: toTerritory.id,
+            path: path,
+            active: true
+        });
+        
+        console.log(`Supply route created from ${fromTerritory.id} to ${toTerritory.id} via ${path.length} territories`);
+    }
+    
+    findPathBetweenTerritories(start, end) {
+        // Simple BFS pathfinding through owned territories
+        const queue = [[start.id]];
+        const visited = new Set([start.id]);
+        
+        while (queue.length > 0) {
+            const path = queue.shift();
+            const currentId = path[path.length - 1];
+            const current = this.gameMap.territories[currentId];
+            
+            if (currentId === end.id) {
+                return path;
+            }
+            
+            for (const neighborId of current.neighbors) {
+                const neighbor = this.gameMap.territories[neighborId];
+                if (!visited.has(neighborId) && 
+                    neighbor.owner === this.humanPlayer.id) {
+                    visited.add(neighborId);
+                    queue.push([...path, neighborId]);
+                }
+            }
+        }
+        
+        return null; // No path found
+    }
+    
+    validateSupplyRoutes() {
+        for (let i = this.supplyRoutes.length - 1; i >= 0; i--) {
+            const route = this.supplyRoutes[i];
+            const fromTerritory = this.gameMap.territories[route.from];
+            const toTerritory = this.gameMap.territories[route.to];
+            
+            // Check if territories are still owned by human player
+            if (!fromTerritory || !toTerritory ||
+                fromTerritory.owner !== this.humanPlayer.id ||
+                toTerritory.owner !== this.humanPlayer.id) {
+                this.supplyRoutes.splice(i, 1);
+                console.log(`Supply route ${route.from} -> ${route.to} removed (ownership changed)`);
+                continue;
+            }
+            
+            // Re-validate path
+            const newPath = this.findPathBetweenTerritories(fromTerritory, toTerritory);
+            if (!newPath) {
+                this.supplyRoutes.splice(i, 1);
+                console.log(`Supply route ${route.from} -> ${route.to} removed (no valid path)`);
+            } else if (JSON.stringify(newPath) !== JSON.stringify(route.path)) {
+                route.path = newPath;
+                console.log(`Supply route ${route.from} -> ${route.to} path updated`);
+            }
+        }
+    }
+    
+    processSupplyRoutes() {
+        for (const route of this.supplyRoutes) {
+            const fromTerritory = this.gameMap.territories[route.from];
+            const toTerritory = this.gameMap.territories[route.to];
+            
+            if (!fromTerritory || !toTerritory) continue;
+            
+            // Transfer ships if source has excess
+            if (fromTerritory.armySize > toTerritory.armySize + 5) {
+                const transferAmount = Math.floor((fromTerritory.armySize - toTerritory.armySize) / 4);
+                
+                if (transferAmount > 0) {
+                    // Calculate delay based on path length (2 seconds per hop)
+                    const delay = (route.path.length - 1) * 2000;
+                    
+                    this.createDelayedSupplyTransfer(fromTerritory.id, toTerritory.id, transferAmount, delay);
+                }
+            }
+        }
+    }
+    
+    createDelayedSupplyTransfer(fromId, toId, shipCount, delay) {
+        this.delayedTransfers.push({
+            from: fromId,
+            to: toId,
+            shipCount: shipCount,
+            delay: delay
+        });
+        
+        console.log(`Delayed transfer: ${shipCount} ships from ${fromId} to ${toId} in ${delay}ms`);
+    }
+    
+    findTerritoryAt(x, y) {
+        return this.gameMap.findNearestTerritory(x, y);
+    }
+    
+    attackTerritory(attackingTerritory, defendingTerritory) {
+        if (attackingTerritory.armySize <= 1) return; // Need at least 2 armies to attack
+        
+        const attackingArmies = attackingTerritory.armySize - 1; // Leave 1 army behind
+        const defendingArmies = defendingTerritory.armySize;
+        
+        // Trigger combat flash on defending territory
+        defendingTerritory.triggerCombatFlash();
+        
+        // Create ship animation
+        this.createShipAnimation(attackingTerritory, defendingTerritory, true);
+        
+        // Simple combat calculation
+        const attackPower = attackingArmies * (0.8 + Math.random() * 0.4); // 0.8-1.2 multiplier
+        const defensePower = defendingArmies * (0.9 + Math.random() * 0.2); // 0.9-1.1 multiplier
+        
+        if (attackPower > defensePower) {
+            // Attacker wins
+            const survivingArmies = Math.ceil(attackingArmies * 0.7);
+            
+            // Remove territory from previous owner
+            if (defendingTerritory.owner !== null) {
+                const previousOwner = this.players.find(p => p.id === defendingTerritory.owner);
+                if (previousOwner) {
+                    const index = previousOwner.territories.indexOf(defendingTerritory.id);
+                    if (index > -1) {
+                        previousOwner.territories.splice(index, 1);
+                    }
+                }
+            }
+            
+            // Assign to new owner
+            defendingTerritory.owner = attackingTerritory.owner;
+            defendingTerritory.armySize = survivingArmies;
+            attackingTerritory.armySize = 1; // Only 1 army left at source
+            
+            // Add to new owner's territories
+            const newOwner = this.players.find(p => p.id === attackingTerritory.owner);
+            if (newOwner && !newOwner.territories.includes(defendingTerritory.id)) {
+                newOwner.territories.push(defendingTerritory.id);
+            }
+            
+            console.log(`Territory ${defendingTerritory.id} conquered!`);
+        } else {
+            // Defender wins
+            const survivingDefenders = Math.ceil(defendingArmies * 0.8);
+            defendingTerritory.armySize = survivingDefenders;
+            attackingTerritory.armySize = 1; // Attacking army destroyed, keep 1
+            
+            console.log(`Attack on territory ${defendingTerritory.id} repelled!`);
+        }
+        
+        // Update player stats
+        this.players.forEach(player => player.updateStats());
+    }
+    
+    // Touch event handlers for mobile support
+    handleTouchStart(e) {
+        e.preventDefault();
+        
+        const touches = Array.from(e.touches);
+        this.touchState.touches = touches;
+        
+        if (touches.length === 1) {
+            // Single touch - treat like mouse down
+            const rect = this.canvas.getBoundingClientRect();
+            const clientX = touches[0].clientX - rect.left;
+            const clientY = touches[0].clientY - rect.top;
+            
+            this.mousePos = { x: clientX, y: clientY };
+            this.isDragging = false;
+            this.dragStart = { x: clientX, y: clientY };
+            
+            // Handle tap
+            const worldPos = this.camera.screenToWorld(clientX, clientY);
+            
+            // Check for double tap (within 300ms)
+            const now = Date.now();
+            if (now - this.touchState.lastTap < 300) {
+                // Double tap - center camera
+                this.camera.centerOn(worldPos.x, worldPos.y);
+            } else {
+                // Single tap - select territory
+                this.handleTerritorySelection(worldPos);
+            }
+            this.touchState.lastTap = now;
+            
+        } else if (touches.length === 2) {
+            // Two fingers - prepare for pinch zoom
+            this.touchState.isZooming = true;
+            this.touchState.isPanning = true;
+            
+            const distance = Math.sqrt(
+                Math.pow(touches[1].clientX - touches[0].clientX, 2) +
+                Math.pow(touches[1].clientY - touches[0].clientY, 2)
+            );
+            this.touchState.initialDistance = distance;
+            this.touchState.lastZoom = this.camera.zoom;
+        }
+    }
+    
+    handleTouchMove(e) {
+        e.preventDefault();
+        
+        const touches = Array.from(e.touches);
+        
+        if (touches.length === 1 && !this.touchState.isZooming) {
+            // Single finger drag - pan camera
+            const rect = this.canvas.getBoundingClientRect();
+            const clientX = touches[0].clientX - rect.left;
+            const clientY = touches[0].clientY - rect.top;
+            
+            const deltaX = clientX - this.mousePos.x;
+            const deltaY = clientY - this.mousePos.y;
+            
+            // Determine if this is a drag
+            const dragDistance = Math.sqrt(
+                Math.pow(clientX - this.dragStart.x, 2) + 
+                Math.pow(clientY - this.dragStart.y, 2)
+            );
+            
+            if (dragDistance > 10) {
+                this.isDragging = true;
+                this.camera.pan(-deltaX, -deltaY);
+            }
+            
+            this.mousePos = { x: clientX, y: clientY };
+            
+        } else if (touches.length === 2) {
+            // Two finger pinch zoom and pan
+            const rect = this.canvas.getBoundingClientRect();
+            
+            // Calculate current distance for zoom
+            const currentDistance = Math.sqrt(
+                Math.pow(touches[1].clientX - touches[0].clientX, 2) +
+                Math.pow(touches[1].clientY - touches[0].clientY, 2)
+            );
+            
+            if (this.touchState.initialDistance > 0) {
+                const zoomFactor = currentDistance / this.touchState.initialDistance;
+                const newZoom = this.touchState.lastZoom * zoomFactor;
+                
+                // Get center point between fingers
+                const centerX = (touches[0].clientX + touches[1].clientX) / 2 - rect.left;
+                const centerY = (touches[0].clientY + touches[1].clientY) / 2 - rect.top;
+                
+                this.camera.zoomTo(newZoom, centerX, centerY);
+            }
+            
+            // Two finger pan
+            if (this.touchState.touches.length === 2) {
+                const oldCenterX = (this.touchState.touches[0].clientX + this.touchState.touches[1].clientX) / 2;
+                const oldCenterY = (this.touchState.touches[0].clientY + this.touchState.touches[1].clientY) / 2;
+                const newCenterX = (touches[0].clientX + touches[1].clientX) / 2;
+                const newCenterY = (touches[0].clientY + touches[1].clientY) / 2;
+                
+                const deltaX = newCenterX - oldCenterX;
+                const deltaY = newCenterY - oldCenterY;
+                
+                this.camera.pan(-deltaX, -deltaY);
+            }
+        }
+        
+        this.touchState.touches = touches;
+    }
+    
+    handleTouchEnd(e) {
+        e.preventDefault();
+        
+        const touches = Array.from(e.touches);
+        
+        if (touches.length === 0) {
+            // All fingers lifted
+            this.touchState.isZooming = false;
+            this.touchState.isPanning = false;
+            this.touchState.initialDistance = 0;
+            this.isDragging = false;
+        } else if (touches.length === 1 && this.touchState.isZooming) {
+            // One finger remaining after pinch - switch to pan mode
+            this.touchState.isZooming = false;
+            const rect = this.canvas.getBoundingClientRect();
+            this.mousePos = {
+                x: touches[0].clientX - rect.left,
+                y: touches[0].clientY - rect.top
+            };
+        }
+        
+        this.touchState.touches = touches;
+    }
+    
+    handleKeyDown(e) {
+        switch(e.key) {
+            case 'r':
+            case 'R':
+                if (this.gameState === 'ended') {
+                    this.restartGame();
+                }
+                break;
+            case 'm':
+            case 'M':
+                if (this.ui && this.ui.toggleMinimap) {
+                    this.ui.toggleMinimap();
+                }
+                break;
+        }
+    }
+    
+    restartGame() {
+        // Reset game state
+        this.gameState = 'lobby';
+        this.players = [];
+        this.humanPlayer = null;
+        this.selectedTerritory = null;
+        this.supplyRoutes = [];
+        this.delayedTransfers = [];
+        this.shipAnimations = [];
+        this.probes = [];
+        this.visibleTerritories.clear();
+        
+        // Restart the game
+        this.startGame();
+    }
+}
+```
+
+## KEY GAMEPLAY FEATURES
+
+### Probe-Only Colonization System
+- ALL neutral territories require probe missions for colonization
+- Hidden army counts (1-50) revealed only when successfully colonized
+- Probe cost: 10 fleet power per mission
+- Probes travel at 25 pixels/second for strategic timing
+- Colonized planets start with exactly 1 army regardless of hidden strength
+
+### Supply Route System
+- Drag between owned territories to create supply routes
+- Automatic pathfinding through owned territory networks
+- Animated cyan dashed lines with directional arrows
+- 2-second delay per intervening planet for ship delivery
+- Routes break immediately when path becomes invalid
+
+### Human-Like AI Names
+- 80 unique first names and 48 space-themed clan names
+- Format: [ClanName] PlayerName (e.g., [CubClan] Alex, [StarForge] Luna)
+- Names cycle through combinations for variety across large player counts
+
+### Performance Optimizations
+- Frustum culling with 100ms update intervals
+- Object pooling for ship animations
+- AI update throttling (1/3 of players per frame)
+- Territory rendering with ctx.save/restore optimization
+- Supply route validation throttled to every 30 frames
+
+### Mobile Touch Controls
+- Single tap for territory selection and attacks
+- Single finger drag for camera panning
+- Two-finger pinch gestures for zoom in/out
+- Two-finger pan for simultaneous camera movement
+- Touch-optimized control instructions
+
+## DEPLOYMENT
+
+The game is ready for deployment on Replit with:
+- WebSocket multiplayer infrastructure
+- Configurable single-player mode (50-400 territories, 5-99 AI opponents)
+- Mobile-optimized touch controls
+- Performance optimizations for 100+ player games
+- Comprehensive UI with Radix components
+
+Run `npm run dev` to start the development server with both frontend and backend.
