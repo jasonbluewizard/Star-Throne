@@ -158,6 +158,11 @@ Changelog:
   * Auto-start single-player mode via URL parameter (?auto=single) for development
   * Socket client with game action synchronization (territory selection, probe launches, attacks)
   * Game room management with create/join functionality and 6-digit room codes
+  * Ship funneling system: drag from owned planet to another owned planet to create supply routes
+  * Automatic ship transfer with pathfinding through owned territory network
+  * Supply route visualization with animated cyan dashed lines and directional arrows
+  * Route validation system breaks connections immediately when path is lost
+  * Delayed ship delivery based on number of intervening planets (2 seconds per hop)
 
 ## User Preferences
 

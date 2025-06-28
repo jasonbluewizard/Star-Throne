@@ -437,6 +437,10 @@ export default class TerritorialConquest {
         // Update probes
         this.updateProbes(deltaTime);
         
+        // Update supply routes
+        this.validateSupplyRoutes();
+        this.processSupplyRoutes();
+        
         // Check for player elimination
         this.checkPlayerElimination();
         
@@ -502,6 +506,8 @@ export default class TerritorialConquest {
         // Render game world
         this.renderTerritories();
         this.renderConnections();
+        this.renderSupplyRoutes();
+        this.renderDragPreview();
         this.renderShipAnimations();
         this.renderProbes();
         this.renderArmies();
@@ -578,6 +584,84 @@ export default class TerritorialConquest {
         });
         
         this.ctx.globalAlpha = 1;
+    }
+    
+    renderSupplyRoutes() {
+        // Render active supply routes with animated arrows
+        this.supplyRoutes.forEach((route, fromId) => {
+            const fromTerritory = this.gameMap.territories[fromId];
+            const toTerritory = this.gameMap.territories[route.targetId];
+            
+            if (fromTerritory && toTerritory && route.path && route.path.length > 1) {
+                this.ctx.save();
+                
+                // Draw route path with animated dashes
+                this.ctx.strokeStyle = '#00ffff';
+                this.ctx.lineWidth = 3;
+                this.ctx.globalAlpha = 0.8;
+                
+                const animationOffset = (Date.now() * 0.01) % 20;
+                this.ctx.setLineDash([10, 10]);
+                this.ctx.lineDashOffset = animationOffset;
+                
+                // Draw path segments
+                for (let i = 0; i < route.path.length - 1; i++) {
+                    const current = route.path[i];
+                    const next = route.path[i + 1];
+                    
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(current.x, current.y);
+                    this.ctx.lineTo(next.x, next.y);
+                    this.ctx.stroke();
+                }
+                
+                // Draw arrow at destination
+                const angle = Math.atan2(
+                    toTerritory.y - fromTerritory.y,
+                    toTerritory.x - fromTerritory.x
+                );
+                
+                this.ctx.setLineDash([]);
+                this.ctx.fillStyle = '#00ffff';
+                this.ctx.beginPath();
+                this.ctx.moveTo(
+                    toTerritory.x - Math.cos(angle) * (toTerritory.radius + 8),
+                    toTerritory.y - Math.sin(angle) * (toTerritory.radius + 8)
+                );
+                this.ctx.lineTo(
+                    toTerritory.x - Math.cos(angle - 0.5) * (toTerritory.radius + 15),
+                    toTerritory.y - Math.sin(angle - 0.5) * (toTerritory.radius + 15)
+                );
+                this.ctx.lineTo(
+                    toTerritory.x - Math.cos(angle + 0.5) * (toTerritory.radius + 15),
+                    toTerritory.y - Math.sin(angle + 0.5) * (toTerritory.radius + 15)
+                );
+                this.ctx.closePath();
+                this.ctx.fill();
+                
+                this.ctx.restore();
+            }
+        });
+    }
+    
+    renderDragPreview() {
+        // Show drag preview when creating supply route
+        if (this.isDraggingForSupplyRoute && this.dragStart) {
+            const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+            
+            this.ctx.save();
+            this.ctx.strokeStyle = '#ffff00';
+            this.ctx.lineWidth = 2;
+            this.ctx.globalAlpha = 0.7;
+            this.ctx.setLineDash([5, 5]);
+            
+            this.ctx.beginPath();
+            this.ctx.moveTo(this.dragStart.x, this.dragStart.y);
+            this.ctx.lineTo(worldPos.x, worldPos.y);
+            this.ctx.stroke();
+            
+            this.ctx.restore();
+        }
     }
     
     renderArmies() {
