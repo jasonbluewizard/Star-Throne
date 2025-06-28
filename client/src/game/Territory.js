@@ -118,10 +118,26 @@ export class Territory {
         }
         ctx.stroke();
         
-        // Add extra glow for human player territories
-        if (isHumanPlayer && !isSelected) {
-            ctx.shadowColor = '#00ffff';
-            ctx.shadowBlur = 8;
+        // Add extra ring for player territories
+        if (this.ownerId !== null && player) {
+            // Draw outer ring for all player territories
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius + 4, 0, Math.PI * 2);
+            
+            if (isHumanPlayer) {
+                // Bright cyan outer ring for human player
+                ctx.strokeStyle = '#00ffff';
+                ctx.lineWidth = 2;
+                ctx.shadowColor = '#00ffff';
+                ctx.shadowBlur = 6;
+            } else {
+                // Player color outer ring for AI players
+                ctx.strokeStyle = player.color;
+                ctx.lineWidth = 2;
+                ctx.shadowColor = player.color;
+                ctx.shadowBlur = 3;
+            }
+            
             ctx.stroke();
             ctx.shadowBlur = 0;
         }
