@@ -336,6 +336,35 @@ export default class TerritorialConquest {
         console.log(`Game started with ${this.players.length} players (${this.config.playerName} + ${this.config.aiCount} AI) and ${Object.keys(this.gameMap.territories).length} territories`);
     }
     
+    generateAIName(index) {
+        const firstNames = [
+            'Alex', 'Blake', 'Casey', 'Dana', 'Emma', 'Felix', 'Grace', 'Hunter', 'Iris', 'Jack',
+            'Kai', 'Luna', 'Max', 'Nova', 'Owen', 'Piper', 'Quinn', 'Riley', 'Sage', 'Tyler',
+            'Uma', 'Victor', 'Wade', 'Xara', 'Yuki', 'Zara', 'Ash', 'Beck', 'Cole', 'Drew',
+            'Echo', 'Finn', 'Gale', 'Hope', 'Ivan', 'Jade', 'Kane', 'Lexi', 'Mika', 'Nora',
+            'Orion', 'Phoenix', 'Raven', 'Storm', 'Tara', 'Vale', 'Wren', 'Zane', 'Aria', 'Brix',
+            'Coda', 'Dex', 'Eden', 'Fox', 'Gray', 'Hawk', 'Juno', 'Kira', 'Lux', 'Moss',
+            'Neo', 'Oslo', 'Pike', 'Rain', 'Sky', 'Tex', 'Vex', 'Wolf', 'Zed', 'Atlas',
+            'Bear', 'Cruz', 'Dash', 'Enzo', 'Flint', 'Ghost', 'Haze', 'Jett', 'Knox', 'Link'
+        ];
+        
+        const clanNames = [
+            'StarForge', 'VoidHunters', 'NebulaRise', 'CosmicFury', 'SolarFlare', 'DarkMatter',
+            'GalaxyCorp', 'NovaStrike', 'CelestialWar', 'SpaceRaiders', 'StellarWolves', 'OrbitClan',
+            'AstroElite', 'CubClan', 'ZenithForce', 'PlasmaBorn', 'StarDust', 'VoidWalkers',
+            'QuantumLeap', 'PhotonStorm', 'EtherGuard', 'CosmoKnights', 'StarVeins', 'NebulaCrest',
+            'VortexClan', 'AstralFire', 'MeteoRiders', 'IonStorm', 'PulsarWave', 'GravityWell',
+            'SolarWind', 'BlackHole', 'RedGiant', 'WhiteDwarf', 'SuperNova', 'Constellation',
+            'MilkyWay', 'Andromeda', 'Centauri', 'Proxima', 'Kepler', 'Hubble', 'Armstrong',
+            'Gagarin', 'Apollo', 'Artemis', 'Orion', 'Pegasus', 'Phoenix', 'Dragon', 'Falcon'
+        ];
+        
+        const firstName = firstNames[index % firstNames.length];
+        const clanName = clanNames[Math.floor(index / firstNames.length) % clanNames.length];
+        
+        return `[${clanName}] ${firstName}`;
+    }
+
     createPlayers(numPlayers) {
         // Expanded unique color palette - no duplicates
         const baseColors = [
@@ -353,7 +382,7 @@ export default class TerritorialConquest {
         this.humanPlayer = new Player(0, 'You', '#00ffff', 'human');
         this.players.push(this.humanPlayer);
         
-        // Create AI players with unique colors (no brightness adjustment to avoid duplicates)
+        // Create AI players with unique colors and human-like names
         const usedColors = new Set(['#00ffff']); // Reserve human color
         
         for (let i = 1; i < numPlayers && i < this.maxPlayers; i++) {
@@ -374,7 +403,10 @@ export default class TerritorialConquest {
             } while (usedColors.has(playerColor) && attempts < 100);
             
             usedColors.add(playerColor);
-            this.players.push(new Player(i, `AI Player ${i}`, playerColor, 'ai'));
+            
+            // Generate human-like name with clan designation
+            const aiName = this.generateAIName(i - 1);
+            this.players.push(new Player(i, aiName, playerColor, 'ai'));
         }
         
         this.currentPlayers = this.players.length;

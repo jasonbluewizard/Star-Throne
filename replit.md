@@ -180,6 +180,12 @@ Changelog:
   * Game preview showing total territories, AI count, and feature list
   * Slider controls for intuitive parameter adjustment
   * Integration with existing single-player game initialization
+- June 28, 2025. Human-like AI player names:
+  * AI players now have realistic names with clan designations in format [ClanName] PlayerName
+  * 80 unique first names including Alex, Blake, Casey, Nova, Phoenix, Zara, etc.
+  * 48 space-themed clan names like StarForge, VoidHunters, CubClan, SolarFlare
+  * Names cycle through combinations to ensure variety across large player counts
+  * Examples: [CubClan] Alex, [NebulaRise] Luna, [CosmicFury] Storm
 
 ## User Preferences
 
