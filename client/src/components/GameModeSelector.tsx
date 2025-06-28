@@ -1,0 +1,264 @@
+import { useState } from 'react';
+import { Button } from './ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { Badge } from './ui/badge';
+import { socketClient } from '../lib/socketClient';
+
+interface GameModeSelectorProps {
+  onModeSelected: (mode: 'single' | 'multiplayer', data?: any) => void;
+}
+
+export function GameModeSelector({ onModeSelected }: GameModeSelectorProps) {
+  const [selectedMode, setSelectedMode] = useState<'single' | 'multiplayer' | null>(null);
+  const [playerName, setPlayerName] = useState('');
+  const [roomName, setRoomName] = useState('');
+  const [roomId, setRoomId] = useState('');
+  const [maxPlayers, setMaxPlayers] = useState(10);
+  const [aiCount, setAiCount] = useState(90);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSinglePlayer = () => {
+    if (!playerName.trim()) {
+      setError('Please enter your name');
+      return;
+    }
+    
+    onModeSelected('single', { playerName: playerName.trim(), aiCount: 19 });
+  };
+
+  const handleMultiplayerConnect = () => {
+    if (!playerName.trim()) {
+      setError('Please enter your name');
+      return;
+    }
+
+    setIsConnecting(true);
+    setError('');
+
+    // Set up socket event handlers
+    socketClient.onConnected(() => {
+      console.log('Connected to multiplayer server');
+    });
+
+    socketClient.onError((error) => {
+      setError(error.message);
+      setIsConnecting(false);
+    });
+
+    socketClient.onRoomCreated((room) => {
+      onModeSelected('multiplayer', { room, playerName: playerName.trim() });
+    });
+
+    socketClient.onRoomJoined((room) => {
+      onModeSelected('multiplayer', { room, playerName: playerName.trim() });
+    });
+
+    // Connect to server
+    socketClient.connect();
+  };
+
+  const handleCreateRoom = () => {
+    if (!roomName.trim()) {
+      setError('Please enter a room name');
+      return;
+    }
+
+    socketClient.createRoom(roomName.trim(), playerName.trim(), maxPlayers, aiCount);
+  };
+
+  const handleJoinRoom = () => {
+    if (!roomId.trim()) {
+      setError('Please enter a room ID');
+      return;
+    }
+
+    socketClient.joinRoom(roomId.trim().toUpperCase(), playerName.trim());
+  };
+
+  if (selectedMode === 'multiplayer' && !isConnecting) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
+        <div className="w-full max-w-2xl space-y-6">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold text-white mb-2">Territorial Conquest</h1>
+            <p className="text-gray-400">Multiplayer Game Lobby</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Create Room */}
+            <Card className="bg-gray-800 border-gray-700">
+              <CardHeader>
+                <CardTitle className="text-white">Create New Game</CardTitle>
+                <CardDescription className="text-gray-400">
+                  Start a new multiplayer game room
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="roomName" className="text-white">Room Name</Label>
+                  <Input
+                    id="roomName"
+                    value={roomName}
+                    onChange={(e) => setRoomName(e.target.value)}
+                    placeholder="Enter room name"
+                    className="bg-gray-700 border-gray-600 text-white"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label htmlFor="maxPlayers" className="text-white">Max Players</Label>
+                    <Input
+                      id="maxPlayers"
+                      type="number"
+                      min="2"
+                      max="20"
+                      value={maxPlayers}
+                      onChange={(e) => setMaxPlayers(parseInt(e.target.value) || 10)}
+                      className="bg-gray-700 border-gray-600 text-white"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="aiCount" className="text-white">AI Players</Label>
+                    <Input
+                      id="aiCount"
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={aiCount}
+                      onChange={(e) => setAiCount(parseInt(e.target.value) || 90)}
+                      className="bg-gray-700 border-gray-600 text-white"
+                    />
+                  </div>
+                </div>
+                <Button onClick={handleCreateRoom} className="w-full">
+                  Create Room
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Join Room */}
+            <Card className="bg-gray-800 border-gray-700">
+              <CardHeader>
+                <CardTitle className="text-white">Join Existing Game</CardTitle>
+                <CardDescription className="text-gray-400">
+                  Enter a room ID to join a game
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="roomId" className="text-white">Room ID</Label>
+                  <Input
+                    id="roomId"
+                    value={roomId}
+                    onChange={(e) => setRoomId(e.target.value.toUpperCase())}
+                    placeholder="Enter 6-digit room ID"
+                    maxLength={6}
+                    className="bg-gray-700 border-gray-600 text-white font-mono"
+                  />
+                </div>
+                <Button onClick={handleJoinRoom} className="w-full" variant="outline">
+                  Join Room
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="text-center">
+            <Button 
+              onClick={() => setSelectedMode(null)} 
+              variant="ghost" 
+              className="text-gray-400 hover:text-white"
+            >
+              ← Back to Mode Selection
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
+      <div className="w-full max-w-md space-y-6">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold text-white mb-2">Territorial Conquest</h1>
+          <p className="text-gray-400">Choose your game mode</p>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="playerName" className="text-white">Your Name</Label>
+            <Input
+              id="playerName"
+              value={playerName}
+              onChange={(e) => setPlayerName(e.target.value)}
+              placeholder="Enter your name"
+              className="bg-gray-700 border-gray-600 text-white"
+              maxLength={20}
+            />
+          </div>
+
+          {error && (
+            <div className="text-red-400 text-sm text-center bg-red-900/20 p-2 rounded">
+              {error}
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 gap-4">
+          {/* Single Player */}
+          <Card className="bg-gray-800 border-gray-700 hover:border-gray-600 transition-colors cursor-pointer">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center justify-between">
+                Single Player
+                <Badge variant="secondary">Instant Play</Badge>
+              </CardTitle>
+              <CardDescription className="text-gray-400">
+                Play against 19 AI opponents in a private game
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={handleSinglePlayer} className="w-full" disabled={isConnecting}>
+                Start Single Player Game
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Multiplayer */}
+          <Card className="bg-gray-800 border-gray-700 hover:border-gray-600 transition-colors cursor-pointer">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center justify-between">
+                Multiplayer
+                <Badge variant="outline">Up to 100 Players</Badge>
+              </CardTitle>
+              <CardDescription className="text-gray-400">
+                Join or create online games with other players
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                onClick={() => {
+                  setSelectedMode('multiplayer');
+                  handleMultiplayerConnect();
+                }} 
+                className="w-full" 
+                variant="outline"
+                disabled={isConnecting}
+              >
+                {isConnecting ? 'Connecting...' : 'Enter Multiplayer Lobby'}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="text-center text-sm text-gray-500">
+          <p>Single player mode preserves all current gameplay features</p>
+          <p>Multiplayer adds real-time competitive play</p>
+        </div>
+      </div>
+    </div>
+  );
+}

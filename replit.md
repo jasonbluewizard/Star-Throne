@@ -10,6 +10,8 @@ Territorial Conquest is a browser-based real-time strategy game built with React
 - **React 18** with TypeScript for component-based UI development
 - **HTML5 Canvas** for high-performance 2D game rendering
 - **Custom Game Engine** built in vanilla JavaScript for game logic and rendering
+- **Socket.IO Client** for real-time multiplayer communication
+- **Game Mode Selector** supporting single-player and multiplayer modes
 - **Zustand** for lightweight state management (game state, audio controls)
 - **Radix UI** component library for accessible, polished UI elements
 - **Tailwind CSS** for styling with a modern design system
@@ -17,7 +19,9 @@ Territorial Conquest is a browser-based real-time strategy game built with React
 
 ### Backend Architecture
 - **Express.js** server with TypeScript
+- **Socket.IO WebSocket** server for real-time multiplayer communication
 - **In-memory storage** using Map-based data structures for MVP
+- **Game room management** supporting both single-player and multiplayer modes
 - **RESTful API** structure ready for future endpoints
 - **Session management** prepared with connect-pg-simple
 - **Drizzle ORM** configured for PostgreSQL database integration
@@ -146,6 +150,14 @@ Changelog:
   * One planet per player: each player starts with exactly one colonized territory for balanced gameplay
   * Slower probe movement: probes now travel at half speed (25 pixels/second) for more strategic timing
   * Standardized colonization: all colonized planets start with exactly 1 army regardless of hidden strength
+- June 28, 2025. Multiplayer infrastructure implementation:
+  * WebSocket server using Socket.IO for real-time multiplayer communication
+  * Game mode selector allowing choice between single-player and multiplayer modes
+  * Room-based multiplayer system supporting up to 100 players per game
+  * Preserved existing single-player functionality with 19 AI opponents
+  * Auto-start single-player mode via URL parameter (?auto=single) for development
+  * Socket client with game action synchronization (territory selection, probe launches, attacks)
+  * Game room management with create/join functionality and 6-digit room codes
 
 ## User Preferences
 
