@@ -41,6 +41,12 @@ export default class TerritorialConquest {
         this.probes = [];
         this.nextProbeId = 0;
         
+        // Ship funneling system
+        this.supplyRoutes = new Map(); // territoryId -> { targetId, path, delay }
+        this.dragStart = null;
+        this.dragEnd = null;
+        this.isDraggingForSupplyRoute = false;
+        
         this.init();
     }
     
@@ -635,6 +641,17 @@ export default class TerritorialConquest {
         this.dragStartPos = { ...this.mousePos };
         this.dragStartTime = Date.now();
         this.isDragging = false;
+        this.isDraggingForSupplyRoute = false;
+        
+        // Check if starting drag on an owned territory for supply route
+        const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+        const startTerritory = this.findTerritoryAt(worldPos.x, worldPos.y);
+        
+        if (startTerritory && startTerritory.ownerId === this.humanPlayer?.id) {
+            this.dragStart = startTerritory;
+        } else {
+            this.dragStart = null;
+        }
         
         if (e.button === 2) { // Right click starts immediate drag
             this.isDragging = true;
@@ -656,12 +673,17 @@ export default class TerritorialConquest {
             );
             
             if (dragDistance > 8) {
-                this.isDragging = true;
+                // If we have a valid drag start territory, this is a supply route drag
+                if (this.dragStart) {
+                    this.isDraggingForSupplyRoute = true;
+                } else {
+                    this.isDragging = true;
+                }
             }
         }
         
-        // Pan camera if dragging
-        if (this.isDragging && this.mousePos) {
+        // Pan camera if dragging (but not if creating supply route)
+        if (this.isDragging && this.mousePos && !this.isDraggingForSupplyRoute) {
             const deltaX = newMousePos.x - this.mousePos.x;
             const deltaY = newMousePos.y - this.mousePos.y;
             
@@ -675,9 +697,18 @@ export default class TerritorialConquest {
     handleMouseUp(e) {
         // Check if this was a quick click (not a drag)
         const clickDuration = Date.now() - (this.dragStartTime || 0);
-        const wasQuickClick = clickDuration < 300 && !this.isDragging;
+        const wasQuickClick = clickDuration < 300 && !this.isDragging && !this.isDraggingForSupplyRoute;
         
-        if (e.button === 0 && (wasQuickClick || !this.isDragging)) {
+        // Handle supply route creation
+        if (this.isDraggingForSupplyRoute && this.dragStart) {
+            const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+            const endTerritory = this.findTerritoryAt(worldPos.x, worldPos.y);
+            
+            if (endTerritory && endTerritory.ownerId === this.humanPlayer?.id && endTerritory.id !== this.dragStart.id) {
+                this.createSupplyRoute(this.dragStart, endTerritory);
+            }
+        }
+        else if (e.button === 0 && (wasQuickClick || !this.isDragging)) {
             // Left click - handle territory selection
             const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
             this.handleTerritorySelection(worldPos);
@@ -685,8 +716,11 @@ export default class TerritorialConquest {
         
         // Reset drag state
         this.isDragging = false;
+        this.isDraggingForSupplyRoute = false;
         this.dragStartPos = null;
         this.dragStartTime = null;
+        this.dragStart = null;
+        this.dragEnd = null;
     }
     
     handleWheel(e) {
@@ -898,6 +932,138 @@ export default class TerritorialConquest {
         toTerritory.armySize += transferAmount;
         
         console.log(`Transferred ${transferAmount} armies from territory ${fromTerritory.id} to ${toTerritory.id}`);
+    }
+    
+    // Supply route system
+    createSupplyRoute(fromTerritory, toTerritory) {
+        // Find path between territories through owned network
+        const path = this.findPathBetweenTerritories(fromTerritory, toTerritory);
+        
+        if (path && path.length > 1) {
+            const delayPerHop = 2000; // 2 seconds per intervening planet
+            const totalDelay = (path.length - 2) * delayPerHop; // Don't count start and end
+            
+            this.supplyRoutes.set(fromTerritory.id, {
+                targetId: toTerritory.id,
+                path: path,
+                delay: totalDelay,
+                lastValidation: Date.now()
+            });
+            
+            console.log(`Supply route created: ${fromTerritory.id} → ${toTerritory.id} (${path.length - 1} hops, ${totalDelay}ms delay)`);
+            console.log('Path:', path.map(t => t.id).join(' → '));
+        } else {
+            console.log('No valid path found between territories');
+        }
+    }
+    
+    findPathBetweenTerritories(start, end) {
+        // BFS to find shortest path through owned territories
+        const queue = [[start]];
+        const visited = new Set([start.id]);
+        
+        while (queue.length > 0) {
+            const path = queue.shift();
+            const current = path[path.length - 1];
+            
+            if (current.id === end.id) {
+                return path;
+            }
+            
+            // Check all neighbors
+            current.neighbors.forEach(neighborId => {
+                const neighbor = this.gameMap.territories[neighborId];
+                
+                if (neighbor && 
+                    !visited.has(neighbor.id) && 
+                    neighbor.ownerId === this.humanPlayer?.id) {
+                    
+                    visited.add(neighbor.id);
+                    queue.push([...path, neighbor]);
+                }
+            });
+        }
+        
+        return null; // No path found
+    }
+    
+    validateSupplyRoutes() {
+        // Check all supply routes for broken connections
+        const routesToRemove = [];
+        
+        this.supplyRoutes.forEach((route, fromId) => {
+            const fromTerritory = this.gameMap.territories[fromId];
+            const toTerritory = this.gameMap.territories[route.targetId];
+            
+            // Check if territories still exist and are owned by player
+            if (!fromTerritory || !toTerritory || 
+                fromTerritory.ownerId !== this.humanPlayer?.id || 
+                toTerritory.ownerId !== this.humanPlayer?.id) {
+                routesToRemove.push(fromId);
+                return;
+            }
+            
+            // Revalidate path every few seconds
+            const now = Date.now();
+            if (now - route.lastValidation > 5000) {
+                const newPath = this.findPathBetweenTerritories(fromTerritory, toTerritory);
+                
+                if (!newPath) {
+                    routesToRemove.push(fromId);
+                    console.log(`Supply route broken: ${fromId} → ${route.targetId}`);
+                } else {
+                    // Update path and delay if it changed
+                    const delayPerHop = 2000;
+                    const newDelay = (newPath.length - 2) * delayPerHop;
+                    
+                    route.path = newPath;
+                    route.delay = newDelay;
+                    route.lastValidation = now;
+                }
+            }
+        });
+        
+        // Remove broken routes
+        routesToRemove.forEach(id => {
+            this.supplyRoutes.delete(id);
+        });
+    }
+    
+    processSupplyRoutes() {
+        // Handle automatic ship sending along supply routes
+        this.supplyRoutes.forEach((route, fromId) => {
+            const fromTerritory = this.gameMap.territories[fromId];
+            const toTerritory = this.gameMap.territories[route.targetId];
+            
+            if (fromTerritory && toTerritory && fromTerritory.armySize > 2) {
+                // Send new ships when they're generated (but not too frequently)
+                const now = Date.now();
+                if (!route.lastShipment || now - route.lastShipment > 3000) {
+                    const shipsToSend = Math.floor(fromTerritory.armySize / 3); // Send 1/3 of armies
+                    
+                    if (shipsToSend > 0) {
+                        fromTerritory.armySize -= shipsToSend;
+                        route.lastShipment = now;
+                        
+                        // Create delayed transfer with route visualization
+                        this.createDelayedSupplyTransfer(fromTerritory, toTerritory, shipsToSend, route.delay);
+                    }
+                }
+            }
+        });
+    }
+    
+    createDelayedSupplyTransfer(fromTerritory, toTerritory, shipCount, delay) {
+        // Create ship animation
+        this.createShipAnimation(fromTerritory, toTerritory, false);
+        
+        // Apply transfer after delay
+        setTimeout(() => {
+            if (toTerritory.ownerId === this.humanPlayer?.id) {
+                toTerritory.armySize += shipCount;
+                console.log(`Supply route delivered ${shipCount} ships to territory ${toTerritory.id}`);
+            }
+        }, delay);
     }
     
     findTerritoryAt(x, y) {
