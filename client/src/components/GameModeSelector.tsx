@@ -5,6 +5,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Badge } from './ui/badge';
 import { socketClient } from '../lib/socketClient';
+import { GameConfigScreen, GameConfig } from './GameConfigScreen';
 
 interface GameModeSelectorProps {
   onModeSelected: (mode: 'single' | 'multiplayer', data?: any) => void;
@@ -12,6 +13,7 @@ interface GameModeSelectorProps {
 
 export function GameModeSelector({ onModeSelected }: GameModeSelectorProps) {
   const [selectedMode, setSelectedMode] = useState<'single' | 'multiplayer' | null>(null);
+  const [showConfigScreen, setShowConfigScreen] = useState(false);
   const [playerName, setPlayerName] = useState('');
   const [roomName, setRoomName] = useState('');
   const [roomId, setRoomId] = useState('');
@@ -21,12 +23,21 @@ export function GameModeSelector({ onModeSelected }: GameModeSelectorProps) {
   const [error, setError] = useState('');
 
   const handleSinglePlayer = () => {
-    if (!playerName.trim()) {
-      setError('Please enter your name');
-      return;
-    }
-    
-    onModeSelected('single', { playerName: playerName.trim(), aiCount: 19 });
+    setSelectedMode('single');
+    setShowConfigScreen(true);
+  };
+
+  const handleConfigStart = (config: GameConfig) => {
+    onModeSelected('single', { 
+      playerName: config.playerName, 
+      aiCount: config.aiPlayerCount,
+      mapSize: config.mapSize
+    });
+  };
+
+  const handleConfigBack = () => {
+    setShowConfigScreen(false);
+    setSelectedMode(null);
   };
 
   const handleMultiplayerConnect = () => {
@@ -177,6 +188,16 @@ export function GameModeSelector({ onModeSelected }: GameModeSelectorProps) {
           </div>
         </div>
       </div>
+    );
+  }
+
+  // Show configuration screen for single player
+  if (showConfigScreen) {
+    return (
+      <GameConfigScreen 
+        onStartGame={handleConfigStart}
+        onBack={handleConfigBack}
+      />
     );
   }
 
