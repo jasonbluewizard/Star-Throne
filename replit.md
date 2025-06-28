@@ -163,6 +163,15 @@ Changelog:
   * Supply route visualization with animated cyan dashed lines and directional arrows
   * Route validation system breaks connections immediately when path is lost
   * Delayed ship delivery based on number of intervening planets (2 seconds per hop)
+- June 28, 2025. Code optimization for improved performance:
+  * Frustum culling system with 100ms update intervals for visible territory rendering
+  * Object pooling for ship animations to reduce garbage collection overhead
+  * AI update throttling: process 1/3 of players per frame for better frame rates
+  * Supply route validation throttled to every 30 frames, processing every 60 frames
+  * Territory rendering optimized with ctx.save/restore and reduced draw calls
+  * Connection rendering uses cached duplicate detection for better performance
+  * AI thinking intervals increased to 2-5 seconds with limited actions per update
+  * Probe colonization chance reduced to 20% to decrease computational load
 
 ## User Preferences
 
