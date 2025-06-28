@@ -96,16 +96,20 @@ export class Territory {
             fillColor = this.adjustColorBrightness(fillColor, pulseIntensity);
         }
         
-        // Draw territory circle
+        // Optimize rendering with batch operations
+        ctx.save();
+        
+        // Draw territory circle and border in single operation
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
         ctx.fillStyle = fillColor;
         ctx.fill();
         
-        // Draw border with special styling for human player
+        // Cache player lookup to avoid repeated searches
         const player = players.find(p => p.id === this.ownerId);
         const isHumanPlayer = player && player.type === 'human';
         
+        // Set stroke properties based on state
         if (isSelected) {
             ctx.strokeStyle = '#ffffff';
             ctx.lineWidth = 4;

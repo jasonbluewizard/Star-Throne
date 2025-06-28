@@ -40,6 +40,7 @@ export default class TerritorialConquest {
         
         // Ship movement animations
         this.shipAnimations = [];
+        this.shipAnimationPool = []; // Reuse objects to reduce garbage collection
         this.leaderboardMinimized = false;
         this.minimapMinimized = true; // Default minimap to off
         
@@ -76,30 +77,49 @@ export default class TerritorialConquest {
     
     // Create ship movement animation
     createShipAnimation(fromTerritory, toTerritory, isAttack = false) {
+        // Use object pooling to reduce garbage collection
+        let animation = this.shipAnimationPool.pop();
+        if (!animation) {
+            animation = {
+                fromX: 0, fromY: 0, toX: 0, toY: 0,
+                progress: 0, duration: 0, startTime: 0,
+                isAttack: false, playerColor: '#ffffff', id: 0
+            };
+        }
+        
         const player = this.players[fromTerritory.ownerId];
         const playerColor = player ? player.color : '#ffffff';
         
-        this.shipAnimations.push({
-            fromX: fromTerritory.x,
-            fromY: fromTerritory.y,
-            toX: toTerritory.x,
-            toY: toTerritory.y,
-            progress: 0,
-            duration: 1000, // 1 second
-            startTime: Date.now(),
-            isAttack: isAttack,
-            playerColor: playerColor,
-            id: Math.random()
-        });
+        // Reset animation properties
+        animation.fromX = fromTerritory.x;
+        animation.fromY = fromTerritory.y;
+        animation.toX = toTerritory.x;
+        animation.toY = toTerritory.y;
+        animation.progress = 0;
+        animation.duration = 1000;
+        animation.startTime = Date.now();
+        animation.isAttack = isAttack;
+        animation.playerColor = playerColor;
+        animation.id = Math.random();
+        
+        this.shipAnimations.push(animation);
     }
     
     // Update ship animations
     updateShipAnimations(deltaTime) {
         const currentTime = Date.now();
-        this.shipAnimations = this.shipAnimations.filter(animation => {
+        
+        // Optimize with object pooling and manual iteration
+        for (let i = this.shipAnimations.length - 1; i >= 0; i--) {
+            const animation = this.shipAnimations[i];
             animation.progress = (currentTime - animation.startTime) / animation.duration;
-            return animation.progress < 1;
-        });
+            
+            if (animation.progress >= 1) {
+                // Return completed animation to pool for reuse
+                this.shipAnimationPool.push(animation);
+                this.shipAnimations.splice(i, 1);
+            }
+        }
     }
     
     // Update probes
