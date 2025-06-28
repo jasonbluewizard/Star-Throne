@@ -186,6 +186,15 @@ Changelog:
   * 48 space-themed clan names like StarForge, VoidHunters, CubClan, SolarFlare
   * Names cycle through combinations to ensure variety across large player counts
   * Examples: [CubClan] Alex, [NebulaRise] Luna, [CosmicFury] Storm
+- June 28, 2025. Server-authoritative architecture implementation (Phase 1 security overhaul):
+  * Created shared type definitions in common/types for client-server consistency
+  * Implemented server-side GameEngine with authoritative game logic and state management
+  * Replaced client-authoritative model with secure command validation protocol
+  * Added server-side game loop running at 20 TPS with real-time state broadcasts
+  * Eliminated critical security vulnerability allowing client-side cheating
+  * All game logic now validated server-side before execution
+  * Command protocol with validation: ATTACK_TERRITORY, TRANSFER_ARMIES, LAUNCH_PROBE, CREATE_SUPPLY_ROUTE
+  * Server acts as single source of truth for all game state and rules
 
 ## User Preferences
 

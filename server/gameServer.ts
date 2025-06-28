@@ -102,12 +102,14 @@ export class GameServer {
           id: roomId,
           name: 'Single Player Game',
           players: new Map(),
-          gameState: null,
+          gameEngine: null,
+          gameLoop: null,
           isStarted: false,
           maxPlayers: 1,
           aiPlayerCount: data.aiCount,
           gameMode: 'single',
-          lastUpdate: Date.now()
+          lastUpdate: Date.now(),
+          tickRate: 20
         };
 
         this.rooms.set(roomId, room);
@@ -117,15 +119,26 @@ export class GameServer {
         socket.emit('single-player-started', { roomId, room: this.getRoomInfo(room) });
       });
 
-      // Handle game actions
-      socket.on('game-action', (data: { action: string, payload: any }) => {
+      // Handle secure player commands (server-authoritative)
+      socket.on('player-command', (command: ClientCommand) => {
         const roomId = this.playerToRoom.get(socket.id);
         if (!roomId) return;
 
         const room = this.rooms.get(roomId);
-        if (!room || !room.isStarted) return;
+        if (!room || !room.isStarted || !room.gameEngine) return;
 
-        this.handleGameAction(socket, room, data.action, data.payload);
+        // Execute command through authoritative game engine
+        const result = room.gameEngine.executeCommand(socket.id, command);
+        
+        if (result) {
+          if ('command' in result) {
+            // Command error
+            socket.emit('command-error', result as CommandError);
+          } else {
+            // Combat result - broadcast to all players
+            this.io.to(roomId).emit('combat-result', result as CombatResult);
+          }
+        }
       });
 
       // Handle player ready
@@ -182,27 +195,105 @@ export class GameServer {
     socket.to(roomId).emit('player-joined', { player: this.getPlayerInfo(player) });
   }
 
-  private startGame(roomId: string) {
+  private startGame(roomId: string, mapSize: number = 200) {
     const room = this.rooms.get(roomId);
     if (!room) return;
 
     room.isStarted = true;
     
-    // Initialize game state (this would connect to your existing game logic)
-    room.gameState = {
-      phase: 'playing',
-      territories: [],
-      gameMap: null,
-      tick: 0
-    };
+    // Initialize server-authoritative game engine
+    room.gameEngine = new GameEngine({ mapSize, tickRate: room.tickRate });
+    
+    // Add all players to the game engine
+    Array.from(room.players.values()).forEach(player => {
+      room.gameEngine!.addPlayer(player.id, player.name, player.color, player.type);
+    });
+    
+    // Add AI players
+    for (let i = 0; i < room.aiPlayerCount; i++) {
+      const aiId = `ai_${i}`;
+      const aiName = this.generateAIName(i);
+      const aiColor = this.generatePlayerColor(room.players.size + i);
+      room.gameEngine!.addPlayer(aiId, aiName, aiColor, 'ai');
+    }
+    
+    // Start the game
+    room.gameEngine.startGame();
+    
+    // Start the server game loop
+    this.startGameLoop(roomId);
 
-    // Notify all players in the room
+    // Send initial game state to all players
+    const gameState = room.gameEngine.getGameState();
     this.io.to(roomId).emit('game-started', { 
-      gameState: room.gameState,
-      players: Array.from(room.players.values()).map(p => this.getPlayerInfo(p))
+      gameState,
+      players: Object.values(gameState.players)
     });
 
-    console.log(`Game started in room ${roomId} with ${room.players.size} human players and ${room.aiPlayerCount} AI players`);
+    console.log(`Server-authoritative game started in room ${roomId} with ${room.players.size} human players and ${room.aiPlayerCount} AI players`);
+  }
+
+  private startGameLoop(roomId: string) {
+    const room = this.rooms.get(roomId);
+    if (!room || !room.gameEngine) return;
+
+    const tickInterval = 1000 / room.tickRate; // Convert to milliseconds
+    let lastUpdate = Date.now();
+
+    room.gameLoop = setInterval(() => {
+      const now = Date.now();
+      const deltaTime = now - lastUpdate;
+      lastUpdate = now;
+
+      // Update game engine
+      room.gameEngine!.update(deltaTime);
+
+      // Broadcast state updates to all players
+      const gameState = room.gameEngine!.getGameState();
+      this.broadcastGameStateUpdate(roomId, gameState);
+
+      // Check if game ended
+      if (gameState.gamePhase === 'ended') {
+        this.endGame(roomId);
+      }
+    }, tickInterval);
+  }
+
+  private broadcastGameStateUpdate(roomId: string, gameState: any) {
+    const update: GameStateUpdate = {
+      type: 'DELTA_STATE',
+      gameState,
+      timestamp: Date.now()
+    };
+    
+    this.io.to(roomId).emit('game-state-update', update);
+  }
+
+  private endGame(roomId: string) {
+    const room = this.rooms.get(roomId);
+    if (!room || !room.gameLoop) return;
+
+    clearInterval(room.gameLoop);
+    room.gameLoop = null;
+    
+    console.log(`Game ended in room ${roomId}`);
+  }
+
+  private generateAIName(index: number): string {
+    const firstNames = [
+      'Alex', 'Blake', 'Casey', 'Dana', 'Emma', 'Felix', 'Grace', 'Hunter', 'Iris', 'Jack',
+      'Kai', 'Luna', 'Max', 'Nova', 'Owen', 'Piper', 'Quinn', 'Riley', 'Sage', 'Tyler'
+    ];
+    
+    const clanNames = [
+      'StarForge', 'VoidHunters', 'NebulaRise', 'CosmicFury', 'SolarFlare', 'DarkMatter',
+      'GalaxyCorp', 'NovaStrike', 'CelestialWar', 'SpaceRaiders', 'StellarWolves', 'OrbitClan'
+    ];
+    
+    const firstName = firstNames[index % firstNames.length];
+    const clanName = clanNames[Math.floor(index / firstNames.length) % clanNames.length];
+    
+    return `[${clanName}] ${firstName}`;
   }
 
   private handleGameAction(socket: any, room: GameRoom, action: string, payload: any) {
