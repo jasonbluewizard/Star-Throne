@@ -66,54 +66,67 @@ export class Player {
         if (this.aiThinkTimer < this.aiThinkInterval) return;
         
         this.aiThinkTimer = 0;
-        this.aiThinkInterval = 1000 + Math.random() * 2000; // Randomize next think time
+        this.aiThinkInterval = 2000 + Math.random() * 3000; // Slower AI thinking for performance
         
-        // Find territories to attack from
-        const attackableTerritories = this.territories
-            .map(id => gameMap.territories[id])
-            .filter(territory => territory && territory.armySize > 2);
+        // Cache territory lookups to reduce map access
+        const ownedTerritories = [];
+        for (const id of this.territories) {
+            const territory = gameMap.territories[id];
+            if (territory && territory.armySize > 2) {
+                ownedTerritories.push(territory);
+            }
+        }
         
-        if (attackableTerritories.length === 0) return;
+        if (ownedTerritories.length === 0) return;
         
-        // 30% chance to consider probe colonization instead of regular attacks
-        if (Math.random() < 0.3) {
-            if (this.considerProbeColonization(attackableTerritories, gameMap)) {
+        // 20% chance to consider probe colonization (reduced for performance)
+        if (Math.random() < 0.2) {
+            if (this.considerProbeColonization(ownedTerritories, gameMap)) {
                 return; // Probe launched, skip regular attack this turn
             }
         }
         
-        // Select strategy-based action
+        // Limit AI actions per update to reduce computational load
+        const maxActions = Math.min(2, Math.ceil(ownedTerritories.length / 5));
+        
+        // Select strategy-based action with performance limits
         switch (this.aiStrategy) {
             case 'aggressive':
-                this.executeAggressiveStrategy(attackableTerritories, gameMap);
+                this.executeAggressiveStrategy(ownedTerritories, gameMap, maxActions);
                 break;
             case 'defensive':
-                this.executeDefensiveStrategy(attackableTerritories, gameMap);
+                this.executeDefensiveStrategy(ownedTerritories, gameMap, maxActions);
                 break;
             case 'expansionist':
-                this.executeExpansionistStrategy(attackableTerritories, gameMap);
+                this.executeExpansionistStrategy(ownedTerritories, gameMap, maxActions);
                 break;
             case 'opportunistic':
-                this.executeOpportunisticStrategy(attackableTerritories, gameMap);
+                this.executeOpportunisticStrategy(ownedTerritories, gameMap, maxActions);
                 break;
         }
     }
     
-    executeAggressiveStrategy(attackableTerritories, gameMap) {
-        // Attack strongest enemy territories
+    executeAggressiveStrategy(attackableTerritories, gameMap, maxActions = 2) {
+        let actionsPerformed = 0;
+        
+        // Attack strongest enemy territories with performance limits
         for (const territory of attackableTerritories) {
+            if (actionsPerformed >= maxActions) break;
+            
             const targets = this.findAttackTargets(territory, gameMap)
                 .filter(target => target.ownerId !== null && target.ownerId !== this.id)
-                .sort((a, b) => b.armySize - a.armySize);
+                .sort((a, b) => b.armySize - a.armySize)
+                .slice(0, 3); // Limit target evaluation
             
             if (targets.length > 0) {
                 const target = targets[0];
                 if (territory.armySize > target.armySize) {
                     this.executeAttack(territory, target, gameMap);
-                    return;
+                    actionsPerformed++;
                 }
             }
         }
+        return actionsPerformed;
     }
     
     executeDefensiveStrategy(attackableTerritories, gameMap) {

@@ -199,6 +199,8 @@ export class Territory {
         if (isSelected && this.ownerId !== null) {
             this.renderPotentialTargets(ctx, players);
         }
+        
+        ctx.restore();
     }
     
     renderHumanFlag(ctx) {
