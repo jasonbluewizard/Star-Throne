@@ -1,5 +1,7 @@
 import { Server as SocketServer } from 'socket.io';
 import { Server } from 'http';
+import { GameEngine } from './GameEngine.js';
+import { PlayerState, GameConfig, ClientCommand, CommandType, GameStateUpdate, CombatResult, CommandError } from '../common/types/index.js';
 
 interface Player {
   id: string;
@@ -18,12 +20,14 @@ interface GameRoom {
   id: string;
   name: string;
   players: Map<string, Player>;
-  gameState: any;
+  gameEngine: GameEngine | null;
+  gameLoop: NodeJS.Timeout | null;
   isStarted: boolean;
   maxPlayers: number;
   aiPlayerCount: number;
   gameMode: 'single' | 'multiplayer';
   lastUpdate: number;
+  tickRate: number;
 }
 
 export class GameServer {
@@ -53,12 +57,14 @@ export class GameServer {
           id: roomId,
           name: data.roomName,
           players: new Map(),
-          gameState: null,
+          gameEngine: null,
+          gameLoop: null,
           isStarted: false,
           maxPlayers: data.maxPlayers,
           aiPlayerCount: data.aiCount,
           gameMode: 'multiplayer',
-          lastUpdate: Date.now()
+          lastUpdate: Date.now(),
+          tickRate: 20
         };
 
         this.rooms.set(roomId, room);
