@@ -574,6 +574,11 @@ export default class TerritorialConquest {
             return;
         }
         
+        const renderStart = performance.now();
+        
+        // Update visible territories for culling
+        this.updateVisibleTerritories();
+        
         // Clear canvas with space background
         this.ctx.fillStyle = '#001122';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
@@ -584,7 +589,7 @@ export default class TerritorialConquest {
         // Apply camera transformation
         this.camera.applyTransform(this.ctx);
         
-        // Render game world
+        // Render game world with optimizations
         this.renderTerritories();
         this.renderConnections();
         this.renderSupplyRoutes();
@@ -598,24 +603,36 @@ export default class TerritorialConquest {
         
         // Render UI (not affected by camera)
         this.renderUI();
+        
+        // Track performance
+        this.performanceStats.renderTime = performance.now() - renderStart;
     }
     
     updateVisibleTerritories() {
-        const now = Date.now();
-        if (now - this.lastCullUpdate < this.cullInterval) {
-            return; // Skip update if too recent
+        // Optimized visibility culling with cached bounds
+        if (Date.now() - this.lastVisibilityUpdate < 50) return;
+        this.lastVisibilityUpdate = Date.now();
+        
+        const bounds = this.camera.getViewBounds();
+        const margin = 100;
+        
+        this.visibleTerritories = [];
+        const territories = Object.values(this.gameMap.territories);
+        
+        for (let i = 0; i < territories.length; i++) {
+            const territory = territories[i];
+            if (territory.x + territory.radius >= bounds.left - margin &&
+                territory.x - territory.radius <= bounds.right + margin &&
+                territory.y + territory.radius >= bounds.top - margin &&
+                territory.y - territory.radius <= bounds.bottom + margin) {
+                this.visibleTerritories.push(territory);
+            }
         }
         
-        this.lastCullUpdate = now;
-        const viewBounds = this.camera.getViewBounds();
-        this.visibleTerritories = [];
-        
-        Object.values(this.gameMap.territories).forEach(territory => {
-            // Frustum culling with small margin for smooth entry/exit
-            const margin = 50;
-            if (territory.x + territory.radius + margin >= viewBounds.left &&
-                territory.x - territory.radius - margin <= viewBounds.right &&
-                territory.y + territory.radius + margin >= viewBounds.top &&
+        this.performanceStats.visibleTerritories = this.visibleTerritories.length;
+    }
+    
+
                 territory.y - territory.radius - margin <= viewBounds.bottom) {
                 this.visibleTerritories.push(territory);
             }
