@@ -4,6 +4,7 @@ export class GameEngine {
   private gameState: GameState;
   private lastUpdate: number;
   private tickRate: number;
+  private gameSpeed: number;
 
   constructor(config: { mapSize: number; tickRate?: number }) {
     this.tickRate = config.tickRate || 20; // 20 updates per second

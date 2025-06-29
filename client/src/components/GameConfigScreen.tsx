@@ -13,18 +13,21 @@ export interface GameConfig {
   mapSize: number;
   aiPlayerCount: number;
   playerName: string;
+  gameSpeed: number;
 }
 
 export function GameConfigScreen({ onStartGame, onBack }: GameConfigScreenProps) {
   const [mapSize, setMapSize] = useState([200]); // Default 200 territories
   const [aiPlayerCount, setAiPlayerCount] = useState([19]); // Default 19 AI players
   const [playerName, setPlayerName] = useState('Player');
+  const [gameSpeed, setGameSpeed] = useState([1.0]); // Default normal speed
 
   const handleStartGame = () => {
     onStartGame({
       mapSize: mapSize[0],
       aiPlayerCount: aiPlayerCount[0],
-      playerName: playerName
+      playerName: playerName,
+      gameSpeed: gameSpeed[0]
     });
   };
 
@@ -40,6 +43,19 @@ export function GameConfigScreen({ onStartGame, onBack }: GameConfigScreenProps)
     if (count <= 25) return 'Normal - Standard challenge';
     if (count <= 50) return 'Many - Intense competition';
     return 'Maximum - Chaos mode';
+  };
+
+  const getSpeedDescription = (speed: number) => {
+    if (speed <= 0.1) return 'Ultra Slow - Epic strategic campaigns';
+    if (speed <= 0.5) return 'Slow - Deep strategic thinking';
+    if (speed <= 1.0) return 'Normal - Balanced gameplay';
+    if (speed <= 2.0) return 'Fast - Quick action';
+    return 'Blitz - Lightning fast';
+  };
+
+  const formatSpeedValue = (speed: number) => {
+    if (speed >= 1.0) return `${speed}x`;
+    return `${Math.round(speed * 100)}%`;
   };
 
   return (
@@ -103,12 +119,30 @@ export function GameConfigScreen({ onStartGame, onBack }: GameConfigScreenProps)
             <p className="text-sm text-gray-400">{getAIDescription(aiPlayerCount[0])}</p>
           </div>
 
+          {/* Game Speed */}
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <Label className="text-white">Game Speed</Label>
+              <span className="text-cyan-400 font-mono">{formatSpeedValue(gameSpeed[0])}</span>
+            </div>
+            <Slider
+              value={gameSpeed}
+              onValueChange={setGameSpeed}
+              max={2.0}
+              min={0.01}
+              step={0.01}
+              className="w-full"
+            />
+            <p className="text-sm text-gray-400">{getSpeedDescription(gameSpeed[0])}</p>
+          </div>
+
           {/* Game Info */}
           <div className="bg-gray-700/50 rounded-lg p-4 space-y-2">
             <h4 className="text-white font-semibold">Game Preview</h4>
             <div className="text-sm text-gray-300 space-y-1">
               <p>• {mapSize[0]} star systems to conquer</p>
               <p>• {aiPlayerCount[0]} AI opponents with unique strategies</p>
+              <p>• Game speed: {formatSpeedValue(gameSpeed[0])}</p>
               <p>• Probe-based colonization system</p>
               <p>• Supply route management</p>
               <p>• Real-time strategic combat</p>

@@ -123,6 +123,7 @@ export interface GameConfig {
   playerName: string;
   maxPlayers: number;
   tickRate: number; // Server updates per second
+  gameSpeed: number; // Speed multiplier for all game actions (0.01-2.0)
 }
 
 // Constants for game balancing
