@@ -19,6 +19,7 @@ export default class TerritorialConquest {
             playerName: config.playerName || 'Player',
             aiCount: config.aiCount || 19,
             mapSize: config.mapSize || 200,
+            gameSpeed: config.gameSpeed || 1.0,
             ...config
         };
         
@@ -108,7 +109,7 @@ export default class TerritorialConquest {
         animation.toX = toTerritory.x;
         animation.toY = toTerritory.y;
         animation.progress = 0;
-        animation.duration = 1000;
+        animation.duration = 1000 / this.config.gameSpeed;
         animation.startTime = Date.now();
         animation.isAttack = isAttack;
         animation.playerColor = playerColor;
@@ -517,15 +518,15 @@ export default class TerritorialConquest {
         for (let i = startIndex; i < endIndex; i++) {
             const player = this.players[i];
             if (player && !player.isEliminated) {
-                player.update(deltaTime, this.gameMap);
+                player.update(deltaTime * this.config.gameSpeed, this.gameMap);
             }
         }
         
-        // Update ship animations with pooling
-        this.updateShipAnimations(deltaTime);
+        // Update ship animations with speed multiplier
+        this.updateShipAnimations(deltaTime * this.config.gameSpeed);
         
-        // Update probes
-        this.updateProbes(deltaTime);
+        // Update probes with speed multiplier
+        this.updateProbes(deltaTime * this.config.gameSpeed);
         
         // Throttled heavy operations for better performance
         if (this.frameCount % 45 === 0) { // Every 45 frames (~0.75 seconds)

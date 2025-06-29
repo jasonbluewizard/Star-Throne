@@ -1,5 +1,5 @@
 export class Probe {
-    constructor(id, fromTerritory, toTerritory, playerId, playerColor) {
+    constructor(id, fromTerritory, toTerritory, playerId, playerColor, gameSpeed = 1.0) {
         this.id = id;
         this.fromTerritory = fromTerritory;
         this.toTerritory = toTerritory;
@@ -22,8 +22,8 @@ export class Probe {
         this.totalDistance = distance;
         this.traveledDistance = 0;
         
-        // Probe moves slowly - 25 pixels per second (half speed)
-        this.speed = 25;
+        // Apply game speed multiplier to probe movement
+        this.speed = 25 * gameSpeed;
         
         // Visual properties
         this.size = 4;

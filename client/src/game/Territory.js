@@ -52,11 +52,13 @@ export class Territory {
         this.combatFlashTime = Date.now();
     }
     
-    generateArmies(deltaTime, player) {
+    generateArmies(deltaTime, player, gameSpeed = 1.0) {
         // Neutral territories have fixed army sizes and don't generate armies
         if (this.ownerId === null) return;
         
-        this.lastArmyGeneration += deltaTime;
+        // Apply game speed multiplier to army generation timing
+        const speedAdjustedDelta = deltaTime * gameSpeed;
+        this.lastArmyGeneration += speedAdjustedDelta;
         
         if (this.lastArmyGeneration >= this.armyGenerationRate) {
             const armiesGenerated = Math.floor(this.lastArmyGeneration / this.armyGenerationRate);
