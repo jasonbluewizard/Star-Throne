@@ -105,8 +105,8 @@ export class Territory {
         ctx.fillStyle = fillColor;
         ctx.fill();
         
-        // Cache player lookup to avoid repeated searches
-        const player = players.find(p => p.id === this.ownerId);
+        // Optimize player lookup using direct access
+        const player = this.ownerId ? players[this.ownerId] : null;
         const isHumanPlayer = player && player.type === 'human';
         
         // Set stroke properties based on state

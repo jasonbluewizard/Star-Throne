@@ -755,33 +755,40 @@ export default class TerritorialConquest {
     }
     
     renderArmies() {
-        Object.values(this.gameMap.territories).forEach(territory => {
+        // Optimized army rendering with visibility culling and batch operations
+        this.ctx.save();
+        this.ctx.font = 'bold 14px Arial';
+        this.ctx.textAlign = 'center';
+        
+        const territories = this.visibleTerritories || Object.values(this.gameMap.territories);
+        const playersLookup = {}; // Cache player lookups
+        
+        for (let i = 0; i < territories.length; i++) {
+            const territory = territories[i];
             if (territory.ownerId !== null && territory.armySize > 0) {
-                const owner = this.players[territory.ownerId];
+                // Use cached player lookup
+                let owner = playersLookup[territory.ownerId];
+                if (!owner) {
+                    owner = this.players[territory.ownerId];
+                    if (owner) playersLookup[territory.ownerId] = owner;
+                }
+                
                 if (owner) {
-                    // Render army count with white outline for contrast
-                    this.ctx.font = 'bold 14px Arial';
-                    this.ctx.textAlign = 'center';
+                    const armyText = territory.armySize.toString();
                     
                     // Draw white outline for contrast
                     this.ctx.strokeStyle = '#ffffff';
                     this.ctx.lineWidth = 3;
-                    this.ctx.strokeText(
-                        territory.armySize.toString(),
-                        territory.x,
-                        territory.y + 5
-                    );
+                    this.ctx.strokeText(armyText, territory.x, territory.y + 5);
                     
                     // Draw main black text
                     this.ctx.fillStyle = '#000000';
-                    this.ctx.fillText(
-                        territory.armySize.toString(),
-                        territory.x,
-                        territory.y + 5
-                    );
+                    this.ctx.fillText(armyText, territory.x, territory.y + 5);
                 }
             }
-        });
+        }
+        
+        this.ctx.restore();
     }
     
     renderUI() {
