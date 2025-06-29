@@ -297,13 +297,16 @@ export default class TerritorialConquest {
             }
         }, { passive: false });
         
-        // Additional touch state tracking
+        // Enhanced touch state tracking for better pinch-to-zoom
         this.touchStartTime = 0;
         this.touchStartDistance = null;
         this.isMultiTouch = false;
         this.touchDebugInfo = '';
-        this.showTouchDebug = true; // Turn on debug to help with mobile zoom
+        this.showTouchDebug = true;
         this.leaderboardMinimized = false;
+        this.lastZoomTime = 0;
+        this.pinchCenter = null;
+        this.initialZoom = 1.0;
         
         // Keyboard events
         window.addEventListener('keydown', (e) => this.handleKeyDown(e));
@@ -1370,7 +1373,7 @@ export default class TerritorialConquest {
             this.touchDebugInfo += `\nSingle: ${Math.round(this.mousePos.x)}, ${Math.round(this.mousePos.y)}`;
             
         } else if (e.touches.length === 2) {
-            // Two touches - prepare for pinch zoom and pan
+            // Two touches - enhanced pinch zoom and pan
             this.isMultiTouch = true;
             this.isDragging = true;
             const touch1 = e.touches[0];
@@ -1382,12 +1385,15 @@ export default class TerritorialConquest {
                 touch2.clientY - touch1.clientY
             );
             
-            this.lastMousePos = {
+            this.pinchCenter = {
                 x: ((touch1.clientX + touch2.clientX) / 2) - rect.left,
                 y: ((touch1.clientY + touch2.clientY) / 2) - rect.top
             };
             
-            this.touchDebugInfo += `\nPinch: dist ${Math.round(this.touchStartDistance)}`;
+            this.lastMousePos = { ...this.pinchCenter };
+            this.initialZoom = this.camera.zoom;
+            
+            this.touchDebugInfo += `\nPinch: dist ${Math.round(this.touchStartDistance)} center (${Math.round(this.pinchCenter.x)}, ${Math.round(this.pinchCenter.y)})`;
         }
     }
     
@@ -1437,32 +1443,39 @@ export default class TerritorialConquest {
                 touch2.clientY - touch1.clientY
             );
             
-            if (this.touchStartDistance && Math.abs(currentDistance - this.touchStartDistance) > 5) {
-                // More sensitive zoom with smaller threshold
-                const rawZoomFactor = currentDistance / this.touchStartDistance;
-                // Smooth the zoom factor to prevent jarring movements
-                const zoomFactor = 1 + (rawZoomFactor - 1) * 0.5;
+            if (this.touchStartDistance && Math.abs(currentDistance - this.touchStartDistance) > 2) {
+                // Enhanced pinch-to-zoom with smooth, responsive scaling
+                const scaleRatio = currentDistance / this.touchStartDistance;
+                
+                // Apply zoom with smooth acceleration curve
+                const zoomDelta = (scaleRatio - 1) * 0.02; // More gradual zoom
+                const newZoom = Math.max(0.5, Math.min(3.0, this.camera.zoom + zoomDelta));
+                
                 const centerX = ((touch1.clientX + touch2.clientX) / 2) - rect.left;
                 const centerY = ((touch1.clientY + touch2.clientY) / 2) - rect.top;
                 
-                this.camera.zoom(zoomFactor, centerX, centerY);
+                // Apply zoom to specific point for natural feel
+                this.camera.zoomTo(newZoom, centerX, centerY);
                 this.touchStartDistance = currentDistance;
+                this.lastZoomTime = Date.now();
                 
-                this.touchDebugInfo += `\nZoom: ${zoomFactor.toFixed(2)} (${this.camera.zoom.toFixed(2)})`;
+                this.touchDebugInfo += `\nPinch Zoom: ${(newZoom * 100).toFixed(0)}%`;
             }
             
-            // Pan based on center point movement
+            // Enhanced two-finger pan with smoother movement
             const currentCenter = {
                 x: ((touch1.clientX + touch2.clientX) / 2) - rect.left,
                 y: ((touch1.clientY + touch2.clientY) / 2) - rect.top
             };
             
-            if (this.lastMousePos) {
+            if (this.lastMousePos && Date.now() - this.lastZoomTime > 50) {
                 const deltaX = currentCenter.x - this.lastMousePos.x;
                 const deltaY = currentCenter.y - this.lastMousePos.y;
-                if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) {
-                    this.camera.pan(-deltaX, -deltaY);
-                    console.log('Two finger pan:', deltaX, deltaY);
+                
+                // Smoother pan threshold for better control
+                if (Math.abs(deltaX) > 1 || Math.abs(deltaY) > 1) {
+                    this.camera.pan(-deltaX * 0.8, -deltaY * 0.8); // Damped panning
+                    this.touchDebugInfo += `\nTwo-finger pan: ${Math.round(deltaX)}, ${Math.round(deltaY)}`;
                 }
             }
             
@@ -1488,6 +1501,8 @@ export default class TerritorialConquest {
             this.isMultiTouch = false;
             this.touchStartDistance = null;
             this.lastMousePos = null;
+            this.pinchCenter = null;
+            this.lastZoomTime = 0;
             
         } else if (e.touches.length === 1) {
             // One finger lifted during multi-touch - continue with single touch
