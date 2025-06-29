@@ -518,22 +518,20 @@ export default class TerritorialConquest {
         for (let i = startIndex; i < endIndex; i++) {
             const player = this.players[i];
             if (player && !player.isEliminated) {
-                player.update(deltaTime * this.config.gameSpeed, this.gameMap);
+                player.update(deltaTime, this.gameMap, this.config.gameSpeed);
             }
         }
         
-        // Update ship animations with speed multiplier
-        this.updateShipAnimations(deltaTime * this.config.gameSpeed);
-        
-        // Update probes with speed multiplier
-        this.updateProbes(deltaTime * this.config.gameSpeed);
+        // Update ship animations and probes with normal delta time (speed applied internally)
+        this.updateShipAnimations(deltaTime);
+        this.updateProbes(deltaTime);
         
         // Throttled heavy operations for better performance
         if (this.frameCount % 45 === 0) { // Every 45 frames (~0.75 seconds)
             this.validateSupplyRoutes();
         }
         if (this.frameCount % 90 === 0) { // Every 90 frames (~1.5 seconds)
-            this.processSupplyRoutes();
+            this.processSupplyRoutes(this.config.gameSpeed);
         }
         
         // Check for player elimination (throttled)

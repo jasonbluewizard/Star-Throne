@@ -211,6 +211,13 @@ Changelog:
   * Improved two-finger pan controls with damped movement for better mobile experience
   * Reduced pinch sensitivity threshold to 2 pixels for more responsive zoom control
   * Added zoom limits (50%-300%) and smooth acceleration curves for natural pinch gestures
+- June 29, 2025. Game speed control system implementation:
+  * Added configurable game speed variable to single-player setup (1% to 200% speed)
+  * Implemented speed multipliers for all game mechanics: army generation, probe movement, ship animations
+  * Server-side GameEngine updated with speed-adjusted timing for probes, armies, and AI decisions
+  * Client-side game mechanics now respect speed configuration for consistent gameplay scaling
+  * Speed presets: Ultra Slow (1%), Slow (50%), Normal (100%), Fast (200%) for strategic vs action gameplay
+  * Complete integration across Territory generation, Player updates, and Probe colonization systems
 
 ## User Preferences
 
