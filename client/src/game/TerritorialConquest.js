@@ -301,6 +301,7 @@ export default class TerritorialConquest {
         // Enhanced touch state tracking for better pinch-to-zoom
         this.touchStartTime = 0;
         this.touchStartDistance = null;
+        this.lastPinchDistance = null;
         this.isMultiTouch = false;
         this.touchDebugInfo = '';
         this.showTouchDebug = true;
@@ -1390,9 +1391,10 @@ export default class TerritorialConquest {
             };
             
             this.lastMousePos = { ...this.pinchCenter };
-            this.initialZoom = this.camera.zoom;
+            this.initialZoom = this.camera.zoom; // Store initial zoom for relative scaling
+            this.lastPinchDistance = this.touchStartDistance; // Track for smooth updates
             
-            this.touchDebugInfo += `\nPinch: dist ${Math.round(this.touchStartDistance)} center (${Math.round(this.pinchCenter.x)}, ${Math.round(this.pinchCenter.y)})`;
+            this.touchDebugInfo += `\nPinch Start: dist ${Math.round(this.touchStartDistance)} zoom ${(this.initialZoom * 100).toFixed(0)}%`;
         }
     }
     
@@ -1442,23 +1444,25 @@ export default class TerritorialConquest {
                 touch2.clientY - touch1.clientY
             );
             
-            if (this.touchStartDistance && Math.abs(currentDistance - this.touchStartDistance) > 2) {
-                // Enhanced pinch-to-zoom with smooth, responsive scaling
-                const scaleRatio = currentDistance / this.touchStartDistance;
+            // Improved pinch-to-zoom with better sensitivity and smoothing
+            if (this.lastPinchDistance && Math.abs(currentDistance - this.lastPinchDistance) > 5) {
+                // Use incremental scaling for smoother zoom
+                const distanceRatio = currentDistance / this.lastPinchDistance;
                 
-                // Apply zoom with smooth acceleration curve
-                const zoomDelta = (scaleRatio - 1) * 0.02; // More gradual zoom
-                const newZoom = Math.max(0.5, Math.min(3.0, this.camera.zoom + zoomDelta));
+                // Apply incremental zoom change with damping
+                const zoomMultiplier = 1 + (distanceRatio - 1) * 0.3; // Damped scaling
+                const newZoom = Math.max(0.5, Math.min(3.0, this.camera.zoom * zoomMultiplier));
                 
+                // Calculate zoom center between the two fingers
                 const centerX = ((touch1.clientX + touch2.clientX) / 2) - rect.left;
                 const centerY = ((touch1.clientY + touch2.clientY) / 2) - rect.top;
                 
-                // Apply zoom to specific point for natural feel
+                // Apply zoom smoothly to the pinch center
                 this.camera.zoomTo(newZoom, centerX, centerY);
-                this.touchStartDistance = currentDistance;
+                this.lastPinchDistance = currentDistance;
                 this.lastZoomTime = Date.now();
                 
-                this.touchDebugInfo += `\nPinch Zoom: ${(newZoom * 100).toFixed(0)}%`;
+                this.touchDebugInfo += `\nPinch Zoom: ${(newZoom * 100).toFixed(0)}% (dist: ${Math.round(currentDistance)})`;
             }
             
             // Enhanced two-finger pan with smoother movement
@@ -1499,9 +1503,11 @@ export default class TerritorialConquest {
             this.isDragging = false;
             this.isMultiTouch = false;
             this.touchStartDistance = null;
+            this.lastPinchDistance = null;
             this.lastMousePos = null;
             this.pinchCenter = null;
             this.lastZoomTime = 0;
+            this.initialZoom = 1.0;
             
         } else if (e.touches.length === 1) {
             // One finger lifted during multi-touch - continue with single touch

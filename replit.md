@@ -218,6 +218,13 @@ Changelog:
   * Client-side game mechanics now respect speed configuration for consistent gameplay scaling
   * Speed presets: Ultra Slow (1%), Slow (50%), Normal (100%), Fast (200%) for strategic vs action gameplay
   * Complete integration across Territory generation, Player updates, and Probe colonization systems
+- June 29, 2025. Enhanced mobile pinch-to-zoom functionality:
+  * Improved pinch gesture detection with better distance threshold (5 pixels vs 2 pixels)
+  * Implemented incremental zoom scaling with damping for smoother transitions
+  * Added proper state tracking with lastPinchDistance for continuous gesture handling
+  * Enhanced zoom center calculation for natural pinch-to-zoom behavior
+  * Reduced sensitivity while maintaining responsiveness for better mobile experience
+  * Game rebranded from "Territorial Conquest" to "Star Throne" with cleaner configuration interface
 
 ## User Preferences
 
