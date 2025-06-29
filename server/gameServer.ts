@@ -195,14 +195,14 @@ export class GameServer {
     socket.to(roomId).emit('player-joined', { player: this.getPlayerInfo(player) });
   }
 
-  private startGame(roomId: string, mapSize: number = 200) {
+  private startGame(roomId: string, mapSize: number = 200, gameSpeed: number = 1.0) {
     const room = this.rooms.get(roomId);
     if (!room) return;
 
     room.isStarted = true;
     
-    // Initialize server-authoritative game engine
-    room.gameEngine = new GameEngine({ mapSize, tickRate: room.tickRate });
+    // Initialize server-authoritative game engine with game speed
+    room.gameEngine = new GameEngine({ mapSize, tickRate: room.tickRate, gameSpeed });
     
     // Add all players to the game engine
     Array.from(room.players.values()).forEach(player => {

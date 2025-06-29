@@ -6,8 +6,9 @@ export class GameEngine {
   private tickRate: number;
   private gameSpeed: number;
 
-  constructor(config: { mapSize: number; tickRate?: number }) {
+  constructor(config: { mapSize: number; tickRate?: number; gameSpeed?: number }) {
     this.tickRate = config.tickRate || 20; // 20 updates per second
+    this.gameSpeed = config.gameSpeed || 1.0; // Normal speed default
     this.lastUpdate = Date.now();
     
     this.gameState = {
@@ -270,8 +271,9 @@ export class GameEngine {
       if (territory.ownerId) {
         const player = this.gameState.players[territory.ownerId];
         if (player && !player.isEliminated) {
-          // Simple army generation - could be made more sophisticated
-          const generationChance = deltaTime / GAME_CONSTANTS.ARMY_GENERATION_RATE;
+          // Apply game speed multiplier to army generation
+          const speedAdjustedDelta = deltaTime * this.gameSpeed;
+          const generationChance = speedAdjustedDelta / GAME_CONSTANTS.ARMY_GENERATION_RATE;
           if (Math.random() < generationChance) {
             territory.armySize++;
           }
@@ -288,9 +290,11 @@ export class GameEngine {
   private updateAI(deltaTime: number): void {
     const aiPlayers = Object.values(this.gameState.players).filter(p => p.type === 'ai' && !p.isEliminated);
     
-    // Simple AI decision making - would be expanded with FSM
+    // Apply game speed to AI decision timing
+    const speedAdjustedChance = 0.01 * this.gameSpeed;
+    
     aiPlayers.forEach(player => {
-      if (Math.random() < 0.01) { // 1% chance per update to take action
+      if (Math.random() < speedAdjustedChance) { // Speed-adjusted chance to take action
         this.makeAIDecision(player);
       }
     });
@@ -518,7 +522,8 @@ export class GameEngine {
       Math.pow(toTerritory.y - fromTerritory.y, 2)
     );
     
-    const duration = (distance / GAME_CONSTANTS.PROBE_SPEED) * 1000;
+    // Apply game speed multiplier to probe travel time (faster speed = shorter duration)
+    const duration = (distance / GAME_CONSTANTS.PROBE_SPEED) * 1000 / this.gameSpeed;
     const player = this.gameState.players[playerId];
 
     const probe: ProbeState = {
