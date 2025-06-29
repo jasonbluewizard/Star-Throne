@@ -42,9 +42,13 @@ export default class TerritorialConquest {
         
         // Performance optimizations
         this.visibleTerritories = [];
-        this.lastCullUpdate = 0;
-        this.cullInterval = 100; // Update visibility every 100ms
-        this.renderQuadTree = null;
+        this.lastVisibilityUpdate = 0;
+        this.performanceStats = {
+            frameTime: 0,
+            renderTime: 0,
+            updateTime: 0,
+            visibleTerritories: 0
+        };
         
         // Ship movement animations
         this.shipAnimations = [];
@@ -463,6 +467,7 @@ export default class TerritorialConquest {
     }
     
     gameLoop(currentTime = 0) {
+        const frameStart = performance.now();
         const deltaTime = currentTime - this.lastFrameTime;
         this.lastFrameTime = currentTime;
         
@@ -474,6 +479,9 @@ export default class TerritorialConquest {
         }
         
         this.render();
+        
+        // Track overall frame performance
+        this.performanceStats.frameTime = performance.now() - frameStart;
         
         requestAnimationFrame((time) => this.gameLoop(time));
     }
@@ -488,6 +496,8 @@ export default class TerritorialConquest {
     }
     
     update(deltaTime) {
+        const updateStart = performance.now();
+        
         // Update game timer
         this.gameTimer -= deltaTime;
         
@@ -496,9 +506,9 @@ export default class TerritorialConquest {
             return;
         }
         
-        // Optimize AI updates - only update a subset each frame
-        const playersPerFrame = Math.ceil(this.players.length / 3); // Update 1/3 of players per frame
-        const startIndex = (this.frameCount % 3) * playersPerFrame;
+        // Optimized AI updates with staggered processing
+        const playersPerFrame = Math.max(1, Math.ceil(this.players.length / 4)); // Update 1/4 of players per frame
+        const startIndex = (this.frameCount % 4) * playersPerFrame;
         const endIndex = Math.min(startIndex + playersPerFrame, this.players.length);
         
         for (let i = startIndex; i < endIndex; i++) {
@@ -508,28 +518,35 @@ export default class TerritorialConquest {
             }
         }
         
-        // Update ship animations
+        // Update ship animations with pooling
         this.updateShipAnimations(deltaTime);
         
         // Update probes
         this.updateProbes(deltaTime);
         
-        // Update supply routes (throttled for performance)
-        if (this.frameCount % 30 === 0) { // Every 30 frames (~0.5 seconds)
+        // Throttled heavy operations for better performance
+        if (this.frameCount % 45 === 0) { // Every 45 frames (~0.75 seconds)
             this.validateSupplyRoutes();
         }
-        if (this.frameCount % 60 === 0) { // Every 60 frames (~1 second)
+        if (this.frameCount % 90 === 0) { // Every 90 frames (~1.5 seconds)
             this.processSupplyRoutes();
         }
         
-        // Check for player elimination
-        this.checkPlayerElimination();
+        // Check for player elimination (throttled)
+        if (this.frameCount % 20 === 0) {
+            this.checkPlayerElimination();
+        }
         
-        // Check win conditions
-        this.checkWinConditions();
+        // Check win conditions (throttled)
+        if (this.frameCount % 30 === 0) {
+            this.checkWinConditions();
+        }
         
         // Update camera
         this.camera.update(deltaTime);
+        
+        // Track performance
+        this.performanceStats.updateTime = performance.now() - updateStart;
     }
     
     checkPlayerElimination() {
@@ -630,13 +647,6 @@ export default class TerritorialConquest {
         }
         
         this.performanceStats.visibleTerritories = this.visibleTerritories.length;
-    }
-    
-
-                territory.y - territory.radius - margin <= viewBounds.bottom) {
-                this.visibleTerritories.push(territory);
-            }
-        });
     }
     
     renderTerritories() {
