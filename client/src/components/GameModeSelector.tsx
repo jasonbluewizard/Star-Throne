@@ -23,6 +23,18 @@ export function GameModeSelector({ onModeSelected }: GameModeSelectorProps) {
   const [error, setError] = useState('');
 
   const handleSinglePlayer = () => {
+    // Prompt for player name if not set
+    let name = playerName.trim();
+    if (!name) {
+      const promptResult = prompt('Enter your player name:') || '';
+      if (!promptResult.trim()) {
+        setError('Player name is required');
+        return;
+      }
+      name = promptResult.trim();
+      setPlayerName(name);
+    }
+    
     setSelectedMode('single');
     setShowConfigScreen(true);
   };
@@ -41,9 +53,16 @@ export function GameModeSelector({ onModeSelected }: GameModeSelectorProps) {
   };
 
   const handleMultiplayerConnect = () => {
-    if (!playerName.trim()) {
-      setError('Please enter your name');
-      return;
+    // Prompt for player name if not set
+    let name = playerName.trim();
+    if (!name) {
+      const promptResult = prompt('Enter your player name:');
+      if (!promptResult || !promptResult.trim()) {
+        setError('Player name is required for multiplayer');
+        return;
+      }
+      name = promptResult.trim();
+      setPlayerName(name);
     }
 
     setIsConnecting(true);
@@ -209,25 +228,11 @@ export function GameModeSelector({ onModeSelected }: GameModeSelectorProps) {
           <p className="text-gray-400">Choose your game mode</p>
         </div>
 
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="playerName" className="text-white">Your Name</Label>
-            <Input
-              id="playerName"
-              value={playerName}
-              onChange={(e) => setPlayerName(e.target.value)}
-              placeholder="Enter your name"
-              className="bg-gray-700 border-gray-600 text-white"
-              maxLength={20}
-            />
+        {error && (
+          <div className="text-red-400 text-sm text-center bg-red-900/20 p-2 rounded">
+            {error}
           </div>
-
-          {error && (
-            <div className="text-red-400 text-sm text-center bg-red-900/20 p-2 rounded">
-              {error}
-            </div>
-          )}
-        </div>
+        )}
 
         <div className="grid grid-cols-1 gap-4">
           {/* Single Player */}
@@ -242,7 +247,11 @@ export function GameModeSelector({ onModeSelected }: GameModeSelectorProps) {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button onClick={handleSinglePlayer} className="w-full" disabled={isConnecting}>
+              <Button 
+                onClick={handleSinglePlayer} 
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 text-lg border-0" 
+                disabled={isConnecting}
+              >
                 Start Single Player Game
               </Button>
             </CardContent>
@@ -265,8 +274,7 @@ export function GameModeSelector({ onModeSelected }: GameModeSelectorProps) {
                   setSelectedMode('multiplayer');
                   handleMultiplayerConnect();
                 }} 
-                className="w-full" 
-                variant="outline"
+                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 text-lg border-0" 
                 disabled={isConnecting}
               >
                 {isConnecting ? 'Connecting...' : 'Enter Multiplayer Lobby'}
