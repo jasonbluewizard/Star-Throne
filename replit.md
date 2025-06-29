@@ -232,6 +232,11 @@ Changelog:
   * Enhanced object pooling system to support multi-hop animation properties
   * Ships visually transit through each intermediate planet in the supply chain for realistic movement
   * Faster per-segment animation (800ms vs 1000ms) for responsive multi-hop progression
+- June 29, 2025. UI improvements and cleanup:
+  * Removed supply route directional arrow graphics for cleaner visual interface
+  * Fixed minimap button click detection with corrected coordinate calculations
+  * Minimap now properly responds to both mouse clicks and M key toggle
+  * Supply routes show only animated dashed paths without distracting arrow indicators
 
 ## User Preferences
 

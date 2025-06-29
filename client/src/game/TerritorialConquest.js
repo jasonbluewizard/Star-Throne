@@ -807,29 +807,7 @@ export default class TerritorialConquest {
                     this.ctx.stroke();
                 }
                 
-                // Draw arrow at destination
-                const angle = Math.atan2(
-                    toTerritory.y - fromTerritory.y,
-                    toTerritory.x - fromTerritory.x
-                );
-                
-                this.ctx.setLineDash([]);
-                this.ctx.fillStyle = '#00ffff';
-                this.ctx.beginPath();
-                this.ctx.moveTo(
-                    toTerritory.x - Math.cos(angle) * (toTerritory.radius + 8),
-                    toTerritory.y - Math.sin(angle) * (toTerritory.radius + 8)
-                );
-                this.ctx.lineTo(
-                    toTerritory.x - Math.cos(angle - 0.5) * (toTerritory.radius + 15),
-                    toTerritory.y - Math.sin(angle - 0.5) * (toTerritory.radius + 15)
-                );
-                this.ctx.lineTo(
-                    toTerritory.x - Math.cos(angle + 0.5) * (toTerritory.radius + 15),
-                    toTerritory.y - Math.sin(angle + 0.5) * (toTerritory.radius + 15)
-                );
-                this.ctx.closePath();
-                this.ctx.fill();
+                // Remove arrow graphics - just show the animated path
                 
                 this.ctx.restore();
             }
@@ -1069,14 +1047,15 @@ export default class TerritorialConquest {
             return;
         }
         
-        // Check for minimap click
+        // Check for minimap click - fix coordinate calculation
         const minimapSize = 150;
         const minimapX = this.canvas.width - minimapSize - 20;
         const minimapY = this.canvas.height - minimapSize - 20;
         const minimapHeight = this.minimapMinimized ? 30 : minimapSize;
+        const minimapClickY = this.minimapMinimized ? (minimapY + minimapSize - 30) : minimapY;
         
         if (screenX >= minimapX && screenX <= minimapX + minimapSize &&
-            screenY >= minimapY && screenY <= minimapY + minimapHeight) {
+            screenY >= minimapClickY && screenY <= minimapClickY + minimapHeight) {
             this.minimapMinimized = !this.minimapMinimized;
             console.log('Minimap toggled:', this.minimapMinimized ? 'minimized' : 'maximized');
             return;
