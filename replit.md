@@ -237,6 +237,12 @@ Changelog:
   * Fixed minimap button click detection with corrected coordinate calculations
   * Minimap now properly responds to both mouse clicks and M key toggle
   * Supply routes show only animated dashed paths without distracting arrow indicators
+- June 29, 2025. Main menu interface improvements:
+  * Removed "Your Name" input field from main screen for cleaner presentation
+  * Enhanced button readability with high-contrast colors: blue for single player, green for multiplayer
+  * Increased button text size and padding for better visibility and accessibility
+  * Player name now prompted on-demand when starting games, reducing visual clutter
+  * Improved button styling with bold text and clear color differentiation
 
 ## User Preferences
 

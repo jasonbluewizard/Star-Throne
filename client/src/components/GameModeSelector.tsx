@@ -56,8 +56,8 @@ export function GameModeSelector({ onModeSelected }: GameModeSelectorProps) {
     // Prompt for player name if not set
     let name = playerName.trim();
     if (!name) {
-      const promptResult = prompt('Enter your player name:');
-      if (!promptResult || !promptResult.trim()) {
+      const promptResult = prompt('Enter your player name:') || '';
+      if (!promptResult.trim()) {
         setError('Player name is required for multiplayer');
         return;
       }
