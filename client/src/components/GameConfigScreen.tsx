@@ -63,7 +63,7 @@ export function GameConfigScreen({ onStartGame, onBack }: GameConfigScreenProps)
       <Card className="w-full max-w-md bg-gray-800/90 backdrop-blur-sm border-gray-700">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold text-white">
-            Configure Single Player
+            Star Throne - Single Player
           </CardTitle>
           <CardDescription className="text-gray-300">
             Customize your galactic conquest experience
@@ -136,18 +136,7 @@ export function GameConfigScreen({ onStartGame, onBack }: GameConfigScreenProps)
             <p className="text-sm text-gray-400">{getSpeedDescription(gameSpeed[0])}</p>
           </div>
 
-          {/* Game Info */}
-          <div className="bg-gray-700/50 rounded-lg p-4 space-y-2">
-            <h4 className="text-white font-semibold">Game Preview</h4>
-            <div className="text-sm text-gray-300 space-y-1">
-              <p>• {mapSize[0]} star systems to conquer</p>
-              <p>• {aiPlayerCount[0]} AI opponents with unique strategies</p>
-              <p>• Game speed: {formatSpeedValue(gameSpeed[0])}</p>
-              <p>• Probe-based colonization system</p>
-              <p>• Supply route management</p>
-              <p>• Real-time strategic combat</p>
-            </div>
-          </div>
+
         </CardContent>
 
         <CardFooter className="flex gap-3">

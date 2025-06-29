@@ -1,8 +1,8 @@
-# Territorial Conquest - Massive Multiplayer Strategy Game
+# Star Throne - Massive Multiplayer Strategy Game
 
 ## Overview
 
-Territorial Conquest is a browser-based real-time strategy game built with React and HTML5 Canvas. Players compete to control territories on a large map through strategic army placement and territorial expansion. The game features a custom 2D Canvas-based rendering engine with 100 AI players, real-time gameplay mechanics, and a polished UI built with Radix UI components.
+Star Throne is a browser-based real-time strategy game built with React and HTML5 Canvas. Players compete to control territories on a large map through strategic army placement and territorial expansion. The game features a custom 2D Canvas-based rendering engine with 100 AI players, real-time gameplay mechanics, and a polished UI built with Radix UI components.
 
 ## System Architecture
 

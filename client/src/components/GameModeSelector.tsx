@@ -94,7 +94,7 @@ export function GameModeSelector({ onModeSelected }: GameModeSelectorProps) {
       <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
         <div className="w-full max-w-2xl space-y-6">
           <div className="text-center">
-            <h1 className="text-4xl font-bold text-white mb-2">Territorial Conquest</h1>
+            <h1 className="text-4xl font-bold text-white mb-2">Star Throne</h1>
             <p className="text-gray-400">Multiplayer Game Lobby</p>
           </div>
 
@@ -205,7 +205,7 @@ export function GameModeSelector({ onModeSelected }: GameModeSelectorProps) {
     <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
       <div className="w-full max-w-md space-y-6">
         <div className="text-center">
-          <h1 className="text-4xl font-bold text-white mb-2">Territorial Conquest</h1>
+          <h1 className="text-4xl font-bold text-white mb-2">Star Throne</h1>
           <p className="text-gray-400">Choose your game mode</p>
         </div>
 
