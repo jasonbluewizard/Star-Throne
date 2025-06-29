@@ -54,6 +54,16 @@ export default class TerritorialConquest {
         // Ship movement animations
         this.shipAnimations = [];
         this.shipAnimationPool = []; // Reuse objects to reduce garbage collection
+        
+        // Pre-populate animation pool with multi-hop support
+        for (let i = 0; i < 20; i++) {
+            this.shipAnimationPool.push({
+                fromX: 0, fromY: 0, toX: 0, toY: 0,
+                progress: 0, duration: 0, startTime: 0,
+                isAttack: false, playerColor: '#ffffff', id: 0,
+                path: null, currentSegment: 0, isMultiHop: false
+            });
+        }
         this.leaderboardMinimized = false;
         this.minimapMinimized = true; // Default minimap to off
         
@@ -96,7 +106,8 @@ export default class TerritorialConquest {
             animation = {
                 fromX: 0, fromY: 0, toX: 0, toY: 0,
                 progress: 0, duration: 0, startTime: 0,
-                isAttack: false, playerColor: '#ffffff', id: 0
+                isAttack: false, playerColor: '#ffffff', id: 0,
+                path: null, currentSegment: 0, isMultiHop: false
             };
         }
         
@@ -114,8 +125,59 @@ export default class TerritorialConquest {
         animation.isAttack = isAttack;
         animation.playerColor = playerColor;
         animation.id = Math.random();
+        animation.path = null;
+        animation.currentSegment = 0;
+        animation.isMultiHop = false;
         
         this.shipAnimations.push(animation);
+    }
+
+    // Create multi-hop ship animation following supply route path
+    createSupplyRouteAnimation(path, playerColor) {
+        if (!path || path.length < 2) return;
+        
+        let animation = this.shipAnimationPool.pop();
+        if (!animation) {
+            animation = {
+                fromX: 0, fromY: 0, toX: 0, toY: 0,
+                progress: 0, duration: 0, startTime: 0,
+                isAttack: false, playerColor: '#ffffff', id: 0,
+                path: null, currentSegment: 0, isMultiHop: false
+            };
+        }
+        
+        // Set up multi-hop animation
+        animation.path = path;
+        animation.currentSegment = 0;
+        animation.isMultiHop = true;
+        animation.playerColor = playerColor;
+        animation.isAttack = false;
+        animation.id = Math.random();
+        
+        // Start with first segment
+        this.initializeAnimationSegment(animation);
+        
+        this.shipAnimations.push(animation);
+    }
+
+    // Initialize animation segment for multi-hop
+    initializeAnimationSegment(animation) {
+        if (!animation.path || animation.currentSegment >= animation.path.length - 1) {
+            return false;
+        }
+        
+        const fromTerritory = animation.path[animation.currentSegment];
+        const toTerritory = animation.path[animation.currentSegment + 1];
+        
+        animation.fromX = fromTerritory.x;
+        animation.fromY = fromTerritory.y;
+        animation.toX = toTerritory.x;
+        animation.toY = toTerritory.y;
+        animation.progress = 0;
+        animation.duration = 800 / this.config.gameSpeed; // Faster per-segment animation
+        animation.startTime = Date.now();
+        
+        return true;
     }
     
     // Update ship animations
@@ -128,6 +190,16 @@ export default class TerritorialConquest {
             animation.progress = (currentTime - animation.startTime) / animation.duration;
             
             if (animation.progress >= 1) {
+                if (animation.isMultiHop && animation.path) {
+                    // Move to next segment in multi-hop animation
+                    animation.currentSegment++;
+                    
+                    if (this.initializeAnimationSegment(animation)) {
+                        // Continue to next segment
+                        continue;
+                    }
+                }
+                
                 // Return completed animation to pool for reuse
                 this.shipAnimationPool.push(animation);
                 this.shipAnimations.splice(i, 1);
@@ -1266,8 +1338,15 @@ export default class TerritorialConquest {
     }
     
     createDelayedSupplyTransfer(fromTerritory, toTerritory, shipCount, delay) {
-        // Create ship animation
-        this.createShipAnimation(fromTerritory, toTerritory, false);
+        // Find the supply route to get the path
+        const route = this.supplyRoutes.get(fromTerritory.id);
+        if (route && route.path && route.path.length > 1) {
+            // Create multi-hop ship animation following the path
+            this.createSupplyRouteAnimation(route.path, this.humanPlayer.color);
+        } else {
+            // Fallback to direct animation
+            this.createShipAnimation(fromTerritory, toTerritory, false);
+        }
         
         // Apply transfer after delay
         setTimeout(() => {

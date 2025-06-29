@@ -225,6 +225,13 @@ Changelog:
   * Enhanced zoom center calculation for natural pinch-to-zoom behavior
   * Reduced sensitivity while maintaining responsiveness for better mobile experience
   * Game rebranded from "Territorial Conquest" to "Star Throne" with cleaner configuration interface
+- June 29, 2025. Multi-hop supply route ship animations:
+  * Ships now follow actual warp lane paths instead of flying directly across empty space
+  * Implemented multi-segment animation system that hops from planet to planet along supply routes
+  * Created specialized createSupplyRouteAnimation function for path-following ship movement
+  * Enhanced object pooling system to support multi-hop animation properties
+  * Ships visually transit through each intermediate planet in the supply chain for realistic movement
+  * Faster per-segment animation (800ms vs 1000ms) for responsive multi-hop progression
 
 ## User Preferences
 
