@@ -282,6 +282,12 @@ Changelog:
   * Binary: Two major systems split left/right with limited bridge connections
   * Layout-specific connection algorithms optimize star lane patterns for each formation
   * Galaxy layout selector added to single-player configuration screen with visual descriptions
+- June 30, 2025. Mobile UI improvements and complete rebranding:
+  * Fixed mobile scrolling issue: start buttons now visible on all screen sizes with proper overflow handling
+  * Enhanced mobile layout with reduced spacing and optimized component sizing for small screens
+  * Completed full rebranding from "TerritorialConquest" to "StarThrone" throughout entire codebase
+  * Renamed TerritorialConquest.js to StarThrone.js and updated all class references and imports
+  * Updated documentation to reflect StarThrone naming convention across all components
 
 ## User Preferences
 
