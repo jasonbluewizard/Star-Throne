@@ -86,6 +86,9 @@ export class GameUI {
             this.renderMinimap(ctx, gameData);
         }
         
+        // Performance panel (togglable with P key)
+        this.renderPerformanceInfo(ctx, gameData);
+        
         // Zoom controls
         this.renderZoomControls(ctx, gameData);
         
