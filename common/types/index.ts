@@ -130,7 +130,7 @@ export interface GameConfig {
 export const GAME_CONSTANTS = {
   PROBE_COST: 10,
   PROBE_SPEED: 25, // pixels per second
-  ARMY_GENERATION_RATE: 1000, // milliseconds per army
+  ARMY_GENERATION_RATE: 3000, // milliseconds per army
   MIN_ATTACK_ARMIES: 2,
   COMBAT_ATTACKER_MODIFIER: 0.2, // 0.8-1.2 range
   COMBAT_DEFENDER_MODIFIER: 0.1, // 0.9-1.1 range
