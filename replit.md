@@ -27,7 +27,7 @@ Star Throne is a browser-based real-time strategy game built with React and HTML
 - **Drizzle ORM** configured for PostgreSQL database integration
 
 ### Game Engine Components
-1. **TerritorialConquest.js** - Main game controller and initialization
+1. **StarThrone.js** - Main game controller and initialization
 2. **GameMap.js** - Territory generation using Poisson disk sampling
 3. **Territory.js** - Individual territory logic and rendering
 4. **Player.js** - Player state management and AI behavior

@@ -4,7 +4,7 @@ import { GameUI } from './GameUI.js';
 import { Camera } from './Camera.js';
 import { Probe } from './Probe.js';
 
-export default class TerritorialConquest {
+export default class StarThrone {
     constructor(config = {}) {
         this.canvas = null;
         this.ctx = null;

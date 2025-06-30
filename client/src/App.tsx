@@ -19,8 +19,8 @@ function App() {
 
   const initSinglePlayerGame = async (data: GameData) => {
     try {
-      const { default: TerritorialConquest } = await import('./game/TerritorialConquest.js');
-      gameRef.current = new TerritorialConquest(data);
+      const { default: StarThrone } = await import('./game/StarThrone.js');
+      gameRef.current = new StarThrone(data);
       // Make game globally accessible for mobile zoom buttons
       (window as any).game = gameRef.current;
       console.log('Single-player Star Throne game initialized with config:', data);
@@ -32,8 +32,8 @@ function App() {
   const initMultiplayerGame = async (data: GameData) => {
     try {
       // For now, we'll use the same game engine but prepare for multiplayer integration
-      const { default: TerritorialConquest } = await import('./game/TerritorialConquest.js');
-      gameRef.current = new TerritorialConquest();
+      const { default: StarThrone } = await import('./game/StarThrone.js');
+      gameRef.current = new StarThrone();
       // Make game globally accessible for mobile zoom buttons
       (window as any).game = gameRef.current;
       console.log('Multiplayer-ready Star Throne game initialized');
