@@ -390,7 +390,7 @@ export default class TerritorialConquest {
     }
     
     startGame() {
-        console.log('Starting Territorial Conquest game with config:', this.config);
+        console.log('Starting Star Throne game with config:', this.config);
         
         // Generate territories using configured map size
         this.gameMap.generateTerritories(this.config.mapSize);
@@ -1155,6 +1155,9 @@ export default class TerritorialConquest {
         this.probes.push(probe);
         fromTerritory.armySize -= probeCost;
         
+        // Trigger visual feedback
+        fromTerritory.triggerProbeFlash();
+        
         console.log(`Probe launched from territory ${fromTerritory.id} to colonizable planet ${toTerritory.id}`);
     }
     
@@ -1176,6 +1179,9 @@ export default class TerritorialConquest {
         
         this.probes.push(probe);
         fromTerritory.armySize -= probeCost;
+        
+        // Trigger visual feedback
+        fromTerritory.triggerProbeFlash();
         
         console.log(`AI ${player.name} launched probe from territory ${fromTerritory.id} to colonizable planet ${toTerritory.id}`);
     }

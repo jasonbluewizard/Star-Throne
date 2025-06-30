@@ -22,7 +22,7 @@ function App() {
       gameRef.current = new TerritorialConquest(data);
       // Make game globally accessible for mobile zoom buttons
       (window as any).game = gameRef.current;
-      console.log('Single-player Territorial Conquest game initialized with config:', data);
+      console.log('Single-player Star Throne game initialized with config:', data);
     } catch (error) {
       console.error('Failed to initialize single-player game:', error);
     }
@@ -35,7 +35,7 @@ function App() {
       gameRef.current = new TerritorialConquest();
       // Make game globally accessible for mobile zoom buttons
       (window as any).game = gameRef.current;
-      console.log('Multiplayer-ready Territorial Conquest game initialized');
+      console.log('Multiplayer-ready Star Throne game initialized');
       console.log('Room data:', data.room);
     } catch (error) {
       console.error('Failed to initialize multiplayer game:', error);

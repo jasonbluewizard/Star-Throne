@@ -211,6 +211,57 @@ export class Territory {
             ctx.fillText(`T${this.id}`, this.x, this.y - this.radius - 8);
         }
         
+        // Draw army count for owned territories with probe flash effect
+        if (this.ownerId !== null) {
+            const player = players[this.ownerId];
+            if (player) {
+                // Check for probe flash effect
+                const currentTime = Date.now();
+                const isProbeFlashing = (currentTime - this.probeFlashTime) < this.probeFlashDuration;
+                
+                let textColor = '#000000'; // Default black text
+                if (isProbeFlashing) {
+                    // Red flash effect for probe launch
+                    const flashProgress = (currentTime - this.probeFlashTime) / this.probeFlashDuration;
+                    const flashIntensity = Math.sin(flashProgress * Math.PI * 4) * 0.5 + 0.5;
+                    textColor = `rgb(${255 * flashIntensity}, 0, 0)`;
+                }
+                
+                ctx.fillStyle = textColor;
+                ctx.strokeStyle = '#ffffff'; // White outline for better readability
+                ctx.lineWidth = 2;
+                ctx.font = 'bold 12px Arial';
+                ctx.textAlign = 'center';
+                
+                const displayText = this.armySize.toString();
+                ctx.strokeText(displayText, this.x, this.y + 4);
+                ctx.fillText(displayText, this.x, this.y + 4);
+            }
+        }
+        
+        // Draw floating "-10" text for probe launches
+        if (this.floatingText) {
+            const currentTime = Date.now();
+            const elapsed = currentTime - this.floatingText.startTime;
+            
+            if (elapsed < this.floatingText.duration) {
+                const progress = elapsed / this.floatingText.duration;
+                const alpha = 1 - progress;
+                const yOffset = progress * 30; // Float upward
+                
+                ctx.fillStyle = `rgba(255, 68, 68, ${alpha})`;
+                ctx.font = 'bold 14px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(
+                    this.floatingText.text,
+                    this.x,
+                    this.floatingText.startY - yOffset
+                );
+            } else {
+                this.floatingText = null; // Remove when done
+            }
+        }
+        
         // Highlight potential targets if this territory is selected
         if (isSelected && this.ownerId !== null) {
             this.renderPotentialTargets(ctx, players);

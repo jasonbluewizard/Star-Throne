@@ -243,6 +243,13 @@ Changelog:
   * Increased button text size and padding for better visibility and accessibility
   * Player name now prompted on-demand when starting games, reducing visual clutter
   * Improved button styling with bold text and clear color differentiation
+- June 30, 2025. Game balance and visual improvements:
+  * Starting fleet count reduced from 200 to 50 armies for better game balance
+  * Unexplored systems now show simple yellow question marks without black backgrounds
+  * Reduced pulsing animation intensity for unexplored planets (less distracting)
+  * Removed player name prompt for single-player mode (uses default "Player" name)
+  * Added probe launch visual feedback: red flash on fleet numbers and floating "-10" text
+  * Removed all remaining "Territorial Conquest" text references, fully rebranded to "Star Throne"
 
 ## User Preferences
 
