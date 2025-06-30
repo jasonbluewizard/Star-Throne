@@ -2,6 +2,7 @@ import { Server as SocketServer } from 'socket.io';
 import { Server } from 'http';
 import { GameEngine } from './GameEngine.js';
 import { PlayerState, GameConfig, ClientCommand, CommandType, GameStateUpdate, CombatResult, CommandError } from '../common/types/index.js';
+import { GAME_CONSTANTS } from '../common/gameConstants.js';
 
 interface Player {
   id: string;
@@ -368,7 +369,10 @@ export class GameServer {
   }
 
   private generateRoomId(): string {
-    return Math.random().toString(36).substring(2, 8).toUpperCase();
+    return Math.random().toString(GAME_CONSTANTS.ROOM_ID_GENERATION_RADIX).substring(
+        GAME_CONSTANTS.ROOM_ID_GENERATION_SUBSTRING_START, 
+        GAME_CONSTANTS.ROOM_ID_GENERATION_SUBSTRING_END
+    ).toUpperCase();
   }
 
   private generatePlayerColor(index: number): string {
