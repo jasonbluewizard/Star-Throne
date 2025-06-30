@@ -408,8 +408,8 @@ export default class StarThrone {
     startGame() {
         console.log('Starting Star Throne game with config:', this.config);
         
-        // Generate territories using configured map size and advanced layout options
-        this.gameMap.generateTerritories(this.config.mapSize, this.config.layoutOptions);
+        // Generate territories using configured map size
+        this.gameMap.generateTerritories(this.config.mapSize);
         
         // Create players: 1 human + configured AI count
         const totalPlayers = 1 + this.config.aiCount;

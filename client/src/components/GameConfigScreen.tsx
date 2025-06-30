@@ -17,12 +17,6 @@ export interface GameConfig {
   playerName: string;
   gameSpeed: number;
   layout: string;
-  layoutOptions?: {
-    type: string;
-    planetSpacing: number;
-    clusterCount: number;
-    starlaneDensity: number;
-  };
 }
 
 export function GameConfigScreen({ onStartGame, onBack }: GameConfigScreenProps) {
@@ -32,11 +26,7 @@ export function GameConfigScreen({ onStartGame, onBack }: GameConfigScreenProps)
   const [gameSpeed, setGameSpeed] = useState([1.0]); // Default normal speed
   const [layout, setLayout] = useState('organic'); // Default organic layout
 
-  // Advanced Settings State
-  const [mapLayout, setMapLayout] = useState('organic');
-  const [planetSpacing, setPlanetSpacing] = useState([100]);
-  const [clusterCount, setClusterCount] = useState([4]);
-  const [starlaneDensity, setStarlaneDensity] = useState([3]);
+
 
   const handleStartGame = () => {
     onStartGame({
@@ -44,13 +34,7 @@ export function GameConfigScreen({ onStartGame, onBack }: GameConfigScreenProps)
       aiPlayerCount: aiPlayerCount[0],
       playerName: playerName,
       gameSpeed: gameSpeed[0],
-      layout: layout,
-      layoutOptions: {
-        type: mapLayout,
-        planetSpacing: planetSpacing[0],
-        clusterCount: clusterCount[0],
-        starlaneDensity: starlaneDensity[0]
-      }
+      layout: layout
     });
   };
 
@@ -188,80 +172,7 @@ export function GameConfigScreen({ onStartGame, onBack }: GameConfigScreenProps)
             </div>
           </div>
 
-          {/* Advanced Settings Dialog */}
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="w-full border-gray-600 text-gray-300 hover:bg-gray-700">
-                Advanced Settings
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px] bg-gray-800 border-gray-700">
-              <DialogHeader>
-                <DialogTitle className="text-white">Advanced Map Generation</DialogTitle>
-                <DialogDescription className="text-gray-300">
-                  Fine-tune the galaxy to your liking.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="map-layout" className="text-right text-white">Layout</Label>
-                  <Select value={mapLayout} onValueChange={setMapLayout}>
-                    <SelectTrigger className="col-span-3 bg-gray-700 border-gray-600">
-                      <SelectValue placeholder="Select layout" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-gray-700 border-gray-600">
-                      <SelectItem value="Clustered">Clustered</SelectItem>
-                      <SelectItem value="Spiral">Spiral</SelectItem>
-                      <SelectItem value="Random">Random (Legacy)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="planet-spacing" className="text-right text-white">Spacing</Label>
-                  <Slider 
-                    id="planet-spacing" 
-                    value={planetSpacing} 
-                    onValueChange={setPlanetSpacing} 
-                    min={50} 
-                    max={200} 
-                    step={10} 
-                    className="col-span-3" 
-                  />
-                </div>
-                {mapLayout === 'Clustered' && (
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="cluster-count" className="text-right text-white">Clusters</Label>
-                    <Slider 
-                      id="cluster-count" 
-                      value={clusterCount} 
-                      onValueChange={setClusterCount} 
-                      min={2} 
-                      max={10} 
-                      step={1} 
-                      className="col-span-3" 
-                    />
-                  </div>
-                )}
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="starlane-density" className="text-right text-white">Starlanes</Label>
-                  <Slider 
-                    id="starlane-density" 
-                    value={starlaneDensity} 
-                    onValueChange={setStarlaneDensity} 
-                    min={1} 
-                    max={5} 
-                    step={1} 
-                    className="col-span-3" 
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <DialogClose asChild>
-                  <Button type="button" className="bg-blue-600 hover:bg-blue-700">Done</Button>
-                </DialogClose>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+
 
         </CardContent>
 
