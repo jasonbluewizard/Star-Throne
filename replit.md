@@ -288,6 +288,11 @@ Changelog:
   * Completed full rebranding from "TerritorialConquest" to "StarThrone" throughout entire codebase
   * Renamed TerritorialConquest.js to StarThrone.js and updated all class references and imports
   * Updated documentation to reflect StarThrone naming convention across all components
+- June 30, 2025. Camera system improvements for expanded map visibility:
+  * Fixed camera constraints to use actual expanded map dimensions (40% larger than base 2000x1500)
+  * Reduced minimum zoom from 0.3 to 0.15 allowing players to see entire galaxy at once
+  * Updated initial camera position to center on expanded map with 25% zoom for better overview
+  * Dynamic camera boundary calculation ensures all territories are accessible on any galaxy layout
 
 ## User Preferences
 

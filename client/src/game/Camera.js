@@ -6,8 +6,8 @@ export class Camera {
         this.viewportWidth = viewportWidth;
         this.viewportHeight = viewportHeight;
         
-        // Zoom constraints
-        this.minZoom = 0.3;
+        // Zoom constraints - allow zooming out further to see larger maps
+        this.minZoom = 0.15;
         this.maxZoom = 5.0;
         
         // Smooth movement

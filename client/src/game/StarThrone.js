@@ -92,10 +92,14 @@ export default class StarThrone {
         this.gameMap.game = this; // Reference for AI animations
         this.camera = new Camera(this.canvas.width, this.canvas.height);
         
+        // Update camera map boundaries to match actual expanded map size
+        this.camera.mapWidth = this.gameMap.width;
+        this.camera.mapHeight = this.gameMap.height;
+        
         // Center camera on map and set appropriate zoom
-        this.camera.centerOn(1000, 750); // Center of 2000x1500 map
-        this.camera.targetZoom = 0.4; // Zoom out to see more territories
-        this.camera.zoom = 0.4;
+        this.camera.centerOn(this.gameMap.width / 2, this.gameMap.height / 2); // Center of expanded map
+        this.camera.targetZoom = 0.25; // Zoom out further to see more territories
+        this.camera.zoom = 0.25;
         
         this.ui = new GameUI(this.canvas, this.camera);
         
