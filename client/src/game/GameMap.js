@@ -352,4 +352,15 @@ export class GameMap {
         
         return map;
     }
+    
+    isInNebula(x, y) {
+        // Check if a point is inside any nebula
+        for (const nebula of this.nebulas) {
+            const distance = Math.sqrt((x - nebula.x) ** 2 + (y - nebula.y) ** 2);
+            if (distance <= nebula.radius) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

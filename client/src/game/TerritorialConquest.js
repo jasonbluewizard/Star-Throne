@@ -1206,13 +1206,15 @@ export default class TerritorialConquest {
             return;
         }
         
-        // Create probe
+        // Create probe with gameMap reference for nebula detection
         const probe = new Probe(
             this.nextProbeId++,
             fromTerritory,
             toTerritory,
             this.humanPlayer.id,
-            this.humanPlayer.color
+            this.humanPlayer.color,
+            this.config.gameSpeed,
+            this.gameMap
         );
         
         this.probes.push(probe);
@@ -1231,13 +1233,15 @@ export default class TerritorialConquest {
             return;
         }
         
-        // Create AI probe
+        // Create AI probe with gameMap reference for nebula detection
         const probe = new Probe(
             this.nextProbeId++,
             fromTerritory,
             toTerritory,
             player.id,
-            player.color
+            player.color,
+            this.config.gameSpeed,
+            this.gameMap
         );
         
         this.probes.push(probe);

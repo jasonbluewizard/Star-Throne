@@ -1,10 +1,11 @@
 export class Probe {
-    constructor(id, fromTerritory, toTerritory, playerId, playerColor, gameSpeed = 1.0) {
+    constructor(id, fromTerritory, toTerritory, playerId, playerColor, gameSpeed = 1.0, gameMap = null) {
         this.id = id;
         this.fromTerritory = fromTerritory;
         this.toTerritory = toTerritory;
         this.playerId = playerId;
         this.playerColor = playerColor;
+        this.gameMap = gameMap;
         
         // Position and movement
         this.x = fromTerritory.x;
@@ -23,7 +24,8 @@ export class Probe {
         this.traveledDistance = 0;
         
         // Apply game speed multiplier to probe movement
-        this.speed = 25 * gameSpeed;
+        this.baseSpeed = 25 * gameSpeed;
+        this.speed = this.baseSpeed;
         
         // Visual properties
         this.size = 4;
@@ -32,8 +34,14 @@ export class Probe {
     }
     
     update(deltaTime) {
+        // Check if probe is in a nebula and adjust speed
+        let currentSpeed = this.baseSpeed;
+        if (this.gameMap && this.gameMap.isInNebula(this.x, this.y)) {
+            currentSpeed = this.baseSpeed / 3; // Slow to 1/3 speed in nebulas
+        }
+        
         // Move towards target
-        const moveDistance = this.speed * (deltaTime / 1000);
+        const moveDistance = currentSpeed * (deltaTime / 1000);
         this.x += this.directionX * moveDistance;
         this.y += this.directionY * moveDistance;
         this.traveledDistance += moveDistance;

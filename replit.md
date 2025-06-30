@@ -265,6 +265,13 @@ Changelog:
   * Added home system flashing: player's starting territories flash white every 300ms for 3 seconds at game start
   * Enhanced pinch-to-zoom sensitivity with dramatic 1.5x multiplier for highly responsive mobile zooming
   * Enabled non-adjacent trade routes: long press on connected friendly territories creates supply routes via star lanes
+- June 30, 2025. Expanded map and nebula system:
+  * Expanded map area by 40% in both dimensions for more natural planet scattering
+  * Reduced boundary margins from 50px to 20px allowing planets closer to edges for organic distribution
+  * Added 8-15 purple nebula clouds scattered across the map with varying sizes (80-200 radius)
+  * Nebulas rendered as radial gradient clouds behind planets for atmospheric depth
+  * Implemented probe slowdown system: probes travel at 1/3 normal speed when passing through nebulas
+  * Enhanced probe pathfinding with real-time nebula detection for strategic travel timing
 
 ## User Preferences
 
