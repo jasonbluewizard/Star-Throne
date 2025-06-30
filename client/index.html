@@ -7,14 +7,18 @@
     <link rel="stylesheet" href="/src/styles/game.css">
     <style>
         html, body {
-            height: 100%;
             margin: 0;
             padding: 0;
-            overflow: hidden;
-            touch-action: none;
             -webkit-touch-callout: none;
             -webkit-user-select: none;
             -webkit-tap-highlight-color: transparent;
+        }
+        
+        /* Apply overflow hidden only when game is active */
+        body.game-active {
+            height: 100%;
+            overflow: hidden;
+            touch-action: none;
         }
     </style>
 </head>

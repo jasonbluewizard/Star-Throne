@@ -47,6 +47,9 @@ function App() {
     setGameMode(mode);
     setGameData(data || null);
     
+    // Add game-active class to body when game starts
+    document.body.classList.add('game-active');
+    
     if (mode === 'single' && data) {
       initSinglePlayerGame(data);
     } else if (mode === 'multiplayer' && data) {
@@ -69,8 +72,17 @@ function App() {
       if (gameRef.current) {
         gameRef.current = null;
       }
+      // Remove game-active class when component unmounts
+      document.body.classList.remove('game-active');
     };
   }, []);
+
+  // Remove game-active class when showing mode selector
+  useEffect(() => {
+    if (!gameMode) {
+      document.body.classList.remove('game-active');
+    }
+  }, [gameMode]);
 
   // Show game mode selector if no mode is selected
   if (!gameMode) {

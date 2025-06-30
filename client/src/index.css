@@ -11,14 +11,24 @@
     @apply font-sans antialiased bg-background text-foreground;
     margin: 0;
     padding: 0;
-    overflow: hidden;
     width: 100vw;
+    min-height: 100vh;
+  }
+  
+  /* Only hide overflow when game is running */
+  body.game-active {
+    overflow: hidden;
     height: 100vh;
   }
 }
 
 #root {
   width: 100%;
+  min-height: 100%;
+}
+
+/* Only fix position when game is active */
+body.game-active #root {
   height: 100%;
   position: fixed;
 }
