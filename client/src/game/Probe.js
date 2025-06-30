@@ -57,11 +57,21 @@ export class Probe {
     }
     
     render(ctx) {
+        // Check if probe is in nebula for fade effect
+        const inNebula = this.gameMap && this.gameMap.isInNebula(this.x, this.y);
+        let baseOpacity = 1.0;
+        
+        if (inNebula) {
+            // Create pulsing fade effect when in nebula
+            const fadePhase = Date.now() * 0.003; // Slow pulsing
+            baseOpacity = 0.3 + 0.4 * (Math.sin(fadePhase) + 1) * 0.5; // Fade between 0.3 and 0.7
+        }
+        
         // Draw trail
         if (this.trailPoints.length > 1) {
             ctx.strokeStyle = this.playerColor;
             ctx.lineWidth = 2;
-            ctx.globalAlpha = 0.5;
+            ctx.globalAlpha = baseOpacity * 0.5;
             
             ctx.beginPath();
             ctx.moveTo(this.trailPoints[0].x, this.trailPoints[0].y);
@@ -69,10 +79,10 @@ export class Probe {
                 ctx.lineTo(this.trailPoints[i].x, this.trailPoints[i].y);
             }
             ctx.stroke();
-            ctx.globalAlpha = 1.0;
         }
         
-        // Draw probe
+        // Draw probe with fade effect
+        ctx.globalAlpha = baseOpacity;
         ctx.fillStyle = this.playerColor;
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 1;
@@ -93,6 +103,9 @@ export class Probe {
         ctx.moveTo(this.x, this.y);
         ctx.lineTo(endX, endY);
         ctx.stroke();
+        
+        // Reset opacity
+        ctx.globalAlpha = 1.0;
     }
     
     getProgress() {

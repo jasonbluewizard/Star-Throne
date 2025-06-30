@@ -57,7 +57,7 @@ export class GameUI {
         ctx.fillStyle = this.textColor;
         ctx.font = 'bold 48px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText('Territorial Conquest', this.canvas.width / 2, this.canvas.height / 2 - 100);
+        ctx.fillText('Star Throne', this.canvas.width / 2, this.canvas.height / 2 - 100);
         
         ctx.font = '24px Arial';
         ctx.fillText('Massive Multiplayer Strategy Game', this.canvas.width / 2, this.canvas.height / 2 - 50);
@@ -166,7 +166,7 @@ export class GameUI {
         
         // Game title
         ctx.textAlign = 'left';
-        ctx.fillText('Territorial Conquest', 20, 45);
+        ctx.fillText('Star Throne', 20, 45);
         
         // Camera info
         ctx.textAlign = 'right';

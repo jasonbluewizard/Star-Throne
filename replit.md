@@ -293,6 +293,11 @@ Changelog:
   * Reduced minimum zoom from 0.3 to 0.15 allowing players to see entire galaxy at once
   * Updated initial camera position to center on expanded map with 25% zoom for better overview
   * Dynamic camera boundary calculation ensures all territories are accessible on any galaxy layout
+- June 30, 2025. Final UI improvements and nebula effects:
+  * Fixed remaining "Territorial Conquest" references in game UI headers - now displays "Star Throne"
+  * Added visual nebula effects for probes: fade and pulse when traveling through purple nebula clouds
+  * Probes now visually indicate slowdown with opacity fade between 0.3-0.7 while in nebulas
+  * Enhanced probe trail rendering with matching fade effects for complete visual feedback
 
 ## User Preferences
 
