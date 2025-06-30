@@ -11,6 +11,17 @@ export class GameMap {
         this.layout = layout; // Layout type: organic, clusters, spiral, core, ring, binary
     }
     
+    // Helper function to check if a point is too close to existing points
+    isValidPosition(x, y, existingPoints, minDistance = this.gridSize) {
+        if (x < 30 || x >= this.width - 30 || y < 30 || y >= this.height - 30) return false;
+        
+        for (const point of existingPoints) {
+            const dist = Math.sqrt((x - point.x) ** 2 + (y - point.y) ** 2);
+            if (dist < minDistance) return false;
+        }
+        return true;
+    }
+
     generateTerritories(count) {
         console.log(`Generating ${count} territories using ${this.layout} layout on ${this.width}x${this.height} map...`);
         
@@ -168,7 +179,7 @@ export class GameMap {
                         let tooClose = false;
                         for (const existing of points) {
                             const dist = Math.sqrt((x - existing.x) ** 2 + (y - existing.y) ** 2);
-                            if (dist < 40) {
+                            if (dist < this.gridSize) { // Use consistent spacing
                                 tooClose = true;
                                 break;
                             }
@@ -195,22 +206,65 @@ export class GameMap {
         const maxRadius = Math.min(this.width, this.height) * 0.4;
         
         for (let i = 0; i < count; i++) {
-            const armIndex = i % arms;
-            const armProgress = Math.floor(i / arms) / Math.floor(count / arms);
+            let attempts = 0;
+            let validPoint = false;
             
-            // Spiral equation with some randomness
-            const baseAngle = (armIndex * 2 * Math.PI / arms) + (armProgress * 4 * Math.PI);
-            const angle = baseAngle + (Math.random() - 0.5) * 0.8; // Add jitter
-            const radius = armProgress * maxRadius + Math.random() * 30;
+            while (!validPoint && attempts < 100) {
+                const armIndex = i % arms;
+                const armProgress = Math.floor(i / arms) / Math.floor(count / arms);
+                
+                // Spiral equation with some randomness
+                const baseAngle = (armIndex * 2 * Math.PI / arms) + (armProgress * 4 * Math.PI);
+                const angle = baseAngle + (Math.random() - 0.5) * 0.8; // Add jitter
+                const radius = armProgress * maxRadius + Math.random() * 30;
+                
+                const x = centerX + Math.cos(angle) * radius;
+                const y = centerY + Math.sin(angle) * radius;
+                
+                // Ensure points stay within bounds
+                const clampedX = Math.max(30, Math.min(this.width - 30, x));
+                const clampedY = Math.max(30, Math.min(this.height - 30, y));
+                
+                // Check collision with existing points
+                let tooClose = false;
+                for (const existing of points) {
+                    const dist = Math.sqrt((clampedX - existing.x) ** 2 + (clampedY - existing.y) ** 2);
+                    if (dist < this.gridSize) {
+                        tooClose = true;
+                        break;
+                    }
+                }
+                
+                if (!tooClose) {
+                    points.push({ x: clampedX, y: clampedY });
+                    validPoint = true;
+                }
+                
+                attempts++;
+            }
             
-            const x = centerX + Math.cos(angle) * radius;
-            const y = centerY + Math.sin(angle) * radius;
-            
-            // Ensure points stay within bounds
-            const clampedX = Math.max(30, Math.min(this.width - 30, x));
-            const clampedY = Math.max(30, Math.min(this.height - 30, y));
-            
-            points.push({ x: clampedX, y: clampedY });
+            // Fallback: if couldn't place in spiral, use random position
+            if (!validPoint) {
+                console.warn(`Spiral layout: couldn't place point ${i}, using fallback`);
+                for (let j = 0; j < 50; j++) {
+                    const x = Math.random() * (this.width - 60) + 30;
+                    const y = Math.random() * (this.height - 60) + 30;
+                    
+                    let tooClose = false;
+                    for (const existing of points) {
+                        const dist = Math.sqrt((x - existing.x) ** 2 + (y - existing.y) ** 2);
+                        if (dist < this.gridSize) {
+                            tooClose = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!tooClose) {
+                        points.push({ x, y });
+                        break;
+                    }
+                }
+            }
         }
         
         return points;
@@ -226,11 +280,21 @@ export class GameMap {
         // Dense core (20% of planets)
         const coreCount = Math.floor(count * 0.2);
         for (let i = 0; i < coreCount; i++) {
-            const angle = Math.random() * 2 * Math.PI;
-            const radius = Math.random() * coreRadius;
-            const x = centerX + Math.cos(angle) * radius;
-            const y = centerY + Math.sin(angle) * radius;
-            points.push({ x, y });
+            let attempts = 0;
+            let validPoint = false;
+            
+            while (!validPoint && attempts < 100) {
+                const angle = Math.random() * 2 * Math.PI;
+                const radius = Math.random() * coreRadius;
+                const x = centerX + Math.cos(angle) * radius;
+                const y = centerY + Math.sin(angle) * radius;
+                
+                if (this.isValidPosition(x, y, points)) {
+                    points.push({ x, y });
+                    validPoint = true;
+                }
+                attempts++;
+            }
         }
         
         // Concentric shells (80% of planets)
@@ -244,15 +308,34 @@ export class GameMap {
                 shellCount - (planetsPerShell * shell) : planetsPerShell;
             
             for (let i = 0; i < shellPlanets; i++) {
-                const angle = Math.random() * 2 * Math.PI;
-                const radius = shellRadius + (Math.random() - 0.5) * shellThickness * 0.5;
-                const x = centerX + Math.cos(angle) * radius;
-                const y = centerY + Math.sin(angle) * radius;
+                let attempts = 0;
+                let validPoint = false;
                 
-                // Keep within bounds
-                const clampedX = Math.max(30, Math.min(this.width - 30, x));
-                const clampedY = Math.max(30, Math.min(this.height - 30, y));
-                points.push({ x: clampedX, y: clampedY });
+                while (!validPoint && attempts < 100) {
+                    const angle = Math.random() * 2 * Math.PI;
+                    const radius = shellRadius + (Math.random() - 0.5) * shellThickness * 0.5;
+                    const x = centerX + Math.cos(angle) * radius;
+                    const y = centerY + Math.sin(angle) * radius;
+                    
+                    if (this.isValidPosition(x, y, points)) {
+                        points.push({ x, y });
+                        validPoint = true;
+                    }
+                    attempts++;
+                }
+                
+                // Fallback: random placement if shell placement fails
+                if (!validPoint) {
+                    for (let j = 0; j < 50; j++) {
+                        const x = Math.random() * (this.width - 60) + 30;
+                        const y = Math.random() * (this.height - 60) + 30;
+                        
+                        if (this.isValidPosition(x, y, points)) {
+                            points.push({ x, y });
+                            break;
+                        }
+                    }
+                }
             }
         }
         
@@ -272,15 +355,35 @@ export class GameMap {
                 count - (planetsPerRing * ring) : planetsPerRing;
             
             for (let i = 0; i < ringPlanets; i++) {
-                const angle = (i / ringPlanets) * 2 * Math.PI + (Math.random() - 0.5) * 0.3;
-                const ringRadius = radius + (Math.random() - 0.5) * 30; // Slight radius variation
+                let attempts = 0;
+                let validPoint = false;
                 
-                const x = centerX + Math.cos(angle) * ringRadius;
-                const y = centerY + Math.sin(angle) * ringRadius;
+                while (!validPoint && attempts < 100) {
+                    const angle = (i / ringPlanets) * 2 * Math.PI + (Math.random() - 0.5) * 0.3;
+                    const ringRadius = radius + (Math.random() - 0.5) * 30; // Slight radius variation
+                    
+                    const x = centerX + Math.cos(angle) * ringRadius;
+                    const y = centerY + Math.sin(angle) * ringRadius;
+                    
+                    if (this.isValidPosition(x, y, points)) {
+                        points.push({ x, y });
+                        validPoint = true;
+                    }
+                    attempts++;
+                }
                 
-                const clampedX = Math.max(30, Math.min(this.width - 30, x));
-                const clampedY = Math.max(30, Math.min(this.height - 30, y));
-                points.push({ x: clampedX, y: clampedY });
+                // Fallback: random placement if ring placement fails
+                if (!validPoint) {
+                    for (let j = 0; j < 50; j++) {
+                        const x = Math.random() * (this.width - 60) + 30;
+                        const y = Math.random() * (this.height - 60) + 30;
+                        
+                        if (this.isValidPosition(x, y, points)) {
+                            points.push({ x, y });
+                            break;
+                        }
+                    }
+                }
             }
         }
         
