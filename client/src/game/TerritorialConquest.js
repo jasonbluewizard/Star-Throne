@@ -714,6 +714,7 @@ export default class TerritorialConquest {
         this.camera.applyTransform(this.ctx);
         
         // Render game world with optimizations
+        this.renderNebulas();
         this.renderTerritories();
         this.renderConnections();
         this.renderSupplyRoutes();
@@ -754,6 +755,32 @@ export default class TerritorialConquest {
         }
         
         this.performanceStats.visibleTerritories = this.visibleTerritories.length;
+    }
+    
+    renderNebulas() {
+        if (!this.gameMap.nebulas) return;
+        
+        this.ctx.save();
+        
+        // Render each nebula as a purple cloud
+        this.gameMap.nebulas.forEach(nebula => {
+            // Create radial gradient for cloud effect
+            const gradient = this.ctx.createRadialGradient(
+                nebula.x, nebula.y, 0,
+                nebula.x, nebula.y, nebula.radius
+            );
+            
+            gradient.addColorStop(0, `rgba(147, 51, 234, ${nebula.opacity})`);
+            gradient.addColorStop(0.5, `rgba(147, 51, 234, ${nebula.opacity * 0.6})`);
+            gradient.addColorStop(1, 'rgba(147, 51, 234, 0)');
+            
+            this.ctx.fillStyle = gradient;
+            this.ctx.beginPath();
+            this.ctx.arc(nebula.x, nebula.y, nebula.radius, 0, Math.PI * 2);
+            this.ctx.fill();
+        });
+        
+        this.ctx.restore();
     }
     
     renderTerritories() {

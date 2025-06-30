@@ -2,9 +2,10 @@ import { Territory } from './Territory.js';
 
 export class GameMap {
     constructor(width, height) {
-        this.width = width;
-        this.height = height;
+        this.width = width * 1.4; // Expand width by 40%
+        this.height = height * 1.4; // Expand height by 40%
         this.territories = {};
+        this.nebulas = []; // Purple nebula clouds
         this.gridSize = 80; // Space between territory centers
         this.connectionDistance = 120; // Max distance for territory connections
     }
@@ -27,15 +28,35 @@ export class GameMap {
             this.territories[index] = territory;
         });
         
+        // Generate nebulas after territories
+        this.generateNebulas();
+        
         // Connect neighboring territories
         this.connectTerritories();
         
         // All territories are now colonizable
         console.log(`Generated ${Object.keys(this.territories).length} territories with connections`);
+        console.log(`Generated ${this.nebulas.length} nebula clouds`);
         console.log(`All territories are colonizable planets requiring probes`);
         
         // Ensure connectivity by connecting isolated territories
         this.ensureConnectivity();
+    }
+    
+    generateNebulas() {
+        // Generate 8-15 nebula clouds scattered across the map
+        const nebulaCount = Math.floor(Math.random() * 8) + 8;
+        
+        for (let i = 0; i < nebulaCount; i++) {
+            const nebula = {
+                x: Math.random() * this.width,
+                y: Math.random() * this.height,
+                radius: 80 + Math.random() * 120, // Size varies from 80 to 200
+                opacity: 0.3 + Math.random() * 0.4, // Opacity varies from 0.3 to 0.7
+                color: `rgba(147, 51, 234, ${0.3 + Math.random() * 0.4})` // Purple with varying opacity
+            };
+            this.nebulas.push(nebula);
+        }
     }
     
     poissonDiskSampling(numSamples) {
@@ -55,7 +76,9 @@ export class GameMap {
         
         // Helper function to check if a point is valid
         const isValidPoint = (x, y) => {
-            if (x < 50 || x >= this.width - 50 || y < 50 || y >= this.height - 50) return false;
+            // More natural boundaries - allow points closer to edges for organic scattering
+            const margin = 20;
+            if (x < margin || x >= this.width - margin || y < margin || y >= this.height - margin) return false;
             
             const gridIndex = getGridIndex(x, y);
             const gridX = gridIndex % gridWidth;
@@ -82,9 +105,9 @@ export class GameMap {
             return true;
         };
         
-        // Generate initial point
-        const initialX = this.width * 0.3 + Math.random() * this.width * 0.4;
-        const initialY = this.height * 0.3 + Math.random() * this.height * 0.4;
+        // Generate initial point - more scattered placement
+        const initialX = this.width * 0.2 + Math.random() * this.width * 0.6;
+        const initialY = this.height * 0.2 + Math.random() * this.height * 0.6;
         const initialPoint = { x: initialX, y: initialY };
         
         points.push(initialPoint);
