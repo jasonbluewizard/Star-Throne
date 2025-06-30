@@ -403,26 +403,66 @@ export class GameMap {
         
         // Left system
         for (let i = 0; i < leftCount; i++) {
-            const angle = Math.random() * 2 * Math.PI;
-            const radius = Math.random() * systemRadius;
-            const x = leftCenterX + Math.cos(angle) * radius;
-            const y = centerY + Math.sin(angle) * radius;
+            let attempts = 0;
+            let validPoint = false;
             
-            const clampedX = Math.max(30, Math.min(this.width - 30, x));
-            const clampedY = Math.max(30, Math.min(this.height - 30, y));
-            points.push({ x: clampedX, y: clampedY });
+            while (!validPoint && attempts < 100) {
+                const angle = Math.random() * 2 * Math.PI;
+                const radius = Math.random() * systemRadius;
+                const x = leftCenterX + Math.cos(angle) * radius;
+                const y = centerY + Math.sin(angle) * radius;
+                
+                if (this.isValidPosition(x, y, points)) {
+                    points.push({ x, y });
+                    validPoint = true;
+                }
+                attempts++;
+            }
+            
+            // Fallback: random placement if system placement fails
+            if (!validPoint) {
+                for (let j = 0; j < 50; j++) {
+                    const x = Math.random() * (this.width - 60) + 30;
+                    const y = Math.random() * (this.height - 60) + 30;
+                    
+                    if (this.isValidPosition(x, y, points)) {
+                        points.push({ x, y });
+                        break;
+                    }
+                }
+            }
         }
         
         // Right system
         for (let i = 0; i < rightCount; i++) {
-            const angle = Math.random() * 2 * Math.PI;
-            const radius = Math.random() * systemRadius;
-            const x = rightCenterX + Math.cos(angle) * radius;
-            const y = centerY + Math.sin(angle) * radius;
+            let attempts = 0;
+            let validPoint = false;
             
-            const clampedX = Math.max(30, Math.min(this.width - 30, x));
-            const clampedY = Math.max(30, Math.min(this.height - 30, y));
-            points.push({ x: clampedX, y: clampedY });
+            while (!validPoint && attempts < 100) {
+                const angle = Math.random() * 2 * Math.PI;
+                const radius = Math.random() * systemRadius;
+                const x = rightCenterX + Math.cos(angle) * radius;
+                const y = centerY + Math.sin(angle) * radius;
+                
+                if (this.isValidPosition(x, y, points)) {
+                    points.push({ x, y });
+                    validPoint = true;
+                }
+                attempts++;
+            }
+            
+            // Fallback: random placement if system placement fails
+            if (!validPoint) {
+                for (let j = 0; j < 50; j++) {
+                    const x = Math.random() * (this.width - 60) + 30;
+                    const y = Math.random() * (this.height - 60) + 30;
+                    
+                    if (this.isValidPosition(x, y, points)) {
+                        points.push({ x, y });
+                        break;
+                    }
+                }
+            }
         }
         
         return points;
