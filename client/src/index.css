@@ -13,6 +13,9 @@
     padding: 0;
     width: 100vw;
     min-height: 100vh;
+    /* Ensure scrolling is enabled by default */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
   
   /* Only hide overflow when game is running */
