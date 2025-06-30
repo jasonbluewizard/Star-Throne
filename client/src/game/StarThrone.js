@@ -56,6 +56,7 @@ export default class StarThrone {
             updateTime: 0,
             visibleTerritories: 0
         };
+        this.showPerformancePanel = false; // Toggle with P key
         
         // Ship movement animations
         this.shipAnimations = [];
@@ -1777,6 +1778,11 @@ export default class StarThrone {
             case 'M':
                 this.minimapMinimized = !this.minimapMinimized;
                 console.log('Minimap toggled with M key:', this.minimapMinimized ? 'minimized' : 'maximized');
+                break;
+            case 'p':
+            case 'P':
+                this.showPerformancePanel = !this.showPerformancePanel;
+                console.log('Performance panel toggled with P key:', this.showPerformancePanel ? 'shown' : 'hidden');
                 break;
         }
     }

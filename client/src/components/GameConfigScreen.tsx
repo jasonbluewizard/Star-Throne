@@ -174,6 +174,62 @@ export function GameConfigScreen({ onStartGame, onBack }: GameConfigScreenProps)
 
 
 
+          {/* Advanced Settings */}
+          <div className="space-y-4 pt-4 border-t border-gray-700">
+            <h3 className="text-lg font-semibold text-white">Advanced Settings</h3>
+            
+            {/* AI Difficulty */}
+            <div className="space-y-2">
+              <Label className="text-white">AI Intelligence Level</Label>
+              <Select defaultValue="normal">
+                <SelectTrigger className="bg-gray-700 border-gray-600">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-gray-700 border-gray-600">
+                  <SelectItem value="easy">Easy - Passive expansion</SelectItem>
+                  <SelectItem value="normal">Normal - Balanced strategy</SelectItem>
+                  <SelectItem value="hard">Hard - Aggressive conquest</SelectItem>
+                  <SelectItem value="expert">Expert - Advanced tactics</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Victory Conditions */}
+            <div className="space-y-2">
+              <Label className="text-white">Victory Condition</Label>
+              <Select defaultValue="throne">
+                <SelectTrigger className="bg-gray-700 border-gray-600">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-gray-700 border-gray-600">
+                  <SelectItem value="throne">Throne Star Conquest</SelectItem>
+                  <SelectItem value="territory">Territory Control (75%)</SelectItem>
+                  <SelectItem value="elimination">Total Elimination</SelectItem>
+                  <SelectItem value="economic">Economic Domination</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Special Features */}
+            <div className="space-y-2">
+              <Label className="text-white">Special Features</Label>
+              <div className="flex flex-wrap gap-2">
+                <label className="flex items-center space-x-2">
+                  <input type="checkbox" defaultChecked className="rounded" />
+                  <span className="text-sm text-gray-300">Nebula Slowdown</span>
+                </label>
+                <label className="flex items-center space-x-2">
+                  <input type="checkbox" defaultChecked className="rounded" />
+                  <span className="text-sm text-gray-300">Supply Routes</span>
+                </label>
+                <label className="flex items-center space-x-2">
+                  <input type="checkbox" defaultChecked className="rounded" />
+                  <span className="text-sm text-gray-300">Probe Colonization</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
         </CardContent>
 
         <CardFooter className="flex gap-3">

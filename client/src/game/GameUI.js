@@ -389,10 +389,50 @@ export class GameUI {
     }
     
     renderPerformanceInfo(ctx, gameData) {
-        ctx.fillStyle = this.textColor;
-        ctx.font = '12px Arial';
-        ctx.textAlign = 'right';
-        ctx.fillText(`FPS: ${gameData.fps}`, this.canvas.width - 20, this.canvas.height - 10);
+        // Show detailed performance panel if enabled
+        if (gameData.showPerformancePanel) {
+            const x = this.canvas.width - 250;
+            const y = 50;
+            const width = 240;
+            const height = 160;
+            
+            // Background with transparency
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            ctx.fillRect(x - 10, y - 10, width, height);
+            
+            // Border
+            ctx.strokeStyle = this.accentColor;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x - 10, y - 10, width, height);
+            
+            ctx.font = '12px monospace';
+            ctx.textAlign = 'left';
+            
+            // Performance metrics with color coding
+            const fps = gameData.fps || 0;
+            const fpsColor = fps > 50 ? '#00ff00' : fps > 30 ? '#ffff00' : '#ff0000';
+            this.renderTextWithShadow(ctx, `FPS: ${fps}`, x, y, fpsColor);
+            
+            this.renderTextWithShadow(ctx, `Frame: ${(gameData.frameTime || 0).toFixed(1)}ms`, x, y + 20, this.textColor);
+            this.renderTextWithShadow(ctx, `Render: ${(gameData.renderTime || 0).toFixed(1)}ms`, x, y + 40, this.textColor);
+            this.renderTextWithShadow(ctx, `Update: ${(gameData.updateTime || 0).toFixed(1)}ms`, x, y + 60, this.textColor);
+            
+            // Game-specific metrics
+            this.renderTextWithShadow(ctx, `Territories: ${gameData.territoryCount || 0}`, x, y + 80, this.textColor);
+            this.renderTextWithShadow(ctx, `Rendered: ${gameData.visibleTerritories || 0}`, x, y + 100, this.textColor);
+            this.renderTextWithShadow(ctx, `Probes: ${gameData.probeCount || 0}`, x, y + 120, this.textColor);
+            
+            // Toggle hint
+            ctx.font = '10px Arial';
+            ctx.textAlign = 'right';
+            this.renderTextWithShadow(ctx, 'Press P to toggle', x + width - 15, y + height - 15, '#888888');
+        } else {
+            // Simple FPS counter
+            ctx.fillStyle = this.textColor;
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'right';
+            ctx.fillText(`FPS: ${gameData.fps}`, this.canvas.width - 20, this.canvas.height - 10);
+        }
         
         // Mobile touch debug info
         if (gameData.touchDebugInfo && gameData.showTouchDebug) {
