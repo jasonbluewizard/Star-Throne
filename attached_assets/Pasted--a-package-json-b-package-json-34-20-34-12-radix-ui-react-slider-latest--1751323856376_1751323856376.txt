@@ -1,0 +1,887 @@
+--- a/package.json
++++ b/package.json
+@@ -34,20 +34,12 @@
+     "@radix-ui/react-slider": "latest",
+     "@radix-ui/react-slot": "latest",
+     "@radix-ui/react-switch": "latest",
+-    "@radix-ui/react-tabs": "latest",
+-    "@radix-ui/react-toast": "latest",
+-    "@radix-ui/react-toggle": "latest",
+-    "@radix-ui/react-toggle-group": "latest",
+     "@radix-ui/react-tooltip": "latest",
+-    "@react-three/drei": "latest",
+-    "@react-three/fiber": "latest",
+-    "@react-three/postprocessing": "latest",
+     "@replit/vite-plugin-runtime-error-modal": "latest",
+     "@tailwindcss/typography": "latest",
+     "@tanstack/react-query": "latest",
+@@ -63,20 +55,12 @@
+     "drizzle-kit": "latest",
+     "drizzle-orm": "latest",
+     "drizzle-zod": "latest",
+-    "embla-carousel-react": "latest",
+     "esbuild": "latest",
+     "express": "latest",
+     "express-session": "latest",
+     "framer-motion": "latest",
+-    "gl-matrix": "latest",
+-    "gsap": "latest",
+-    "howler": "latest",
+-    "input-otp": "latest",
+     "lucide-react": "latest",
+-    "matter-js": "latest",
+     "memorystore": "latest",
+-    "meshline": "latest",
+-    "next-themes": "latest",
+-    "ogl": "latest",
+     "passport": "latest",
+     "passport-local": "latest",
+     "pixi.js": "latest",
+@@ -84,27 +68,17 @@
+     "postprocessing": "latest",
+     "r3f-perf": "latest",
+     "react": "latest",
+-    "react-confetti": "latest",
+-    "react-day-picker": "latest",
+     "react-dom": "latest",
+-    "react-haiku": "latest",
+     "react-helmet-async": "latest",
+     "react-hook-form": "latest",
+-    "react-icons": "latest",
+-    "react-leaflet": "latest",
+     "react-resizable-panels": "latest",
+     "react-router-dom": "latest",
+-    "react-syntax-highlighter": "latest",
+-    "react-use-gesture": "latest",
+-    "react-useanimations": "latest",
+-    "recharts": "latest",
+     "socket.io": "latest",
+     "socket.io-client": "latest",
+     "sonner": "latest",
+     "tailwind-merge": "latest",
+     "tailwindcss": "latest",
+     "tailwindcss-animate": "latest",
+-    "three": "latest",
+     "tsx": "latest",
+     "typescript": "latest",
+     "vaul": "latest",
+--- /dev/null
++++ b/common/gameConstants.ts
+@@ -0,0 +1,102 @@
++// This file centralizes all game balance, rendering, and configuration constants.
++// It is shared between the client and server to ensure a single source of truth.
++
++export const GAME_CONSTANTS = {
++    // Game Core
++    DEFAULT_MAP_WIDTH: 2000,
++    DEFAULT_MAP_HEIGHT: 2000,
++    DEFAULT_GAME_TIMER_MINUTES: 10,
++    MAX_TOTAL_PLAYERS: 100,
++    HUMAN_PLAYER_ID_PREFIX: 'human',
++    AI_PLAYER_ID_PREFIX: 'ai',
++
++    // Player & AI Defaults
++    DEFAULT_SINGLE_PLAYER_AI_COUNT: 19,
++    DEFAULT_MULTIPLAYER_AI_COUNT: 90,
++    DEFAULT_MAP_SIZE_TERRITORIES: 200,
++    INITIAL_COLONIZED_ARMY_SIZE: 1,
++    INITIAL_STARTING_ARMY_SIZE: 5,
++
++    // Probe System
++    PROBE_LAUNCH_COST_FLEET: 10,
++    PROBE_MIN_ARMY_TO_LAUNCH: 11, // Must have more than the cost to launch
++    PROBE_UPDATE_INTERVAL_MS: 50,
++    PROBE_SPEED_UNITS_PER_UPDATE: 1.25,
++
++    // Fleet Transfer
++    MIN_ARMY_TO_LEAVE_AFTER_TRANSFER: 1,
++    TRANSFER_AMOUNT_DIVISOR: 2,
++
++    // Supply Route System
++    SUPPLY_ROUTE_MIN_ARMY_DIFFERENCE: 5,
++    SUPPLY_ROUTE_TRANSFER_DIVISOR: 4,
++    SUPPLY_ROUTE_DELAY_PER_HOP_MS: 2000,
++    SUPPLY_ROUTE_LINE_WIDTH: 2,
++    SUPPLY_ROUTE_ALPHA: 0.8,
++    SUPPLY_ROUTE_DASH_PATTERN: [10, 10],
++    SUPPLY_ROUTE_COLOR: '#00ffff',
++
++    // Combat
++    MIN_ARMY_TO_ATTACK: 2,
++    ARMY_LEFT_AFTER_ATTACK: 1,
++    ATTACK_POWER_BASE_MULTIPLIER: 0.8,
++    ATTACK_POWER_RANDOM_RANGE: 0.4,
++    DEFENSE_POWER_BASE_MULTIPLIER: 0.9,
++    DEFENSE_POWER_RANDOM_RANGE: 0.2,
++    ATTACKER_SURVIVAL_RATE: 0.7,
++    DEFENDER_SURVIVAL_RATE: 0.8,
++
++    // Rendering & UI
++    BACKGROUND_COLOR: '#000011',
++    CONNECTION_LINE_WIDTH: 1,
++    CONNECTION_ALPHA: 0.3,
++    CONNECTION_COLOR: '#444444',
++    OWNED_CONNECTION_LINE_WIDTH: 3,
++    OWNED_CONNECTION_ALPHA: 0.6,
++    DRAG_PREVIEW_LINE_WIDTH: 2,
++    DRAG_PREVIEW_ALPHA: 0.5,
++    DRAG_PREVIEW_DASH_PATTERN: [5, 5],
++    DRAG_PREVIEW_COLOR: '#ffffff',
++    SHIP_ANIMATION_MIN_DURATION_MS: 500,
++    SHIP_ANIMATION_SPEED_MS_PER_PX: 2,
++    SHIP_ANIMATION_DEFAULT_COLOR: '#ffffff',
++    TERRITORY_VISIBILITY_PADDING: 50,
++
++    // Performance Throttling
++    FPS_UPDATE_INTERVAL_MS: 1000,
++    VISIBLE_TERRITORIES_UPDATE_INTERVAL_MS: 100,
++    AI_UPDATE_PLAYERS_PER_FRAME_DIVISOR: 3,
++    SUPPLY_ROUTE_VALIDATION_FRAME_INTERVAL: 30,
++    SUPPLY_ROUTE_PROCESSING_FRAME_INTERVAL: 60,
++
++    // Input & Controls
++    DRAG_THRESHOLD_PIXELS_MOUSE: 5,
++    DRAG_THRESHOLD_PIXELS_TOUCH: 10,
++    DOUBLE_TAP_THRESHOLD_MS: 300,
++    MOUSE_LEFT_BUTTON: 0,
++    KEY_RESTART_GAME:,
++    KEY_TOGGLE_MINIMAP: ['m', 'M'],
++
++    // AI Configuration
++    AI_DECISION_INTERVAL_MS: 1000,
++    AI_DECISION_INTERVAL_JITTER_MS: 500,
++    AI_AGGRESSION_THRESHOLD_TERRITORY_PERCENT: 0.3,
++    AI_CONSOLIDATION_THRESHOLD_TERRITORY_COUNT: 5,
++    AI_ATTACK_STRENGTH_MULTIPLIER: 1.5,
++
++    // Server Specific
++    SERVER_PORT: 5000,
++    CORS_ORIGIN: "*",
++    CORS_METHODS:,
++    ROOM_ID_GENERATION_RADIX: 36,
++    ROOM_ID_GENERATION_SUBSTRING_START: 2,
++    ROOM_ID_GENERATION_SUBSTRING_END: 8,
++    SERVER_TICK_RATE_MS: 1000 / 20, // 20 ticks per second
++};
+--- /dev/null
++++ b/common/types/index.ts
+@@ -0,0 +1,63 @@
++// Shared types for client and server communication.
++
++export interface PlayerState {
++  id: string;
++  name: string;
++  color: string;
++  type: 'human' | 'ai';
++  socketId?: string;
++  territories: number;
++  armyGenRate: number;
++  totalArmies: number;
++  territoriesOwned: number;
++  isEliminated: boolean;
++}
++
++export interface TerritoryState {
++  id: number;
++  ownerId: string | null;
++  armySize: number;
++  x: number;
++  y: number;
++  neighbors: number;
++  isColonizable: boolean;
++}
++
++export interface ProbeState {
++    id: number;
++    fromTerritoryId: number;
++    toTerritoryId: number;
++    playerId: string;
++    color: string;
++    progress: number; // 0.0 to 1.0
++}
++
++export interface ShipAnimationState {
++    from: { x: number, y: number };
++    to: { x: number, y: number };
++    progress: number; // elapsed time
++    duration: number;
++    color: string;
++    isAttack: boolean;
++}
++
++export interface SupplyRouteState {
++    from: number;
++    to: number;
++    path: number;
++    active: boolean;
++}
++
++export interface FullGameState {
++    territories: { [id: number]: TerritoryState };
++    players: { [id: string]: PlayerState };
++    probes: ProbeState;
++    supplyRoutes: SupplyRouteState;
++    gameState: {
++        phase: 'lobby' | 'playing' | 'ended';
++        tick: number;
++        winner?: string;
++    };
++}
++
++// Command Protocol
++export enum CommandType {
++    ATTACK_TERRITORY = 'ATTACK_TERRITORY',
++    TRANSFER_ARMIES = 'TRANSFER_ARMIES',
++    LAUNCH_PROBE = 'LAUNCH_PROBE',
++    CREATE_SUPPLY_ROUTE = 'CREATE_SUPPLY_ROUTE',
++}
++
++export interface ClientCommand {
++  type: CommandType;
++  payload: any;
++}
+--- a/server/gameServer.ts
++++ b/server/gameServer.ts
+@@ -1,123 +1,149 @@
+ import { Server as SocketServer, Socket } from 'socket.io';
+ import { Server } from 'http';
+-interface Player {
++import { GameEngine } from './gameEngine';
++import { GAME_CONSTANTS } from '../common/gameConstants';
++import { PlayerState, CommandType, ClientCommand } from '../common/types';
++
++interface PlayerInfo {
+   id: string;
+   name: string;
+-  color: string;
+-  type: 'human' | 'ai';
+-  socketId?: string;
+-  territories: number;
+-  armyGenRate: number;
+-  totalArmies: number;
+-  territoriesOwned: number;
+-  isEliminated: boolean;
++  socketId: string;
+ }
+ 
+ interface GameRoom {
+   id: string;
+   name: string;
+-  players: Map<string, Player>;
+-  gameState: any;
++  players: Map<string, PlayerInfo>; // Map<socketId, PlayerInfo>
++  gameEngine: GameEngine;
+   isStarted: boolean;
+   maxPlayers: number;
+-  aiPlayerCount: number;
+-  gameMode: 'single' | 'multiplayer';
+-  lastUpdate: number;
++  gameLoopInterval?: NodeJS.Timeout;
+ }
+ 
+ export class GameServer {
+   private io: SocketServer;
+   private rooms: Map<string, GameRoom> = new Map();
+   private playerToRoom: Map<string, string> = new Map();
+ 
+   constructor(server: Server) {
+     this.io = new SocketServer(server, {
+       cors: {
+-        origin: "*",
+-        methods:
++        origin: GAME_CONSTANTS.CORS_ORIGIN,
++        methods: GAME_CONSTANTS.CORS_METHODS
+       }
+     });
+     this.setupSocketHandlers();
+   }
+ 
+   private setupSocketHandlers() {
+     this.io.on('connection', (socket: Socket) => {
+       console.log('Player connected:', socket.id);
+ 
+-      socket.on('create-room', (data: { roomName: string, playerName: string, maxPlayers?: number, aiCount?: number }) => {
+-        const roomId = this.generateRoomId();
+-        const room: GameRoom = {
+-          id: roomId,
+-          name: data.roomName,
+-          players: new Map(),
+-          gameState: null,
+-          isStarted: false,
+-          maxPlayers: data.maxPlayers |
+
+| 10,
+-          aiPlayerCount: data.aiCount |
+
+| 90,
+-          gameMode: 'multiplayer',
+-          lastUpdate: Date.now()
+-        };
+-
+-        this.rooms.set(roomId, room);
+-        this.joinRoom(socket, roomId, data.playerName);
+-
+-        socket.emit('room-created', { roomId, room: this.getRoomInfo(room) });
+-        console.log(`Room ${roomId} created by ${data.playerName}`);
+-      });
+-
+-      socket.on('start-single-player', (data: { playerName: string, aiCount?: number }) => {
++      socket.on('start-single-player', (data: { playerName: string, aiCount?: number, mapSize?: number }) => {
+         const roomId = this.generateRoomId();
+-        const room: GameRoom = {
++        const humanPlayerId = `${GAME_CONSTANTS.HUMAN_PLAYER_ID_PREFIX}_${socket.id}`;
++        
++        const gameEngine = new GameEngine({
++            mapSize: data.mapSize |
+
+| GAME_CONSTANTS.DEFAULT_MAP_SIZE_TERRITORIES,
++            aiCount: data.aiCount |
+
+| GAME_CONSTANTS.DEFAULT_SINGLE_PLAYER_AI_COUNT,
++            humanPlayers: [{ name: data.playerName, id: humanPlayerId }]
++        });
++
++        const room: GameRoom = {
+           id: roomId,
+           name: 'Single Player Game',
+           players: new Map(),
+-          gameState: null,
++          gameEngine,
+           isStarted: false,
+           maxPlayers: 1,
+-          aiPlayerCount: data.aiCount |
+
+| 19,
+-          gameMode: 'single',
+-          lastUpdate: Date.now()
+         };
+ 
+         this.rooms.set(roomId, room);
+-        this.joinRoom(socket, roomId, data.playerName);
+-        this.startGame(roomId);
+-
+-        socket.emit('single-player-started', { roomId, room: this.getRoomInfo(room) });
+-        console.log(`Single player game ${roomId} started by ${data.playerName}`);
++        this.joinRoom(socket, roomId, data.playerName, humanPlayerId);
++        this.startGame(roomId);
+       });
+ 
+-      socket.on('join-room', (data: { roomId: string, playerName: string }) => {
+-        this.joinRoom(socket, data.roomId, data.playerName);
+-      });
+-
+-      socket.on('game-action', (data: { action: string, payload: any }) => {
++      socket.on('command', (command: ClientCommand) => {
+         const roomId = this.playerToRoom.get(socket.id);
+         if (!roomId) return;
+-
+         const room = this.rooms.get(roomId);
+-        if (!room ||!room.isStarted) return;
+-
+-        this.handleGameAction(socket, room, data.action, data.payload);
++        const playerInfo = room?.players.get(socket.id);
++        if (!room ||!playerInfo ||!room.isStarted) return;
++
++        this.handlePlayerCommand(playerInfo.id, room, command);
+       });
+ 
+       socket.on('disconnect', () => {
+         this.handleDisconnect(socket);
+       });
+     });
+   }
+ 
+-  private joinRoom(socket: any, roomId: string, playerName: string) {
++  private joinRoom(socket: Socket, roomId: string, playerName: string, playerId: string) {
+     const room = this.rooms.get(roomId);
+     if (!room) {
+       socket.emit('error', { message: 'Room not found' });
+       return;
+     }
+-
+     if (room.players.size >= room.maxPlayers) {
+       socket.emit('error', { message: 'Room is full' });
+       return;
+     }
+ 
+-    const player: Player = {
+-      id: socket.id,
+-      name: playerName,
+-      color: this.generatePlayerColor(room.players.size),
+-      type: 'human',
+-      socketId: socket.id,
+-      territories:,
+-      armyGenRate: 1,
+-      totalArmies: 0,
+-      territoriesOwned: 0,
+-      isEliminated: false
+-    };
+-
+-    room.players.set(socket.id, player);
++    const playerInfo: PlayerInfo = { id: playerId, name: playerName, socketId: socket.id };
++    room.players.set(socket.id, playerInfo);
+     this.playerToRoom.set(socket.id, roomId);
++    
++    const enginePlayer = room.gameEngine.players.get(playerId);
++    if (enginePlayer) {
++        enginePlayer.socketId = socket.id;
++    }
+ 
+     socket.join(roomId);
+-    socket.emit('room-joined', { room: this.getRoomInfo(room) });
+-    socket.to(roomId).emit('player-joined', { player: this.getPlayerInfo(player) });
+-
+-    console.log(`${playerName} joined room ${roomId}`);
++    socket.emit('room-joined', { roomId, playerId });
++    console.log(`${playerName} (PlayerID: ${playerId}) joined room ${roomId}`);
+   }
+ 
+   private startGame(roomId: string) {
+     const room = this.rooms.get(roomId);
+     if (!room) return;
+ 
+     room.isStarted = true;
+-    // Initialize game state (this would connect to your existing game logic)
+-    room.gameState = {
+-      phase: 'playing',
+-      territories:,
+-      gameMap: null,
+-      tick: 0
+-    };
+-
+-    // Notify all players in the room
+-    this.io.to(roomId).emit('game-started', { 
+-      gameState: room.gameState,
+-      players: Array.from(room.players.values()).map(p => this.getPlayerInfo(p))
+-    });
+-
+-    console.log(`Game started in room ${roomId} with ${room.players.size} human players and ${room.aiPlayerCount} AI players`);
+-  }
+-
+-  private handleGameAction(socket: any, room: GameRoom, action: string, payload: any) {
+-    // Broadcast the action to all other players in the room
+-    socket.to(room.id).emit('game-update', { action, payload, playerId: socket.id });
+-
+-    // Update room's game state based on the action
+-    room.lastUpdate = Date.now();
+-  }
+-
+-  private broadcastGameUpdate(roomId: string, update: any) {
+-    this.io.to(roomId).emit('game-update', update);
+-  }
+-
+-  private handleDisconnect(socket: any) {
++    
++    room.gameLoopInterval = setInterval(() => {
++      room.gameEngine.update(GAME_CONSTANTS.SERVER_TICK_RATE_MS);
++      this.io.to(roomId).emit('state-update', room.gameEngine.getFullState());
++    }, GAME_CONSTANTS.SERVER_TICK_RATE_MS);
++
++    this.io.to(roomId).emit('game-started', room.gameEngine.getFullState());
++    console.log(`Game started in room ${roomId}`);
++  }
++
++  private handlePlayerCommand(playerId: string, room: GameRoom, command: ClientCommand) {
++    let success = false;
++    switch (command.type) {
++      case CommandType.ATTACK_TERRITORY:
++        success = room.gameEngine.attackTerritory(
++          playerId,
++          command.payload.fromTerritoryId,
++          command.payload.toTerritoryId
++        );
++        break;
++      // Add other command handlers...
++    }
++
++    if (!success) {
++      const playerSocketId = room.players.get(playerId)?.socketId;
++      if (playerSocketId) {
++        this.io.to(playerSocketId).emit('command-failed', {
++          type: command.type,
++          message: 'Invalid action.',
++        });
++      }
++    }
++    // Successful actions will be reflected in the next state-update broadcast.
++  }
++
++  private handleDisconnect(socket: Socket) {
+     const roomId = this.playerToRoom.get(socket.id);
+     if (!roomId) return;
+ 
+     const room = this.rooms.get(roomId);
+     if (!room) return;
+ 
+-    const player = room.players.get(socket.id);
+-    if (player) {
+-      room.players.delete(socket.id);
+-      this.playerToRoom.delete(socket.id);
+-      socket.to(roomId).emit('player-left', { playerId: socket.id });
+-
+-      // Clean up empty rooms
+-      if (room.players.size === 0) {
+-        this.rooms.delete(roomId);
+-        console.log(`Room ${roomId} cleaned up (empty)`);
+-      }
+-
+-      console.log(`${player.name} left room ${roomId}`);
+-    }
+-  }
+-
+-  private getRoomInfo(room: GameRoom) {
+-    return {
+-      id: room.id,
+-      name: room.name,
+-      players: Array.from(room.players.values()).map(p => this.getPlayerInfo(p)),
+-      maxPlayers: room.maxPlayers,
+-      isStarted: room.isStarted
+-    };
+-  }
+-
+-  private getPlayerInfo(player: Player) {
+-    return {
+-      id: player.id,
+-      name: player.name,
+-      color: player.color,
+-      type: player.type,
+-      territoriesOwned: player.territoriesOwned,
+-      totalArmies: player.totalArmies,
+-      isEliminated: player.isEliminated
+-    };
++    const playerInfo = room.players.get(socket.id);
++    if (playerInfo) {
++      const player = room.gameEngine.players.get(playerInfo.id);
++      if (player) {
++          player.isEliminated = true; // Or handle disconnects differently
++          console.log(`Player ${player.name} marked as eliminated due to disconnect.`);
++      }
++    }
++    
++    room.players.delete(socket.id);
++    this.playerToRoom.delete(socket.id);
++
++    if (room.players.size === 0) {
++      if (room.gameLoopInterval) {
++        clearInterval(room.gameLoopInterval);
++      }
++      this.rooms.delete(roomId);
++      console.log(`Room ${roomId} cleaned up.`);
++    }
+   }
+ 
+   private generateRoomId(): string {
+-    return Math.random().toString(36).substring(2, 8).toUpperCase();
+-  }
+-
+-  private generatePlayerColor(index: number): string {
+-    const colors = ['#ff4444', '#44ff44', '#4444ff', '#ffff44', '#ff44ff', '#44ffff'];
+-    return colors[index % colors.length];
++    return Math.random().toString(GAME_CONSTANTS.ROOM_ID_GENERATION_RADIX).substring(
++        GAME_CONSTANTS.ROOM_ID_GENERATION_SUBSTRING_START, 
++        GAME_CONSTANTS.ROOM_ID_GENERATION_SUBSTRING_END
++    ).toUpperCase();
+   }
+ }
+--- /dev/null
++++ b/server/gameEngine.ts
+@@ -0,0 +1,183 @@
++// This is the new server-side game engine, containing all authoritative game logic.
++// It is instantiated for each game room.
++
++import { GAME_CONSTANTS } from '../common/gameConstants';
++import { PlayerState, TerritoryState, ProbeState, FullGameState, ShipAnimationState, SupplyRouteState } from '../common/types';
++import { GameMap } from './GameMap'; // Assuming GameMap can be shared/adapted
++import { Player } from './Player'; // Assuming Player can be shared/adapted
++import { Probe } from './Probe'; // Assuming Probe can be shared/adapted
++
++export class GameEngine {
++    public gameMap: GameMap;
++    public players: Map<string, Player> = new Map();
++    public probes: Probe =;
++    public supplyRoutes: SupplyRouteState =;
++    public delayedTransfers: any =; // Simple for now
++
++    public gameState: FullGameState = {
++        phase: 'lobby',
++        tick: 0,
++    };
++
++    constructor(config: { mapSize: number, aiCount: number, humanPlayers: { name: string, id: string } }) {
++        this.gameMap = new GameMap(GAME_CONSTANTS.DEFAULT_MAP_WIDTH, GAME_CONSTANTS.DEFAULT_MAP_HEIGHT);
++        this.initGame(config);
++    }
++
++    private initGame(config: { mapSize: number, aiCount: number, humanPlayers: { name: string, id: string } }) {
++        this.gameMap.generateTerritories(config.mapSize);
++        this.createPlayers(config.humanPlayers, config.aiCount);
++        this.distributeStartingTerritories();
++        this.gameState.phase = 'playing';
++    }
++
++    private createPlayers(humanPlayers: { name: string, id: string }, aiCount: number) {
++        const usedColors = new Set<string>();
++
++        // Create human players
++        humanPlayers.forEach((human) => {
++            const player = new Player(human.id, human.name, GAME_CONSTANTS.HUMAN_PLAYER_COLOR, 'human');
++            this.players.set(player.id, player);
++            usedColors.add(player.color);
++        });
++
++        // Create AI players
++        for (let i = 0; i < aiCount; i++) {
++            const aiId = `${GAME_CONSTANTS.AI_PLAYER_ID_PREFIX}_${i}`;
++            const aiName = this.generateAIName();
++            const aiColor = this.generateUniqueColor(usedColors);
++            const player = new Player(aiId, aiName, aiColor, 'ai');
++            this.players.set(player.id, player);
++        }
++    }
++
++    private distributeStartingTerritories() {
++        const territories = Object.values(this.gameMap.territories);
++        this.shuffleArray(territories);
++        
++        const playersArray = Array.from(this.players.values());
++        for (let i = 0; i < playersArray.length && territories.length > 0; i++) {
++            const player = playersArray[i];
++            const territory = territories.pop();
++            if (territory) {
++                territory.ownerId = player.id;
++                territory.armySize = GAME_CONSTANTS.INITIAL_STARTING_ARMY_SIZE;
++                territory.isColonizable = false;
++                player.territories.push(territory.id);
++            }
++        }
++    }
++
++    // --- Core Game Loop Update ---
++    public update(deltaTime: number) {
++        if (this.gameState.phase!== 'playing') return;
++
++        this.gameState.tick++;
++        
++        // Update AI
++        this.players.forEach(player => {
++            if (player.type === 'ai' &&!player.isEliminated) {
++                player.update(deltaTime, this.gameMap, this); // AI makes decisions here
++            }
++        });
++
++        // Generate armies for all territories
++        Object.values(this.gameMap.territories).forEach(territory => {
++            if (territory.ownerId!== null) {
++                territory.armySize += 1 / (1000 / deltaTime); // Simplified army generation
++            }
++        });
++
++        this.checkPlayerElimination();
++        this.checkWinConditions();
++    }
++
++    // --- Authoritative Action Handlers ---
++    public attackTerritory(playerId: string, fromTerritoryId: number, toTerritoryId: number): boolean {
++        const attackingTerritory = this.gameMap.territories;
++        const defendingTerritory = this.gameMap.territories;
++
++        // Validation
++        if (!attackingTerritory ||!defendingTerritory) return false;
++        if (attackingTerritory.ownerId!== playerId) return false;
++        if (attackingTerritory.armySize < GAME_CONSTANTS.MIN_ARMY_TO_ATTACK) return false;
++        if (!attackingTerritory.neighbors.includes(toTerritoryId)) return false;
++        if (attackingTerritory.ownerId === defendingTerritory.ownerId) return false;
++
++        // Logic
++        const attackingArmies = attackingTerritory.armySize - GAME_CONSTANTS.ARMY_LEFT_AFTER_ATTACK;
++        const defendingArmies = defendingTerritory.armySize;
++
++        const attackPower = attackingArmies * (GAME_CONSTANTS.ATTACK_POWER_BASE_MULTIPLIER + Math.random() * GAME_CONSTANTS.ATTACK_POWER_RANDOM_RANGE);
++        const defensePower = defendingArmies * (GAME_CONSTANTS.DEFENSE_POWER_BASE_MULTIPLIER + Math.random() * GAME_CONSTANTS.DEFENSE_POWER_RANDOM_RANGE);
++
++        if (attackPower > defensePower) { // Attacker wins
++            const survivingArmies = Math.ceil(attackingArmies * GAME_CONSTANTS.ATTACKER_SURVIVAL_RATE);
++            if (defendingTerritory.ownerId) {
++                const prevOwner = this.players.get(defendingTerritory.ownerId);
++                if (prevOwner) {
++                    const index = prevOwner.territories.indexOf(defendingTerritory.id);
++                    if (index > -1) prevOwner.territories.splice(index, 1);
++                }
++            }
++            defendingTerritory.ownerId = attackingTerritory.ownerId;
++            defendingTerritory.armySize = survivingArmies;
++            attackingTerritory.armySize = GAME_CONSTANTS.ARMY_LEFT_AFTER_ATTACK;
++            const newOwner = this.players.get(attackingTerritory.ownerId);
++            if (newOwner &&!newOwner.territories.includes(defendingTerritory.id)) {
++                newOwner.territories.push(defendingTerritory.id);
++            }
++        } else { // Defender wins
++            const survivingDefenders = Math.ceil(defendingArmies * GAME_CONSTANTS.DEFENDER_SURVIVAL_RATE);
++            defendingTerritory.armySize = survivingDefenders;
++            attackingTerritory.armySize = GAME_CONSTANTS.ARMY_LEFT_AFTER_ATTACK;
++        }
++
++        return true;
++    }
++    
++    //... Other authoritative actions like transferFleet, launchProbe, etc. would go here
++
++    // --- State Serialization for Clients ---
++    public getFullState(): FullGameState {
++        const players: { [id: string]: PlayerState } = {};
++        this.players.forEach(p => {
++            players[p.id] = p.getState();
++        });
++
++        return {
++            territories: this.gameMap.territories,
++            players: players,
++            probes: this.probes,
++            supplyRoutes: this.supplyRoutes,
++            gameState: this.gameState,
++        };
++    }
++
++    // --- Private Helper Methods ---
++    private checkPlayerElimination() { /*... */ }
++    private checkWinConditions() { /*... */ }
++    private shuffleArray(array: any) {
++        for (let i = array.length - 1; i > 0; i--) {
++            const j = Math.floor(Math.random() * (i + 1));
++            [array[i], array[j]] = [array[j], array[i]];
++        }
++    }
++    private generateAIName(): string { return "AI Player"; }
++    private generateUniqueColor(usedColors: Set<string>): string { return "#ff0000"; }
++}
+--- /dev/null
++++ b/client/src/game/Player.js
+@@ -0,0 +1,118 @@
++import { GAME_CONSTANTS } from '../../../common/gameConstants';
++
++// AI Finite State Machine states
++const AI_STATE = {
++    EARLY_GAME_EXPANSION: 'EARLY_GAME_EXPANSION',
++    CONSOLIDATING: 'CONSOLIDATING',
++    AGGRESSIVE_ATTACK: 'AGGRESSIVE_ATTACK',
++    DEFENSIVE_POSTURING: 'DEFENSIVE_POSTURING',
++};
++
++export class Player {
++    constructor(id, name, color, type = 'ai') {
++        this.id = id;
++        this.name = name;
++        this.color = color;
++        this.type = type; // 'human' or 'ai'
++        this.socketId = null;
++
++        this.territories =;
++        this.isEliminated = false;
++
++        // AI-specific properties
++        if (this.type === 'ai') {
++            this.state = AI_STATE.EARLY_GAME_EXPANSION;
++            this.decisionTimer = 0;
++            this.decisionInterval = GAME_CONSTANTS.AI_DECISION_INTERVAL_MS + Math.random() * GAME_CONSTANTS.AI_DECISION_INTERVAL_JITTER_MS;
++        }
++    }
++
++    // This method is called on the server to get a serializable state for the client
++    getState() {
++        // In a real implementation, you would calculate totalArmies and armyGenRate
++        return {
++            id: this.id,
++            name: this.name,
++            color: this.color,
++            type: this.type,
++            territories: this.territories,
++            isEliminated: this.isEliminated,
++            totalArmies: 0, // Placeholder
++            territoriesOwned: this.territories.length,
++            armyGenRate: 0, // Placeholder
++        };
++    }
++
++    // AI-specific update method, called by the server's game loop
++    update(deltaTime, gameMap, gameEngine) {
++        if (this.type!== 'ai' |
+
+| this.isEliminated) return;
++
++        this.decisionTimer += deltaTime;
++        if (this.decisionTimer >= this.decisionInterval) {
++            this.decisionTimer = 0;
++            this.makeDecision(gameMap, gameEngine);
++        }
++    }
++
++    makeDecision(gameMap, gameEngine) {
++        this.evaluateAndTransitionState(gameMap);
++
++        switch (this.state) {
++            case AI_STATE.EARLY_GAME_EXPANSION:
++                this.doExpansion(gameMap, gameEngine);
++                break;
++            case AI_STATE.AGGRESSIVE_ATTACK:
++                this.doAttack(gameMap, gameEngine);
++                break;
++            case AI_STATE.CONSOLIDATING:
++            case AI_STATE.DEFENSIVE_POSTURING:
++                this.doConsolidate(gameMap, gameEngine);
++                break;
++        }
++    }
++
++    evaluateAndTransitionState(gameMap) {
++        const totalTerritories = Object.keys(gameMap.territories).length;
++        const ownedTerritoryCount = this.territories.length;
++
++        if (ownedTerritoryCount / totalTerritories > GAME_CONSTANTS.AI_AGGRESSION_THRESHOLD_TERRITORY_PERCENT) {
++            this.state = AI_STATE.AGGRESSIVE_ATTACK;
++        } else if (ownedTerritoryCount > GAME_CONSTANTS.AI_CONSOLIDATION_THRESHOLD_TERRITORY_COUNT) {
++            this.state = AI_STATE.CONSOLIDATING;
++        } else {
++            this.state = AI_STATE.EARLY_GAME_EXPANSION;
++        }
++    }
++
++    doExpansion(gameMap, gameEngine) {
++        const ownedTerritories = this.territories.map(id => gameMap.territories[id]);
++        for (const from of ownedTerritories) {
++            if (from.armySize >= GAME_CONSTANTS.PROBE_MIN_ARMY_TO_LAUNCH) {
++                const neutralNeighbor = from.neighbors
++                  .map(id => gameMap.territories[id])
++                  .find(t => t && t.ownerId === null && t.isColonizable);
++                
++                if (neutralNeighbor) {
++                    // In a real implementation, the AI would queue a command to the engine
++                    // gameEngine.launchProbe(this.id, from.id, neutralNeighbor.id);
++                    console.log(`AI ${this.name} wants to launch probe from ${from.id} to ${neutralNeighbor.id}`);
++                    return; // Only do one action per decision cycle
++                }
++            }
++        }
++    }
++
++    doAttack(gameMap, gameEngine) {
++        const ownedTerritories = this.territories.map(id => gameMap.territories[id]);
++        for (const from of ownedTerritories) {
++            if (from.armySize > GAME_CONSTANTS.MIN_ARMY_TO_ATTACK) {
++                const weakEnemyNeighbor = from.neighbors
++                  .map(id => gameMap.territories[id])
++                  .find(t => t && t.ownerId!== null && t.ownerId!== this.id && from.armySize > t.armySize * GAME_CONSTANTS.AI_ATTACK_STRENGTH_MULTIPLIER);
++                
++                if (weakEnemyNeighbor) {
++                    gameEngine.attackTerritory(this.id, from.id, weakEnemyNeighbor.id);
++                    console.log(`AI ${this.name} is attacking from ${from.id} to ${weakEnemyNeighbor.id}`);
++                    return;
++                }
++            }
++        }
++    }
++
++    doConsolidate(gameMap, gameEngine) {
++        // Placeholder for consolidation logic, e.g., moving armies to the front lines.
++        console.log(`AI ${this.name} is consolidating forces.`);
++    }
++}

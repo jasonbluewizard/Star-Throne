@@ -1,0 +1,4006 @@
+================================================================================
+STAR THRONE - COMPLETE CODEBASE FOR AI OPTIMIZATION
+================================================================================
+
+TABLE OF CONTENTS:
+1. ARCHITECTURE OVERVIEW
+2. MAIN GAME ENGINE (StarThrone.js)
+3. GAME MAP GENERATION (GameMap.js)
+4. PLAYER & AI LOGIC (Player.js)
+5. TERRITORY SYSTEM (Territory.js)
+6. CAMERA SYSTEM (Camera.js)
+7. GAME UI (GameUI.js)
+8. PROBE SYSTEM (Probe.js)
+9. REACT FRONTEND (App.tsx)
+10. CONFIGURATION (package.json, etc.)
+11. OPTIMIZATION NOTES
+
+================================================================================
+1. ARCHITECTURE OVERVIEW
+================================================================================
+
+Star Throne is a browser-based real-time strategy game built with:
+- React 18 + TypeScript frontend
+- HTML5 Canvas for 2D game rendering
+- Custom JavaScript game engine
+- WebSocket multiplayer support
+- Express.js backend
+
+CURRENT PERFORMANCE CHALLENGES:
+- Game supports up to 100 AI players with real-time calculations
+- 60 FPS target with complex rendering (territories, probes, ships, nebulas)
+- Memory management issues with object pooling
+- Mobile performance constraints
+- Canvas rendering bottlenecks
+
+KEY OPTIMIZATION AREAS:
+1. AI update throttling (currently processes 1/4 players per frame)
+2. Viewport culling for territory rendering
+3. Object pooling for animations
+4. Supply route validation throttling
+5. Territory connection caching
+
+================================================================================
+2. MAIN GAME ENGINE (StarThrone.js)
+================================================================================
+
+import { GameMap } from './GameMap.js';
+import { Player } from './Player.js';
+import { GameUI } from './GameUI.js';
+import { Camera } from './Camera.js';
+import { Probe } from './Probe.js';
+
+export default class StarThrone {
+    constructor(config = {}) {
+        this.canvas = null;
+        this.ctx = null;
+        this.gameMap = null;
+        this.players = [];
+        this.humanPlayer = null;
+        this.camera = null;
+        this.ui = null;
+        
+        // Game configuration from config screen
+        this.config = {
+            playerName: config.playerName || 'Player',
+            aiCount: config.aiCount || 19,
+            mapSize: config.mapSize || 200,
+            gameSpeed: config.gameSpeed || 1.0,
+            layout: config.layout || 'organic',
+            ...config
+        };
+        
+        // Game state
+        this.gameState = 'lobby'; // lobby, playing, ended
+        this.gameTimer = 10 * 60 * 1000; // 10 minutes
+        this.maxPlayers = 100;
+        this.currentPlayers = 0;
+        
+        // Home system flashing
+        this.homeSystemFlashStart = null;
+        this.homeSystemFlashDuration = 3000; // 3 seconds
+        
+        // Input handling
+        this.mousePos = { x: 0, y: 0 };
+        this.selectedTerritory = null;
+        this.isDragging = false;
+        this.lastMousePos = { x: 0, y: 0 };
+        
+        // Performance
+        this.lastFrameTime = 0;
+        this.fps = 0;
+        this.frameCount = 0;
+        this.lastFpsUpdate = 0;
+        
+        // Performance optimizations
+        this.visibleTerritories = [];
+        this.lastVisibilityUpdate = 0;
+        this.visibilityUpdateInterval = 50; // Update every 50ms
+        
+        // AI performance optimization
+        this.aiUpdateIndex = 0;
+        this.aiPlayersPerFrame = Math.max(1, Math.floor(this.config.aiCount / 4)); // Process 1/4 of AI players per frame
+        
+        // Ship animations with object pooling
+        this.shipAnimations = [];
+        this.shipAnimationPool = [];
+        
+        // Probes
+        this.probes = [];
+        
+        // Supply routes system
+        this.supplyRoutes = new Map(); // fromTerritoryId -> { targetId, path, delay, lastValidation }
+        this.isDraggingForSupplyRoute = false;
+        this.dragStart = null;
+        this.lastSupplyRouteValidation = 0;
+        this.supplyRouteValidationInterval = 1350; // Every 45 frames at 30fps
+        this.lastSupplyRouteProcessing = 0;
+        this.supplyRouteProcessingInterval = 2700; // Every 90 frames at 30fps
+        
+        // Touch controls
+        this.touches = new Map();
+        this.lastPinchDistance = null;
+        this.isPinching = false;
+        this.lastTouchTime = 0;
+        this.touchStartPos = null;
+        this.longPressTimer = null;
+        this.longPressThreshold = 800; // 800ms for long press
+        this.touchMoved = false;
+        
+        // Performance monitoring
+        this.performanceData = {
+            frameTime: 0,
+            renderTime: 0,
+            updateTime: 0
+        };
+    }
+    
+    init() {
+        this.setupCanvas();
+        this.setupEventListeners();
+        
+        // Create game map with specified layout
+        this.gameMap = new GameMap(2000, 1500, this.config.layout);
+        this.gameMap.generateTerritories(this.config.mapSize);
+        this.gameMap.generateNebulas(); // Add nebula clouds for atmospheric effects
+        this.gameMap.connectTerritoriesForLayout(); // Layout-specific connections
+        
+        // Reference for ship animations
+        this.gameMap.game = this;
+        
+        this.camera = new Camera(this.canvas.width, this.canvas.height);
+        this.camera.setBounds(0, 0, this.gameMap.width, this.gameMap.height);
+        
+        // Position camera to center on expanded map with 25% zoom
+        this.camera.x = this.gameMap.width / 2;
+        this.camera.y = this.gameMap.height / 2;
+        this.camera.zoom = 0.25;
+        
+        this.ui = new GameUI(this.canvas, this.camera);
+        
+        console.log('Star Throne initialized with', this.config);
+    }
+    
+    createShipAnimation(fromTerritory, toTerritory, isAttack = false) {
+        let animation = this.shipAnimationPool.pop();
+        if (!animation) {
+            animation = {
+                fromX: 0, fromY: 0, toX: 0, toY: 0,
+                progress: 0, duration: 0, startTime: 0,
+                isAttack: false, playerColor: '#ffffff', id: 0,
+                path: null, currentSegment: 0, isMultiHop: false
+            };
+        }
+        
+        animation.fromX = fromTerritory.x;
+        animation.fromY = fromTerritory.y;
+        animation.toX = toTerritory.x;
+        animation.toY = toTerritory.y;
+        animation.progress = 0;
+        animation.duration = 1000 / this.config.gameSpeed; // Speed-adjusted duration
+        animation.startTime = Date.now();
+        animation.isAttack = isAttack;
+        animation.playerColor = fromTerritory.ownerId ? this.players.find(p => p.id === fromTerritory.ownerId)?.color || '#ffffff' : '#ffffff';
+        animation.id = Math.random();
+        animation.path = null;
+        animation.currentSegment = 0;
+        animation.isMultiHop = false;
+        
+        this.shipAnimations.push(animation);
+    }
+    
+    createSupplyRouteAnimation(path, playerColor) {
+        if (!path || path.length < 2) return;
+        
+        let animation = this.shipAnimationPool.pop();
+        if (!animation) {
+            animation = {
+                fromX: 0, fromY: 0, toX: 0, toY: 0,
+                progress: 0, duration: 0, startTime: 0,
+                isAttack: false, playerColor: '#ffffff', id: 0,
+                path: null, currentSegment: 0, isMultiHop: false
+            };
+        }
+        
+        // Set up multi-hop animation
+        animation.path = path;
+        animation.currentSegment = 0;
+        animation.isMultiHop = true;
+        animation.playerColor = playerColor;
+        animation.isAttack = false;
+        animation.id = Math.random();
+        
+        // Start with first segment
+        this.initializeAnimationSegment(animation);
+        
+        this.shipAnimations.push(animation);
+    }
+    
+    initializeAnimationSegment(animation) {
+        if (!animation.path || animation.currentSegment >= animation.path.length - 1) return;
+        
+        const current = animation.path[animation.currentSegment];
+        const next = animation.path[animation.currentSegment + 1];
+        
+        animation.fromX = current.x;
+        animation.fromY = current.y;
+        animation.toX = next.x;
+        animation.toY = next.y;
+        animation.progress = 0;
+        animation.duration = 800 / this.config.gameSpeed; // Faster per-segment for multi-hop
+        animation.startTime = Date.now();
+    }
+    
+    updateShipAnimations(deltaTime) {
+        const currentTime = Date.now();
+        
+        for (let i = this.shipAnimations.length - 1; i >= 0; i--) {
+            const animation = this.shipAnimations[i];
+            const elapsed = currentTime - animation.startTime;
+            animation.progress = Math.min(elapsed / animation.duration, 1);
+            
+            if (animation.progress >= 1) {
+                if (animation.isMultiHop && animation.currentSegment < animation.path.length - 2) {
+                    // Move to next segment
+                    animation.currentSegment++;
+                    this.initializeAnimationSegment(animation);
+                } else {
+                    // Animation complete - return to pool
+                    this.shipAnimations.splice(i, 1);
+                    this.shipAnimationPool.push(animation);
+                }
+            }
+        }
+    }
+    
+    updateProbes(deltaTime) {
+        for (let i = this.probes.length - 1; i >= 0; i--) {
+            const probe = this.probes[i];
+            probe.update(deltaTime);
+            
+            if (probe.getProgress() >= 1) {
+                // Probe reached destination - attempt colonization
+                this.colonizePlanet(probe);
+                this.probes.splice(i, 1);
+            }
+        }
+    }
+    
+    colonizePlanet(probe) {
+        const territory = this.gameMap.territories[probe.toTerritory.id];
+        const player = this.players.find(p => p.id === probe.playerId);
+        
+        if (!territory || !player) return;
+        
+        console.log(`Probe colonizing planet ${territory.id} for player ${player.name}`);
+        
+        // Colonize the planet
+        territory.ownerId = player.id;
+        territory.armySize = 1; // Always start with 1 army regardless of hidden strength
+        territory.isColonizable = false;
+        
+        // Reveal all hidden connections
+        const revealedConnections = territory.revealConnections();
+        
+        // Add to player's territories
+        player.territories.push(territory.id);
+        
+        console.log(`Planet ${territory.id} colonized! Started with 1 army, revealed ${revealedConnections} connections.`);
+    }
+    
+    renderShipAnimations() {
+        this.shipAnimations.forEach(animation => {
+            this.ctx.save();
+            
+            // Calculate position
+            const x = animation.fromX + (animation.toX - animation.fromX) * this.easeInOutQuad(animation.progress);
+            const y = animation.fromY + (animation.toY - animation.fromY) * this.easeInOutQuad(animation.progress);
+            
+            // Draw ship
+            this.ctx.fillStyle = animation.playerColor;
+            this.ctx.strokeStyle = '#ffffff';
+            this.ctx.lineWidth = 1;
+            
+            this.ctx.beginPath();
+            this.ctx.arc(x, y, 3, 0, 2 * Math.PI);
+            this.ctx.fill();
+            this.ctx.stroke();
+            
+            // Draw trail
+            const trailLength = 15;
+            const trailX = animation.fromX + (animation.toX - animation.fromX) * Math.max(0, this.easeInOutQuad(animation.progress) - 0.1);
+            const trailY = animation.fromY + (animation.toY - animation.fromY) * Math.max(0, this.easeInOutQuad(animation.progress) - 0.1);
+            
+            this.ctx.strokeStyle = animation.playerColor;
+            this.ctx.lineWidth = 2;
+            this.ctx.globalAlpha = 0.6;
+            this.ctx.beginPath();
+            this.ctx.moveTo(trailX, trailY);
+            this.ctx.lineTo(x, y);
+            this.ctx.stroke();
+            this.ctx.globalAlpha = 1;
+            
+            this.ctx.restore();
+        });
+    }
+    
+    renderProbes() {
+        this.probes.forEach(probe => {
+            probe.render(this.ctx);
+        });
+    }
+    
+    easeInOutQuad(t) {
+        return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    }
+    
+    setupCanvas() {
+        this.canvas = document.getElementById('gameCanvas');
+        if (!this.canvas) {
+            console.error('Canvas element not found!');
+            return;
+        }
+        
+        this.ctx = this.canvas.getContext('2d');
+        
+        // Set canvas size
+        const resizeCanvas = () => {
+            const container = this.canvas.parentElement;
+            this.canvas.width = container.clientWidth;
+            this.canvas.height = container.clientHeight;
+            
+            if (this.camera) {
+                this.camera.updateViewport(this.canvas.width, this.canvas.height);
+            }
+        };
+        
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+    }
+    
+    setupEventListeners() {
+        // Mouse events
+        this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
+        this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
+        this.canvas.addEventListener('mouseup', this.handleMouseUp.bind(this));
+        this.canvas.addEventListener('wheel', this.handleWheel.bind(this));
+        
+        // Touch events for mobile
+        this.canvas.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
+        this.canvas.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
+        this.canvas.addEventListener('touchend', this.handleTouchEnd.bind(this), { passive: false });
+        
+        // Keyboard events
+        document.addEventListener('keydown', this.handleKeyDown.bind(this));
+        
+        // Prevent context menu on canvas
+        this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    }
+    
+    startGame() {
+        // Generate AI names with realistic variety
+        this.generateAIName = (index) => {
+            const firstNames = [
+                'Alex', 'Blake', 'Casey', 'Dana', 'Eden', 'Felix', 'Grace', 'Hunter', 'Iris', 'Jack',
+                'Kai', 'Luna', 'Max', 'Nova', 'Owen', 'Piper', 'Quinn', 'Riley', 'Sage', 'Taylor',
+                'Zara', 'Phoenix', 'River', 'Skyler', 'Storm', 'Vale', 'Wren', 'Zen', 'Ava', 'Cole',
+                'Drew', 'Ember', 'Fox', 'Gray', 'Harper', 'Indigo', 'Jet', 'Knox', 'Lane', 'Mika',
+                'Nico', 'Orion', 'Page', 'Quin', 'Raven', 'Star', 'Tate', 'Uma', 'Vex', 'Win',
+                'Xen', 'York', 'Zoe', 'Arrow', 'Blaze', 'Crow', 'Dune', 'Echo', 'Frost', 'Ghost',
+                'Hawk', 'Ion', 'Jade', 'Koda', 'Lynx', 'Mars', 'Nyx', 'Onyx', 'Peak', 'Quest',
+                'Rain', 'Saber', 'Titan', 'Unity', 'Void', 'Wolf', 'Xara', 'Yuki', 'Zero', 'Ash'
+            ];
+            
+            const clanNames = [
+                'StarForge', 'VoidHunters', 'CubClan', 'SolarFlare', 'NebulaRise', 'CosmicFury', 'GalaxyGuard',
+                'StellarWolves', 'OrionElite', 'DarkMatter', 'LunarLegion', 'PlasmaStorm', 'QuantumRealm',
+                'AstroNomads', 'CelestialOrder', 'SpaceRaiders', 'StarDust', 'VoidWalkers', 'GravityWell',
+                'SuperNova', 'BlackHole', 'CometTail', 'AsteroidBelt', 'Pulsar', 'Quasar', 'RedGiant',
+                'WhiteDwarf', 'Neutron', 'Photon', 'Electron', 'Proton', 'Alpha', 'Beta', 'Gamma',
+                'Delta', 'Omega', 'Zeta', 'Theta', 'Sigma', 'Pi', 'Lambda', 'Mu', 'Nu', 'Xi',
+                'Rho', 'Tau', 'Phi', 'Chi'
+            ];
+            
+            const militaryRanks = [
+                'Admiral', 'Captain', 'Commander', 'Lieutenant', 'Major', 'Colonel', 'General',
+                'Marshal', 'Commodore', 'Sergeant', 'Corporal', 'Chief', 'Warden', 'Guardian'
+            ];
+            
+            const spaceThemes = [
+                'Pilot', 'Navigator', 'Engineer', 'Technician', 'Specialist', 'Operative', 'Agent',
+                'Scout', 'Ranger', 'Pathfinder', 'Explorer', 'Voyager', 'Nomad', 'Wanderer'
+            ];
+            
+            const firstName = firstNames[index % firstNames.length];
+            
+            // 25% chance for clan format, 75% for other formats
+            if (Math.random() < 0.25) {
+                const clan = clanNames[index % clanNames.length];
+                return `[${clan}] ${firstName}`;
+            } else {
+                // Mix of other formats
+                const rand = Math.random();
+                if (rand < 0.4) {
+                    const rank = militaryRanks[index % militaryRanks.length];
+                    return `${rank} ${firstName}`;
+                } else if (rand < 0.7) {
+                    const theme = spaceThemes[index % spaceThemes.length];
+                    return `${theme} ${firstName}`;
+                } else {
+                    return firstName; // Just first name
+                }
+            }
+        };
+        
+        this.createPlayers(this.config.aiCount + 1);
+        this.distributeStartingTerritories();
+        
+        this.gameState = 'playing';
+        
+        // Start home system flashing for visual feedback
+        this.homeSystemFlashStart = Date.now();
+        
+        this.gameLoop();
+    }
+    
+    createPlayers(numPlayers) {
+        this.players = [];
+        
+        // Human player
+        this.humanPlayer = new Player('human', this.config.playerName, '#00ffff', 'human');
+        this.players.push(this.humanPlayer);
+        
+        // AI players with varied difficulty and strategy
+        for (let i = 1; i < numPlayers; i++) {
+            const playerId = `ai_${i}`;
+            const playerName = this.generateAIName(i - 1);
+            const playerColor = this.generatePlayerColor(i);
+            
+            const aiPlayer = new Player(playerId, playerName, playerColor, 'ai');
+            this.players.push(aiPlayer);
+        }
+        
+        this.currentPlayers = this.players.length;
+        console.log(`Created ${this.players.length} players (1 human, ${this.players.length - 1} AI)`);
+    }
+    
+    adjustColorBrightness(hex, percent) {
+        const num = parseInt(hex.replace("#", ""), 16);
+        const amt = Math.round(2.55 * percent * 100);
+        const R = (num >> 16) + amt;
+        const G = (num >> 8 & 0x00FF) + amt;
+        const B = (num & 0x0000FF) + amt;
+        return "#" + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+            (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+            (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1);
+    }
+    
+    distributeStartingTerritories() {
+        // Since all territories are now colonizable, manually colonize starting territories
+        const allTerritories = Object.values(this.gameMap.territories);
+        const usedTerritories = [];
+        const minDistance = 200; // Minimum distance between starting territories
+        
+        console.log(`Available territories for distribution: ${allTerritories.length} (all are colonizable planets)`);
+        
+        // Give each player exactly one starting territory with spacing
+        for (let i = 0; i < this.players.length; i++) {
+            const player = this.players[i];
+            let bestTerritory = null;
+            let bestMinDistance = 0;
+            
+            // Find territory with maximum distance from all previously assigned territories
+            for (const territory of allTerritories) {
+                if (usedTerritories.includes(territory.id)) continue;
+                
+                let minDistanceToUsed = Infinity;
+                for (const usedId of usedTerritories) {
+                    const usedTerritory = this.gameMap.territories[usedId];
+                    const distance = Math.sqrt(
+                        (territory.x - usedTerritory.x) ** 2 + 
+                        (territory.y - usedTerritory.y) ** 2
+                    );
+                    minDistanceToUsed = Math.min(minDistanceToUsed, distance);
+                }
+                
+                // If first player or this territory is far enough from others
+                if (usedTerritories.length === 0 || minDistanceToUsed > bestMinDistance) {
+                    bestTerritory = territory;
+                    bestMinDistance = minDistanceToUsed;
+                }
+            }
+            
+            if (bestTerritory) {
+                // Manually colonize this territory for the player
+                bestTerritory.ownerId = player.id;
+                bestTerritory.isColonizable = false; // Make it a normal territory
+                bestTerritory.armySize = 50;
+                bestTerritory.isThronestar = true; // Mark as throne star
+                
+                // Reveal connections for starting territories
+                bestTerritory.revealConnections();
+                
+                player.territories.push(bestTerritory.id);
+                player.totalArmies += bestTerritory.armySize;
+                player.throneStarId = bestTerritory.id; // Assign throne star ID
+                
+                usedTerritories.push(bestTerritory.id);
+                
+                console.log(`👑 Player ${player.name} assigned throne star: Territory ${bestTerritory.id} (distance from others: ${bestMinDistance.toFixed(1)})`);
+            }
+        }
+        
+        // Update player stats
+        this.players.forEach(player => {
+            player.updateStats();
+        });
+    }
+    
+    shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+    }
+    
+    gameLoop(currentTime = 0) {
+        const deltaTime = currentTime - this.lastFrameTime;
+        this.lastFrameTime = currentTime;
+        
+        this.updateFPS(currentTime);
+        
+        if (this.gameState === 'playing') {
+            const updateStart = performance.now();
+            this.update(deltaTime);
+            this.performanceData.updateTime = performance.now() - updateStart;
+        }
+        
+        const renderStart = performance.now();
+        this.render();
+        this.performanceData.renderTime = performance.now() - renderStart;
+        this.performanceData.frameTime = deltaTime;
+        
+        requestAnimationFrame(this.gameLoop.bind(this));
+    }
+    
+    updateFPS(currentTime) {
+        this.frameCount++;
+        if (currentTime - this.lastFpsUpdate >= 1000) {
+            this.fps = this.frameCount;
+            this.frameCount = 0;
+            this.lastFpsUpdate = currentTime;
+        }
+    }
+    
+    update(deltaTime) {
+        this.camera.update(deltaTime);
+        
+        // Update ship animations
+        this.updateShipAnimations(deltaTime);
+        
+        // Update probes
+        this.updateProbes(deltaTime);
+        
+        // Check for player elimination
+        this.checkPlayerElimination();
+        
+        // Check win conditions
+        this.checkWinConditions();
+        
+        // Update visible territories optimization (every 50ms)
+        this.updateVisibleTerritories();
+        
+        // AI updates with throttling for better performance
+        if (this.players.length > 1) {
+            const aiPlayers = this.players.filter(p => p.type === 'ai' && !p.isEliminated);
+            const playersToUpdate = Math.min(this.aiPlayersPerFrame, aiPlayers.length);
+            
+            for (let i = 0; i < playersToUpdate; i++) {
+                const playerIndex = (this.aiUpdateIndex + i) % aiPlayers.length;
+                const player = aiPlayers[playerIndex];
+                if (player) {
+                    player.update(deltaTime, this.gameMap, this.config.gameSpeed);
+                }
+            }
+            
+            this.aiUpdateIndex = (this.aiUpdateIndex + playersToUpdate) % aiPlayers.length;
+        }
+        
+        // Supply route management with throttling
+        const now = Date.now();
+        if (now - this.lastSupplyRouteValidation > this.supplyRouteValidationInterval) {
+            this.validateSupplyRoutes();
+            this.lastSupplyRouteValidation = now;
+        }
+        
+        if (now - this.lastSupplyRouteProcessing > this.supplyRouteProcessingInterval) {
+            this.processSupplyRoutes();
+            this.lastSupplyRouteProcessing = now;
+        }
+    }
+    
+    checkPlayerElimination() {
+        this.players.forEach(player => {
+            if (!player.isEliminated && player.territories.length === 0) {
+                player.isEliminated = true;
+                console.log(`Player ${player.name} has been eliminated!`);
+            }
+        });
+    }
+    
+    checkWinConditions() {
+        const activePlayers = this.players.filter(p => !p.isEliminated);
+        
+        if (activePlayers.length === 1) {
+            this.endGame(activePlayers[0]);
+        } else if (activePlayers.length === 0) {
+            this.endGame(null); // Draw
+        }
+    }
+    
+    endGame(winner = null) {
+        this.gameState = 'ended';
+        console.log('Game ended!', winner ? `Winner: ${winner.name}` : 'Draw!');
+    }
+    
+    render() {
+        // Clear canvas
+        this.ctx.fillStyle = '#0a0a1a';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Apply camera transform
+        this.ctx.save();
+        this.camera.applyTransform(this.ctx);
+        
+        // Render nebulas first (background)
+        this.renderNebulas();
+        
+        // Render territories
+        this.renderTerritories();
+        
+        // Render connections between territories
+        this.renderConnections();
+        
+        // Render supply routes
+        this.renderSupplyRoutes();
+        
+        // Render drag preview
+        this.renderDragPreview();
+        
+        // Render ship animations
+        this.renderShipAnimations();
+        
+        // Render probes
+        this.renderProbes();
+        
+        // Render armies on territories
+        this.renderArmies();
+        
+        this.ctx.restore();
+        
+        // Render UI (not affected by camera transform)
+        this.renderUI();
+    }
+    
+    updateVisibleTerritories() {
+        const now = Date.now();
+        if (now - this.lastVisibilityUpdate < this.visibilityUpdateInterval) return;
+        
+        const bounds = this.camera.getViewBounds();
+        const margin = 100; // Extra margin for smooth scrolling
+        
+        this.visibleTerritories = Object.values(this.gameMap.territories).filter(territory => {
+            return this.camera.isRectVisible(
+                territory.x - territory.radius - margin,
+                territory.y - territory.radius - margin,
+                territory.radius * 2 + margin * 2,
+                territory.radius * 2 + margin * 2,
+                margin
+            );
+        });
+        
+        this.lastVisibilityUpdate = now;
+    }
+    
+    renderNebulas() {
+        // Render nebula clouds as atmospheric background
+        this.gameMap.nebulas.forEach(nebula => {
+            this.ctx.save();
+            this.ctx.globalAlpha = nebula.opacity;
+            
+            // Create radial gradient for nebula effect
+            const gradient = this.ctx.createRadialGradient(
+                nebula.x, nebula.y, 0,
+                nebula.x, nebula.y, nebula.radius
+            );
+            gradient.addColorStop(0, 'rgba(147, 51, 234, 0.8)'); // Purple center
+            gradient.addColorStop(0.5, 'rgba(147, 51, 234, 0.4)');
+            gradient.addColorStop(1, 'rgba(147, 51, 234, 0)'); // Transparent edges
+            
+            this.ctx.fillStyle = gradient;
+            this.ctx.beginPath();
+            this.ctx.arc(nebula.x, nebula.y, nebula.radius, 0, 2 * Math.PI);
+            this.ctx.fill();
+            
+            this.ctx.restore();
+        });
+    }
+    
+    renderTerritories() {
+        // Optimized territory rendering with visibility culling
+        const territories = this.visibleTerritories.length > 0 ? this.visibleTerritories : Object.values(this.gameMap.territories);
+        
+        territories.forEach(territory => {
+            this.ctx.save();
+            
+            // Territory circle
+            this.ctx.beginPath();
+            this.ctx.arc(territory.x, territory.y, territory.radius, 0, 2 * Math.PI);
+            
+            if (territory.ownerId) {
+                const player = this.players.find(p => p.id === territory.ownerId);
+                if (player) {
+                    this.ctx.fillStyle = player.color;
+                    
+                    // Human player territories get special highlighting
+                    if (player.type === 'human') {
+                        // Thick cyan border for human territories
+                        this.ctx.strokeStyle = '#00ffff';
+                        this.ctx.lineWidth = 3;
+                        this.ctx.stroke();
+                        
+                        // Add glow effect
+                        this.ctx.shadowColor = '#00ffff';
+                        this.ctx.shadowBlur = 10;
+                        this.ctx.fill();
+                        this.ctx.shadowBlur = 0;
+                    } else {
+                        this.ctx.fill();
+                    }
+                }
+            } else {
+                // Neutral or colonizable territory
+                if (territory.isColonizable) {
+                    this.ctx.fillStyle = '#2a2a3a'; // Dark background for colonizable
+                } else {
+                    this.ctx.fillStyle = '#444444'; // Neutral grey
+                }
+                this.ctx.fill();
+            }
+            
+            // Territory border
+            this.ctx.strokeStyle = '#666666';
+            this.ctx.lineWidth = 1;
+            this.ctx.stroke();
+            
+            // Combat flash effect
+            if (territory.isFlashing && territory.lastCombatFlash && Date.now() - territory.lastCombatFlash < 500) {
+                this.ctx.strokeStyle = '#ff0000';
+                this.ctx.lineWidth = 3;
+                this.ctx.stroke();
+            }
+            
+            // Probe flash effect for launch feedback
+            if (territory.isProbeFlashing && territory.lastProbeFlash && Date.now() - territory.lastProbeFlash < 500) {
+                this.ctx.strokeStyle = '#ffff00';
+                this.ctx.lineWidth = 3;
+                this.ctx.stroke();
+            }
+            
+            // Home system flashing for player identification
+            if (this.homeSystemFlashStart && Date.now() - this.homeSystemFlashStart < this.homeSystemFlashDuration) {
+                if (territory.ownerId === this.humanPlayer?.id && Math.floor((Date.now() - this.homeSystemFlashStart) / 300) % 2 === 0) {
+                    this.ctx.strokeStyle = '#ffffff';
+                    this.ctx.lineWidth = 4;
+                    this.ctx.stroke();
+                }
+            }
+            
+            // Throne star crown icon
+            if (territory.isThronestar) {
+                this.ctx.fillStyle = '#ffd700';
+                this.ctx.font = 'bold 20px Arial';
+                this.ctx.textAlign = 'center';
+                this.ctx.fillText('👑', territory.x, territory.y - territory.radius - 10);
+            }
+            
+            // Human player flag on territories
+            if (territory.ownerId === this.humanPlayer?.id) {
+                this.ctx.fillStyle = '#00ffff';
+                this.ctx.font = 'bold 12px Arial';
+                this.ctx.textAlign = 'center';
+                this.ctx.fillText('🏴', territory.x + territory.radius - 5, territory.y - territory.radius + 5);
+            }
+            
+            this.ctx.restore();
+        });
+    }
+    
+    renderConnections() {
+        // Optimized connection rendering with visibility and caching
+        const drawnConnections = new Set();
+        const territories = this.visibleTerritories.length > 0 ? this.visibleTerritories : Object.values(this.gameMap.territories);
+        
+        this.ctx.save();
+        this.ctx.lineWidth = 1;
+        this.ctx.globalAlpha = 0.6;
+        
+        territories.forEach(territory => {
+            territory.neighbors.forEach(neighborId => {
+                const neighbor = this.gameMap.territories[neighborId];
+                if (!neighbor) return;
+                
+                // Avoid drawing duplicate connections
+                const connectionId = territory.id < neighborId ? `${territory.id}-${neighborId}` : `${neighborId}-${territory.id}`;
+                if (drawnConnections.has(connectionId)) return;
+                drawnConnections.add(connectionId);
+                
+                // Dynamic connection coloring based on ownership
+                if (territory.ownerId && territory.ownerId === neighbor.ownerId) {
+                    // Same owner - use player color with thicker line
+                    const player = this.players.find(p => p.id === territory.ownerId);
+                    if (player) {
+                        this.ctx.strokeStyle = player.color;
+                        this.ctx.lineWidth = 2;
+                        this.ctx.globalAlpha = 0.8;
+                    }
+                } else {
+                    // Different owners or neutral - light gray
+                    this.ctx.strokeStyle = '#666677';
+                }
+                
+                this.ctx.beginPath();
+                this.ctx.moveTo(territory.x, territory.y);
+                this.ctx.lineTo(neighbor.x, neighbor.y);
+                this.ctx.stroke();
+            });
+        });
+        
+        this.ctx.globalAlpha = 1;
+    }
+    
+    renderSupplyRoutes() {
+        // Render active supply routes with animated arrows
+        this.supplyRoutes.forEach((route, fromId) => {
+            const fromTerritory = this.gameMap.territories[fromId];
+            const toTerritory = this.gameMap.territories[route.targetId];
+            
+            if (fromTerritory && toTerritory && route.path && route.path.length > 1) {
+                this.ctx.save();
+                
+                // Draw route path with animated dashes
+                this.ctx.strokeStyle = '#00ffff';
+                this.ctx.lineWidth = 3;
+                this.ctx.globalAlpha = 0.8;
+                
+                // Calculate direction-based animation offset
+                const fromPos = route.path[0];
+                const toPos = route.path[route.path.length - 1];
+                const direction = Math.atan2(toPos.y - fromPos.y, toPos.x - fromPos.x);
+                
+                // Animate dashes flowing in the direction of ship movement
+                const animationOffset = (Date.now() * 0.02) % 20;
+                this.ctx.setLineDash([8, 12]);
+                this.ctx.lineDashOffset = -animationOffset;
+                
+                // Draw path segments
+                for (let i = 0; i < route.path.length - 1; i++) {
+                    const current = route.path[i];
+                    const next = route.path[i + 1];
+                    
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(current.x, current.y);
+                    this.ctx.lineTo(next.x, next.y);
+                    this.ctx.stroke();
+                }
+                
+                // Remove arrow graphics - just show the animated path
+                
+                this.ctx.restore();
+            }
+        });
+    }
+    
+    renderDragPreview() {
+        // Show drag preview when creating supply route
+        if (this.isDraggingForSupplyRoute && this.dragStart) {
+            const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+            
+            this.ctx.save();
+            this.ctx.strokeStyle = '#ffff00';
+            this.ctx.lineWidth = 2;
+            this.ctx.globalAlpha = 0.7;
+            this.ctx.setLineDash([5, 5]);
+            
+            this.ctx.beginPath();
+            this.ctx.moveTo(this.dragStart.x, this.dragStart.y);
+            this.ctx.lineTo(worldPos.x, worldPos.y);
+            this.ctx.stroke();
+            
+            this.ctx.restore();
+        }
+    }
+    
+    renderArmies() {
+        // Optimized army rendering with visibility culling and batch operations
+        this.ctx.save();
+        this.ctx.font = 'bold 14px Arial';
+        this.ctx.textAlign = 'center';
+        
+        const territories = this.visibleTerritories || Object.values(this.gameMap.territories);
+        const playersLookup = {}; // Cache player lookups
+        
+        for (let i = 0; i < territories.length; i++) {
+            const territory = territories[i];
+            
+            if (territory.ownerId && territory.armySize > 0) {
+                // Cache player lookup
+                if (!playersLookup[territory.ownerId]) {
+                    playersLookup[territory.ownerId] = this.players.find(p => p.id === territory.ownerId);
+                }
+                
+                // Black text with white outline for better readability
+                this.ctx.fillStyle = '#000000';
+                this.ctx.strokeStyle = '#ffffff';
+                this.ctx.lineWidth = 3;
+                
+                const text = territory.armySize.toString();
+                this.ctx.strokeText(text, territory.x, territory.y + 5);
+                this.ctx.fillText(text, territory.x, territory.y + 5);
+            } else if (territory.isColonizable) {
+                // Yellow question mark for unexplored systems
+                this.ctx.fillStyle = '#ffff00';
+                this.ctx.strokeStyle = '#000000';
+                this.ctx.lineWidth = 2;
+                
+                const text = '?';
+                this.ctx.strokeText(text, territory.x, territory.y + 5);
+                this.ctx.fillText(text, territory.x, territory.y + 5);
+            } else if (!territory.ownerId && territory.armySize > 0) {
+                // Neutral territory army count - white text with black outline
+                this.ctx.fillStyle = '#ffffff';
+                this.ctx.strokeStyle = '#000000';
+                this.ctx.lineWidth = 2;
+                
+                const text = territory.armySize.toString();
+                this.ctx.strokeText(text, territory.x, territory.y + 5);
+                this.ctx.fillText(text, territory.x, territory.y + 5);
+            }
+        }
+        
+        this.ctx.restore();
+    }
+    
+    renderUI() {
+        if (this.ui) {
+            const gameData = {
+                gameState: this.gameState,
+                players: this.players,
+                humanPlayer: this.humanPlayer,
+                currentPlayers: this.currentPlayers,
+                maxPlayers: this.maxPlayers,
+                selectedTerritory: this.selectedTerritory,
+                fps: this.fps,
+                gameTimer: this.gameTimer,
+                camera: this.camera,
+                gameMap: this.gameMap,
+                performanceData: this.performanceData
+            };
+            
+            this.ui.render(this.ctx, gameData);
+        }
+    }
+    
+    // Input handling methods...
+    handleMouseDown(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        this.mousePos.x = e.clientX - rect.left;
+        this.mousePos.y = e.clientY - rect.top;
+        this.lastMousePos = { ...this.mousePos };
+        
+        this.isDragging = false;
+        
+        // Check for UI interactions first
+        if (this.ui && this.ui.handleClick) {
+            const handled = this.ui.handleClick(this.mousePos.x, this.mousePos.y);
+            if (handled) return;
+        }
+        
+        if (e.button === 0) { // Left click
+            // Territory selection will be handled in mouseup if not dragging
+        } else if (e.button === 2) { // Right click for camera drag
+            this.isDragging = true;
+        }
+    }
+    
+    handleMouseMove(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const newMousePos = {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top
+        };
+        
+        const deltaX = newMousePos.x - this.mousePos.x;
+        const deltaY = newMousePos.y - this.mousePos.y;
+        
+        // Detect if this is a drag (moved more than a few pixels)
+        const dragThreshold = 5;
+        if (Math.abs(deltaX) > dragThreshold || Math.abs(deltaY) > dragThreshold) {
+            this.isDragging = true;
+        }
+        
+        if (this.isDragging && (e.buttons === 2 || e.buttons === 1)) { // Right click or left click drag
+            this.camera.pan(-deltaX / this.camera.zoom, -deltaY / this.camera.zoom);
+        }
+        
+        this.mousePos = newMousePos;
+    }
+    
+    handleMouseUp(e) {
+        if (e.button === 0 && !this.isDragging) { // Left click without drag
+            const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+            this.handleTerritorySelection(worldPos);
+        }
+        
+        this.isDragging = false;
+        this.isDraggingForSupplyRoute = false;
+        this.dragStart = null;
+    }
+    
+    handleWheel(e) {
+        e.preventDefault();
+        const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+        const currentZoom = Math.round(this.camera.zoom * 100);
+        this.camera.zoom(zoomFactor, this.mousePos.x, this.mousePos.y);
+        const newZoom = Math.round(this.camera.zoom * 100);
+        
+        if (currentZoom !== newZoom) {
+            console.log('Mouse wheel zoom:', newZoom + '%');
+        }
+        
+        // Auto-center when zoomed out far enough
+        if (this.camera.zoom <= 0.3) {
+            this.camera.centerOn(this.gameMap.width / 2, this.gameMap.height / 2);
+        }
+    }
+    
+    handleTerritorySelection(worldPos) {
+        console.log('Territory selection at:', worldPos);
+        
+        const territory = this.findTerritoryAt(worldPos.x, worldPos.y);
+        
+        if (!territory) {
+            this.selectedTerritory = null;
+            return;
+        }
+        
+        if (!this.selectedTerritory) {
+            // First selection
+            this.selectedTerritory = territory;
+        } else {
+            // Second selection - check for valid action
+            if (this.selectedTerritory.id === territory.id) {
+                // Same territory - deselect
+                this.selectedTerritory = null;
+            } else if (this.selectedTerritory.ownerId === this.humanPlayer?.id) {
+                // Player owns selected territory
+                if (territory.ownerId === this.humanPlayer.id) {
+                    // Both territories owned by player - transfer armies or create supply route
+                    if (this.selectedTerritory.neighbors.includes(territory.id)) {
+                        // Adjacent territories - direct transfer
+                        this.transferFleet(this.selectedTerritory, territory);
+                    } else {
+                        // Non-adjacent - create supply route
+                        this.createSupplyRoute(this.selectedTerritory, territory);
+                    }
+                } else if (territory.isColonizable) {
+                    // Launch probe to colonizable planet
+                    this.launchProbe(this.selectedTerritory, territory);
+                } else {
+                    // Attack enemy territory
+                    this.attackTerritory(this.selectedTerritory, territory);
+                }
+                this.selectedTerritory = null;
+            } else {
+                // Selected territory not owned by player - select new one
+                this.selectedTerritory = territory;
+            }
+        }
+    }
+    
+    launchProbe(fromTerritory, toTerritory) {
+        const probeCost = 10;
+        
+        if (fromTerritory.armySize <= probeCost) {
+            console.log(`Not enough fleet power to launch probe! Need ${probeCost}, have ${fromTerritory.armySize}`);
+            return;
+        }
+        
+        // Create probe
+        const probe = new Probe(
+            Math.random(),
+            fromTerritory,
+            toTerritory,
+            this.humanPlayer.id,
+            this.humanPlayer.color,
+            this.config.gameSpeed,
+            this.gameMap
+        );
+        
+        this.probes.push(probe);
+        fromTerritory.armySize -= probeCost;
+        
+        // Trigger visual feedback
+        fromTerritory.triggerProbeFlash();
+        
+        console.log(`Probe launched from territory ${fromTerritory.id} to colonizable planet ${toTerritory.id}`);
+    }
+    
+    launchAIProbe(fromTerritory, toTerritory, player) {
+        const probeCost = 10;
+        
+        if (fromTerritory.armySize <= probeCost) {
+            return false;
+        }
+        
+        // Create probe
+        const probe = new Probe(
+            Math.random(),
+            fromTerritory,
+            toTerritory,
+            player.id,
+            player.color,
+            this.config.gameSpeed,
+            this.gameMap
+        );
+        
+        this.probes.push(probe);
+        fromTerritory.armySize -= probeCost;
+        
+        // Trigger visual feedback
+        fromTerritory.triggerProbeFlash();
+        
+        console.log(`AI ${player.name} launched probe from territory ${fromTerritory.id} to colonizable planet ${toTerritory.id}`);
+        return true;
+    }
+    
+    transferFleet(fromTerritory, toTerritory) {
+        if (fromTerritory.armySize <= 1) {
+            console.log('Not enough armies to transfer!');
+            return;
+        }
+        
+        // Create ship animation for transfer
+        this.createShipAnimation(fromTerritory, toTerritory, false);
+        
+        // Transfer half the armies, leaving at least 1
+        const transferAmount = Math.floor(fromTerritory.armySize / 2);
+        fromTerritory.armySize -= transferAmount;
+        toTerritory.armySize += transferAmount;
+        
+        console.log(`Transferred ${transferAmount} armies from territory ${fromTerritory.id} to ${toTerritory.id}`);
+    }
+    
+    // Supply route system
+    createSupplyRoute(fromTerritory, toTerritory) {
+        // Find path between territories through owned network
+        const path = this.findPathBetweenTerritories(fromTerritory, toTerritory);
+        
+        if (path && path.length > 1) {
+            const delayPerHop = 2000; // 2 seconds per intervening planet
+            const totalDelay = (path.length - 2) * delayPerHop; // Don't count start and end
+            
+            this.supplyRoutes.set(fromTerritory.id, {
+                targetId: toTerritory.id,
+                path: path,
+                delay: totalDelay,
+                lastValidation: Date.now()
+            });
+            
+            console.log(`Supply route created: ${fromTerritory.id} → ${toTerritory.id} (${path.length - 1} hops, ${totalDelay}ms delay)`);
+            console.log('Path:', path.map(t => t.id).join(' → '));
+        } else {
+            console.log('No valid path found between territories');
+        }
+    }
+    
+    findPathBetweenTerritories(start, end) {
+        // BFS to find shortest path through owned territories
+        const queue = [[start]];
+        const visited = new Set([start.id]);
+        
+        while (queue.length > 0) {
+            const path = queue.shift();
+            const current = path[path.length - 1];
+            
+            if (current.id === end.id) {
+                return path;
+            }
+            
+            // Check all neighbors
+            current.neighbors.forEach(neighborId => {
+                const neighbor = this.gameMap.territories[neighborId];
+                
+                if (neighbor && 
+                    !visited.has(neighbor.id) && 
+                    neighbor.ownerId === this.humanPlayer?.id) {
+                    
+                    visited.add(neighbor.id);
+                    queue.push([...path, neighbor]);
+                }
+            });
+        }
+        
+        return null; // No path found
+    }
+    
+    validateSupplyRoutes() {
+        // Check all supply routes for broken connections
+        const routesToRemove = [];
+        
+        this.supplyRoutes.forEach((route, fromId) => {
+            const fromTerritory = this.gameMap.territories[fromId];
+            const toTerritory = this.gameMap.territories[route.targetId];
+            
+            // Check if territories still exist and are owned by player
+            if (!fromTerritory || !toTerritory || 
+                fromTerritory.ownerId !== this.humanPlayer?.id || 
+                toTerritory.ownerId !== this.humanPlayer?.id) {
+                routesToRemove.push(fromId);
+                return;
+            }
+            
+            // Revalidate path every few seconds
+            const now = Date.now();
+            if (now - route.lastValidation > 5000) {
+                const newPath = this.findPathBetweenTerritories(fromTerritory, toTerritory);
+                
+                if (!newPath) {
+                    routesToRemove.push(fromId);
+                    console.log(`Supply route broken: ${fromId} → ${route.targetId}`);
+                } else {
+                    // Update path and delay if it changed
+                    const delayPerHop = 2000;
+                    const newDelay = (newPath.length - 2) * delayPerHop;
+                    
+                    route.path = newPath;
+                    route.delay = newDelay;
+                }
+                
+                route.lastValidation = now;
+            }
+        });
+        
+        // Remove broken routes
+        routesToRemove.forEach(id => {
+            this.supplyRoutes.delete(id);
+        });
+    }
+    
+    processSupplyRoutes() {
+        // Handle automatic ship sending along supply routes
+        this.supplyRoutes.forEach((route, fromId) => {
+            const fromTerritory = this.gameMap.territories[fromId];
+            const toTerritory = this.gameMap.territories[route.targetId];
+            
+            if (fromTerritory && toTerritory && fromTerritory.armySize > 2) {
+                // Send new ships when they're generated (but not too frequently)
+                const now = Date.now();
+                if (!route.lastShipment || now - route.lastShipment > 3000) {
+                    const shipsToSend = Math.floor(fromTerritory.armySize / 3); // Send 1/3 of armies
+                    
+                    if (shipsToSend > 0) {
+                        fromTerritory.armySize -= shipsToSend;
+                        route.lastShipment = now;
+                        
+                        // Create delayed transfer with route visualization
+                        this.createDelayedSupplyTransfer(fromTerritory, toTerritory, shipsToSend, route.delay);
+                    }
+                }
+            }
+        });
+    }
+    
+    createDelayedSupplyTransfer(fromTerritory, toTerritory, shipCount, delay) {
+        // Find the supply route to get the path for animation
+        const route = this.supplyRoutes.get(fromTerritory.id);
+        if (route && route.path && route.path.length > 1) {
+            // Create multi-hop ship animation following the path
+            this.createSupplyRouteAnimation(route.path, this.humanPlayer.color);
+        } else {
+            // Fallback to direct animation
+            this.createShipAnimation(fromTerritory, toTerritory, false);
+        }
+        
+        // Apply transfer after delay
+        setTimeout(() => {
+            if (toTerritory.ownerId === this.humanPlayer?.id) {
+                toTerritory.armySize += shipCount;
+                console.log(`Supply route delivered ${shipCount} ships to territory ${toTerritory.id}`);
+            }
+        }, delay);
+    }
+    
+    findTerritoryAt(x, y) {
+        for (const territory of Object.values(this.gameMap.territories)) {
+            const distance = Math.sqrt((x - territory.x) ** 2 + (y - territory.y) ** 2);
+            if (distance <= territory.radius) {
+                return territory;
+            }
+        }
+        return null;
+    }
+    
+    attackTerritory(attackingTerritory, defendingTerritory) {
+        if (attackingTerritory.armySize <= 1) {
+            console.log('Not enough armies to attack!');
+            return;
+        }
+        
+        // Trigger combat flash on both territories
+        attackingTerritory.triggerCombatFlash();
+        defendingTerritory.triggerCombatFlash();
+        
+        // Create ship animation for attack
+        this.createShipAnimation(attackingTerritory, defendingTerritory, true);
+        
+        // Use 70% of armies for attack
+        const attackingArmies = Math.floor(attackingTerritory.armySize * 0.7);
+        const defendingArmies = defendingTerritory.armySize;
+        
+        // Combat calculation with random factors
+        const attackPower = attackingArmies * (0.8 + Math.random() * 0.4); // 0.8 to 1.2 multiplier
+        const defensePower = defendingArmies * (0.9 + Math.random() * 0.2); // 0.9 to 1.1 multiplier (defender advantage)
+        
+        console.log(`Attack: ${Math.floor(attackPower)} vs ${Math.floor(defensePower)}`);
+        
+        if (attackPower > defensePower) {
+            // Attack successful
+            const oldOwnerId = defendingTerritory.ownerId;
+            const survivingArmies = Math.max(1, attackingArmies - defendingArmies);
+            
+            // Check if this is a throne star capture
+            if (defendingTerritory.isThronestar && oldOwnerId !== null) {
+                const oldOwner = this.players[oldOwnerId];
+                if (oldOwner) {
+                    // THRONE STAR CAPTURED! Transfer ALL remaining territories
+                    console.log(`THRONE STAR CAPTURED! ${oldOwner.name}'s empire falls to ${this.humanPlayer.name}!`);
+                    
+                    // Transfer all territories from old owner to attacker
+                    const territoriesToTransfer = [...oldOwner.territories];
+                    territoriesToTransfer.forEach(territoryId => {
+                        const territory = this.gameMap.territories[territoryId];
+                        if (territory && territory.ownerId === oldOwnerId) {
+                            territory.ownerId = this.humanPlayer.id;
+                            this.humanPlayer.territories.push(territoryId);
+                        }
+                    });
+                    
+                    // Clear old owner's territories
+                    oldOwner.territories = [];
+                    oldOwner.isEliminated = true;
+                }
+                
+                // Destroy the captured throne star (no empire should have multiple thrones)
+                defendingTerritory.isThronestar = false;
+                defendingTerritory.ownerId = this.humanPlayer.id;
+                defendingTerritory.armySize = survivingArmies;
+                attackingTerritory.armySize -= attackingArmies;
+                
+                console.log(`👑 Throne star destroyed after capture - no duplicate thrones allowed`);
+            } else {
+                // Normal territory capture
+                defendingTerritory.ownerId = this.humanPlayer.id;
+                defendingTerritory.armySize = survivingArmies;
+                attackingTerritory.armySize -= attackingArmies;
+                
+                // Update player territories
+                this.humanPlayer.territories.push(defendingTerritory.id);
+                
+                if (oldOwnerId !== null) {
+                    const oldOwner = this.players[oldOwnerId];
+                    if (oldOwner) {
+                        const index = oldOwner.territories.indexOf(defendingTerritory.id);
+                        if (index > -1) {
+                            oldOwner.territories.splice(index, 1);
+                        }
+                    }
+                }
+            }
+            
+            console.log('Territory captured!');
+        } else {
+            // Attack failed
+            attackingTerritory.armySize -= attackingArmies;
+            console.log('Attack failed!');
+        }
+        
+        // Update player stats
+        this.players.forEach(player => player.updateStats());
+    }
+    
+    // Touch event handlers for mobile
+    handleTouchStart(e) {
+        e.preventDefault();
+        
+        this.touches.clear();
+        for (let touch of e.touches) {
+            this.touches.set(touch.identifier, {
+                x: touch.clientX - this.canvas.getBoundingClientRect().left,
+                y: touch.clientY - this.canvas.getBoundingClientRect().top,
+                startTime: Date.now()
+            });
+        }
+        
+        if (e.touches.length === 1) {
+            // Single touch - potential tap or drag
+            const touch = this.touches.values().next().value;
+            this.touchStartPos = { x: touch.x, y: touch.y };
+            this.touchMoved = false;
+            
+            // Start long press timer
+            this.longPressTimer = setTimeout(() => {
+                this.handleLongPress();
+            }, this.longPressThreshold);
+            
+        } else if (e.touches.length === 2) {
+            // Two touches - pinch gesture
+            this.isPinching = true;
+            const touch1 = this.touches.get(e.touches[0].identifier);
+            const touch2 = this.touches.get(e.touches[1].identifier);
+            this.lastPinchDistance = Math.sqrt(
+                Math.pow(touch2.x - touch1.x, 2) + Math.pow(touch2.y - touch1.y, 2)
+            );
+            
+            // Clear long press timer
+            if (this.longPressTimer) {
+                clearTimeout(this.longPressTimer);
+                this.longPressTimer = null;
+            }
+        }
+    }
+    
+    handleTouchMove(e) {
+        e.preventDefault();
+        
+        // Update touch positions
+        for (let touch of e.touches) {
+            const touchData = this.touches.get(touch.identifier);
+            if (touchData) {
+                const newX = touch.clientX - this.canvas.getBoundingClientRect().left;
+                const newY = touch.clientY - this.canvas.getBoundingClientRect().top;
+                
+                // Check if touch moved significantly
+                const deltaX = newX - touchData.x;
+                const deltaY = newY - touchData.y;
+                if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+                    this.touchMoved = true;
+                    
+                    // Cancel long press timer if touch moved
+                    if (this.longPressTimer) {
+                        clearTimeout(this.longPressTimer);
+                        this.longPressTimer = null;
+                    }
+                }
+                
+                touchData.x = newX;
+                touchData.y = newY;
+            }
+        }
+        
+        if (e.touches.length === 1 && this.touchMoved) {
+            // Single finger drag - camera pan
+            const touch = this.touches.values().next().value;
+            const deltaX = touch.x - this.touchStartPos.x;
+            const deltaY = touch.y - this.touchStartPos.y;
+            
+            this.camera.pan(-deltaX / this.camera.zoom * 0.5, -deltaY / this.camera.zoom * 0.5);
+            this.touchStartPos = { x: touch.x, y: touch.y };
+            
+        } else if (e.touches.length === 2 && this.isPinching) {
+            // Two finger gestures
+            const touch1 = this.touches.get(e.touches[0].identifier);
+            const touch2 = this.touches.get(e.touches[1].identifier);
+            
+            const currentDistance = Math.sqrt(
+                Math.pow(touch2.x - touch1.x, 2) + Math.pow(touch2.y - touch1.y, 2)
+            );
+            
+            if (this.lastPinchDistance && Math.abs(currentDistance - this.lastPinchDistance) > 2) {
+                // Pinch zoom with enhanced sensitivity
+                const zoomFactor = currentDistance / this.lastPinchDistance;
+                const centerX = (touch1.x + touch2.x) / 2;
+                const centerY = (touch1.y + touch2.y) / 2;
+                
+                // Apply zoom with very responsive scaling
+                this.camera.zoom(zoomFactor * 1.5, centerX, centerY);
+            }
+            
+            // Two-finger pan
+            const centerX = (touch1.x + touch2.x) / 2;
+            const centerY = (touch1.y + touch2.y) / 2;
+            const lastCenterX = (this.lastTouch1?.x + this.lastTouch2?.x) / 2 || centerX;
+            const lastCenterY = (this.lastTouch1?.y + this.lastTouch2?.y) / 2 || centerY;
+            
+            if (this.lastTouch1 && this.lastTouch2) {
+                const panDeltaX = centerX - lastCenterX;
+                const panDeltaY = centerY - lastCenterY;
+                this.camera.pan(-panDeltaX / this.camera.zoom, -panDeltaY / this.camera.zoom);
+            }
+            
+            this.lastPinchDistance = currentDistance;
+            this.lastTouch1 = { ...touch1 };
+            this.lastTouch2 = { ...touch2 };
+        }
+    }
+    
+    handleTouchEnd(e) {
+        e.preventDefault();
+        
+        const duration = Date.now() - this.lastTouchTime;
+        this.lastTouchTime = Date.now();
+        
+        console.log('Touch end:', e.touches.length, 'remaining touches, duration:', duration);
+        
+        // Clear long press timer
+        if (this.longPressTimer) {
+            clearTimeout(this.longPressTimer);
+            this.longPressTimer = null;
+        }
+        
+        if (e.touches.length === 0) {
+            // All touches ended
+            if (!this.touchMoved && this.touchStartPos && duration < 300) {
+                // Quick tap - handle as territory selection or UI interaction
+                const worldPos = this.camera.screenToWorld(this.touchStartPos.x, this.touchStartPos.y);
+                
+                // Check for UI interactions first
+                if (this.ui && this.ui.handleTouch) {
+                    const handled = this.ui.handleTouch(this.touchStartPos.x, this.touchStartPos.y);
+                    if (handled) return;
+                }
+                
+                this.handleTerritorySelection(worldPos);
+            }
+            
+            this.isPinching = false;
+            this.lastPinchDistance = null;
+            this.touchStartPos = null;
+            this.touchMoved = false;
+            this.lastTouch1 = null;
+            this.lastTouch2 = null;
+        }
+        
+        // Remove ended touches
+        for (let touch of e.changedTouches) {
+            this.touches.delete(touch.identifier);
+        }
+    }
+    
+    handleKeyDown(e) {
+        if (e.code === 'KeyM') {
+            // Toggle minimap with M key
+            if (this.ui && this.ui.toggleMinimap) {
+                this.ui.toggleMinimap();
+            }
+        }
+    }
+    
+    handleLongPress() {
+        if (!this.touchStartPos) return;
+        
+        const worldPos = this.camera.screenToWorld(this.touchStartPos.x, this.touchStartPos.y);
+        const territory = this.findTerritoryAt(worldPos.x, worldPos.y);
+        
+        if (!territory) return;
+        
+        // Long press actions
+        if (territory.ownerId === this.humanPlayer?.id) {
+            // Long press on friendly territory
+            if (this.selectedTerritory && this.selectedTerritory.ownerId === this.humanPlayer?.id && 
+                this.selectedTerritory.id !== territory.id) {
+                // Create supply route between friendly territories
+                this.createSupplyRoute(this.selectedTerritory, territory);
+                this.selectedTerritory = null;
+                console.log('Long press: Supply route created');
+            } else {
+                this.selectedTerritory = territory;
+                console.log('Long press: Territory selected for supply route');
+            }
+        } else if (territory.isColonizable && this.selectedTerritory?.ownerId === this.humanPlayer?.id) {
+            // Long press on colonizable planet - launch probe
+            this.launchProbe(this.selectedTerritory, territory);
+            this.selectedTerritory = null;
+            console.log('Long press: Probe launched');
+        } else if (territory.ownerId && territory.ownerId !== this.humanPlayer?.id && 
+                   this.selectedTerritory?.ownerId === this.humanPlayer?.id) {
+            // Long press on enemy territory - massive attack with all available armies
+            this.attackTerritory(this.selectedTerritory, territory);
+            this.selectedTerritory = null;
+            console.log('Long press: Massive attack launched');
+        }
+        
+        // Vibrate for haptic feedback on mobile
+        if (navigator.vibrate) {
+            navigator.vibrate(100);
+        }
+    }
+    
+    restartGame() {
+        // Reset game state
+        this.gameState = 'lobby';
+        this.players = [];
+        this.humanPlayer = null;
+        this.selectedTerritory = null;
+        this.supplyRoutes.clear();
+        this.shipAnimations = [];
+        this.probes = [];
+        this.homeSystemFlashStart = null;
+        
+        // Regenerate map and restart
+        this.gameMap.generateTerritories(this.config.mapSize);
+        this.gameMap.generateNebulas();
+        this.gameMap.connectTerritoriesForLayout();
+        
+        this.startGame();
+    }
+    
+    generatePlayerColor(index) {
+        const colors = [
+            '#00ffff', // Cyan for human player
+            '#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#f0932b',
+            '#eb4d4b', '#6c5ce7', '#a29bfe', '#fd79a8', '#e17055',
+            '#00b894', '#00cec9', '#e84393', '#9b59b6', '#3498db',
+            '#2ecc71', '#f1c40f', '#e67e22', '#e74c3c', '#1abc9c',
+            '#9c88ff', '#fbc531', '#4834d4', '#686de0', '#30336b',
+            '#95a5a6', '#34495e', '#2c3e50', '#e55039', '#fa4299',
+            '#7bed9f', '#70a1ff', '#5352ed', '#ff9ff3', '#ff3838'
+        ];
+        
+        return colors[index % colors.length];
+    }
+}
+
+================================================================================
+3. GAME MAP GENERATION (GameMap.js)
+================================================================================
+
+import { Territory } from './Territory.js';
+
+export class GameMap {
+    constructor(width, height, layout = 'organic') {
+        this.width = width * 1.4; // Expand width by 40%
+        this.height = height * 1.4; // Expand height by 40%
+        this.territories = {};
+        this.nebulas = []; // Purple nebula clouds
+        this.gridSize = 80; // Space between territory centers
+        this.connectionDistance = 120; // Max distance for territory connections
+        this.layout = layout; // Layout type: organic, clusters, spiral, core, ring, binary
+    }
+    
+    generateTerritories(count) {
+        console.log(`Generating ${count} territories using ${this.layout} layout on ${this.width}x${this.height} map...`);
+        
+        // Generate territories based on selected layout
+        let territories;
+        switch (this.layout) {
+            case 'clusters':
+                territories = this.generateClusterLayout(count);
+                break;
+            case 'spiral':
+                territories = this.generateSpiralLayout(count);
+                break;
+            case 'core':
+                territories = this.generateCoreLayout(count);
+                break;
+            case 'ring':
+                territories = this.generateRingLayout(count);
+                break;
+            case 'binary':
+                territories = this.generateBinaryLayout(count);
+                break;
+            case 'organic':
+            default:
+                territories = this.poissonDiskSampling(count);
+                break;
+        }
+        
+        // Create Territory objects - ALL are now colonizable requiring probes
+        territories.forEach((pos, index) => {
+            // ALL territories are now colonizable
+            const territory = new Territory(index, pos.x, pos.y, 25, true);
+            
+            // Hidden army count from 1 to 50, only revealed when probed
+            territory.hiddenArmySize = Math.floor(Math.random() * 50) + 1;
+            territory.armySize = 0; // Unknown until colonized
+            
+            this.territories[index] = territory;
+        });
+        
+        console.log(`Generated ${Object.keys(this.territories).length} territories with ${this.layout} layout`);
+        
+        // Connect territories based on layout
+        this.connectTerritories();
+        
+        // Ensure connectivity by connecting isolated territories
+        this.ensureConnectivity();
+    }
+    
+    generateNebulas() {
+        // Generate 8-15 nebula clouds scattered across the map
+        const nebulaCount = Math.floor(Math.random() * 8) + 8;
+        
+        for (let i = 0; i < nebulaCount; i++) {
+            const nebula = {
+                x: Math.random() * this.width,
+                y: Math.random() * this.height,
+                radius: 80 + Math.random() * 120, // Size varies from 80 to 200
+                opacity: 0.3 + Math.random() * 0.4, // Opacity varies from 0.3 to 0.7
+                color: `rgba(147, 51, 234, ${0.3 + Math.random() * 0.4})` // Purple with varying opacity
+            };
+            this.nebulas.push(nebula);
+        }
+    }
+    
+    poissonDiskSampling(numSamples) {
+        const points = [];
+        const margin = 50;
+        const attempts = numSamples * 100; // Maximum attempts to place points
+        
+        // Helper function to check if a point is valid (minimum distance from existing points)
+        const isValidPoint = (x, y) => {
+            if (x < margin || x >= this.width - margin || y < margin || y >= this.height - margin) return false;
+            
+            for (const point of points) {
+                const dist = Math.sqrt((x - point.x) ** 2 + (y - point.y) ** 2);
+                if (dist < this.gridSize) return false;
+            }
+            return true;
+        };
+        
+        // Strategy 1: Grid-based placement with randomization for even distribution
+        const rows = Math.ceil(Math.sqrt(numSamples * (this.height / this.width)));
+        const cols = Math.ceil(numSamples / rows);
+        const cellWidth = (this.width - 2 * margin) / cols;
+        const cellHeight = (this.height - 2 * margin) / rows;
+        
+        // Place one point per grid cell with random offset
+        for (let row = 0; row < rows && points.length < numSamples; row++) {
+            for (let col = 0; col < cols && points.length < numSamples; col++) {
+                const baseX = margin + col * cellWidth + cellWidth * 0.2;
+                const baseY = margin + row * cellHeight + cellHeight * 0.2;
+                
+                // Add randomization within cell bounds
+                const offsetX = Math.random() * cellWidth * 0.6;
+                const offsetY = Math.random() * cellHeight * 0.6;
+                
+                const x = baseX + offsetX;
+                const y = baseY + offsetY;
+                
+                if (isValidPoint(x, y)) {
+                    points.push({ x, y });
+                }
+            }
+        }
+        
+        // Strategy 2: Fill remaining with truly random placement
+        let attemptCount = 0;
+        while (points.length < numSamples && attemptCount < attempts) {
+            const x = margin + Math.random() * (this.width - 2 * margin);
+            const y = margin + Math.random() * (this.height - 2 * margin);
+            
+            if (isValidPoint(x, y)) {
+                points.push({ x, y });
+            }
+            attemptCount++;
+        }
+        
+        console.log(`Generated ${points.length} territories distributed across ${this.width}x${this.height} map`);
+        return points.slice(0, numSamples);
+    }
+    
+    // Additional layout generation methods...
+    generateClusterLayout(count) {
+        const points = [];
+        const clusters = Math.floor(Math.random() * 6) + 3; // 3-8 clusters
+        const pointsPerCluster = Math.floor(count / clusters);
+        
+        for (let c = 0; c < clusters; c++) {
+            // Random cluster center
+            const centerX = this.width * 0.2 + Math.random() * this.width * 0.6;
+            const centerY = this.height * 0.2 + Math.random() * this.height * 0.6;
+            const clusterRadius = 200 + Math.random() * 150;
+            
+            for (let p = 0; p < pointsPerCluster && points.length < count; p++) {
+                const angle = Math.random() * 2 * Math.PI;
+                const distance = Math.random() * clusterRadius;
+                const x = centerX + Math.cos(angle) * distance;
+                const y = centerY + Math.sin(angle) * distance;
+                
+                if (x >= 50 && x < this.width - 50 && y >= 50 && y < this.height - 50) {
+                    points.push({ x, y });
+                }
+            }
+        }
+        
+        return points;
+    }
+    
+    generateSpiralLayout(count) {
+        const points = [];
+        const arms = Math.floor(Math.random() * 3) + 3; // 3-5 spiral arms
+        const centerX = this.width / 2;
+        const centerY = this.height / 2;
+        const maxRadius = Math.min(this.width, this.height) / 2 - 50;
+        
+        for (let i = 0; i < count; i++) {
+            const arm = i % arms;
+            const progress = i / count;
+            const armAngle = (arm / arms) * 2 * Math.PI;
+            const spiralAngle = armAngle + progress * 4 * Math.PI;
+            const radius = progress * maxRadius;
+            
+            const x = centerX + Math.cos(spiralAngle) * radius;
+            const y = centerY + Math.sin(spiralAngle) * radius;
+            
+            // Add some randomness
+            const offsetX = (Math.random() - 0.5) * 60;
+            const offsetY = (Math.random() - 0.5) * 60;
+            
+            points.push({ x: x + offsetX, y: y + offsetY });
+        }
+        
+        return points;
+    }
+    
+    generateCoreLayout(count) {
+        const points = [];
+        const centerX = this.width / 2;
+        const centerY = this.height / 2;
+        const coreCount = Math.floor(count * 0.2); // 20% in core
+        const shells = 3;
+        
+        // Dense core
+        for (let i = 0; i < coreCount; i++) {
+            const angle = Math.random() * 2 * Math.PI;
+            const radius = Math.random() * 150;
+            const x = centerX + Math.cos(angle) * radius;
+            const y = centerY + Math.sin(angle) * radius;
+            points.push({ x, y });
+        }
+        
+        // Surrounding shells
+        const remainingCount = count - coreCount;
+        for (let shell = 1; shell <= shells; shell++) {
+            const shellCount = Math.floor(remainingCount / shells);
+            const innerRadius = 150 + (shell - 1) * 200;
+            const outerRadius = 150 + shell * 200;
+            
+            for (let i = 0; i < shellCount; i++) {
+                const angle = Math.random() * 2 * Math.PI;
+                const radius = innerRadius + Math.random() * (outerRadius - innerRadius);
+                const x = centerX + Math.cos(angle) * radius;
+                const y = centerY + Math.sin(angle) * radius;
+                
+                if (x >= 50 && x < this.width - 50 && y >= 50 && y < this.height - 50) {
+                    points.push({ x, y });
+                }
+            }
+        }
+        
+        return points;
+    }
+    
+    generateRingLayout(count) {
+        const points = [];
+        const rings = Math.floor(Math.random() * 3) + 4; // 4-6 rings
+        const centerX = this.width / 2;
+        const centerY = this.height / 2;
+        const maxRadius = Math.min(this.width, this.height) / 2 - 50;
+        
+        for (let ring = 0; ring < rings; ring++) {
+            const ringCount = Math.floor(count / rings);
+            const radius = (ring + 1) * (maxRadius / rings);
+            
+            for (let i = 0; i < ringCount; i++) {
+                const angle = (i / ringCount) * 2 * Math.PI + Math.random() * 0.5;
+                const x = centerX + Math.cos(angle) * radius;
+                const y = centerY + Math.sin(angle) * radius;
+                
+                // Add some randomness
+                const offsetX = (Math.random() - 0.5) * 40;
+                const offsetY = (Math.random() - 0.5) * 40;
+                
+                points.push({ x: x + offsetX, y: y + offsetY });
+            }
+        }
+        
+        return points;
+    }
+    
+    generateBinaryLayout(count) {
+        const points = [];
+        const leftCenterX = this.width * 0.3;
+        const rightCenterX = this.width * 0.7;
+        const centerY = this.height / 2;
+        const systemRadius = this.width * 0.2;
+        
+        for (let i = 0; i < count; i++) {
+            const isLeft = i % 2 === 0;
+            const centerX = isLeft ? leftCenterX : rightCenterX;
+            
+            const angle = Math.random() * 2 * Math.PI;
+            const radius = Math.random() * systemRadius;
+            const x = centerX + Math.cos(angle) * radius;
+            const y = centerY + Math.sin(angle) * radius;
+            
+            points.push({ x, y });
+        }
+        
+        return points;
+    }
+    
+    connectTerritoriesForLayout() {
+        switch (this.layout) {
+            case 'clusters':
+                this.connectClusters();
+                break;
+            case 'spiral':
+                this.connectSpiral();
+                break;
+            case 'core':
+                this.connectCore();
+                break;
+            case 'ring':
+                this.connectRings();
+                break;
+            case 'binary':
+                this.connectBinary();
+                break;
+            case 'organic':
+            default:
+                // Standard distance-based connections handled in connectTerritories()
+                break;
+        }
+    }
+    
+    connectClusters() {
+        // Connect within clusters first, then bridge clusters
+        const territories = Object.values(this.territories);
+        
+        // Find clusters using spatial grouping
+        const clusters = [];
+        const visited = new Set();
+        
+        territories.forEach(territory => {
+            if (visited.has(territory.id)) return;
+            
+            const cluster = [];
+            const queue = [territory];
+            
+            while (queue.length > 0) {
+                const current = queue.shift();
+                if (visited.has(current.id)) continue;
+                
+                visited.add(current.id);
+                cluster.push(current);
+                
+                // Find nearby territories for this cluster
+                territories.forEach(other => {
+                    if (!visited.has(other.id)) {
+                        const distance = Math.sqrt(
+                            (current.x - other.x) ** 2 + (current.y - other.y) ** 2
+                        );
+                        if (distance < 250) { // Cluster proximity threshold
+                            queue.push(other);
+                        }
+                    }
+                });
+            }
+            
+            if (cluster.length > 3) {
+                clusters.push(cluster);
+            }
+        });
+        
+        // Connect within each cluster
+        clusters.forEach(cluster => {
+            cluster.forEach(territory => {
+                cluster.forEach(other => {
+                    if (territory.id !== other.id) {
+                        const distance = Math.sqrt(
+                            (territory.x - other.x) ** 2 + (territory.y - other.y) ** 2
+                        );
+                        if (distance < this.connectionDistance) {
+                            territory.addConnection(other.id);
+                        }
+                    }
+                });
+            });
+        });
+        
+        // Bridge clusters with sparse connections
+        for (let i = 0; i < clusters.length; i++) {
+            for (let j = i + 1; j < clusters.length; j++) {
+                const cluster1 = clusters[i];
+                const cluster2 = clusters[j];
+                
+                // Find closest territories between clusters
+                let minDistance = Infinity;
+                let bridgeA = null;
+                let bridgeB = null;
+                
+                cluster1.forEach(a => {
+                    cluster2.forEach(b => {
+                        const distance = Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+                        if (distance < minDistance) {
+                            minDistance = distance;
+                            bridgeA = a;
+                            bridgeB = b;
+                        }
+                    });
+                });
+                
+                // Create bridge connection
+                if (bridgeA && bridgeB) {
+                    bridgeA.addConnection(bridgeB.id);
+                }
+            }
+        }
+    }
+    
+    connectSpiral() {
+        // Connect along spiral arms with reduced density
+        const territories = Object.values(this.territories);
+        
+        territories.forEach(territory => {
+            // Find neighbors within arm connections
+            const nearbyTerritories = territories.filter(other => {
+                if (territory.id === other.id) return false;
+                
+                const distance = Math.sqrt(
+                    (territory.x - other.x) ** 2 + (territory.y - other.y) ** 2
+                );
+                return distance < this.connectionDistance * 0.8; // Reduced connection density
+            });
+            
+            // Limit connections per territory for sparse network
+            const maxConnections = 2 + Math.floor(Math.random() * 2); // 2-3 connections
+            nearbyTerritories.slice(0, maxConnections).forEach(neighbor => {
+                territory.addConnection(neighbor.id);
+            });
+        });
+    }
+    
+    connectCore() {
+        // Dense connections in core, sparser in shells
+        const territories = Object.values(this.territories);
+        const centerX = this.width / 2;
+        const centerY = this.height / 2;
+        
+        territories.forEach(territory => {
+            const distanceFromCenter = Math.sqrt(
+                (territory.x - centerX) ** 2 + (territory.y - centerY) ** 2
+            );
+            
+            // Connection density decreases with distance from center
+            const isCore = distanceFromCenter < 150;
+            const connectionRadius = isCore ? this.connectionDistance : this.connectionDistance * 0.6;
+            const maxConnections = isCore ? 6 : 3;
+            
+            const nearbyTerritories = territories.filter(other => {
+                if (territory.id === other.id) return false;
+                
+                const distance = Math.sqrt(
+                    (territory.x - other.x) ** 2 + (territory.y - other.y) ** 2
+                );
+                return distance < connectionRadius;
+            });
+            
+            nearbyTerritories.slice(0, maxConnections).forEach(neighbor => {
+                territory.addConnection(neighbor.id);
+            });
+        });
+    }
+    
+    connectRings() {
+        // Connect within rings and between adjacent rings
+        const territories = Object.values(this.territories);
+        const centerX = this.width / 2;
+        const centerY = this.height / 2;
+        const maxRadius = Math.min(this.width, this.height) / 2 - 50;
+        
+        territories.forEach(territory => {
+            const distanceFromCenter = Math.sqrt(
+                (territory.x - centerX) ** 2 + (territory.y - centerY) ** 2
+            );
+            const ring = Math.floor((distanceFromCenter / maxRadius) * 6); // Determine which ring
+            
+            territories.forEach(other => {
+                if (territory.id === other.id) return;
+                
+                const otherDistance = Math.sqrt(
+                    (other.x - centerX) ** 2 + (other.y - centerY) ** 2
+                );
+                const otherRing = Math.floor((otherDistance / maxRadius) * 6);
+                
+                // Connect within same ring or adjacent rings
+                if (Math.abs(ring - otherRing) <= 1) {
+                    const distance = Math.sqrt(
+                        (territory.x - other.x) ** 2 + (territory.y - other.y) ** 2
+                    );
+                    if (distance < this.connectionDistance) {
+                        territory.addConnection(other.id);
+                    }
+                }
+            });
+        });
+    }
+    
+    connectBinary() {
+        // Connect within each system and bridge between them
+        const territories = Object.values(this.territories);
+        const leftSystem = territories.filter(t => t.x < this.width / 2);
+        const rightSystem = territories.filter(t => t.x >= this.width / 2);
+        
+        // Connect within each system
+        [leftSystem, rightSystem].forEach(system => {
+            system.forEach(territory => {
+                system.forEach(other => {
+                    if (territory.id !== other.id) {
+                        const distance = Math.sqrt(
+                            (territory.x - other.x) ** 2 + (territory.y - other.y) ** 2
+                        );
+                        if (distance < this.connectionDistance) {
+                            territory.addConnection(other.id);
+                        }
+                    }
+                });
+            });
+        });
+        
+        // Create limited bridges between systems
+        const bridgeCount = Math.floor(territories.length * 0.05); // 5% bridge connections
+        for (let i = 0; i < bridgeCount; i++) {
+            const leftTerritory = leftSystem[Math.floor(Math.random() * leftSystem.length)];
+            const rightTerritory = rightSystem[Math.floor(Math.random() * rightSystem.length)];
+            
+            if (leftTerritory && rightTerritory) {
+                leftTerritory.addConnection(rightTerritory.id);
+            }
+        }
+    }
+    
+    connectTerritories() {
+        const territories = Object.values(this.territories);
+        
+        territories.forEach(territory => {
+            territories.forEach(other => {
+                if (territory.id !== other.id) {
+                    const distance = Math.sqrt(
+                        (territory.x - other.x) ** 2 + (territory.y - other.y) ** 2
+                    );
+                    
+                    if (distance < this.connectionDistance) {
+                        territory.addConnection(other.id);
+                    }
+                }
+            });
+        });
+    }
+    
+    ensureConnectivity() {
+        // Use Union-Find to detect disconnected components
+        const territories = Object.values(this.territories);
+        const parent = {};
+        
+        // Initialize Union-Find
+        territories.forEach(territory => {
+            parent[territory.id] = territory.id;
+        });
+        
+        const find = (id) => {
+            if (parent[id] !== id) {
+                parent[id] = find(parent[id]);
+            }
+            return parent[id];
+        };
+        
+        const union = (a, b) => {
+            const rootA = find(a);
+            const rootB = find(b);
+            if (rootA !== rootB) {
+                parent[rootB] = rootA;
+            }
+        };
+        
+        // Union connected territories
+        territories.forEach(territory => {
+            territory.neighbors.forEach(neighborId => {
+                union(territory.id, neighborId);
+            });
+        });
+        
+        // Find all components
+        const components = {};
+        territories.forEach(territory => {
+            const root = find(territory.id);
+            if (!components[root]) {
+                components[root] = [];
+            }
+            components[root].push(territory);
+        });
+        
+        const componentList = Object.values(components);
+        
+        // Connect isolated components
+        for (let i = 1; i < componentList.length; i++) {
+            const component1 = componentList[0];
+            const component2 = componentList[i];
+            
+            // Find closest territories between components
+            let minDistance = Infinity;
+            let closestPair = null;
+            
+            component1.forEach(t1 => {
+                component2.forEach(t2 => {
+                    const distance = Math.sqrt((t1.x - t2.x) ** 2 + (t1.y - t2.y) ** 2);
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        closestPair = [t1, t2];
+                    }
+                });
+            });
+            
+            // Connect the closest pair
+            if (closestPair) {
+                closestPair[0].addConnection(closestPair[1].id);
+                union(closestPair[0].id, closestPair[1].id);
+            }
+        }
+        
+        console.log(`Connected ${componentList.length} components into single network`);
+    }
+    
+    getTerritoriesInBounds(bounds) {
+        return Object.values(this.territories).filter(territory => {
+            return territory.x >= bounds.left && territory.x <= bounds.right &&
+                   territory.y >= bounds.top && territory.y <= bounds.bottom;
+        });
+    }
+    
+    findNearestTerritory(x, y) {
+        let nearest = null;
+        let minDistance = Infinity;
+        
+        Object.values(this.territories).forEach(territory => {
+            const distance = Math.sqrt((x - territory.x) ** 2 + (y - territory.y) ** 2);
+            if (distance < minDistance) {
+                minDistance = distance;
+                nearest = territory;
+            }
+        });
+        
+        return nearest;
+    }
+    
+    getMapStats() {
+        const territories = Object.values(this.territories);
+        const totalConnections = territories.reduce((sum, t) => sum + t.neighbors.length, 0);
+        
+        return {
+            territoryCount: territories.length,
+            totalConnections: totalConnections / 2, // Each connection counted twice
+            averageConnections: totalConnections / territories.length,
+            mapSize: `${this.width}x${this.height}`,
+            layout: this.layout
+        };
+    }
+    
+    serialize() {
+        return {
+            width: this.width,
+            height: this.height,
+            layout: this.layout,
+            territories: Object.fromEntries(
+                Object.entries(this.territories).map(([id, territory]) => [
+                    id, territory.serialize()
+                ])
+            ),
+            nebulas: this.nebulas
+        };
+    }
+    
+    static deserialize(data) {
+        const map = new GameMap(data.width, data.height, data.layout);
+        map.territories = Object.fromEntries(
+            Object.entries(data.territories).map(([id, territoryData]) => [
+                id, Territory.deserialize(territoryData)
+            ])
+        );
+        map.nebulas = data.nebulas || [];
+        return map;
+    }
+    
+    isInNebula(x, y) {
+        return this.nebulas.some(nebula => {
+            const distance = Math.sqrt((x - nebula.x) ** 2 + (y - nebula.y) ** 2);
+            return distance <= nebula.radius;
+        });
+    }
+}
+
+================================================================================
+4. PLAYER & AI LOGIC (Player.js)
+================================================================================
+
+export class Player {
+    constructor(id, name, color, type = 'ai') {
+        this.id = id;
+        this.name = name;
+        this.color = color;
+        this.type = type; // 'human' or 'ai'
+        this.territories = [];
+        this.isEliminated = false;
+        this.throneStarId = null; // ID of player's throne star territory
+        
+        // Stats
+        this.territoriesOwned = 0;
+        this.totalArmies = 0;
+        this.armyGenRate = 1; // Armies generated per second
+        this.territoriesConquered = 0;
+        this.lastAttackTime = 0;
+        this.lastProbeTime = 0;
+        
+        // AI behavior
+        this.aiStrategy = this.selectAIStrategy();
+        this.lastAIAction = 0;
+        this.aiCooldown = 2000 + Math.random() * 3000; // 2-5 seconds between major actions
+        this.maxActionsPerUpdate = 2; // Limit AI actions to prevent overwhelming
+    }
+    
+    selectAIStrategy() {
+        const strategies = ['aggressive', 'defensive', 'expansionist', 'opportunistic'];
+        return strategies[Math.floor(Math.random() * strategies.length)];
+    }
+    
+    update(deltaTime, gameMap, gameSpeed = 1.0) {
+        if (this.isEliminated) return;
+        
+        this.updateStats();
+        
+        if (this.type === 'ai') {
+            this.updateAI(deltaTime, gameMap);
+        }
+    }
+    
+    updateStats() {
+        this.territoriesOwned = this.territories.length;
+        this.totalArmies = this.territories.reduce((sum, territoryId) => {
+            const territory = this.gameMap?.territories?.[territoryId];
+            return sum + (territory?.armySize || 0);
+        }, 0);
+    }
+    
+    updateAI(deltaTime, gameMap) {
+        const now = Date.now();
+        if (now - this.lastAIAction < this.aiCooldown) return;
+        
+        // Get player's territories for AI decision making
+        const ownedTerritories = this.territories
+            .map(id => gameMap.territories[id])
+            .filter(t => t && t.ownerId === this.id);
+        
+        if (ownedTerritories.length === 0) return;
+        
+        // Find territories that can take actions (have enough armies)
+        const attackableTerritories = ownedTerritories.filter(t => t.armySize > 10);
+        
+        if (attackableTerritories.length === 0) return;
+        
+        // Execute strategy-specific behavior
+        let actionsThisUpdate = 0;
+        
+        switch (this.aiStrategy) {
+            case 'aggressive':
+                actionsThisUpdate = this.executeAggressiveStrategy(attackableTerritories, gameMap);
+                break;
+            case 'defensive':
+                actionsThisUpdate = this.executeDefensiveStrategy(attackableTerritories, gameMap);
+                break;
+            case 'expansionist':
+                actionsThisUpdate = this.executeExpansionistStrategy(attackableTerritories, gameMap);
+                break;
+            case 'opportunistic':
+                actionsThisUpdate = this.executeOpportunisticStrategy(attackableTerritories, gameMap);
+                break;
+        }
+        
+        // Consider probe colonization (20% chance)
+        if (Math.random() < 0.2) {
+            this.considerProbeColonization(attackableTerritories, gameMap);
+        }
+        
+        if (actionsThisUpdate > 0) {
+            this.lastAIAction = now;
+            // Vary cooldown based on activity
+            this.aiCooldown = 2000 + Math.random() * 3000;
+        }
+    }
+    
+    executeAggressiveStrategy(attackableTerritories, gameMap, maxActions = 2) {
+        let actions = 0;
+        
+        for (const territory of attackableTerritories) {
+            if (actions >= maxActions) break;
+            
+            const targets = this.findAttackTargets(territory, gameMap);
+            if (targets.length === 0) continue;
+            
+            // Prefer attacking weakest enemies or throne stars
+            targets.sort((a, b) => {
+                if (a.isThronestar && !b.isThronestar) return -1;
+                if (!a.isThronestar && b.isThronestar) return 1;
+                return a.armySize - b.armySize;
+            });
+            
+            const target = targets[0];
+            const winChance = this.calculateWinChance(territory, target);
+            
+            if (winChance > 0.6) { // Aggressive threshold
+                this.executeAttack(territory, target, gameMap);
+                actions++;
+            }
+        }
+        
+        return actions;
+    }
+    
+    executeDefensiveStrategy(attackableTerritories, gameMap) {
+        let actions = 0;
+        
+        // Focus on defending throne star and strengthening borders
+        for (const territory of attackableTerritories) {
+            if (actions >= this.maxActionsPerUpdate) break;
+            
+            const targets = this.findAttackTargets(territory, gameMap);
+            if (targets.length === 0) continue;
+            
+            // Only attack if very confident or target is very weak
+            targets.sort((a, b) => a.armySize - b.armySize);
+            const target = targets[0];
+            const winChance = this.calculateWinChance(territory, target);
+            
+            if (winChance > 0.8 || target.armySize <= 5) {
+                this.executeAttack(territory, target, gameMap);
+                actions++;
+            }
+        }
+        
+        return actions;
+    }
+    
+    executeExpansionistStrategy(attackableTerritories, gameMap) {
+        let actions = 0;
+        
+        // Focus on expanding territory count and strategic positions
+        for (const territory of attackableTerritories) {
+            if (actions >= this.maxActionsPerUpdate) break;
+            
+            const targets = this.findAttackTargets(territory, gameMap);
+            if (targets.length === 0) continue;
+            
+            // Prefer targets with high strategic value
+            targets.sort((a, b) => {
+                const valueA = this.calculateStrategicValue(a, gameMap);
+                const valueB = this.calculateStrategicValue(b, gameMap);
+                return valueB - valueA;
+            });
+            
+            const target = targets[0];
+            const winChance = this.calculateWinChance(territory, target);
+            
+            if (winChance > 0.65) {
+                this.executeAttack(territory, target, gameMap);
+                actions++;
+            }
+        }
+        
+        return actions;
+    }
+    
+    executeOpportunisticStrategy(attackableTerritories, gameMap) {
+        let actions = 0;
+        
+        // Look for easy wins and vulnerable targets
+        for (const territory of attackableTerritories) {
+            if (actions >= this.maxActionsPerUpdate) break;
+            
+            const targets = this.findAttackTargets(territory, gameMap);
+            if (targets.length === 0) continue;
+            
+            // Find the most opportunistic target
+            let bestTarget = null;
+            let bestScore = 0;
+            
+            targets.forEach(target => {
+                const winChance = this.calculateWinChance(territory, target);
+                const strategicValue = this.calculateStrategicValue(target, gameMap);
+                const opportunityScore = winChance * strategicValue;
+                
+                if (opportunityScore > bestScore) {
+                    bestScore = opportunityScore;
+                    bestTarget = target;
+                }
+            });
+            
+            if (bestTarget && bestScore > 0.5) {
+                this.executeAttack(territory, bestTarget, gameMap);
+                actions++;
+            }
+        }
+        
+        return actions;
+    }
+    
+    findAttackTargets(territory, gameMap) {
+        const targets = [];
+        
+        territory.neighbors.forEach(neighborId => {
+            const neighbor = gameMap.territories[neighborId];
+            if (neighbor && neighbor.ownerId !== this.id) {
+                targets.push(neighbor);
+            }
+        });
+        
+        return targets;
+    }
+    
+    calculateWinChance(attackingTerritory, defendingTerritory) {
+        const attackPower = attackingTerritory.armySize * 0.7; // Use 70% for attack
+        const defensePower = defendingTerritory.armySize;
+        
+        // Include randomness factor in calculation
+        const attackRange = attackPower * (0.8 + Math.random() * 0.4);
+        const defenseRange = defensePower * (0.9 + Math.random() * 0.2);
+        
+        return attackRange > defenseRange ? 0.8 : 0.3;
+    }
+    
+    calculateStrategicValue(territory, gameMap) {
+        let value = 1;
+        
+        // Throne stars are extremely valuable
+        if (territory.isThronestar) {
+            value += 10;
+        }
+        
+        // More connections = more strategic value
+        value += territory.neighbors.length * 0.5;
+        
+        // Territories with more armies are more valuable
+        value += territory.armySize * 0.1;
+        
+        // Border territories are less valuable than central ones
+        const connectionCount = territory.neighbors.length;
+        if (connectionCount < 3) {
+            value *= 0.8;
+        }
+        
+        return value;
+    }
+    
+    executeAttack(attackingTerritory, defendingTerritory, gameMap) {
+        // Create ship animation
+        if (gameMap.game) {
+            gameMap.game.createShipAnimation(attackingTerritory, defendingTerritory, true);
+        }
+        
+        // Enhanced logging for throne star attacks
+        if (defendingTerritory.isThronestar || Math.random() < 0.05) {
+            console.log(`AI ${this.name} attacking territory ${defendingTerritory.id} from ${attackingTerritory.id}${defendingTerritory.isThronestar ? ' (👑 THRONE STAR!)' : ''}`);
+        }
+        
+        // Use 70% of armies for attack
+        const attackingArmies = Math.floor(attackingTerritory.armySize * 0.7);
+        const defendingArmies = defendingTerritory.armySize;
+        const oldOwnerId = defendingTerritory.ownerId;
+        
+        // Combat calculation with random factors
+        const attackPower = attackingArmies * (0.8 + Math.random() * 0.4);
+        const defensePower = defendingArmies * (0.9 + Math.random() * 0.2);
+        
+        console.log(`Attack: ${Math.floor(attackPower)} vs ${Math.floor(defensePower)}`);
+        
+        if (attackPower > defensePower) {
+            // Attack successful
+            const survivingArmies = Math.max(1, attackingArmies - defendingArmies);
+            
+            // Check if this is a throne star capture
+            if (defendingTerritory.isThronestar && oldOwnerId !== null && gameMap.players && gameMap.players[oldOwnerId]) {
+                const oldOwner = gameMap.players[oldOwnerId];
+                // THRONE STAR CAPTURED! Transfer ALL remaining territories
+                console.log(`🏆 THRONE STAR CAPTURED! ${oldOwner.name}'s empire falls to ${this.name}!`);
+                console.log(`Transferring ${oldOwner.territories.length} territories from ${oldOwner.name} to ${this.name}`);
+                
+                // Transfer all territories from old owner to attacker
+                const territoriesToTransfer = [...oldOwner.territories];
+                territoriesToTransfer.forEach(territoryId => {
+                    const territory = gameMap.territories[territoryId];
+                    if (territory && territory.ownerId === oldOwnerId) {
+                        territory.ownerId = this.id;
+                        this.territories.push(territoryId);
+                    }
+                });
+                
+                // Clear old owner's territories
+                oldOwner.territories = [];
+                oldOwner.isEliminated = true;
+                this.territoriesConquered += territoriesToTransfer.length;
+                
+                // Destroy the captured throne star (no empire should have multiple thrones)
+                defendingTerritory.isThronestar = false;
+                defendingTerritory.ownerId = this.id;
+                defendingTerritory.armySize = survivingArmies;
+                attackingTerritory.armySize -= attackingArmies;
+                
+                console.log(`👑 Throne star destroyed after capture - no duplicate thrones allowed`);
+            } else {
+                // Normal territory capture
+                defendingTerritory.ownerId = this.id;
+                defendingTerritory.armySize = survivingArmies;
+                attackingTerritory.armySize -= attackingArmies;
+                
+                // Update player territories
+                this.territories.push(defendingTerritory.id);
+                this.territoriesConquered++;
+                
+                if (oldOwnerId !== null && gameMap.players && gameMap.players[oldOwnerId]) {
+                    const oldOwner = gameMap.players[oldOwnerId];
+                    const index = oldOwner.territories.indexOf(defendingTerritory.id);
+                    if (index > -1) {
+                        oldOwner.territories.splice(index, 1);
+                    }
+                }
+            }
+            
+            console.log('Territory captured!');
+        } else {
+            // Attack failed
+            attackingTerritory.armySize -= attackingArmies;
+            console.log('Attack failed!');
+        }
+        
+        this.lastAttackTime = Date.now();
+    }
+    
+    getStats() {
+        return {
+            id: this.id,
+            name: this.name,
+            color: this.color,
+            type: this.type,
+            territoriesOwned: this.territoriesOwned,
+            totalArmies: this.totalArmies,
+            territoriesConquered: this.territoriesConquered,
+            isEliminated: this.isEliminated,
+            aiStrategy: this.aiStrategy
+        };
+    }
+    
+    serialize() {
+        return {
+            id: this.id,
+            name: this.name,
+            color: this.color,
+            type: this.type,
+            territories: this.territories,
+            isEliminated: this.isEliminated,
+            throneStarId: this.throneStarId,
+            territoriesOwned: this.territoriesOwned,
+            totalArmies: this.totalArmies,
+            armyGenRate: this.armyGenRate,
+            territoriesConquered: this.territoriesConquered,
+            aiStrategy: this.aiStrategy
+        };
+    }
+    
+    considerProbeColonization(attackableTerritories, gameMap) {
+        // Find colonizable planets within range of owned territories
+        const colonizableTargets = [];
+        
+        attackableTerritories.forEach(territory => {
+            Object.values(gameMap.territories).forEach(target => {
+                if (target.isColonizable && !colonizableTargets.includes(target)) {
+                    // Calculate distance (probes can travel anywhere)
+                    const distance = Math.sqrt(
+                        (territory.x - target.x) ** 2 + (territory.y - target.y) ** 2
+                    );
+                    
+                    // Consider targets within reasonable range
+                    if (distance < 500) {
+                        colonizableTargets.push({
+                            source: territory,
+                            target: target,
+                            distance: distance,
+                            value: this.calculateColonizationValue(target, gameMap)
+                        });
+                    }
+                }
+            });
+        });
+        
+        if (colonizableTargets.length === 0) return;
+        
+        // Sort by value and distance
+        colonizableTargets.sort((a, b) => {
+            const scoreA = a.value / (a.distance / 100);
+            const scoreB = b.value / (b.distance / 100);
+            return scoreB - scoreA;
+        });
+        
+        const bestTarget = colonizableTargets[0];
+        
+        // Launch probe if conditions are good
+        if (bestTarget.source.armySize > 15 && bestTarget.value > 2) {
+            if (gameMap.game && gameMap.game.launchAIProbe) {
+                gameMap.game.launchAIProbe(bestTarget.source, bestTarget.target, this);
+            }
+        }
+    }
+    
+    calculateColonizationValue(territory, gameMap) {
+        let value = 1;
+        
+        // More connections = more strategic value for expansion
+        value += territory.hiddenNeighbors ? territory.hiddenNeighbors.length * 0.5 : 0;
+        
+        // Central locations are more valuable
+        const centerX = gameMap.width / 2;
+        const centerY = gameMap.height / 2;
+        const distanceFromCenter = Math.sqrt(
+            (territory.x - centerX) ** 2 + (territory.y - centerY) ** 2
+        );
+        const maxDistance = Math.sqrt(centerX ** 2 + centerY ** 2);
+        value += (1 - distanceFromCenter / maxDistance) * 2;
+        
+        return value;
+    }
+}
+
+================================================================================
+5. TERRITORY SYSTEM (Territory.js)
+================================================================================
+
+export class Territory {
+    constructor(id, x, y, radius, isColonizable = false) {
+        this.id = id;
+        this.x = x;
+        this.y = y;
+        this.radius = radius;
+        this.ownerId = null;
+        this.armySize = 0;
+        this.isColonizable = isColonizable;
+        this.hiddenArmySize = 1; // Hidden strength until colonized
+        this.isThronestar = false; // Special throne star territories
+        
+        // Connection system - ALL hidden until colonized
+        this.neighbors = []; // Visible connections
+        this.hiddenNeighbors = []; // Hidden connections revealed upon colonization
+        
+        // Visual effects
+        this.isFlashing = false;
+        this.lastCombatFlash = 0;
+        this.isProbeFlashing = false;
+        this.lastProbeFlash = 0;
+    }
+    
+    addConnection(neighborId) {
+        if (this.isColonizable) {
+            // All connections are hidden for colonizable planets
+            if (!this.hiddenNeighbors.includes(neighborId)) {
+                this.hiddenNeighbors.push(neighborId);
+            }
+        } else {
+            // Normal visible connections for colonized territories
+            if (!this.neighbors.includes(neighborId)) {
+                this.neighbors.push(neighborId);
+            }
+        }
+    }
+    
+    revealConnections() {
+        // When planet is colonized, reveal all hidden connections
+        const revealedCount = this.hiddenNeighbors.length;
+        this.neighbors = [...this.hiddenNeighbors];
+        this.hiddenNeighbors = [];
+        return revealedCount;
+    }
+    
+    hasConnection(neighborId) {
+        return this.neighbors.includes(neighborId) || this.hiddenNeighbors.includes(neighborId);
+    }
+    
+    triggerCombatFlash() {
+        this.isFlashing = true;
+        this.lastCombatFlash = Date.now();
+    }
+    
+    triggerProbeFlash() {
+        this.isProbeFlashing = true;
+        this.lastProbeFlash = Date.now();
+    }
+    
+    getDistanceTo(other) {
+        return Math.sqrt((this.x - other.x) ** 2 + (this.y - other.y) ** 2);
+    }
+    
+    isWithinRadius(x, y, checkRadius = null) {
+        const radius = checkRadius || this.radius;
+        const distance = Math.sqrt((x - this.x) ** 2 + (y - this.y) ** 2);
+        return distance <= radius;
+    }
+    
+    serialize() {
+        return {
+            id: this.id,
+            x: this.x,
+            y: this.y,
+            radius: this.radius,
+            ownerId: this.ownerId,
+            armySize: this.armySize,
+            isColonizable: this.isColonizable,
+            hiddenArmySize: this.hiddenArmySize,
+            isThronestar: this.isThronestar,
+            neighbors: this.neighbors,
+            hiddenNeighbors: this.hiddenNeighbors
+        };
+    }
+    
+    static deserialize(data) {
+        const territory = new Territory(data.id, data.x, data.y, data.radius, data.isColonizable);
+        territory.ownerId = data.ownerId;
+        territory.armySize = data.armySize;
+        territory.hiddenArmySize = data.hiddenArmySize;
+        territory.isThronestar = data.isThronestar;
+        territory.neighbors = data.neighbors || [];
+        territory.hiddenNeighbors = data.hiddenNeighbors || [];
+        return territory;
+    }
+}
+
+================================================================================
+6. CAMERA SYSTEM (Camera.js)
+================================================================================
+
+export class Camera {
+    constructor(viewportWidth, viewportHeight) {
+        this.x = 0;
+        this.y = 0;
+        this.zoom = 1;
+        this.targetX = 0;
+        this.targetY = 0;
+        this.targetZoom = 1;
+        
+        this.viewportWidth = viewportWidth;
+        this.viewportHeight = viewportHeight;
+        
+        // Camera bounds
+        this.minX = 0;
+        this.maxX = 1000;
+        this.minY = 0;
+        this.maxY = 1000;
+        
+        // Zoom constraints
+        this.minZoom = 0.15; // Allow seeing entire galaxy
+        this.maxZoom = 3.0;
+        
+        // Animation properties
+        this.isAnimating = false;
+        this.animationStart = 0;
+        this.animationDuration = 1000;
+        this.startX = 0;
+        this.startY = 0;
+        this.startZoom = 1;
+    }
+    
+    updateViewport(width, height) {
+        this.viewportWidth = width;
+        this.viewportHeight = height;
+    }
+    
+    update(deltaTime) {
+        if (this.isAnimating) {
+            const elapsed = Date.now() - this.animationStart;
+            const progress = Math.min(elapsed / this.animationDuration, 1);
+            
+            // Smooth easing function
+            const eased = 1 - Math.pow(1 - progress, 3);
+            
+            this.x = this.startX + (this.targetX - this.startX) * eased;
+            this.y = this.startY + (this.targetY - this.startY) * eased;
+            this.zoom = this.startZoom + (this.targetZoom - this.startZoom) * eased;
+            
+            if (progress >= 1) {
+                this.isAnimating = false;
+            }
+        }
+        
+        this.applyConstraints();
+    }
+    
+    applyConstraints() {
+        // Zoom constraints
+        this.zoom = Math.max(this.minZoom, Math.min(this.maxZoom, this.zoom));
+        
+        // Position constraints - dynamic based on zoom
+        const worldWidth = this.maxX - this.minX;
+        const worldHeight = this.maxY - this.minY;
+        const viewWidth = this.viewportWidth / this.zoom;
+        const viewHeight = this.viewportHeight / this.zoom;
+        
+        // Auto-center when zoomed out enough to see entire map
+        if (viewWidth >= worldWidth) {
+            this.x = this.minX + worldWidth / 2;
+        } else {
+            this.x = Math.max(this.minX + viewWidth / 2, 
+                            Math.min(this.maxX - viewWidth / 2, this.x));
+        }
+        
+        if (viewHeight >= worldHeight) {
+            this.y = this.minY + worldHeight / 2;
+        } else {
+            this.y = Math.max(this.minY + viewHeight / 2, 
+                            Math.min(this.maxY - viewHeight / 2, this.y));
+        }
+    }
+    
+    pan(deltaX, deltaY) {
+        this.x += deltaX;
+        this.y += deltaY;
+        this.applyConstraints();
+    }
+    
+    zoomTo(newZoom, screenX, screenY) {
+        const worldPos = this.screenToWorld(screenX, screenY);
+        
+        this.zoom = Math.max(this.minZoom, Math.min(this.maxZoom, newZoom));
+        
+        // Adjust position to keep the point under cursor stable
+        const newWorldPos = this.screenToWorld(screenX, screenY);
+        this.x += worldPos.x - newWorldPos.x;
+        this.y += worldPos.y - newWorldPos.y;
+        
+        this.applyConstraints();
+    }
+    
+    zoom(factor, screenX, screenY) {
+        this.zoomTo(this.zoom * factor, screenX, screenY);
+    }
+    
+    centerOn(worldX, worldY) {
+        this.x = worldX;
+        this.y = worldY;
+        this.applyConstraints();
+    }
+    
+    screenToWorld(screenX, screenY) {
+        return {
+            x: (screenX - this.viewportWidth / 2) / this.zoom + this.x,
+            y: (screenY - this.viewportHeight / 2) / this.zoom + this.y
+        };
+    }
+    
+    worldToScreen(worldX, worldY) {
+        return {
+            x: (worldX - this.x) * this.zoom + this.viewportWidth / 2,
+            y: (worldY - this.y) * this.zoom + this.viewportHeight / 2
+        };
+    }
+    
+    applyTransform(ctx) {
+        ctx.translate(this.viewportWidth / 2, this.viewportHeight / 2);
+        ctx.scale(this.zoom, this.zoom);
+        ctx.translate(-this.x, -this.y);
+    }
+    
+    getViewBounds() {
+        const halfWidth = this.viewportWidth / (2 * this.zoom);
+        const halfHeight = this.viewportHeight / (2 * this.zoom);
+        
+        return {
+            left: this.x - halfWidth,
+            right: this.x + halfWidth,
+            top: this.y - halfHeight,
+            bottom: this.y + halfHeight
+        };
+    }
+    
+    isPointVisible(worldX, worldY, margin = 0) {
+        const bounds = this.getViewBounds();
+        return worldX >= bounds.left - margin && worldX <= bounds.right + margin &&
+               worldY >= bounds.top - margin && worldY <= bounds.bottom + margin;
+    }
+    
+    isRectVisible(worldX, worldY, width, height, margin = 0) {
+        const bounds = this.getViewBounds();
+        return !(worldX + width < bounds.left - margin || 
+                worldX > bounds.right + margin ||
+                worldY + height < bounds.top - margin || 
+                worldY > bounds.bottom + margin);
+    }
+    
+    getScreenCenter() {
+        return {
+            x: this.viewportWidth / 2,
+            y: this.viewportHeight / 2
+        };
+    }
+    
+    getWorldCenter() {
+        return { x: this.x, y: this.y };
+    }
+    
+    animateTo(worldX, worldY, zoomLevel = null, duration = 1000) {
+        this.targetX = worldX;
+        this.targetY = worldY;
+        this.targetZoom = zoomLevel !== null ? zoomLevel : this.zoom;
+        
+        this.startX = this.x;
+        this.startY = this.y;
+        this.startZoom = this.zoom;
+        
+        this.animationStart = Date.now();
+        this.animationDuration = duration;
+        this.isAnimating = true;
+    }
+    
+    setBounds(minX, minY, maxX, maxY) {
+        this.minX = minX;
+        this.minY = minY;
+        this.maxX = maxX;
+        this.maxY = maxY;
+        this.applyConstraints();
+    }
+    
+    getState() {
+        return {
+            x: this.x,
+            y: this.y,
+            zoom: this.zoom
+        };
+    }
+    
+    setState(state) {
+        this.x = state.x;
+        this.y = state.y;
+        this.zoom = state.zoom;
+        this.applyConstraints();
+    }
+    
+    getDebugInfo() {
+        return {
+            position: `(${this.x.toFixed(1)}, ${this.y.toFixed(1)})`,
+            zoom: `${(this.zoom * 100).toFixed(0)}%`,
+            viewport: `${this.viewportWidth}x${this.viewportHeight}`,
+            bounds: `${this.minX},${this.minY} - ${this.maxX},${this.maxY}`
+        };
+    }
+}
+
+================================================================================
+7. GAME UI (GameUI.js)
+================================================================================
+
+export class GameUI {
+    constructor(canvas, camera) {
+        this.canvas = canvas;
+        this.camera = camera;
+        this.textColor = '#ffffff';
+        this.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        
+        // UI state
+        this.isLeaderboardExpanded = false;
+        this.isMinimapExpanded = false;
+        this.showPerformanceInfo = false;
+        
+        // UI element positions and sizes
+        this.topBarHeight = 80;
+        this.leaderboardWidth = 300;
+        this.minimapSize = 150;
+        this.zoomControlSize = 40;
+    }
+    
+    renderTextWithShadow(ctx, text, x, y, fillColor = this.textColor, shadowOffset = 2) {
+        // Black shadow for better readability
+        ctx.fillStyle = '#000000';
+        ctx.fillText(text, x + shadowOffset, y + shadowOffset);
+        
+        // Main text
+        ctx.fillStyle = fillColor;
+        ctx.fillText(text, x, y);
+    }
+    
+    render(ctx, gameData) {
+        if (gameData.gameState === 'lobby') {
+            this.renderLobbyUI(ctx, gameData);
+        } else if (gameData.gameState === 'playing') {
+            this.renderGameUI(ctx, gameData);
+        } else if (gameData.gameState === 'ended') {
+            this.renderEndGameUI(ctx, gameData);
+        }
+    }
+    
+    renderLobbyUI(ctx, gameData) {
+        ctx.save();
+        ctx.font = 'bold 24px Arial';
+        ctx.textAlign = 'center';
+        
+        this.renderTextWithShadow(ctx, 'Star Throne', this.canvas.width / 2, 50, '#00ffff');
+        this.renderTextWithShadow(ctx, `Waiting for players... (${gameData.currentPlayers}/${gameData.maxPlayers})`, 
+                                 this.canvas.width / 2, 100);
+        
+        ctx.restore();
+    }
+    
+    renderGameUI(ctx, gameData) {
+        this.renderTopBar(ctx, gameData);
+        this.renderLeaderboard(ctx, gameData);
+        this.renderTerritoryInfo(ctx, gameData);
+        this.renderPlayerStats(ctx, gameData);
+        this.renderMinimap(ctx, gameData);
+        this.renderZoomControls(ctx, gameData);
+        
+        if (gameData.humanPlayer && gameData.humanPlayer.isEliminated) {
+            this.renderSpectatorMessage(ctx);
+        }
+        
+        if (this.showPerformanceInfo) {
+            this.renderPerformanceInfo(ctx, gameData);
+        }
+    }
+    
+    renderEndGameUI(ctx, gameData) {
+        this.renderGameOverScreen(ctx, gameData);
+        this.renderFinalLeaderboard(ctx, gameData);
+    }
+    
+    renderTopBar(ctx, gameData) {
+        // Top bar background
+        ctx.save();
+        ctx.fillStyle = this.backgroundColor;
+        ctx.fillRect(0, 0, this.canvas.width, this.topBarHeight);
+        
+        // Game title
+        ctx.font = 'bold 20px Arial';
+        ctx.textAlign = 'left';
+        this.renderTextWithShadow(ctx, 'Star Throne', 20, 30);
+        
+        // Player count
+        ctx.font = '16px Arial';
+        const activePlayers = gameData.players.filter(p => !p.isEliminated).length;
+        this.renderTextWithShadow(ctx, `Players: ${activePlayers}/${gameData.maxPlayers}`, 20, 55);
+        
+        // Zoom level (center)
+        ctx.textAlign = 'center';
+        const zoomPercent = Math.round(this.camera.zoom * 100);
+        this.renderTextWithShadow(ctx, `Zoom: ${zoomPercent}%`, this.canvas.width / 2, 40);
+        
+        // Game timer (right)
+        ctx.textAlign = 'right';
+        const minutes = Math.floor(gameData.gameTimer / 60000);
+        const seconds = Math.floor((gameData.gameTimer % 60000) / 1000);
+        this.renderTextWithShadow(ctx, `${minutes}:${seconds.toString().padStart(2, '0')}`, 
+                                 this.canvas.width - 20, 30);
+        
+        // FPS (right, second line)
+        this.renderTextWithShadow(ctx, `FPS: ${gameData.fps}`, this.canvas.width - 20, 55);
+        
+        ctx.restore();
+    }
+    
+    renderLeaderboard(ctx, gameData) {
+        const x = this.canvas.width - this.leaderboardWidth - 10;
+        const y = this.topBarHeight + 10;
+        const headerHeight = 30;
+        const expandedHeight = Math.min(400, gameData.players.length * 25 + headerHeight + 20);
+        const collapsedHeight = headerHeight;
+        
+        const height = this.isLeaderboardExpanded ? expandedHeight : collapsedHeight;
+        
+        ctx.save();
+        
+        // Background
+        ctx.fillStyle = this.backgroundColor;
+        ctx.fillRect(x, y, this.leaderboardWidth, height);
+        
+        // Header
+        ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'center';
+        this.renderTextWithShadow(ctx, this.isLeaderboardExpanded ? 
+                                 'Leaderboard (tap to collapse)' : 
+                                 'Leaderboard (tap to expand)', 
+                                 x + this.leaderboardWidth / 2, y + 20, '#00ffff');
+        
+        if (this.isLeaderboardExpanded) {
+            // Sort players by territory count
+            const sortedPlayers = [...gameData.players]
+                .filter(p => !p.isEliminated)
+                .sort((a, b) => b.territories.length - a.territories.length);
+            
+            ctx.font = '14px Arial';
+            ctx.textAlign = 'left';
+            
+            sortedPlayers.slice(0, 15).forEach((player, index) => {
+                const playerY = y + headerHeight + 20 + index * 25;
+                const isHuman = player.type === 'human';
+                
+                // Player name with color indicator
+                ctx.fillStyle = player.color;
+                ctx.fillRect(x + 10, playerY - 10, 15, 15);
+                
+                const displayName = isHuman ? `👤 ${player.name}` : player.name;
+                this.renderTextWithShadow(ctx, displayName, x + 35, playerY, 
+                                        isHuman ? '#00ffff' : this.textColor);
+                
+                // Territory count
+                this.renderTextWithShadow(ctx, player.territories.length.toString(), 
+                                        x + this.leaderboardWidth - 40, playerY);
+            });
+        }
+        
+        ctx.restore();
+    }
+    
+    renderTerritoryInfo(ctx, gameData) {
+        if (!gameData.selectedTerritory) return;
+        
+        const territory = gameData.selectedTerritory;
+        const x = 20;
+        const y = this.topBarHeight + 20;
+        const width = 250;
+        const height = 120;
+        
+        ctx.save();
+        
+        // Background
+        ctx.fillStyle = this.backgroundColor;
+        ctx.fillRect(x, y, width, height);
+        
+        // Border
+        ctx.strokeStyle = '#555555';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, width, height);
+        
+        ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'left';
+        
+        // Territory info
+        this.renderTextWithShadow(ctx, `Territory ${territory.id}`, x + 10, y + 25);
+        
+        if (territory.ownerId) {
+            const owner = gameData.players.find(p => p.id === territory.ownerId);
+            if (owner) {
+                this.renderTextWithShadow(ctx, `Owner: ${owner.name}`, x + 10, y + 50, owner.color);
+                this.renderTextWithShadow(ctx, `Armies: ${territory.armySize}`, x + 10, y + 75);
+                
+                if (territory.isThronestar) {
+                    this.renderTextWithShadow(ctx, '👑 THRONE STAR', x + 10, y + 100, '#ffd700');
+                }
+            }
+        } else if (territory.isColonizable) {
+            this.renderTextWithShadow(ctx, 'Colonizable Planet', x + 10, y + 50, '#ffff00');
+            this.renderTextWithShadow(ctx, 'Requires Probe (10 Fleet)', x + 10, y + 75);
+        } else {
+            this.renderTextWithShadow(ctx, 'Neutral Territory', x + 10, y + 50);
+            this.renderTextWithShadow(ctx, `Armies: ${territory.armySize}`, x + 10, y + 75);
+        }
+        
+        ctx.restore();
+    }
+    
+    renderPlayerStats(ctx, gameData) {
+        if (!gameData.humanPlayer) return;
+        
+        const player = gameData.humanPlayer;
+        const x = 20;
+        const y = this.canvas.height - 120;
+        const width = 200;
+        const height = 100;
+        
+        ctx.save();
+        
+        // Background
+        ctx.fillStyle = this.backgroundColor;
+        ctx.fillRect(x, y, width, height);
+        
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'left';
+        
+        this.renderTextWithShadow(ctx, player.name, x + 10, y + 20, player.color);
+        this.renderTextWithShadow(ctx, `Territories: ${player.territories.length}`, x + 10, y + 40);
+        this.renderTextWithShadow(ctx, `Total Armies: ${player.totalArmies}`, x + 10, y + 60);
+        
+        if (player.isEliminated) {
+            this.renderTextWithShadow(ctx, 'ELIMINATED', x + 10, y + 80, '#ff4444');
+        }
+        
+        ctx.restore();
+    }
+    
+    renderSpectatorMessage(ctx) {
+        ctx.save();
+        ctx.font = 'bold 24px Arial';
+        ctx.textAlign = 'center';
+        this.renderTextWithShadow(ctx, 'YOU HAVE BEEN ELIMINATED', 
+                                 this.canvas.width / 2, this.canvas.height / 2 - 50, '#ff4444');
+        this.renderTextWithShadow(ctx, 'Spectating...', 
+                                 this.canvas.width / 2, this.canvas.height / 2 - 20);
+        ctx.restore();
+    }
+    
+    renderPerformanceInfo(ctx, gameData) {
+        const x = this.canvas.width - 200;
+        const y = this.canvas.height - 100;
+        
+        ctx.save();
+        ctx.fillStyle = this.backgroundColor;
+        ctx.fillRect(x, y, 190, 90);
+        
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'left';
+        
+        this.renderTextWithShadow(ctx, `Frame: ${gameData.performanceData.frameTime.toFixed(1)}ms`, x + 10, y + 20);
+        this.renderTextWithShadow(ctx, `Render: ${gameData.performanceData.renderTime.toFixed(1)}ms`, x + 10, y + 40);
+        this.renderTextWithShadow(ctx, `Update: ${gameData.performanceData.updateTime.toFixed(1)}ms`, x + 10, y + 60);
+        this.renderTextWithShadow(ctx, `FPS: ${gameData.fps}`, x + 10, y + 80);
+        
+        ctx.restore();
+    }
+    
+    renderMinimap(ctx, gameData) {
+        const x = this.canvas.width - this.minimapSize - 20;
+        const y = this.canvas.height - this.minimapSize - 20;
+        const headerHeight = 20;
+        const mapSize = this.minimapSize - headerHeight;
+        
+        ctx.save();
+        
+        // Background
+        ctx.fillStyle = this.backgroundColor;
+        ctx.fillRect(x, y, this.minimapSize, this.isMinimapExpanded ? this.minimapSize : headerHeight);
+        
+        // Header
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        this.renderTextWithShadow(ctx, this.isMinimapExpanded ? 
+                                 'Map (tap to expand)' : 
+                                 'Map (tap to expand)', 
+                                 x + this.minimapSize / 2, y + 15, '#00ffff');
+        
+        if (this.isMinimapExpanded && gameData.gameMap) {
+            const mapX = x + 5;
+            const mapY = y + headerHeight + 5;
+            const scaleX = (mapSize - 10) / gameData.gameMap.width;
+            const scaleY = (mapSize - 10) / gameData.gameMap.height;
+            const scale = Math.min(scaleX, scaleY);
+            
+            // Map border
+            ctx.strokeStyle = '#555555';
+            ctx.strokeRect(mapX, mapY, mapSize - 10, mapSize - 10);
+            
+            // Territories
+            Object.values(gameData.gameMap.territories).forEach(territory => {
+                const territoryX = mapX + territory.x * scale;
+                const territoryY = mapY + territory.y * scale;
+                const radius = Math.max(1, territory.radius * scale * 0.3);
+                
+                ctx.beginPath();
+                ctx.arc(territoryX, territoryY, radius, 0, 2 * Math.PI);
+                
+                if (territory.ownerId) {
+                    const owner = gameData.players.find(p => p.id === territory.ownerId);
+                    ctx.fillStyle = owner ? owner.color : '#666666';
+                } else {
+                    ctx.fillStyle = territory.isColonizable ? '#444444' : '#666666';
+                }
+                
+                ctx.fill();
+            });
+            
+            // Camera view indicator
+            const bounds = this.camera.getViewBounds();
+            const viewX = mapX + bounds.left * scale;
+            const viewY = mapY + bounds.top * scale;
+            const viewWidth = (bounds.right - bounds.left) * scale;
+            const viewHeight = (bounds.bottom - bounds.top) * scale;
+            
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(viewX, viewY, viewWidth, viewHeight);
+        }
+        
+        ctx.restore();
+    }
+    
+    renderZoomControls(ctx, gameData) {
+        const x = 20;
+        const y = this.canvas.height - 150;
+        const buttonSize = this.zoomControlSize;
+        
+        ctx.save();
+        
+        // Zoom percentage display
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        const zoomPercent = Math.round(this.camera.zoom * 100);
+        this.renderTextWithShadow(ctx, `${zoomPercent}%`, x + buttonSize / 2, y - 10);
+        
+        // Zoom out button
+        ctx.fillStyle = this.backgroundColor;
+        ctx.fillRect(x, y, buttonSize, buttonSize);
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, buttonSize, buttonSize);
+        
+        ctx.font = 'bold 24px Arial';
+        this.renderTextWithShadow(ctx, '-', x + buttonSize / 2, y + buttonSize / 2 + 8, '#00ffff');
+        
+        // Zoom in button
+        const buttonY = y + buttonSize + 10;
+        ctx.fillStyle = this.backgroundColor;
+        ctx.fillRect(x, buttonY, buttonSize, buttonSize);
+        ctx.strokeRect(x, buttonY, buttonSize, buttonSize);
+        
+        this.renderTextWithShadow(ctx, '+', x + buttonSize / 2, buttonY + buttonSize / 2 + 8, '#00ffff');
+        
+        ctx.restore();
+    }
+    
+    renderGameOverScreen(ctx, gameData) {
+        // Semi-transparent overlay
+        ctx.save();
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        ctx.font = 'bold 48px Arial';
+        ctx.textAlign = 'center';
+        
+        if (gameData.winner) {
+            this.renderTextWithShadow(ctx, 'GAME OVER', this.canvas.width / 2, this.canvas.height / 2 - 100, '#ff4444');
+            this.renderTextWithShadow(ctx, `Winner: ${gameData.winner.name}`, 
+                                     this.canvas.width / 2, this.canvas.height / 2 - 40, gameData.winner.color);
+        } else {
+            this.renderTextWithShadow(ctx, 'GAME OVER', this.canvas.width / 2, this.canvas.height / 2 - 60, '#ff4444');
+            this.renderTextWithShadow(ctx, "It's a draw!", this.canvas.width / 2, this.canvas.height / 2, '#ffffff');
+        }
+        
+        // Play Again button for eliminated human player
+        if (gameData.humanPlayer && gameData.humanPlayer.isEliminated) {
+            const buttonWidth = 200;
+            const buttonHeight = 50;
+            const buttonX = this.canvas.width / 2 - buttonWidth / 2;
+            const buttonY = this.canvas.height / 2 + 50;
+            
+            ctx.fillStyle = '#4CAF50';
+            ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);
+            
+            ctx.font = 'bold 20px Arial';
+            this.renderTextWithShadow(ctx, 'PLAY AGAIN', this.canvas.width / 2, buttonY + 35, '#ffffff');
+        }
+        
+        ctx.restore();
+    }
+    
+    renderFinalLeaderboard(ctx, gameData) {
+        const x = this.canvas.width / 2 - 200;
+        const y = this.canvas.height / 2 + 120;
+        const width = 400;
+        const height = 300;
+        
+        ctx.save();
+        
+        // Background
+        ctx.fillStyle = this.backgroundColor;
+        ctx.fillRect(x, y, width, height);
+        
+        // Border
+        ctx.strokeStyle = '#555555';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, width, height);
+        
+        // Title
+        ctx.font = 'bold 20px Arial';
+        ctx.textAlign = 'center';
+        this.renderTextWithShadow(ctx, 'Final Standings', x + width / 2, y + 30, '#00ffff');
+        
+        // Sort all players by territories conquered
+        const sortedPlayers = [...gameData.players]
+            .sort((a, b) => b.territories.length - a.territories.length);
+        
+        ctx.font = '16px Arial';
+        ctx.textAlign = 'left';
+        
+        sortedPlayers.slice(0, 10).forEach((player, index) => {
+            const playerY = y + 60 + index * 25;
+            const rank = index + 1;
+            
+            // Rank
+            this.renderTextWithShadow(ctx, `${rank}.`, x + 20, playerY);
+            
+            // Player color indicator
+            ctx.fillStyle = player.color;
+            ctx.fillRect(x + 50, playerY - 10, 15, 15);
+            
+            // Player name
+            const displayName = player.type === 'human' ? `👤 ${player.name}` : player.name;
+            this.renderTextWithShadow(ctx, displayName, x + 75, playerY, 
+                                    player.type === 'human' ? '#00ffff' : this.textColor);
+            
+            // Territory count
+            this.renderTextWithShadow(ctx, `${player.territories.length} territories`, 
+                                    x + width - 150, playerY);
+            
+            // Status
+            if (player.isEliminated) {
+                this.renderTextWithShadow(ctx, 'ELIMINATED', x + width - 80, playerY, '#ff4444');
+            }
+        });
+        
+        ctx.restore();
+    }
+    
+    handleClick(x, y) {
+        // Check leaderboard toggle
+        const leaderboardX = this.canvas.width - this.leaderboardWidth - 10;
+        const leaderboardY = this.topBarHeight + 10;
+        const leaderboardHeight = this.isLeaderboardExpanded ? 400 : 30;
+        
+        if (x >= leaderboardX && x <= leaderboardX + this.leaderboardWidth &&
+            y >= leaderboardY && y <= leaderboardY + leaderboardHeight) {
+            this.isLeaderboardExpanded = !this.isLeaderboardExpanded;
+            return true;
+        }
+        
+        // Check minimap toggle
+        const minimapX = this.canvas.width - this.minimapSize - 20;
+        const minimapY = this.canvas.height - this.minimapSize - 20;
+        const minimapHeight = this.isMinimapExpanded ? this.minimapSize : 20;
+        
+        if (x >= minimapX && x <= minimapX + this.minimapSize &&
+            y >= minimapY && y <= minimapY + minimapHeight) {
+            this.isMinimapExpanded = !this.isMinimapExpanded;
+            return true;
+        }
+        
+        // Check zoom controls
+        const zoomX = 20;
+        const zoomOutY = this.canvas.height - 150;
+        const zoomInY = zoomOutY + this.zoomControlSize + 10;
+        
+        if (x >= zoomX && x <= zoomX + this.zoomControlSize) {
+            if (y >= zoomOutY && y <= zoomOutY + this.zoomControlSize) {
+                // Zoom out
+                this.camera.zoom *= 0.8;
+                this.camera.applyConstraints();
+                console.log('Zoom Out - new zoom:', Math.round(this.camera.zoom * 100) + '%');
+                
+                // Auto-center when zoomed out far enough
+                if (this.camera.zoom <= 0.3) {
+                    this.camera.centerOn(this.camera.maxX / 2, this.camera.maxY / 2);
+                }
+                return true;
+            } else if (y >= zoomInY && y <= zoomInY + this.zoomControlSize) {
+                // Zoom in
+                this.camera.zoom *= 1.25;
+                this.camera.applyConstraints();
+                console.log('Zoom In - new zoom:', Math.round(this.camera.zoom * 100) + '%');
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    handleTouch(x, y) {
+        return this.handleClick(x, y);
+    }
+    
+    toggleMinimap() {
+        this.isMinimapExpanded = !this.isMinimapExpanded;
+    }
+}
+
+================================================================================
+8. PROBE SYSTEM (Probe.js)
+================================================================================
+
+export class Probe {
+    constructor(id, fromTerritory, toTerritory, playerId, playerColor, gameSpeed = 1.0, gameMap = null) {
+        this.id = id;
+        this.fromTerritory = fromTerritory;
+        this.toTerritory = toTerritory;
+        this.playerId = playerId;
+        this.playerColor = playerColor;
+        this.gameSpeed = gameSpeed;
+        this.gameMap = gameMap;
+        
+        // Movement properties
+        this.startTime = Date.now();
+        this.baseSpeed = 25; // Pixels per second
+        this.progress = 0;
+        
+        // Calculate travel time based on distance and nebula effects
+        const distance = Math.sqrt(
+            (toTerritory.x - fromTerritory.x) ** 2 + 
+            (toTerritory.y - fromTerritory.y) ** 2
+        );
+        this.duration = (distance / this.baseSpeed) * 1000 / gameSpeed; // Convert to milliseconds
+        
+        // Visual properties
+        this.x = fromTerritory.x;
+        this.y = fromTerritory.y;
+        this.opacity = 1.0;
+        this.size = 4;
+    }
+    
+    update(deltaTime) {
+        const elapsed = Date.now() - this.startTime;
+        this.progress = Math.min(elapsed / this.duration, 1);
+        
+        // Calculate current position
+        this.x = this.fromTerritory.x + (this.toTerritory.x - this.fromTerritory.x) * this.progress;
+        this.y = this.fromTerritory.y + (this.toTerritory.y - this.fromTerritory.y) * this.progress;
+        
+        // Check for nebula effects
+        if (this.gameMap && this.gameMap.isInNebula(this.x, this.y)) {
+            // Slow down in nebula (1/3 speed)
+            const slowdownFactor = 3;
+            this.duration *= (1 + (slowdownFactor - 1) * deltaTime / 1000);
+            
+            // Visual fade effect in nebula
+            this.opacity = 0.3 + Math.sin(Date.now() * 0.005) * 0.4; // Pulse between 0.3-0.7
+        } else {
+            this.opacity = 1.0;
+        }
+    }
+    
+    render(ctx) {
+        ctx.save();
+        ctx.globalAlpha = this.opacity;
+        
+        // Probe body
+        ctx.fillStyle = this.playerColor;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1;
+        
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Probe trail with fade effect
+        const trailLength = 20;
+        const segments = 5;
+        
+        for (let i = 0; i < segments; i++) {
+            const trailProgress = Math.max(0, this.progress - (i + 1) * 0.02);
+            const trailX = this.fromTerritory.x + (this.toTerritory.x - this.fromTerritory.x) * trailProgress;
+            const trailY = this.fromTerritory.y + (this.toTerritory.y - this.fromTerritory.y) * trailProgress;
+            
+            ctx.globalAlpha = this.opacity * (1 - i / segments) * 0.6;
+            ctx.fillStyle = this.playerColor;
+            
+            ctx.beginPath();
+            ctx.arc(trailX, trailY, this.size * (1 - i / segments), 0, 2 * Math.PI);
+            ctx.fill();
+        }
+        
+        // Direction indicator
+        ctx.globalAlpha = this.opacity;
+        const angle = Math.atan2(this.toTerritory.y - this.fromTerritory.y, 
+                                this.toTerritory.x - this.fromTerritory.x);
+        
+        ctx.strokeStyle = this.playerColor;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(this.x, this.y);
+        ctx.lineTo(this.x + Math.cos(angle) * 8, this.y + Math.sin(angle) * 8);
+        ctx.stroke();
+        
+        ctx.restore();
+    }
+    
+    getProgress() {
+        return this.progress;
+    }
+}
+
+================================================================================
+9. REACT FRONTEND (App.tsx)
+================================================================================
+
+import React, { useState, useEffect, useRef } from 'react';
+import { GameModeSelector } from './components/GameModeSelector';
+import StarThrone from './game/StarThrone.js';
+
+interface GameData {
+  playerName: string;
+  aiCount?: number;
+  mapSize?: number;
+  layout?: string;
+  room?: any;
+}
+
+type GameMode = 'single' | 'multiplayer' | null;
+
+function App() {
+  const [gameMode, setGameMode] = useState<GameMode>(null);
+  const [gameInstance, setGameInstance] = useState<StarThrone | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    // Auto-start single player mode for development
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('auto') === 'single') {
+      handleModeSelected('single', {
+        playerName: 'Player',
+        aiCount: 19,
+        mapSize: 200,
+        layout: 'organic'
+      });
+    }
+  }, []);
+
+  const initSinglePlayerGame = async (data: GameData) => {
+    if (!canvasRef.current) return;
+
+    const config = {
+      playerName: data.playerName,
+      aiCount: data.aiCount || 19,
+      mapSize: data.mapSize || 200,
+      gameSpeed: 1.0,
+      layout: data.layout || 'organic'
+    };
+
+    console.log('Starting Star Throne game with config:', config);
+
+    const game = new StarThrone(config);
+    game.init();
+    game.startGame();
+    
+    setGameInstance(game);
+  };
+
+  const initMultiplayerGame = async (data: GameData) => {
+    console.log('Multiplayer mode not yet implemented');
+    // TODO: Implement multiplayer initialization
+  };
+
+  const handleModeSelected = (mode: GameMode, data?: GameData) => {
+    setGameMode(mode);
+    
+    if (mode === 'single' && data) {
+      initSinglePlayerGame(data);
+    } else if (mode === 'multiplayer' && data) {
+      initMultiplayerGame(data);
+    }
+  };
+
+  const handleBackToMenu = () => {
+    setGameMode(null);
+    setGameInstance(null);
+  };
+
+  return (
+    <div className="w-full h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 overflow-hidden">
+      {!gameMode ? (
+        <GameModeSelector onModeSelected={handleModeSelected} />
+      ) : (
+        <div className="relative w-full h-full">
+          <canvas
+            ref={canvasRef}
+            id="gameCanvas"
+            className="w-full h-full bg-black"
+            style={{ touchAction: 'none' }}
+          />
+          
+          {/* Back button for development */}
+          {process.env.NODE_ENV === 'development' && (
+            <button
+              onClick={handleBackToMenu}
+              className="absolute top-4 left-4 z-10 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
+            >
+              Back to Menu
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default App;
+
+================================================================================
+10. CONFIGURATION FILES
+================================================================================
+
+// package.json
+{
+  "name": "star-throne",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx server/index.ts",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "@react-three/fiber": "^8.15.11",
+    "@react-three/drei": "^9.88.17",
+    "three": "^0.158.0",
+    "zustand": "^4.4.6",
+    "express": "^4.18.2",
+    "socket.io": "^4.7.4",
+    "socket.io-client": "^4.7.4"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.37",
+    "@types/react-dom": "^18.2.15",
+    "@types/three": "^0.158.3",
+    "@vitejs/plugin-react": "^4.1.1",
+    "typescript": "^5.2.2",
+    "vite": "^5.0.0",
+    "tsx": "^4.6.0"
+  }
+}
+
+// vite.config.ts
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    port: 5173,
+    proxy: {
+      '/socket.io': {
+        target: 'http://localhost:5000',
+        ws: true
+      }
+    }
+  },
+  build: {
+    outDir: 'dist/public',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          three: ['three', '@react-three/fiber', '@react-three/drei']
+        }
+      }
+    }
+  }
+})
+
+// tsconfig.json
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src", "client/src"],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}
+
+================================================================================
+11. OPTIMIZATION NOTES FOR AI
+================================================================================
+
+## PERFORMANCE BOTTLENECKS IDENTIFIED:
+
+### 1. RENDERING PERFORMANCE
+- **Territory Rendering**: 200+ territories rendered every frame at 60fps
+- **Connection Lines**: O(n²) connection drawing with duplicate detection
+- **Ship Animations**: Object pooling helps but needs improvement
+- **Canvas Operations**: Multiple save/restore cycles per frame
+
+### 2. AI COMPUTATION LOAD
+- **100 AI Players**: Each running pathfinding, strategy evaluation
+- **Throttled Updates**: Currently 1/4 players per frame, still heavy
+- **Strategic Calculations**: Distance calculations, territory value assessment
+- **Attack Simulations**: Combat probability calculations for each decision
+
+### 3. MEMORY MANAGEMENT
+- **Frequent Allocations**: New objects created in game loops
+- **Large Territory Objects**: 200+ territories with neighbor arrays
+- **Ship Animation Pool**: Could be more efficient
+- **Probe Objects**: Created/destroyed frequently
+
+### 4. MOBILE PERFORMANCE
+- **Touch Event Processing**: Complex pinch/pan gesture handling
+- **Canvas Resolution**: High DPI screens cause extra rendering load
+- **Battery Optimization**: Continuous 60fps drains mobile batteries
+
+## KEY OPTIMIZATION OPPORTUNITIES:
+
+### 1. VIEWPORT CULLING (Partially Implemented)
+```javascript
+// Current implementation updates every 50ms
+this.updateVisibleTerritories();
+// Could be optimized further with spatial indexing
+```
+
+### 2. AI OPTIMIZATION STRATEGIES
+```javascript
+// Current throttling approach
+const playersToUpdate = Math.min(this.aiPlayersPerFrame, aiPlayers.length);
+// Could implement priority-based AI updates
+// Could use web workers for AI calculations
+```
+
+### 3. RENDERING OPTIMIZATIONS
+```javascript
+// Batch rendering operations
+// Use OffscreenCanvas for static elements
+// Implement dirty rectangle rendering
+// Cache frequently drawn elements
+```
+
+### 4. DATA STRUCTURE IMPROVEMENTS
+```javascript
+// Replace arrays with more efficient structures
+// Use spatial indexing (quadtree) for territory lookups
+// Implement object recycling for temporary objects
+```
+
+### 5. ALGORITHM COMPLEXITY REDUCTIONS
+```javascript
+// Territory connections: O(n²) → O(n log n) with spatial indexing
+// Pathfinding: Implement A* with heuristics
+// AI strategy: Cache calculations, use incremental updates
+```
+
+## SPECIFIC CODE AREAS TO OPTIMIZE:
+
+1. **StarThrone.js Lines 800-900**: Territory rendering loop
+2. **Player.js Lines 100-200**: AI strategy execution
+3. **GameMap.js Lines 1746-1800**: Poisson disk sampling algorithm
+4. **Camera.js**: Transform calculations in applyTransform()
+5. **Territory connection rendering**: Duplicate detection algorithm
+
+## ARCHITECTURE SUGGESTIONS:
+
+1. **Web Workers**: Move AI calculations to separate threads
+2. **Canvas Layering**: Separate static/dynamic elements
+3. **Spatial Indexing**: Quadtree for territory and collision detection
+4. **Event-Driven Updates**: Only update changed elements
+5. **LOD System**: Level-of-detail rendering based on zoom
+6. **Predictive Loading**: Pre-calculate next frame data
+
+## MEMORY OPTIMIZATION:
+
+1. **Object Pooling**: Expand to cover all temporary objects
+2. **Weak References**: For large object graphs
+3. **Garbage Collection**: Minimize allocations in hot paths
+4. **Data Compression**: Use typed arrays where appropriate
+
+This codebase represents a complex real-time strategy game with significant performance challenges. The main optimization focus should be on AI computation throttling, viewport culling, and rendering efficiency.
