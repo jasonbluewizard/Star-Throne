@@ -7,6 +7,7 @@ interface GameData {
   playerName: string;
   aiCount?: number;
   mapSize?: number;
+  gameSpeed?: number;
   layout?: string;
   room?: any;
 }

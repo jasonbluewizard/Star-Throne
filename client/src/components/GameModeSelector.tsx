@@ -36,7 +36,9 @@ export function GameModeSelector({ onModeSelected }: GameModeSelectorProps) {
     onModeSelected('single', { 
       playerName: config.playerName, 
       aiCount: config.aiPlayerCount,
-      mapSize: config.mapSize
+      mapSize: config.mapSize,
+      gameSpeed: config.gameSpeed,
+      layout: config.layout
     });
   };
 
