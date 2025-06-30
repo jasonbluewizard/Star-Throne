@@ -29,6 +29,10 @@ export default class TerritorialConquest {
         this.maxPlayers = 100;
         this.currentPlayers = 0;
         
+        // Home system flashing
+        this.homeSystemFlashStart = null;
+        this.homeSystemFlashDuration = 3000; // 3 seconds
+        
         // Input handling
         this.mousePos = { x: 0, y: 0 };
         this.selectedTerritory = null;
@@ -420,6 +424,10 @@ export default class TerritorialConquest {
         }
         
         this.gameState = 'playing';
+        
+        // Start home system flashing for player identification
+        this.homeSystemFlashStart = Date.now();
+        
         console.log(`Game started with ${this.players.length} players (${this.config.playerName} + ${this.config.aiCount} AI) and ${Object.keys(this.gameMap.territories).length} territories`);
     }
     
@@ -446,10 +454,28 @@ export default class TerritorialConquest {
             'Gagarin', 'Apollo', 'Artemis', 'Orion', 'Pegasus', 'Phoenix', 'Dragon', 'Falcon'
         ];
         
-        const firstName = firstNames[index % firstNames.length];
-        const clanName = clanNames[Math.floor(index / firstNames.length) % clanNames.length];
+        const additionalNames = [
+            'Admiral Voss', 'Captain Zara', 'Commander Rex', 'Colonel Stone', 'General Mars',
+            'Chief Khan', 'Major Swift', 'Lieutenant Nova', 'Sergeant Blade', 'Marshal Iron',
+            'Dr. Quantum', 'Professor Void', 'Scientist Echo', 'Engineer Prime', 'Architect Zero',
+            'The Shadow', 'The Phoenix', 'The Storm', 'The Hunter', 'The Ghost',
+            'Cyber Wolf', 'Steel Eagle', 'Iron Hawk', 'Gold Tiger', 'Silver Fox',
+            'Red Baron', 'Blue Devil', 'Green Arrow', 'Black Knight', 'White Falcon',
+            'Star Runner', 'Moon Walker', 'Sun Rider', 'Sky Dancer', 'Wind Chaser',
+            'Fire Brand', 'Ice Queen', 'Thunder Lord', 'Lightning Strike', 'Storm Bringer'
+        ];
         
-        return `[${clanName}] ${firstName}`;
+        // Only 25% chance of clan name, 75% for varied names
+        if (index % 4 === 0) {
+            // Clan name format
+            const firstName = firstNames[index % firstNames.length];
+            const clanName = clanNames[Math.floor(index / firstNames.length) % clanNames.length];
+            return `[${clanName}] ${firstName}`;
+        } else {
+            // Varied name format - mix of first names and additional names
+            const namePool = [...firstNames, ...additionalNames];
+            return namePool[index % namePool.length];
+        }
     }
 
     createPlayers(numPlayers) {
@@ -735,7 +761,11 @@ export default class TerritorialConquest {
         
         // Render only visible territories
         this.visibleTerritories.forEach(territory => {
-            territory.render(this.ctx, this.players, this.selectedTerritory);
+            territory.render(this.ctx, this.players, this.selectedTerritory, {
+                humanPlayer: this.humanPlayer,
+                homeSystemFlashStart: this.homeSystemFlashStart,
+                homeSystemFlashDuration: this.homeSystemFlashDuration
+            });
         });
     }
     
@@ -1540,8 +1570,8 @@ export default class TerritorialConquest {
                 // Use incremental scaling with higher sensitivity
                 const distanceRatio = currentDistance / this.lastPinchDistance;
                 
-                // Apply incremental zoom change with higher sensitivity
-                const zoomMultiplier = 1 + (distanceRatio - 1) * 0.8; // Much more sensitive scaling
+                // Apply incremental zoom change with dramatic sensitivity
+                const zoomMultiplier = 1 + (distanceRatio - 1) * 1.5; // Dramatic scaling for responsive zoom
                 const newZoom = Math.max(0.5, Math.min(3.0, this.camera.zoom * zoomMultiplier));
                 
                 // Calculate zoom center between the two fingers
@@ -1659,12 +1689,13 @@ export default class TerritorialConquest {
         }
         
         if (toTerritory.ownerId === this.humanPlayer.id) {
-            // Friendly territory - create supply route (if adjacent)
-            if (fromTerritory.isNeighborOf(toTerritory)) {
+            // Friendly territory - create supply route (check if connected by owned territories)
+            const path = this.findPathBetweenTerritories(fromTerritory, toTerritory);
+            if (path && path.length > 0) {
                 this.createSupplyRoute(fromTerritory, toTerritory);
-                console.log('Long press: Supply route created between friendly territories');
+                console.log('Long press: Supply route created between connected friendly territories');
             } else {
-                console.log('Long press: Territories not adjacent for supply route');
+                console.log('Long press: Territories not connected by owned star lanes for supply route');
             }
         } else if (toTerritory.ownerId !== null) {
             // Enemy territory - send all available ships (minus 1 to keep territory)

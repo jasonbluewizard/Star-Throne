@@ -87,13 +87,28 @@ export class Territory {
         }
     }
     
-    render(ctx, players, selectedTerritory) {
+    render(ctx, players, selectedTerritory, gameData) {
         const isSelected = selectedTerritory && selectedTerritory.id === this.id;
         
         // Determine territory color
         let fillColor = this.neutralColor;
         if (this.ownerId !== null && players[this.ownerId]) {
             fillColor = players[this.ownerId].color;
+        }
+        
+        // Add home system flashing effect for human player
+        if (gameData && gameData.humanPlayer && this.ownerId === gameData.humanPlayer.id && 
+            gameData.homeSystemFlashStart && gameData.humanPlayer.territories.includes(this.id)) {
+            const currentTime = Date.now();
+            const elapsed = currentTime - gameData.homeSystemFlashStart;
+            
+            if (elapsed < gameData.homeSystemFlashDuration) {
+                // Flash every 300ms for 3 seconds
+                const flashCycle = Math.floor(elapsed / 300) % 2;
+                if (flashCycle === 1) {
+                    fillColor = '#ffffff'; // Flash to white
+                }
+            }
         }
         
         // Add combat flash effect
