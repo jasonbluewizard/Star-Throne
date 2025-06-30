@@ -14,6 +14,7 @@ export interface GameConfig {
   aiPlayerCount: number;
   playerName: string;
   gameSpeed: number;
+  layout: string;
 }
 
 export function GameConfigScreen({ onStartGame, onBack }: GameConfigScreenProps) {
@@ -21,13 +22,15 @@ export function GameConfigScreen({ onStartGame, onBack }: GameConfigScreenProps)
   const [aiPlayerCount, setAiPlayerCount] = useState([19]); // Default 19 AI players
   const [playerName, setPlayerName] = useState('Player');
   const [gameSpeed, setGameSpeed] = useState([1.0]); // Default normal speed
+  const [layout, setLayout] = useState('organic'); // Default organic layout
 
   const handleStartGame = () => {
     onStartGame({
       mapSize: mapSize[0],
       aiPlayerCount: aiPlayerCount[0],
       playerName: playerName,
-      gameSpeed: gameSpeed[0]
+      gameSpeed: gameSpeed[0],
+      layout: layout
     });
   };
 
@@ -136,6 +139,33 @@ export function GameConfigScreen({ onStartGame, onBack }: GameConfigScreenProps)
             <p className="text-sm text-gray-400">{getSpeedDescription(gameSpeed[0])}</p>
           </div>
 
+          {/* Galaxy Layout */}
+          <div className="space-y-3">
+            <Label className="text-white">Galaxy Layout</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { value: 'organic', label: 'Organic', desc: 'Natural scattered distribution' },
+                { value: 'clusters', label: 'Clusters', desc: 'Grouped stellar regions' },
+                { value: 'spiral', label: 'Spiral', desc: 'Galactic arm formation' },
+                { value: 'core', label: 'Core', desc: 'Dense center with shells' },
+                { value: 'ring', label: 'Rings', desc: 'Concentric stellar rings' },
+                { value: 'binary', label: 'Binary', desc: 'Two major systems' }
+              ].map((layoutOption) => (
+                <button
+                  key={layoutOption.value}
+                  onClick={() => setLayout(layoutOption.value)}
+                  className={`p-3 rounded border text-left transition-colors ${
+                    layout === layoutOption.value
+                      ? 'bg-blue-600 border-blue-500 text-white'
+                      : 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  <div className="font-medium text-sm">{layoutOption.label}</div>
+                  <div className="text-xs opacity-80">{layoutOption.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
 
         </CardContent>
 
