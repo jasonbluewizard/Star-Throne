@@ -20,6 +20,7 @@ export default class TerritorialConquest {
             aiCount: config.aiCount || 19,
             mapSize: config.mapSize || 200,
             gameSpeed: config.gameSpeed || 1.0,
+            layout: config.layout || 'organic',
             ...config
         };
         
@@ -87,7 +88,7 @@ export default class TerritorialConquest {
     init() {
         this.setupCanvas();
         this.setupEventListeners();
-        this.gameMap = new GameMap(2000, 1500); // Large map
+        this.gameMap = new GameMap(2000, 1500, this.config.layout); // Large map with selected layout
         this.gameMap.game = this; // Reference for AI animations
         this.camera = new Camera(this.canvas.width, this.canvas.height);
         

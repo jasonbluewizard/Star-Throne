@@ -7,6 +7,7 @@ interface GameData {
   playerName: string;
   aiCount?: number;
   mapSize?: number;
+  layout?: string;
   room?: any;
 }
 
@@ -59,7 +60,7 @@ function App() {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('auto') === 'single' && !mountedRef.current) {
       mountedRef.current = true;
-      handleModeSelected('single', { playerName: 'Player', aiCount: 19 });
+      handleModeSelected('single', { playerName: 'Player', aiCount: 19, layout: 'organic' });
     }
   }, []);
 

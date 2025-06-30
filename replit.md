@@ -272,6 +272,16 @@ Changelog:
   * Nebulas rendered as radial gradient clouds behind planets for atmospheric depth
   * Implemented probe slowdown system: probes travel at 1/3 normal speed when passing through nebulas
   * Enhanced probe pathfinding with real-time nebula detection for strategic travel timing
+- June 30, 2025. Multiple galaxy layout system:
+  * Added 6 distinct galaxy layout options: Organic, Clusters, Spiral, Core, Rings, Binary
+  * Organic: Natural scattered distribution using Poisson disk sampling (original)
+  * Clusters: 3-8 grouped stellar regions with bridge connections between clusters
+  * Spiral: 3-5 galactic arms with reduced connection density for sparse networks
+  * Core: Dense central core with 20% of planets, surrounded by 3 concentric shells
+  * Rings: 4-6 concentric stellar rings with planets distributed along each ring
+  * Binary: Two major systems split left/right with limited bridge connections
+  * Layout-specific connection algorithms optimize star lane patterns for each formation
+  * Galaxy layout selector added to single-player configuration screen with visual descriptions
 
 ## User Preferences
 
