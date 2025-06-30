@@ -1,6 +1,6 @@
 import { Server as SocketServer } from 'socket.io';
 import { Server } from 'http';
-import { GameEngine } from './GameEngine.js';
+import { GameEngine } from './gameEngine.js';
 import { PlayerState, GameConfig, ClientCommand, CommandType, GameStateUpdate, CombatResult, CommandError } from '../common/types/index.js';
 import { GAME_CONSTANTS } from '../common/gameConstants.js';
 
