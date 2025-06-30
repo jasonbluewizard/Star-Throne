@@ -103,8 +103,8 @@ export function GameModeSelector({ onModeSelected }: GameModeSelectorProps) {
 
   if (selectedMode === 'multiplayer' && !isConnecting) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
-        <div className="w-full max-w-2xl space-y-6">
+      <div className="min-h-screen bg-gray-900 p-4 overflow-y-auto">
+        <div className="w-full max-w-2xl mx-auto py-8 space-y-6">
           <div className="text-center">
             <h1 className="text-4xl font-bold text-white mb-2">Star Throne</h1>
             <p className="text-gray-400">Multiplayer Game Lobby</p>
@@ -214,10 +214,10 @@ export function GameModeSelector({ onModeSelected }: GameModeSelectorProps) {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
-      <div className="w-full max-w-md space-y-6">
+    <div className="min-h-screen bg-gray-900 p-4 overflow-y-auto">
+      <div className="w-full max-w-md mx-auto py-8 space-y-6">
         <div className="text-center">
-          <h1 className="text-4xl font-bold text-white mb-2">Star Throne</h1>
+          <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">Star Throne</h1>
           <p className="text-gray-400">Choose your game mode</p>
         </div>
 
@@ -227,22 +227,22 @@ export function GameModeSelector({ onModeSelected }: GameModeSelectorProps) {
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-4">
+        <div className="grid grid-cols-1 gap-3">
           {/* Single Player */}
           <Card className="bg-gray-800 border-gray-700 hover:border-gray-600 transition-colors cursor-pointer">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center justify-between">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-white flex items-center justify-between text-lg">
                 Single Player
-                <Badge variant="secondary">Instant Play</Badge>
+                <Badge variant="secondary" className="text-xs">Instant Play</Badge>
               </CardTitle>
-              <CardDescription className="text-gray-400">
+              <CardDescription className="text-gray-400 text-sm">
                 Play against 19 AI opponents in a private game
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-0">
               <Button 
                 onClick={handleSinglePlayer} 
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 text-lg border-0" 
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 text-base border-0" 
                 disabled={isConnecting}
               >
                 Start Single Player Game
@@ -252,22 +252,22 @@ export function GameModeSelector({ onModeSelected }: GameModeSelectorProps) {
 
           {/* Multiplayer */}
           <Card className="bg-gray-800 border-gray-700 hover:border-gray-600 transition-colors cursor-pointer">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center justify-between">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-white flex items-center justify-between text-lg">
                 Multiplayer
-                <Badge variant="outline">Up to 100 Players</Badge>
+                <Badge variant="outline" className="text-xs">Up to 100 Players</Badge>
               </CardTitle>
-              <CardDescription className="text-gray-400">
+              <CardDescription className="text-gray-400 text-sm">
                 Join or create online games with other players
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-0">
               <Button 
                 onClick={() => {
                   setSelectedMode('multiplayer');
                   handleMultiplayerConnect();
                 }} 
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 text-lg border-0" 
+                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-4 text-base border-0" 
                 disabled={isConnecting}
               >
                 {isConnecting ? 'Connecting...' : 'Enter Multiplayer Lobby'}
@@ -276,7 +276,7 @@ export function GameModeSelector({ onModeSelected }: GameModeSelectorProps) {
           </Card>
         </div>
 
-        <div className="text-center text-sm text-gray-500">
+        <div className="text-center text-xs text-gray-500 space-y-1">
           <p>Single player mode preserves all current gameplay features</p>
           <p>Multiplayer adds real-time competitive play</p>
         </div>

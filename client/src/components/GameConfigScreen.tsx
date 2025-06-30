@@ -62,9 +62,10 @@ export function GameConfigScreen({ onStartGame, onBack }: GameConfigScreenProps)
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md bg-gray-800/90 backdrop-blur-sm border-gray-700">
-        <CardHeader className="text-center">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 p-4 overflow-y-auto">
+      <div className="w-full max-w-md mx-auto py-8">
+        <Card className="w-full bg-gray-800/90 backdrop-blur-sm border-gray-700">
+          <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold text-white">
             Star Throne - Single Player
           </CardTitle>
@@ -185,7 +186,8 @@ export function GameConfigScreen({ onStartGame, onBack }: GameConfigScreenProps)
             Start Game
           </Button>
         </CardFooter>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 }
