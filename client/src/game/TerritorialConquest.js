@@ -382,6 +382,12 @@ export default class TerritorialConquest {
         this.pinchCenter = null;
         this.initialZoom = 1.0;
         
+        // Long press functionality
+        this.longPressTimer = null;
+        this.longPressThreshold = 800; // 800ms for long press
+        this.longPressTarget = null;
+        this.longPressStartPos = null;
+        
         // Keyboard events
         window.addEventListener('keydown', (e) => this.handleKeyDown(e));
         
@@ -1434,6 +1440,21 @@ export default class TerritorialConquest {
             this.isDragging = false;
             this.isMultiTouch = false;
             
+            // Setup long press detection
+            this.longPressStartPos = { ...this.mousePos };
+            const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+            this.longPressTarget = this.findTerritoryAt(worldPos.x, worldPos.y);
+            
+            // Clear any existing long press timer
+            if (this.longPressTimer) {
+                clearTimeout(this.longPressTimer);
+            }
+            
+            // Start long press timer
+            this.longPressTimer = setTimeout(() => {
+                this.handleLongPress();
+            }, this.longPressThreshold);
+            
             this.touchDebugInfo += `\nSingle: ${Math.round(this.mousePos.x)}, ${Math.round(this.mousePos.y)}`;
             
         } else if (e.touches.length === 2) {
@@ -1487,6 +1508,12 @@ export default class TerritorialConquest {
                 if (!this.isDragging && distance > 10) {
                     this.isDragging = true;
                     this.touchDebugInfo += `\nStarted Pan`;
+                    
+                    // Cancel long press if we start dragging
+                    if (this.longPressTimer) {
+                        clearTimeout(this.longPressTimer);
+                        this.longPressTimer = null;
+                    }
                 }
                 
                 if (this.isDragging && !this.isMultiTouch) {
@@ -1508,13 +1535,13 @@ export default class TerritorialConquest {
                 touch2.clientY - touch1.clientY
             );
             
-            // Improved pinch-to-zoom with better sensitivity and smoothing
-            if (this.lastPinchDistance && Math.abs(currentDistance - this.lastPinchDistance) > 5) {
-                // Use incremental scaling for smoother zoom
+            // Enhanced pinch-to-zoom with much higher sensitivity
+            if (this.lastPinchDistance && Math.abs(currentDistance - this.lastPinchDistance) > 2) {
+                // Use incremental scaling with higher sensitivity
                 const distanceRatio = currentDistance / this.lastPinchDistance;
                 
-                // Apply incremental zoom change with damping
-                const zoomMultiplier = 1 + (distanceRatio - 1) * 0.3; // Damped scaling
+                // Apply incremental zoom change with higher sensitivity
+                const zoomMultiplier = 1 + (distanceRatio - 1) * 0.8; // Much more sensitive scaling
                 const newZoom = Math.max(0.5, Math.min(3.0, this.camera.zoom * zoomMultiplier));
                 
                 // Calculate zoom center between the two fingers
