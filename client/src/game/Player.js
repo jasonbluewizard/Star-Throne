@@ -242,9 +242,9 @@ export class Player {
             gameMap.game.createShipAnimation(attackingTerritory, defendingTerritory, true);
         }
         
-        // Reduced logging to prevent console spam
-        if (Math.random() < 0.05) { // Only log 5% of attacks
-            console.log(`AI ${this.name} attacking territory ${defendingTerritory.id} from ${attackingTerritory.id}`);
+        // Enhanced logging for throne star attacks
+        if (defendingTerritory.isThronestar || Math.random() < 0.05) {
+            console.log(`AI ${this.name} attacking territory ${defendingTerritory.id} from ${attackingTerritory.id}${defendingTerritory.isThronestar ? ' (👑 THRONE STAR!)' : ''}`);
         }
         
         // Use 70% of armies for attack
@@ -265,7 +265,8 @@ export class Player {
             if (defendingTerritory.isThronestar && oldOwnerId !== null && gameMap.players && gameMap.players[oldOwnerId]) {
                 const oldOwner = gameMap.players[oldOwnerId];
                 // THRONE STAR CAPTURED! Transfer ALL remaining territories
-                console.log(`THRONE STAR CAPTURED! ${oldOwner.name}'s empire falls to ${this.name}!`);
+                console.log(`🏆 THRONE STAR CAPTURED! ${oldOwner.name}'s empire falls to ${this.name}!`);
+                console.log(`Transferring ${oldOwner.territories.length} territories from ${oldOwner.name} to ${this.name}`);
                 
                 // Transfer all territories from old owner to attacker
                 const territoriesToTransfer = [...oldOwner.territories];
@@ -281,6 +282,11 @@ export class Player {
                 oldOwner.territories = [];
                 oldOwner.isEliminated = true;
                 this.territoriesConquered += territoriesToTransfer.length;
+                
+                // Set throne star ownership
+                defendingTerritory.ownerId = this.id;
+                defendingTerritory.armySize = survivingArmies;
+                attackingTerritory.armySize -= attackingArmies;
             } else {
                 // Normal territory capture
                 defendingTerritory.ownerId = this.id;

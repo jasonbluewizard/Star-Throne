@@ -567,6 +567,8 @@ export default class StarThrone {
                 player.territories.push(parseInt(territoryId));
                 player.totalArmies += territory.armySize;
                 player.throneStarId = parseInt(territoryId); // Assign throne star ID
+                
+                console.log(`👑 Player ${player.name} assigned throne star: Territory ${territoryId}`);
             }
         }
         
@@ -862,9 +864,15 @@ export default class StarThrone {
                 this.ctx.lineWidth = 3;
                 this.ctx.globalAlpha = 0.8;
                 
-                const animationOffset = (Date.now() * 0.01) % 20;
-                this.ctx.setLineDash([10, 10]);
-                this.ctx.lineDashOffset = animationOffset;
+                // Calculate direction-based animation offset
+                const fromPos = route.path[0];
+                const toPos = route.path[route.path.length - 1];
+                const direction = Math.atan2(toPos.y - fromPos.y, toPos.x - fromPos.x);
+                
+                // Animate dashes flowing in the direction of ship movement
+                const animationOffset = (Date.now() * 0.02) % 20;
+                this.ctx.setLineDash([8, 12]);
+                this.ctx.lineDashOffset = -animationOffset;
                 
                 // Draw path segments
                 for (let i = 0; i < route.path.length - 1; i++) {
@@ -1482,6 +1490,11 @@ export default class StarThrone {
                     oldOwner.territories = [];
                     oldOwner.isEliminated = true;
                 }
+                
+                // Set throne star ownership and armies
+                defendingTerritory.ownerId = this.humanPlayer.id;
+                defendingTerritory.armySize = survivingArmies;
+                attackingTerritory.armySize -= attackingArmies;
             } else {
                 // Normal territory capture
                 defendingTerritory.ownerId = this.humanPlayer.id;
