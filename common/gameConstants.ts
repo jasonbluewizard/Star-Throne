@@ -17,11 +17,18 @@ export const GAME_CONSTANTS = {
     INITIAL_COLONIZED_ARMY_SIZE: 1,
     INITIAL_STARTING_ARMY_SIZE: 50,
 
+    // Territory & Map Configuration
+    TERRITORY_RADIUS: 25,
+    CONNECTION_DISTANCE: 120,
+    ARMY_GENERATION_RATE: 3000, // milliseconds per army
+
     // Probe System
     PROBE_LAUNCH_COST_FLEET: 10,
+    PROBE_COST: 10, // Alias for compatibility
     PROBE_MIN_ARMY_TO_LAUNCH: 11, // Must have more than the cost to launch
     PROBE_UPDATE_INTERVAL_MS: 50,
     PROBE_SPEED_UNITS_PER_UPDATE: 1.25,
+    PROBE_SPEED: 25, // Pixels per second
 
     // Fleet Transfer
     MIN_ARMY_TO_LEAVE_AFTER_TRANSFER: 1,
@@ -38,6 +45,7 @@ export const GAME_CONSTANTS = {
 
     // Combat
     MIN_ARMY_TO_ATTACK: 2,
+    MIN_ATTACK_ARMIES: 2, // Alias for compatibility
     ARMY_LEFT_AFTER_ATTACK: 1,
     ATTACK_POWER_BASE_MULTIPLIER: 0.8,
     ATTACK_POWER_RANDOM_RANGE: 0.4,
@@ -45,6 +53,8 @@ export const GAME_CONSTANTS = {
     DEFENSE_POWER_RANDOM_RANGE: 0.2,
     ATTACKER_SURVIVAL_RATE: 0.7,
     DEFENDER_SURVIVAL_RATE: 0.8,
+    COMBAT_ATTACKER_MODIFIER: 0.8,
+    COMBAT_DEFENDER_MODIFIER: 0.9,
 
     // Rendering & UI
     BACKGROUND_COLOR: '#000011',
