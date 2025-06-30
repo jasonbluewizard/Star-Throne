@@ -303,6 +303,12 @@ Changelog:
   * Map now properly centers horizontally and vertically when viewport is larger than map dimensions
   * Zoom out button triggers automatic recentering at 30% zoom or lower for better galaxy overview
   * Enhanced constraints system prevents off-center positioning when viewing full galaxy
+- June 30, 2025. Throne Star system implementation for high-stakes conquest:
+  * Added throne star mechanics: each player's starting planet becomes their sacred throne
+  * Golden crown icons appear above all throne star territories for clear visual identification
+  * Throne capture triggers empire collapse: capturing any throne star transfers ALL remaining territories to conqueror
+  * System applies to both human and AI players for balanced high-risk gameplay
+  * Eliminated players marked as defeated when throne stars are captured
 
 ## User Preferences
 
