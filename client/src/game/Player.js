@@ -10,6 +10,7 @@ export class Player {
         this.totalArmies = 0;
         this.isEliminated = false;
         this.score = 0;
+        this.throneStarId = null; // ID of this player's throne star (starting planet)
         
         // AI properties
         this.aiThinkTimer = 0;
@@ -260,25 +261,48 @@ export class Player {
             // Attack successful
             const survivingArmies = Math.max(1, attackingArmies - defendingArmies);
             
-            // Transfer territory
-            defendingTerritory.ownerId = this.id;
-            defendingTerritory.armySize = survivingArmies;
-            attackingTerritory.armySize -= attackingArmies;
-            
-            // Update player territories
-            this.territories.push(defendingTerritory.id);
-            this.territoriesConquered++;
-            this.battlesWon++;
-            
-            // Remove from old owner
-            if (oldOwnerId !== null && gameMap.players && gameMap.players[oldOwnerId]) {
+            // Check if this is a throne star capture
+            if (defendingTerritory.isThronestar && oldOwnerId !== null && gameMap.players && gameMap.players[oldOwnerId]) {
                 const oldOwner = gameMap.players[oldOwnerId];
-                const index = oldOwner.territories.indexOf(defendingTerritory.id);
-                if (index > -1) {
-                    oldOwner.territories.splice(index, 1);
-                    oldOwner.battlesLost++;
+                // THRONE STAR CAPTURED! Transfer ALL remaining territories
+                console.log(`THRONE STAR CAPTURED! ${oldOwner.name}'s empire falls to ${this.name}!`);
+                
+                // Transfer all territories from old owner to attacker
+                const territoriesToTransfer = [...oldOwner.territories];
+                territoriesToTransfer.forEach(territoryId => {
+                    const territory = gameMap.territories[territoryId];
+                    if (territory && territory.ownerId === oldOwnerId) {
+                        territory.ownerId = this.id;
+                        this.territories.push(territoryId);
+                    }
+                });
+                
+                // Clear old owner's territories
+                oldOwner.territories = [];
+                oldOwner.isEliminated = true;
+                this.territoriesConquered += territoriesToTransfer.length;
+            } else {
+                // Normal territory capture
+                defendingTerritory.ownerId = this.id;
+                defendingTerritory.armySize = survivingArmies;
+                attackingTerritory.armySize -= attackingArmies;
+                
+                // Update player territories
+                this.territories.push(defendingTerritory.id);
+                this.territoriesConquered++;
+                
+                // Remove from old owner
+                if (oldOwnerId !== null && gameMap.players && gameMap.players[oldOwnerId]) {
+                    const oldOwner = gameMap.players[oldOwnerId];
+                    const index = oldOwner.territories.indexOf(defendingTerritory.id);
+                    if (index > -1) {
+                        oldOwner.territories.splice(index, 1);
+                        oldOwner.battlesLost++;
+                    }
                 }
             }
+            
+            this.battlesWon++;
         } else {
             // Attack failed
             const survivingDefenders = Math.max(1, defendingArmies - Math.floor(attackingArmies * 0.7));

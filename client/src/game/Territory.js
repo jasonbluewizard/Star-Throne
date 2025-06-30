@@ -184,6 +184,11 @@ export class Territory {
             this.renderHumanFlag(ctx);
         }
         
+        // Draw crown for throne star territories
+        if (this.isThronestar && this.ownerId !== null) {
+            this.renderCrown(ctx);
+        }
+        
         // Draw army count for neutral territories or "?" for colonizable
         if (this.ownerId === null) {
             ctx.font = 'bold 14px Arial';
@@ -318,6 +323,29 @@ export class Territory {
         ctx.font = `${Math.max(8, this.radius * 0.3)}px Arial`;
         ctx.textAlign = 'center';
         ctx.fillText('★', flagX + flagWidth * 0.4, flagY + flagHeight * 0.7);
+    }
+    
+    renderCrown(ctx) {
+        // Crown positioned above the planet
+        const crownX = this.x;
+        const crownY = this.y - this.radius - 15;
+        const crownSize = Math.max(12, this.radius * 0.8);
+        
+        ctx.save();
+        
+        // Crown shadow for visibility
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.font = `bold ${crownSize + 2}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.fillText('👑', crownX + 1, crownY + 1);
+        
+        // Main crown - golden color
+        ctx.fillStyle = '#FFD700';
+        ctx.font = `bold ${crownSize}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.fillText('👑', crownX, crownY);
+        
+        ctx.restore();
     }
     
     renderPotentialTargets(ctx, players) {
