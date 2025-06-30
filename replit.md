@@ -245,11 +245,19 @@ Changelog:
   * Improved button styling with bold text and clear color differentiation
 - June 30, 2025. Game balance and visual improvements:
   * Starting fleet count reduced from 200 to 50 armies for better game balance
+  * Army generation rate slowed from 1 second to 3 seconds per army for better balance
   * Unexplored systems now show simple yellow question marks without black backgrounds
   * Reduced pulsing animation intensity for unexplored planets (less distracting)
   * Removed player name prompt for single-player mode (uses default "Player" name)
   * Added probe launch visual feedback: red flash on fleet numbers and floating "-10" text
   * Removed all remaining "Territorial Conquest" text references, fully rebranded to "Star Throne"
+- June 30, 2025. Enhanced mobile controls and long press functionality:
+  * Significantly improved pinch-to-zoom sensitivity (0.8x vs 0.3x multiplier) with reduced threshold (2px vs 5px)
+  * Added comprehensive long press functionality (800ms threshold) for advanced mobile actions
+  * Long press on friendly territory creates supply routes for automated fleet transfers
+  * Long press on enemy territory sends all available fleets in massive coordinated attack
+  * Long press on colonizable planets launches probes for exploration and expansion
+  * Enhanced touch movement detection cancels long press timers to prevent accidental triggers
 
 ## User Preferences
 

@@ -1600,6 +1600,12 @@ export default class TerritorialConquest {
             this.lastZoomTime = 0;
             this.initialZoom = 1.0;
             
+            // Cancel long press timer
+            if (this.longPressTimer) {
+                clearTimeout(this.longPressTimer);
+                this.longPressTimer = null;
+            }
+            
         } else if (e.touches.length === 1) {
             // One finger lifted during multi-touch - continue with single touch
             this.isMultiTouch = false;
@@ -1634,6 +1640,55 @@ export default class TerritorialConquest {
                 console.log('Minimap toggled with M key:', this.minimapMinimized ? 'minimized' : 'maximized');
                 break;
         }
+    }
+    
+    handleLongPress() {
+        // Long press detected - execute advanced actions
+        if (!this.longPressTarget || !this.selectedTerritory) {
+            console.log('Long press detected but no valid targets');
+            return;
+        }
+        
+        const fromTerritory = this.selectedTerritory;
+        const toTerritory = this.longPressTarget;
+        
+        // Check if from territory belongs to human player
+        if (fromTerritory.ownerId !== this.humanPlayer?.id) {
+            console.log('Long press: source territory not owned by player');
+            return;
+        }
+        
+        if (toTerritory.ownerId === this.humanPlayer.id) {
+            // Friendly territory - create supply route (if adjacent)
+            if (fromTerritory.isNeighborOf(toTerritory)) {
+                this.createSupplyRoute(fromTerritory, toTerritory);
+                console.log('Long press: Supply route created between friendly territories');
+            } else {
+                console.log('Long press: Territories not adjacent for supply route');
+            }
+        } else if (toTerritory.ownerId !== null) {
+            // Enemy territory - send all available ships (minus 1 to keep territory)
+            const availableArmies = Math.max(0, fromTerritory.armySize - 1);
+            if (availableArmies >= 1 && fromTerritory.isNeighborOf(toTerritory)) {
+                // Transfer all available armies for attack
+                const originalArmies = fromTerritory.armySize;
+                fromTerritory.armySize = 1; // Keep 1 army
+                const attackingArmies = originalArmies - 1;
+                
+                // Execute massive attack
+                this.attackTerritory(fromTerritory, toTerritory);
+                console.log(`Long press: All-out attack with ${attackingArmies} armies!`);
+            } else {
+                console.log('Long press: Not enough armies or not adjacent for attack');
+            }
+        } else if (toTerritory.isColonizable) {
+            // Colonizable planet - launch probe
+            this.launchProbe(fromTerritory, toTerritory);
+            console.log('Long press: Probe launched to colonizable planet');
+        }
+        
+        // Clear the timer
+        this.longPressTimer = null;
     }
     
     restartGame() {
