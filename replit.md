@@ -258,6 +258,13 @@ Changelog:
   * Long press on enemy territory sends all available fleets in massive coordinated attack
   * Long press on colonizable planets launches probes for exploration and expansion
   * Enhanced touch movement detection cancels long press timers to prevent accidental triggers
+- June 30, 2025. AI names and interface improvements:
+  * Diversified AI player names: only 25% use clan format, 75% use varied names (Admiral, Captain, etc.)
+  * Added 40 additional name types including military ranks and space-themed titles
+  * Removed final "Territorial Conquest" reference from HTML title, fully rebranded to "Star Throne"
+  * Added home system flashing: player's starting territories flash white every 300ms for 3 seconds at game start
+  * Enhanced pinch-to-zoom sensitivity with dramatic 1.5x multiplier for highly responsive mobile zooming
+  * Enabled non-adjacent trade routes: long press on connected friendly territories creates supply routes via star lanes
 
 ## User Preferences
 
