@@ -1,14 +1,21 @@
 import { Territory } from './Territory.js';
 
 export class GameMap {
-    constructor(width, height, layout = 'organic') {
+    constructor(width, height, config = {}) {
         this.width = width * 1.4; // Expand width by 40%
         this.height = height * 1.4; // Expand height by 40%
         this.territories = {};
         this.nebulas = []; // Purple nebula clouds
         this.gridSize = 80; // Space between territory centers
-        this.connectionDistance = 120; // Max distance for territory connections
-        this.layout = layout; // Layout type: organic, clusters, spiral, core, ring, binary
+        
+        // Advanced configuration options
+        this.layout = config.layout || 'organic'; // Layout type: organic, clusters, spiral, core, ring, binary
+        this.connectionDistance = config.connectionRange || 140; // Max distance for territory connections
+        this.warpLaneDensity = config.warpLaneDensity || 80; // Percentage density for connections
+        this.nebulaCount = config.nebulaCount !== undefined ? config.nebulaCount : 10; // Number of nebula fields
+        this.nebulaSlowdown = config.nebulaSlowdown !== undefined ? config.nebulaSlowdown : true;
+        this.supplyRoutes = config.supplyRoutes !== undefined ? config.supplyRoutes : true;
+        this.probeColonization = config.probeColonization !== undefined ? config.probeColonization : true;
     }
     
     // Helper function to check if a point is too close to existing points
@@ -77,8 +84,8 @@ export class GameMap {
     }
     
     generateNebulas() {
-        // Generate 8-15 nebula clouds scattered across the map
-        const nebulaCount = Math.floor(Math.random() * 8) + 8;
+        // Use configurable nebula count (0-20)
+        const nebulaCount = this.nebulaCount;
         
         for (let i = 0; i < nebulaCount; i++) {
             const nebula = {
@@ -90,6 +97,8 @@ export class GameMap {
             };
             this.nebulas.push(nebula);
         }
+        
+        console.log(`Generated ${nebulaCount} nebula fields (configured: ${this.nebulaCount})`);
     }
     
     poissonDiskSampling(numSamples) {
@@ -731,12 +740,17 @@ export class GameMap {
             // Sort by distance and connect to closest neighbors
             nearbyTerritories.sort((a, b) => a.distance - b.distance);
             
-            // Connect to 2-6 closest neighbors
+            // Connect to 2-6 closest neighbors, influenced by warp lane density
+            const baseDensity = this.warpLaneDensity / 100; // Convert percentage to decimal
             const maxConnections = Math.min(6, Math.max(2, nearbyTerritories.length));
-            const numConnections = Math.min(maxConnections, 2 + Math.floor(Math.random() * 3));
+            const adjustedConnections = Math.max(1, Math.floor(maxConnections * baseDensity));
+            const numConnections = Math.min(adjustedConnections, 2 + Math.floor(Math.random() * 3));
             
             for (let k = 0; k < numConnections && k < nearbyTerritories.length; k++) {
                 const neighbor = nearbyTerritories[k].territory;
+                
+                // Additional density check - some connections may be skipped based on density
+                if (Math.random() * 100 > this.warpLaneDensity) continue;
                 
                 // If either territory is colonizable, make it a hidden connection
                 if (territory.isColonizable || neighbor.isColonizable) {

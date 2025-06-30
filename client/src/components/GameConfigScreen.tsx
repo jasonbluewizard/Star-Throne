@@ -17,6 +17,12 @@ export interface GameConfig {
   playerName: string;
   gameSpeed: number;
   layout: string;
+  warpLaneDensity: number;
+  connectionRange: number;
+  nebulaCount: number;
+  nebulaSlowdown: boolean;
+  supplyRoutes: boolean;
+  probeColonization: boolean;
 }
 
 export function GameConfigScreen({ onStartGame, onBack }: GameConfigScreenProps) {
@@ -25,6 +31,16 @@ export function GameConfigScreen({ onStartGame, onBack }: GameConfigScreenProps)
   const [playerName, setPlayerName] = useState('Player');
   const [gameSpeed, setGameSpeed] = useState([1.0]); // Default normal speed
   const [layout, setLayout] = useState('organic'); // Default organic layout
+  
+  // Advanced map controls
+  const [warpLaneDensity, setWarpLaneDensity] = useState(80); // Default 80% density
+  const [connectionRange, setConnectionRange] = useState(140); // Default 140px range
+  const [nebulaCount, setNebulaCount] = useState(10); // Default 10 nebulas
+  
+  // Special features
+  const [nebulaSlowdown, setNebulaSlowdown] = useState(true);
+  const [supplyRoutes, setSupplyRoutes] = useState(true);
+  const [probeColonization, setProbeColonization] = useState(true);
 
 
 
@@ -34,7 +50,13 @@ export function GameConfigScreen({ onStartGame, onBack }: GameConfigScreenProps)
       aiPlayerCount: aiPlayerCount[0],
       playerName: playerName,
       gameSpeed: gameSpeed[0],
-      layout: layout
+      layout: layout,
+      warpLaneDensity: warpLaneDensity,
+      connectionRange: connectionRange,
+      nebulaCount: nebulaCount,
+      nebulaSlowdown: nebulaSlowdown,
+      supplyRoutes: supplyRoutes,
+      probeColonization: probeColonization
     });
   };
 
@@ -210,20 +232,92 @@ export function GameConfigScreen({ onStartGame, onBack }: GameConfigScreenProps)
               </Select>
             </div>
 
+            {/* Warp Lane Density */}
+            <div className="space-y-2">
+              <Label htmlFor="warpLaneDensity" className="text-white">
+                Warp Lane Density: {warpLaneDensity}% 
+                <span className="text-gray-400 ml-2">
+                  ({warpLaneDensity < 60 ? 'Sparse' : warpLaneDensity < 80 ? 'Normal' : warpLaneDensity < 100 ? 'Dense' : 'Maximum'})
+                </span>
+              </Label>
+              <Slider
+                id="warpLaneDensity"
+                min={30}
+                max={120}
+                step={10}
+                value={[warpLaneDensity]}
+                onValueChange={(value) => setWarpLaneDensity(value[0])}
+                className="w-full"
+              />
+            </div>
+
+            {/* Connection Range */}
+            <div className="space-y-2">
+              <Label htmlFor="connectionRange" className="text-white">
+                Connection Range: {connectionRange}px
+                <span className="text-gray-400 ml-2">
+                  ({connectionRange < 120 ? 'Short' : connectionRange < 160 ? 'Normal' : 'Long'} range links)
+                </span>
+              </Label>
+              <Slider
+                id="connectionRange"
+                min={80}
+                max={200}
+                step={20}
+                value={[connectionRange]}
+                onValueChange={(value) => setConnectionRange(value[0])}
+                className="w-full"
+              />
+            </div>
+
+            {/* Nebula Count */}
+            <div className="space-y-2">
+              <Label htmlFor="nebulaCount" className="text-white">
+                Nebula Fields: {nebulaCount}
+                <span className="text-gray-400 ml-2">
+                  ({nebulaCount === 0 ? 'None' : nebulaCount < 8 ? 'Few' : nebulaCount < 15 ? 'Normal' : 'Many'})
+                </span>
+              </Label>
+              <Slider
+                id="nebulaCount"
+                min={0}
+                max={20}
+                step={1}
+                value={[nebulaCount]}
+                onValueChange={(value) => setNebulaCount(value[0])}
+                className="w-full"
+              />
+            </div>
+
             {/* Special Features */}
             <div className="space-y-2">
               <Label className="text-white">Special Features</Label>
               <div className="flex flex-wrap gap-2">
                 <label className="flex items-center space-x-2">
-                  <input type="checkbox" defaultChecked className="rounded" />
+                  <input 
+                    type="checkbox" 
+                    checked={nebulaSlowdown}
+                    onChange={(e) => setNebulaSlowdown(e.target.checked)}
+                    className="rounded" 
+                  />
                   <span className="text-sm text-gray-300">Nebula Slowdown</span>
                 </label>
                 <label className="flex items-center space-x-2">
-                  <input type="checkbox" defaultChecked className="rounded" />
+                  <input 
+                    type="checkbox" 
+                    checked={supplyRoutes}
+                    onChange={(e) => setSupplyRoutes(e.target.checked)}
+                    className="rounded" 
+                  />
                   <span className="text-sm text-gray-300">Supply Routes</span>
                 </label>
                 <label className="flex items-center space-x-2">
-                  <input type="checkbox" defaultChecked className="rounded" />
+                  <input 
+                    type="checkbox" 
+                    checked={probeColonization}
+                    onChange={(e) => setProbeColonization(e.target.checked)}
+                    className="rounded" 
+                  />
                   <span className="text-sm text-gray-300">Probe Colonization</span>
                 </label>
               </div>
