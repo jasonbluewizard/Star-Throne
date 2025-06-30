@@ -990,7 +990,14 @@ export default class StarThrone {
                 showTouchDebug: this.showTouchDebug,
                 leaderboardMinimized: this.leaderboardMinimized,
                 minimapMinimized: this.minimapMinimized,
-                camera: this.camera
+                camera: this.camera,
+                showPerformancePanel: this.showPerformancePanel,
+                frameTime: this.performanceStats.frameTime,
+                renderTime: this.performanceStats.renderTime,
+                updateTime: this.performanceStats.updateTime,
+                territoryCount: Object.keys(this.gameMap.territories).length,
+                visibleTerritories: this.performanceStats.visibleTerritories,
+                probeCount: this.probes.length
             });
         }
     }
