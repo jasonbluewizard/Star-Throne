@@ -1,14 +1,16 @@
-// Shared types and interfaces between client and server
+// Shared types for client and server communication.
+
 export interface PlayerState {
   id: string;
   name: string;
   color: string;
   type: 'human' | 'ai';
-  territoriesOwned: number;
-  totalArmies: number;
-  isEliminated: boolean;
+  socketId?: string;
   territories: number[];
   armyGenRate: number;
+  totalArmies: number;
+  territoriesOwned: number;
+  isEliminated: boolean;
 }
 
 export interface TerritoryState {
@@ -26,40 +28,50 @@ export interface TerritoryState {
 }
 
 export interface ProbeState {
-  id: number;
-  fromTerritoryId: number;
-  toTerritoryId: number;
-  playerId: string;
-  playerColor: string;
-  progress: number;
-  startTime: number;
-  duration: number;
+    id: number;
+    fromTerritoryId: number;
+    toTerritoryId: number;
+    playerId: string;
+    playerColor: string;
+    progress: number; // 0.0 to 1.0
+    startTime: number;
+    duration: number;
+}
+
+export interface ShipAnimationState {
+    from: { x: number; y: number };
+    to: { x: number; y: number };
+    progress: number; // elapsed time
+    duration: number;
+    color: string;
+    isAttack: boolean;
 }
 
 export interface SupplyRoute {
-  from: number;
-  to: number;
-  path: number[];
-  active: boolean;
+    from: number;
+    to: number;
+    path: number[];
+    active: boolean;
 }
 
 export interface GameState {
-  territories: Record<number, TerritoryState>;
-  players: Record<string, PlayerState>;
-  probes: ProbeState[];
-  supplyRoutes: SupplyRoute[];
-  gamePhase: 'lobby' | 'playing' | 'ended';
-  winner: string | null;
-  tick: number;
-  lastUpdate: number;
+    territories: Record<number, TerritoryState>;
+    players: Record<string, PlayerState>;
+    probes: ProbeState[];
+    supplyRoutes: SupplyRoute[];
+    gamePhase: 'lobby' | 'playing' | 'ended';
+    winner: string | null;
+    tick: number;
+    lastUpdate: number;
 }
 
+// Command Protocol
 export enum CommandType {
-  ATTACK_TERRITORY = 'ATTACK_TERRITORY',
-  TRANSFER_ARMIES = 'TRANSFER_ARMIES',
-  LAUNCH_PROBE = 'LAUNCH_PROBE',
-  CREATE_SUPPLY_ROUTE = 'CREATE_SUPPLY_ROUTE',
-  SELECT_TERRITORY = 'SELECT_TERRITORY',
+    ATTACK_TERRITORY = 'ATTACK_TERRITORY',
+    TRANSFER_ARMIES = 'TRANSFER_ARMIES',
+    LAUNCH_PROBE = 'LAUNCH_PROBE',
+    CREATE_SUPPLY_ROUTE = 'CREATE_SUPPLY_ROUTE',
+    SELECT_TERRITORY = 'SELECT_TERRITORY',
 }
 
 export interface ClientCommand {
@@ -68,7 +80,6 @@ export interface ClientCommand {
   timestamp: number;
 }
 
-// Specific command payloads
 export interface AttackTerritoryCommand {
   fromTerritoryId: number;
   toTerritoryId: number;
@@ -93,7 +104,6 @@ export interface SelectTerritoryCommand {
   territoryId: number;
 }
 
-// Server responses
 export interface GameStateUpdate {
   type: 'FULL_STATE' | 'DELTA_STATE';
   gameState: Partial<GameState>;
@@ -116,7 +126,6 @@ export interface CommandError {
   timestamp: number;
 }
 
-// Game configuration
 export interface GameConfig {
   mapSize: number;
   aiPlayerCount: number;
@@ -125,16 +134,3 @@ export interface GameConfig {
   tickRate: number; // Server updates per second
   gameSpeed: number; // Speed multiplier for all game actions (0.01-2.0)
 }
-
-// Constants for game balancing
-export const GAME_CONSTANTS = {
-  PROBE_COST: 10,
-  PROBE_SPEED: 25, // pixels per second
-  ARMY_GENERATION_RATE: 3000, // milliseconds per army
-  MIN_ATTACK_ARMIES: 2,
-  COMBAT_ATTACKER_MODIFIER: 0.2, // 0.8-1.2 range
-  COMBAT_DEFENDER_MODIFIER: 0.1, // 0.9-1.1 range
-  TERRITORY_RADIUS: 25,
-  CONNECTION_DISTANCE: 120,
-  SUPPLY_ROUTE_DELAY_PER_HOP: 2000, // milliseconds
-} as const;

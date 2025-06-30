@@ -3,6 +3,7 @@ import { Player } from './Player.js';
 import { GameUI } from './GameUI.js';
 import { Camera } from './Camera.js';
 import { Probe } from './Probe.js';
+import { GAME_CONSTANTS } from '../../../common/gameConstants.ts';
 
 export default class StarThrone {
     constructor(config = {}) {
@@ -17,8 +18,8 @@ export default class StarThrone {
         // Game configuration from config screen
         this.config = {
             playerName: config.playerName || 'Player',
-            aiCount: config.aiCount || 19,
-            mapSize: config.mapSize || 200,
+            aiCount: config.aiCount || GAME_CONSTANTS.DEFAULT_SINGLE_PLAYER_AI_COUNT,
+            mapSize: config.mapSize || GAME_CONSTANTS.DEFAULT_MAP_SIZE_TERRITORIES,
             gameSpeed: config.gameSpeed || 1.0,
             layout: config.layout || 'organic',
             ...config
@@ -768,11 +769,11 @@ export default class StarThrone {
     
     updateVisibleTerritories() {
         // Optimized visibility culling with cached bounds
-        if (Date.now() - this.lastVisibilityUpdate < 50) return;
+        if (Date.now() - this.lastVisibilityUpdate < GAME_CONSTANTS.VISIBLE_TERRITORIES_UPDATE_INTERVAL_MS) return;
         this.lastVisibilityUpdate = Date.now();
         
         const bounds = this.camera.getViewBounds();
-        const margin = 100;
+        const margin = GAME_CONSTANTS.TERRITORY_VISIBILITY_PADDING;
         
         this.visibleTerritories = [];
         const territories = Object.values(this.gameMap.territories);

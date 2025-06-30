@@ -1,4 +1,5 @@
-import { GameState, PlayerState, TerritoryState, ProbeState, SupplyRoute, CommandType, ClientCommand, AttackTerritoryCommand, TransferArmiesCommand, LaunchProbeCommand, CreateSupplyRouteCommand, GAME_CONSTANTS, CombatResult, CommandError } from '../common/types/index.js';
+import { GameState, PlayerState, TerritoryState, ProbeState, SupplyRoute, CommandType, ClientCommand, AttackTerritoryCommand, TransferArmiesCommand, LaunchProbeCommand, CreateSupplyRouteCommand, CombatResult, CommandError } from '../common/types/index.js';
+import { GAME_CONSTANTS } from '../common/gameConstants.js';
 
 export class GameEngine {
   private gameState: GameState;
