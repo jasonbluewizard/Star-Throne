@@ -23,6 +23,11 @@ export class Territory {
         // Combat flash effect
         this.combatFlashTime = 0;
         this.combatFlashDuration = 800; // Flash for 800ms
+        
+        // Probe launch visual feedback
+        this.probeFlashTime = 0;
+        this.probeFlashDuration = 1000; // Flash for 1 second
+        this.floatingText = null; // For floating "-10" text
     }
     
     addNeighbor(territoryId) {
@@ -50,6 +55,17 @@ export class Territory {
     
     triggerCombatFlash() {
         this.combatFlashTime = Date.now();
+    }
+    
+    triggerProbeFlash() {
+        this.probeFlashTime = Date.now();
+        this.floatingText = {
+            text: '-10',
+            startTime: Date.now(),
+            duration: 1000,
+            startY: this.y - this.radius - 10,
+            color: '#ff4444'
+        };
     }
     
     generateArmies(deltaTime, player, gameSpeed = 1.0) {
@@ -159,22 +175,20 @@ export class Territory {
             ctx.textAlign = 'center';
             
             if (this.isColonizable) {
-                // Special styling for colonizable planets
-                ctx.fillStyle = '#000000'; // Black text
-                ctx.strokeStyle = '#ffff00'; // Yellow outline for contrast
-                ctx.lineWidth = 2;
+                // Simple yellow question mark for colonizable planets
+                ctx.fillStyle = '#ffff00'; // Yellow text
+                ctx.font = 'bold 16px Arial';
                 
                 const displayText = '?';
-                ctx.strokeText(displayText, this.x, this.y + 4);
-                ctx.fillText(displayText, this.x, this.y + 4);
+                ctx.fillText(displayText, this.x, this.y + 5);
                 
-                // Add pulsing border effect
-                const pulseIntensity = 0.5 + 0.5 * Math.sin(Date.now() * 0.003 + this.pulsePhase);
+                // Subtle pulsing border effect (reduced intensity)
+                const pulseIntensity = 0.7 + 0.2 * Math.sin(Date.now() * 0.002 + this.pulsePhase);
                 ctx.strokeStyle = `rgba(255, 255, 0, ${pulseIntensity})`;
-                ctx.lineWidth = 2;
-                ctx.setLineDash([5, 5]);
+                ctx.lineWidth = 1;
+                ctx.setLineDash([3, 3]);
                 ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius + 3, 0, Math.PI * 2);
+                ctx.arc(this.x, this.y, this.radius + 2, 0, Math.PI * 2);
                 ctx.stroke();
                 ctx.setLineDash([]);
             } else {

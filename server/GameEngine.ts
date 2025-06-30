@@ -196,7 +196,7 @@ export class GameEngine {
     players.forEach((player, index) => {
       if (index < availableTerritories.length) {
         const territory = availableTerritories[index];
-        this.colonizeTerritory(territory.id, player.id, 1);
+        this.colonizeTerritory(territory.id, player.id, 50);
       }
     });
 

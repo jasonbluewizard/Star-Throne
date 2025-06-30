@@ -23,16 +23,9 @@ export function GameModeSelector({ onModeSelected }: GameModeSelectorProps) {
   const [error, setError] = useState('');
 
   const handleSinglePlayer = () => {
-    // Prompt for player name if not set
-    let name = playerName.trim();
-    if (!name) {
-      const promptResult = prompt('Enter your player name:') || '';
-      if (!promptResult.trim()) {
-        setError('Player name is required');
-        return;
-      }
-      name = promptResult.trim();
-      setPlayerName(name);
+    // Use default name if none set
+    if (!playerName.trim()) {
+      setPlayerName('Player');
     }
     
     setSelectedMode('single');

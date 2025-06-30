@@ -521,7 +521,7 @@ export default class TerritorialConquest {
                 // Manually colonize this territory for the player
                 territory.ownerId = player.id;
                 territory.isColonizable = false; // Make it a normal territory
-                territory.armySize = territory.hiddenArmySize || Math.floor(Math.random() * 20) + 10;
+                territory.armySize = 50;
                 
                 // Reveal connections for starting territories
                 territory.revealConnections();
