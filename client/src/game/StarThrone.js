@@ -1149,7 +1149,14 @@ export default class StarThrone {
         // Zoom Out button
         if (screenX >= zoomOutX && screenX <= zoomOutX + buttonSize &&
             screenY >= zoomOutY && screenY <= zoomOutY + buttonSize) {
-            this.camera.targetZoom = Math.max(this.camera.minZoom, this.camera.targetZoom / 1.2);
+            const newZoom = Math.max(this.camera.minZoom, this.camera.targetZoom / 1.2);
+            this.camera.targetZoom = newZoom;
+            
+            // Recenter the map when zooming out far enough
+            if (newZoom <= 0.3) {
+                this.camera.centerOn(this.gameMap.width / 2, this.gameMap.height / 2);
+            }
+            
             console.log('Zoom Out - new zoom:', (this.camera.targetZoom * 100).toFixed(0) + '%');
             return;
         }

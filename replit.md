@@ -298,6 +298,11 @@ Changelog:
   * Added visual nebula effects for probes: fade and pulse when traveling through purple nebula clouds
   * Probes now visually indicate slowdown with opacity fade between 0.3-0.7 while in nebulas
   * Enhanced probe trail rendering with matching fade effects for complete visual feedback
+- June 30, 2025. Camera centering improvements for expanded galaxy view:
+  * Fixed camera auto-centering when zoomed out enough to see entire map
+  * Map now properly centers horizontally and vertically when viewport is larger than map dimensions
+  * Zoom out button triggers automatic recentering at 30% zoom or lower for better galaxy overview
+  * Enhanced constraints system prevents off-center positioning when viewing full galaxy
 
 ## User Preferences
 

@@ -48,16 +48,32 @@ export class Camera {
         const visibleWidth = this.viewportWidth / this.zoom;
         const visibleHeight = this.viewportHeight / this.zoom;
         
-        // Pan constraints
-        const minX = -this.boundaryPadding;
-        const maxX = this.mapWidth + this.boundaryPadding - visibleWidth;
-        const minY = -this.boundaryPadding;
-        const maxY = this.mapHeight + this.boundaryPadding - visibleHeight;
+        // If the map is smaller than the viewport, center it
+        if (visibleWidth >= this.mapWidth + 2 * this.boundaryPadding) {
+            // Center horizontally when zoomed out enough to see entire width
+            const mapCenterX = this.mapWidth / 2;
+            this.x = mapCenterX - visibleWidth / 2;
+            this.targetX = this.x;
+        } else {
+            // Normal pan constraints for width
+            const minX = -this.boundaryPadding;
+            const maxX = this.mapWidth + this.boundaryPadding - visibleWidth;
+            this.x = Math.max(minX, Math.min(maxX, this.x));
+            this.targetX = Math.max(minX, Math.min(maxX, this.targetX));
+        }
         
-        this.x = Math.max(minX, Math.min(maxX, this.x));
-        this.y = Math.max(minY, Math.min(maxY, this.y));
-        this.targetX = Math.max(minX, Math.min(maxX, this.targetX));
-        this.targetY = Math.max(minY, Math.min(maxY, this.targetY));
+        if (visibleHeight >= this.mapHeight + 2 * this.boundaryPadding) {
+            // Center vertically when zoomed out enough to see entire height
+            const mapCenterY = this.mapHeight / 2;
+            this.y = mapCenterY - visibleHeight / 2;
+            this.targetY = this.y;
+        } else {
+            // Normal pan constraints for height
+            const minY = -this.boundaryPadding;
+            const maxY = this.mapHeight + this.boundaryPadding - visibleHeight;
+            this.y = Math.max(minY, Math.min(maxY, this.y));
+            this.targetY = Math.max(minY, Math.min(maxY, this.targetY));
+        }
     }
     
     pan(deltaX, deltaY) {
