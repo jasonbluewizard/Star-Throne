@@ -1,0 +1,484 @@
+--- a/client/src/App.tsx
++++ b/client/src/App.tsx
+@@ -53,7 +53,7 @@
+   };
+ 
+   const handleModeSelected = (mode: 'single' | 'multiplayer', gameData?: any) => {
+-    if (mode === 'single' && gameData) {
++    if (mode === 'single' && gameData) {      
+       initSinglePlayerGame(gameData);
+     } else if (mode === 'multiplayer') {
+       // Placeholder for multiplayer mode selection
+--- a/client/src/components/GameConfigScreen.tsx
++++ b/client/src/components/GameConfigScreen.tsx
+@@ -1,5 +1,5 @@
+-import React, { useState } from 'react';
+-import { Button } from './ui/button';
++import React, { useState, useEffect } from 'react';
++import { Button } from '@/components/ui/button';
+ import { Input } from './ui/input';
+ import { Label } from './ui/label';
+ import { Slider } from './ui/slider';
+@@ -7,12 +7,23 @@
+ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
+ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from './ui/dialog';
++import { GAME_CONSTANTS } from '../game/gameConstants';
+ 
+ interface GameConfigScreenProps {
+   onLaunch: (config: any) => void;
+ }
+ 
+ export const GameConfigScreen: React.FC<GameConfigScreenProps> = ({ onLaunch }) => {
+   const [playerName, setPlayerName] = useState('Player');
+-  const [aiCount, setAiCount] = useState(19);
+-  const = useState(200);
++  const [aiCount, setAiCount] = useState(GAME_CONSTANTS.DEFAULT_SINGLE_PLAYER_AI_COUNT);
++  const = useState(GAME_CONSTANTS.DEFAULT_MAP_SIZE_TERRITORIES);
++
++  // Advanced Settings State
++  const [mapLayout, setMapLayout] = useState(GAME_CONSTANTS.MAP_LAYOUT_DEFAULT);
++  const = useState(GAME_CONSTANTS.MAP_PLANET_SPACING_DEFAULT);
++  const [clusterCount, setClusterCount] = useState(GAME_CONSTANTS.MAP_CLUSTER_COUNT_DEFAULT);
++  const = useState(GAME_CONSTANTS.MAP_STARLANE_DENSITY_DEFAULT);
+ 
+   const handleLaunch = () => {
+     onLaunch({
+       playerName,
+       aiCount,
+-      mapSize
++      mapSize,
++      layoutOptions: {
++        type: mapLayout,
++        planetSpacing,
++        clusterCount,
++        starlaneDensity
++      }
+     });
+   };
+ 
+@@ -58,6 +69,57 @@
+             </SelectContent>
+           </Select>
+         </div>
++
++        <Dialog>
++          <DialogTrigger asChild>
++            <Button variant="outline" className="w-full mt-4">Advanced Settings</Button>
++          </DialogTrigger>
++          <DialogContent className="sm:max-w-[425px]">
++            <DialogHeader>
++              <DialogTitle>Advanced Map Generation</DialogTitle>
++              <DialogDescription>
++                Fine-tune the galaxy to your liking.
++              </DialogDescription>
++            </DialogHeader>
++            <div className="grid gap-4 py-4">
++              <div className="grid grid-cols-4 items-center gap-4">
++                <Label htmlFor="map-layout" className="text-right">Layout</Label>
++                <Select value={mapLayout} onValueChange={setMapLayout}>
++                  <SelectTrigger className="col-span-3">
++                    <SelectValue placeholder="Select layout" />
++                  </SelectTrigger>
++                  <SelectContent>
++                    <SelectItem value="Clustered">Clustered</SelectItem>
++                    <SelectItem value="Spiral">Spiral</SelectItem>
++                    <SelectItem value="Random">Random (Legacy)</SelectItem>
++                  </SelectContent>
++                </Select>
++              </div>
++              <div className="grid grid-cols-4 items-center gap-4">
++                <Label htmlFor="planet-spacing" className="text-right">Spacing</Label>
++                <Slider id="planet-spacing" value={} onValueChange={(val) => setPlanetSpacing(val)} min={50} max={200} step={10} className="col-span-3" />
++              </div>
++              {mapLayout === 'Clustered' && (
++                <div className="grid grid-cols-4 items-center gap-4">
++                  <Label htmlFor="cluster-count" className="text-right">Clusters</Label>
++                  <Slider id="cluster-count" value={[clusterCount]} onValueChange={(val) => setClusterCount(val)} min={2} max={10} step={1} className="col-span-3" />
++                </div>
++              )}
++              <div className="grid grid-cols-4 items-center gap-4">
++                <Label htmlFor="starlane-density" className="text-right">Starlanes</Label>
++                <Slider id="starlane-density" value={} onValueChange={(val) => setStarlaneDensity(val)} min={1} max={5} step={1} className="col-span-3" />
++              </div>
++            </div>
++            <DialogFooter>
++              <DialogClose asChild>
++                <Button type="button">Done</Button>
++              </DialogClose>
++            </DialogFooter>
++          </DialogContent>
++        </Dialog>
++
+       </CardContent>
+       <CardFooter>
+         <Button className="w-full" onClick={handleLaunch}>Launch Campaign</Button>
+--- a/client/src/game/GameMap.js
++++ b/client/src/game/GameMap.js
+@@ -1,5 +1,6 @@
+ import { Territory } from './Territory.js';
++import { GAME_CONSTANTS } from './gameConstants.js';
+ 
+ export class GameMap {
+   constructor(width, height) {
+@@ -8,48 +9,165 @@
+     this.territories = {};
+   }
+ 
+-  generateTerritories(numTerritories) {
+-    for (let i = 0; i < numTerritories; i++) {
+-      const x = Math.random() * this.width;
+-      const y = Math.random() * this.height;
+-      const radius = 15 + Math.random() * 10;
+-      this.territories[i] = new Territory(i, x, y, radius);
++  generateTerritories(numTerritories, layoutOptions) {
++    const { type, planetSpacing, clusterCount, starlaneDensity } = layoutOptions;
++
++    switch (type) {
++      case 'Clustered':
++        this.generateClusteredLayout(numTerritories, planetSpacing, clusterCount, starlaneDensity);
++        break;
++      case 'Spiral':
++        this.generateSpiralLayout(numTerritories, planetSpacing, starlaneDensity);
++        break;
++      default:
++        this.generateRandomLayout(numTerritories, planetSpacing, starlaneDensity);
++        break;
+     }
+ 
+-    this.connectTerritories();
++    this.ensureFullConnectivity();
+   }
+ 
+-  connectTerritories() {
+-    const territoryArray = Object.values(this.territories);
+-    territoryArray.forEach(t1 => {
+-      const sortedByDistance = territoryArray
+-       .filter(t => t.id!== t1.id)
+-       .sort((a, b) => {
+-          const distA = Math.hypot(a.x - t1.x, a.y - t1.y);
+-          const distB = Math.hypot(b.x - t1.x, b.y - t1.y);
+-          return distA - distB;
+-        });
++  generateRandomLayout(num, spacing, density) {
++    for (let i = 0; i < num; i++) {
++      this.placeTerritory(i, () => ({
++        x: Math.random() * this.width,
++        y: Math.random() * this.height,
++      }), spacing);
++    }
++    this.connectNearestNeighbors(density);
++  }
+ 
+-      const numConnections = 2 + Math.floor(Math.random() * 3);
+-      for (let i = 0; i < numConnections; i++) {
+-        const t2 = sortedByDistance[i];
+-        if (t2 &&!t1.neighbors.includes(t2.id)) {
+-          t1.addNeighbor(t2.id);
+-          t2.addNeighbor(t1.id);
++  generateSpiralLayout(num, spacing, density) {
++    const center = { x: this.width / 2, y: this.height / 2 };
++    const angleStep = 0.5;
++    let angle = 0;
++    let distance = spacing;
++
++    for (let i = 0; i < num; i++) {
++      this.placeTerritory(i, () => ({
++        x: center.x + Math.cos(angle) * distance,
++        y: center.y + Math.sin(angle) * distance,
++      }), spacing);
++      angle += angleStep;
++      distance += spacing / 10;
++    }
++    this.connectNearestNeighbors(density);
++  }
++
++  generateClusteredLayout(num, spacing, numClusters, density) {
++    const clusterCenters =;
++    for (let i = 0; i < numClusters; i++) {
++      clusterCenters.push({
++        x: this.width * 0.1 + Math.random() * this.width * 0.8,
++        y: this.height * 0.1 + Math.random() * this.height * 0.8,
++        territories:
++      });
++    }
++
++    const clusterRadius = Math.min(this.width, this.height) / (numClusters * 1.5);
++
++    for (let i = 0; i < num; i++) {
++      const clusterIndex = i % numClusters;
++      const center = clusterCenters[clusterIndex];
++      const territory = this.placeTerritory(i, () => {
++        const angle = Math.random() * 2 * Math.PI;
++        const radius = Math.random() * clusterRadius;
++        return {
++          x: center.x + Math.cos(angle) * radius,
++          y: center.y + Math.sin(angle) * radius,
++        };
++      }, spacing);
++      if (territory) {
++        clusterCenters[clusterIndex].territories.push(territory);
++      }
++    }
++
++    // Connect within clusters
++    clusterCenters.forEach(cluster => {
++      const territoryIds = cluster.territories.map(t => t.id);
++      this.connectTerritoriesByIds(territoryIds, density + 1); // Denser connections within clusters
++    });
++
++    // Connect between clusters to create chokepoints
++    for (let i = 0; i < numClusters; i++) {
++      const nextClusterIndex = (i + 1) % numClusters;
++      const clusterA = clusterCenters[i];
++      const clusterB = clusterCenters[nextClusterIndex];
++
++      let closestPair = { t1: null, t2: null, dist: Infinity };
++      clusterA.territories.forEach(t1 => {
++        clusterB.territories.forEach(t2 => {
++          const dist = Math.hypot(t1.x - t2.x, t1.y - t2.y);
++          if (dist < closestPair.dist) {
++            closestPair = { t1, t2, dist };
++          }
++        });
++      });
++
++      if (closestPair.t1 && closestPair.t2) {
++        closestPair.t1.addNeighbor(closestPair.t2.id);
++        closestPair.t2.addNeighbor(closestPair.t1.id);
++      }
++    }
++  }
++
++  placeTerritory(id, positionFn, spacing) {
++    let x, y, validPosition = false;
++    const maxAttempts = 100;
++    let attempts = 0;
++
++    while (!validPosition && attempts < maxAttempts) {
++      const pos = positionFn();
++      x = pos.x;
++      y = pos.y;
++      validPosition = true;
++      for (const otherId in this.territories) {
++        const other = this.territories[otherId];
++        const dist = Math.hypot(x - other.x, y - other.y);
++        if (dist < other.radius + 15 + spacing) { // 15 is base radius
++          validPosition = false;
++          break;
+         }
+       }
+-    });
++      attempts++;
++    }
++
++    if (validPosition) {
++      const radius = 15 + Math.random() * 10;
++      const territory = new Territory(id, x, y, radius);
++      this.territories[id] = territory;
++      return territory;
++    }
++    return null;
++  }
++
++  connectNearestNeighbors(numConnections) {
++    this.connectTerritoriesByIds(Object.keys(this.territories).map(Number), numConnections);
++  }
++
++  connectTerritoriesByIds(ids, numConnections) {
++    const territoryArray = ids.map(id => this.territories[id]);
++    territoryArray.forEach(t1 => {
++      if (!t1) return;
++      const sortedByDistance = territoryArray
++       .filter(t => t && t.id!== t1.id)
++       .sort((a, b) => Math.hypot(a.x - t1.x, a.y - t1.y) - Math.hypot(b.x - t1.x, b.y - t1.y));
++
++      for (let i = 0; i < numConnections && i < sortedByDistance.length; i++) {
++        const t2 = sortedByDistance[i];
++        if (t2 &&!t1.neighbors.includes(t2.id)) {
++          t1.addNeighbor(t2.id);
++          t2.addNeighbor(t1.id);
++        }
++      }
++    });
++  }
++
++  ensureFullConnectivity() {
++    const allTerritoryIds = new Set(Object.keys(this.territories).map(Number));
++    if (allTerritoryIds.size === 0) return;
++
++    const visited = new Set();
++    const stack =;
++    visited.add(stack);
++
++    while (stack.length > 0) {
++      const currentId = stack.pop();
++      const currentTerritory = this.territories[currentId];
++      currentTerritory.neighbors.forEach(neighborId => {
++        if (!visited.has(neighborId)) {
++          visited.add(neighborId);
++          stack.push(neighborId);
++        }
++      });
++    }
++
++    if (visited.size < allTerritoryIds.size) {
++      const unvisited = new Set(.filter(id =>!visited.has(id)));
++      // Connect the first unvisited territory to the nearest visited one
++      const toConnect = this.territories[unvisited.values().next().value];
++      let closestVisited = null;
++      let minDistance = Infinity;
++
++      visited.forEach(visitedId => {
++        const visitedTerritory = this.territories[visitedId];
++        const dist = Math.hypot(toConnect.x - visitedTerritory.x, toConnect.y - visitedTerritory.y);
++        if (dist < minDistance) {
++          minDistance = dist;
++          closestVisited = visitedTerritory;
++        }
++      });
++
++      if (closestVisited) {
++        toConnect.addNeighbor(closestVisited.id);
++        closestVisited.addNeighbor(toConnect.id);
++        // Recursively call to connect any other disjointed graphs
++        this.ensureFullConnectivity();
++      }
++    }
+   }
+ }
+--- a/client/src/game/TerritorialConquest.js
++++ b/client/src/game/TerritorialConquest.js
+@@ -20,7 +20,8 @@
+     this.config = {
+       playerName: config.playerName |
+
+| 'Player',
+       aiCount: config.aiCount |
+
+| 19,
+-      mapSize: config.mapSize |
+
+| 200
++      mapSize: config.mapSize |
+
+| 200,
++      layoutOptions: config.layoutOptions |
+
+| {}
+     };
+ 
+     this.socket = null;
+@@ -69,7 +70,7 @@
+ 
+   startGame() {
+     this.gameMap = new GameMap(2000, 2000);
+-    this.gameMap.generateTerritories(this.config.mapSize);
++    this.gameMap.generateTerritories(this.config.mapSize, this.config.layoutOptions);
+ 
+     const totalPlayers = 1 + this.config.aiCount;
+     this.createPlayers(Math.min(totalPlayers, this.maxPlayers));
+--- /dev/null
++++ b/client/src/game/gameConstants.js
+@@ -0,0 +1,108 @@
++// This file centralizes all game balance, rendering, and configuration constants.
++// It is shared between the client and server to ensure a single source of truth.
++
++export const GAME_CONSTANTS = {
++    // Game Core
++    DEFAULT_MAP_WIDTH: 2000,
++    DEFAULT_MAP_HEIGHT: 2000,
++    DEFAULT_GAME_TIMER_MINUTES: 10,
++    MAX_TOTAL_PLAYERS: 100,
++    HUMAN_PLAYER_ID_PREFIX: 'human',
++    AI_PLAYER_ID_PREFIX: 'ai',
++
++    // Player & AI Defaults
++    DEFAULT_SINGLE_PLAYER_AI_COUNT: 19,
++    DEFAULT_MULTIPLAYER_AI_COUNT: 90,
++    DEFAULT_MAP_SIZE_TERRITORIES: 200,
++    INITIAL_COLONIZED_ARMY_SIZE: 1,
++    INITIAL_STARTING_ARMY_SIZE: 5,
++
++    // Map Generation
++    MAP_LAYOUT_DEFAULT: 'Clustered',
++    MAP_PLANET_SPACING_DEFAULT: 80,
++    MAP_CLUSTER_COUNT_DEFAULT: 5,
++    MAP_STARLANE_DENSITY_DEFAULT: 2,
++
++    // Probe System
++    PROBE_LAUNCH_COST_FLEET: 10,
++    PROBE_MIN_ARMY_TO_LAUNCH: 11,
++    PROBE_UPDATE_INTERVAL_MS: 50,
++    PROBE_SPEED_UNITS_PER_UPDATE: 1.25,
++
++    // Fleet Transfer
++    MIN_ARMY_TO_LEAVE_AFTER_TRANSFER: 1,
++    TRANSFER_AMOUNT_DIVISOR: 2,
++
++    // Supply Route System
++    SUPPLY_ROUTE_MIN_ARMY_DIFFERENCE: 5,
++    SUPPLY_ROUTE_TRANSFER_DIVISOR: 4,
++    SUPPLY_ROUTE_DELAY_PER_HOP_MS: 2000,
++    SUPPLY_ROUTE_LINE_WIDTH: 2,
++    SUPPLY_ROUTE_ALPHA: 0.8,
++    SUPPLY_ROUTE_DASH_PATTERN: [10, 10],
++    SUPPLY_ROUTE_COLOR: '#00ffff',
++
++    // Combat
++    MIN_ARMY_TO_ATTACK: 2,
++    ARMY_LEFT_AFTER_ATTACK: 1,
++    ATTACK_POWER_BASE_MULTIPLIER: 0.8,
++    ATTACK_POWER_RANDOM_RANGE: 0.4,
++    DEFENSE_POWER_BASE_MULTIPLIER: 0.9,
++    DEFENSE_POWER_RANDOM_RANGE: 0.2,
++    ATTACKER_SURVIVAL_RATE: 0.7,
++    DEFENDER_SURVIVAL_RATE: 0.8,
++
++    // Rendering & UI
++    BACKGROUND_COLOR: '#000011',
++    CONNECTION_LINE_WIDTH: 1,
++    CONNECTION_ALPHA: 0.3,
++    CONNECTION_COLOR: '#444444',
++    OWNED_CONNECTION_LINE_WIDTH: 3,
++    OWNED_CONNECTION_ALPHA: 0.6,
++    DRAG_PREVIEW_LINE_WIDTH: 2,
++    DRAG_PREVIEW_ALPHA: 0.5,
++    DRAG_PREVIEW_DASH_PATTERN: [5, 5],
++    DRAG_PREVIEW_COLOR: '#ffffff',
++    SHIP_ANIMATION_MIN_DURATION_MS: 500,
++    SHIP_ANIMATION_SPEED_MS_PER_PX: 2,
++    SHIP_ANIMATION_DEFAULT_COLOR: '#ffffff',
++    TERRITORY_VISIBILITY_PADDING: 50,
++
++    // Performance Throttling
++    FPS_UPDATE_INTERVAL_MS: 1000,
++    VISIBLE_TERRITORIES_UPDATE_INTERVAL_MS: 100,
++    AI_UPDATE_PLAYERS_PER_FRAME_DIVISOR: 3,
++    SUPPLY_ROUTE_VALIDATION_FRAME_INTERVAL: 30,
++    SUPPLY_ROUTE_PROCESSING_FRAME_INTERVAL: 60,
++
++    // Input & Controls
++    DRAG_THRESHOLD_PIXELS_MOUSE: 5,
++    DRAG_THRESHOLD_PIXELS_TOUCH: 10,
++    DOUBLE_TAP_THRESHOLD_MS: 300,
++    MOUSE_LEFT_BUTTON: 0,
++    KEY_RESTART_GAME:,
++    KEY_TOGGLE_MINIMAP: ['m', 'M'],
++
++    // AI Configuration
++    AI_DECISION_INTERVAL_MS: 1000,
++    AI_DECISION_INTERVAL_JITTER_MS: 500,
++    AI_AGGRESSION_THRESHOLD_TERRITORY_PERCENT: 0.3,
++    AI_CONSOLIDATION_THRESHOLD_TERRITORY_COUNT: 5,
++    AI_ATTACK_STRENGTH_MULTIPLIER: 1.5,
++
++    // Server Specific
++    SERVER_PORT: 5000,
++    CORS_ORIGIN: "*",
++    CORS_METHODS:,
++    ROOM_ID_GENERATION_RADIX: 36,
++    ROOM_ID_GENERATION_SUBSTRING_START: 2,
++    ROOM_ID_GENERATION_SUBSTRING_END: 8,
++    SERVER_TICK_RATE_MS: 1000 / 20, // 20 ticks per second
++};

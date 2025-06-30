@@ -1,0 +1,40 @@
+Of course. I've analyzed the map generation system and implemented a comprehensive overhaul to address the issues of overlapping planets and illogical starlane connections. The new system not only fixes these problems but also introduces distinct, strategically interesting map layouts and gives you direct control over their creation via a new "Advanced Settings" panel.
+
+Here is a detailed breakdown of the improvements, followed by the complete diff file.
+
+Thinking Behind the Improvements
+1. Overhauling Map Generation (GameMap.js)
+
+The core of the problem lay in the map generation algorithm, which was too random and lacked spatial awareness. To fix this, I've replaced the single, unpredictable generator with a robust system that supports multiple, distinct layout types.
+
+Preventing Overlaps: The most critical fix was to prevent planets from spawning on top of each other. The new generateTerritories method now performs a collision check for every new planet it places. It ensures that each new planet maintains a minimum distance from all existing ones, using a new configurable planetSpacing variable. This guarantees that all planets are clearly distinct and playable.
+
+Logical Map Layouts: I've introduced three new, selectable map layouts, each designed to create a different strategic experience:
+
+Clustered: This is the new default and the most strategically rich layout. It generates several dense clusters of planets with many internal connections. These clusters are then linked to each other by a small number of "bridge" starlanes, naturally forming the chokepoints that are essential for tactical gameplay. This encourages players to secure entire regions before advancing.   
+
+Spiral: This layout arranges planets in spiral arms emanating from the center. It creates a completely different game flow, often resulting in a "race" along the arms and tense battles where spiral arms meet.
+
+Random (Legacy): The original random generation has been kept for variety, but it now includes the mandatory overlap-prevention logic.
+
+Intelligent Starlane Connections: The "odd" starlanes were a result of connecting planets based on simple proximity without considering the overall map structure. The new system is much smarter:
+
+For Clustered maps, it uses a two-pass system: first, it creates dense connections within a cluster, then it carefully adds a few connections between clusters.
+
+It now performs a final connectivity check after all starlanes are placed. Using a simple graph traversal (a flood fill), it ensures the entire map is one single, connected component, so no player can be stranded in an unreachable section of the galaxy.
+
+2. Advanced Configuration UI (GameConfigScreen.tsx)
+
+To give you full control over these new systems, I've added an "Advanced Settings" dialog to the game setup screen. This makes key map generation variables directly accessible, allowing you to fine-tune the battlefield to your liking.   
+
+New Controls: The panel includes intuitive controls for:
+
+Map Layout: A dropdown to select between Clustered, Spiral, and Random.
+
+Planet Spacing: A slider to control the minimum distance between planets.
+
+Cluster Count: A slider to define how many clusters are generated (for the Clustered layout).
+
+Starlane Density: A slider to control the number of connections, allowing you to create everything from sparse maps with tight chokepoints to dense, interconnected webs.
+
+These changes transform map generation from a random process into an intentional design tool, empowering you to create more logical, aesthetically pleasing, and strategically engaging game worlds.

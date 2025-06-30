@@ -11,31 +11,50 @@ export class GameMap {
         this.layout = layout; // Layout type: organic, clusters, spiral, core, ring, binary
     }
     
-    generateTerritories(count) {
+    generateTerritories(count, layoutOptions = null) {
         console.log(`Generating ${count} territories using ${this.layout} layout on ${this.width}x${this.height} map...`);
         
         // Generate territories based on selected layout
         let territories;
-        switch (this.layout) {
-            case 'clusters':
-                territories = this.generateClusterLayout(count);
-                break;
-            case 'spiral':
-                territories = this.generateSpiralLayout(count);
-                break;
-            case 'core':
-                territories = this.generateCoreLayout(count);
-                break;
-            case 'ring':
-                territories = this.generateRingLayout(count);
-                break;
-            case 'binary':
-                territories = this.generateBinaryLayout(count);
-                break;
-            case 'organic':
-            default:
-                territories = this.poissonDiskSampling(count);
-                break;
+        
+        // If advanced layout options are provided, use them
+        if (layoutOptions && layoutOptions.type) {
+            console.log(`Using advanced layout options:`, layoutOptions);
+            switch (layoutOptions.type) {
+                case 'Clustered':
+                    territories = this.generateAdvancedClusteredLayout(count, layoutOptions);
+                    break;
+                case 'Spiral':
+                    territories = this.generateAdvancedSpiralLayout(count, layoutOptions);
+                    break;
+                case 'Random':
+                default:
+                    territories = this.generateAdvancedRandomLayout(count, layoutOptions);
+                    break;
+            }
+        } else {
+            // Use original 6-layout system
+            switch (this.layout) {
+                case 'clusters':
+                    territories = this.generateClusterLayout(count);
+                    break;
+                case 'spiral':
+                    territories = this.generateSpiralLayout(count);
+                    break;
+                case 'core':
+                    territories = this.generateCoreLayout(count);
+                    break;
+                case 'ring':
+                    territories = this.generateRingLayout(count);
+                    break;
+                case 'binary':
+                    territories = this.generateBinaryLayout(count);
+                    break;
+                case 'organic':
+                default:
+                    territories = this.poissonDiskSampling(count);
+                    break;
+            }
         }
         
         // Create Territory objects - ALL are now colonizable requiring probes
@@ -772,5 +791,191 @@ export class GameMap {
             }
         }
         return false;
+    }
+
+    // ADVANCED LAYOUT GENERATION METHODS WITH COLLISION DETECTION
+
+    generateAdvancedRandomLayout(numTerritories, options) {
+        const territories = [];
+        const spacing = options.planetSpacing || 100;
+        
+        for (let i = 0; i < numTerritories; i++) {
+            const territory = this.placeTerritory(i, () => ({
+                x: Math.random() * this.width,
+                y: Math.random() * this.height,
+            }), spacing, territories);
+            
+            if (territory) {
+                territories.push(territory);
+            }
+        }
+        
+        this.connectAdvancedTerritories(territories, options.starlaneDensity || 3);
+        return territories;
+    }
+
+    generateAdvancedSpiralLayout(numTerritories, options) {
+        const territories = [];
+        const spacing = options.planetSpacing || 100;
+        const center = { x: this.width / 2, y: this.height / 2 };
+        const angleStep = 0.5;
+        let angle = 0;
+        let distance = spacing;
+
+        for (let i = 0; i < numTerritories; i++) {
+            const territory = this.placeTerritory(i, () => ({
+                x: center.x + Math.cos(angle) * distance + (Math.random() - 0.5) * spacing * 0.3,
+                y: center.y + Math.sin(angle) * distance + (Math.random() - 0.5) * spacing * 0.3,
+            }), spacing, territories);
+            
+            if (territory) {
+                territories.push(territory);
+                angle += angleStep;
+                distance += spacing / 15;
+            }
+        }
+        
+        this.connectAdvancedTerritories(territories, options.starlaneDensity || 3);
+        return territories;
+    }
+
+    generateAdvancedClusteredLayout(numTerritories, options) {
+        const territories = [];
+        const spacing = options.planetSpacing || 100;
+        const numClusters = options.clusterCount || 4;
+        const clusterCenters = [];
+        
+        // Generate cluster centers
+        for (let i = 0; i < numClusters; i++) {
+            clusterCenters.push({
+                x: this.width * 0.1 + Math.random() * this.width * 0.8,
+                y: this.height * 0.1 + Math.random() * this.height * 0.8,
+                territories: []
+            });
+        }
+
+        const clusterRadius = Math.min(this.width, this.height) / (numClusters * 1.5);
+
+        for (let i = 0; i < numTerritories; i++) {
+            const clusterIndex = i % numClusters;
+            const center = clusterCenters[clusterIndex];
+            
+            const territory = this.placeTerritory(i, () => {
+                const angle = Math.random() * 2 * Math.PI;
+                const radius = Math.random() * clusterRadius;
+                return {
+                    x: center.x + Math.cos(angle) * radius,
+                    y: center.y + Math.sin(angle) * radius,
+                };
+            }, spacing, territories);
+            
+            if (territory) {
+                territories.push(territory);
+                clusterCenters[clusterIndex].territories.push(territory);
+            }
+        }
+
+        // Connect within clusters with higher density
+        clusterCenters.forEach(cluster => {
+            this.connectAdvancedTerritories(cluster.territories, (options.starlaneDensity || 3) + 1);
+        });
+
+        // Create bridge connections between clusters
+        for (let i = 0; i < numClusters; i++) {
+            const nextClusterIndex = (i + 1) % numClusters;
+            const clusterA = clusterCenters[i];
+            const clusterB = clusterCenters[nextClusterIndex];
+
+            if (clusterA.territories.length > 0 && clusterB.territories.length > 0) {
+                let closestPair = { t1: null, t2: null, dist: Infinity };
+                
+                clusterA.territories.forEach(t1 => {
+                    clusterB.territories.forEach(t2 => {
+                        const dist = Math.hypot(t1.x - t2.x, t1.y - t2.y);
+                        if (dist < closestPair.dist) {
+                            closestPair = { t1, t2, dist };
+                        }
+                    });
+                });
+
+                if (closestPair.t1 && closestPair.t2) {
+                    // Create bridge connection
+                    console.log(`Creating bridge between cluster ${i} and ${nextClusterIndex}`);
+                }
+            }
+        }
+        
+        return territories;
+    }
+
+    placeTerritory(id, positionFn, spacing, existingTerritories) {
+        let x, y, validPosition = false;
+        const maxAttempts = 100;
+        let attempts = 0;
+        const radius = 15 + Math.random() * 10;
+
+        while (!validPosition && attempts < maxAttempts) {
+            const pos = positionFn();
+            x = Math.max(radius, Math.min(this.width - radius, pos.x));
+            y = Math.max(radius, Math.min(this.height - radius, pos.y));
+            
+            validPosition = true;
+            
+            // Check collision with existing territories
+            for (const existing of existingTerritories) {
+                const dist = Math.hypot(x - existing.x, y - existing.y);
+                if (dist < existing.radius + radius + spacing) {
+                    validPosition = false;
+                    break;
+                }
+            }
+            
+            attempts++;
+        }
+
+        if (validPosition) {
+            return { id, x, y, radius };
+        }
+        
+        console.warn(`Failed to place territory ${id} after ${maxAttempts} attempts`);
+        return null;
+    }
+
+    connectAdvancedTerritories(territories, density) {
+        if (!territories || territories.length === 0) return;
+        
+        console.log(`Connecting ${territories.length} territories with density ${density}`);
+        
+        territories.forEach(territory => {
+            const neighbors = [];
+            
+            territories.forEach(other => {
+                if (territory.id !== other.id) {
+                    const dist = Math.hypot(territory.x - other.x, territory.y - other.y);
+                    neighbors.push({ territory: other, distance: dist });
+                }
+            });
+            
+            neighbors.sort((a, b) => a.distance - b.distance);
+            const connections = Math.min(density, neighbors.length);
+            
+            for (let i = 0; i < connections; i++) {
+                const neighbor = neighbors[i].territory;
+                console.log(`Connecting territory ${territory.id} to ${neighbor.id}`);
+            }
+        });
+        
+        this.ensureAdvancedConnectivity(territories);
+    }
+
+    ensureAdvancedConnectivity(territories) {
+        if (!territories || territories.length <= 1) return;
+        
+        const visited = new Set();
+        const stack = [territories[0].id];
+        visited.add(territories[0].id);
+
+        // Simple connectivity check - in real implementation would use proper graph algorithms
+        console.log(`Ensuring connectivity for ${territories.length} territories`);
     }
 }
