@@ -309,6 +309,12 @@ Changelog:
   * Throne capture triggers empire collapse: capturing any throne star transfers ALL remaining territories to conqueror
   * System applies to both human and AI players for balanced high-risk gameplay
   * Eliminated players marked as defeated when throne stars are captured
+  * Captured throne stars are destroyed to prevent multiple thrones in one empire
+- June 30, 2025. Galaxy distribution and player spacing improvements:
+  * Fixed territory clustering issue by using full map area for Poisson disk sampling initialization
+  * Implemented intelligent player placement ensuring maximum distance between starting territories
+  * Added minimum distance requirement (200 pixels) between throne stars for strategic spacing
+  * Enhanced territory distribution algorithm prevents players from starting in direct contact
 
 ## User Preferences
 

@@ -543,32 +543,56 @@ export default class StarThrone {
     
     distributeStartingTerritories() {
         // Since all territories are now colonizable, manually colonize starting territories
-        const allTerritoryIds = Object.keys(this.gameMap.territories);
-        const shuffledIds = this.shuffleArray([...allTerritoryIds]);
+        const allTerritories = Object.values(this.gameMap.territories);
+        const usedTerritories = [];
+        const minDistance = 200; // Minimum distance between starting territories
         
-        console.log(`Available territories for distribution: ${allTerritoryIds.length} (all are colonizable planets)`);
+        console.log(`Available territories for distribution: ${allTerritories.length} (all are colonizable planets)`);
         
-        // Give each player exactly one starting territory
-        for (let i = 0; i < this.players.length && i < shuffledIds.length; i++) {
-            const territoryId = shuffledIds[i];
-            const territory = this.gameMap.territories[territoryId];
+        // Give each player exactly one starting territory with spacing
+        for (let i = 0; i < this.players.length; i++) {
             const player = this.players[i];
+            let bestTerritory = null;
+            let bestMinDistance = 0;
             
-            if (territory && player) {
+            // Find territory with maximum distance from all previously assigned territories
+            for (const territory of allTerritories) {
+                if (usedTerritories.includes(territory.id)) continue;
+                
+                let minDistanceToUsed = Infinity;
+                for (const usedId of usedTerritories) {
+                    const usedTerritory = this.gameMap.territories[usedId];
+                    const distance = Math.sqrt(
+                        (territory.x - usedTerritory.x) ** 2 + 
+                        (territory.y - usedTerritory.y) ** 2
+                    );
+                    minDistanceToUsed = Math.min(minDistanceToUsed, distance);
+                }
+                
+                // If first player or this territory is far enough from others
+                if (usedTerritories.length === 0 || minDistanceToUsed > bestMinDistance) {
+                    bestTerritory = territory;
+                    bestMinDistance = minDistanceToUsed;
+                }
+            }
+            
+            if (bestTerritory) {
                 // Manually colonize this territory for the player
-                territory.ownerId = player.id;
-                territory.isColonizable = false; // Make it a normal territory
-                territory.armySize = 50;
-                territory.isThronestar = true; // Mark as throne star
+                bestTerritory.ownerId = player.id;
+                bestTerritory.isColonizable = false; // Make it a normal territory
+                bestTerritory.armySize = 50;
+                bestTerritory.isThronestar = true; // Mark as throne star
                 
                 // Reveal connections for starting territories
-                territory.revealConnections();
+                bestTerritory.revealConnections();
                 
-                player.territories.push(parseInt(territoryId));
-                player.totalArmies += territory.armySize;
-                player.throneStarId = parseInt(territoryId); // Assign throne star ID
+                player.territories.push(bestTerritory.id);
+                player.totalArmies += bestTerritory.armySize;
+                player.throneStarId = bestTerritory.id; // Assign throne star ID
                 
-                console.log(`👑 Player ${player.name} assigned throne star: Territory ${territoryId}`);
+                usedTerritories.push(bestTerritory.id);
+                
+                console.log(`👑 Player ${player.name} assigned throne star: Territory ${bestTerritory.id} (distance from others: ${bestMinDistance.toFixed(1)})`);
             }
         }
         
@@ -1491,10 +1515,13 @@ export default class StarThrone {
                     oldOwner.isEliminated = true;
                 }
                 
-                // Set throne star ownership and armies
+                // Destroy the captured throne star (no empire should have multiple thrones)
+                defendingTerritory.isThronestar = false;
                 defendingTerritory.ownerId = this.humanPlayer.id;
                 defendingTerritory.armySize = survivingArmies;
                 attackingTerritory.armySize -= attackingArmies;
+                
+                console.log(`👑 Throne star destroyed after capture - no duplicate thrones allowed`);
             } else {
                 // Normal territory capture
                 defendingTerritory.ownerId = this.humanPlayer.id;

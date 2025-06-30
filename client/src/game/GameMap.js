@@ -83,97 +83,58 @@ export class GameMap {
     
     poissonDiskSampling(numSamples) {
         const points = [];
-        const cellSize = this.gridSize / Math.sqrt(2);
-        const gridWidth = Math.ceil(this.width / cellSize);
-        const gridHeight = Math.ceil(this.height / cellSize);
-        const grid = new Array(gridWidth * gridHeight).fill(null);
-        const activeList = [];
+        const margin = 50;
+        const attempts = numSamples * 100; // Maximum attempts to place points
         
-        // Helper function to get grid index
-        const getGridIndex = (x, y) => {
-            const i = Math.floor(x / cellSize);
-            const j = Math.floor(y / cellSize);
-            return j * gridWidth + i;
-        };
-        
-        // Helper function to check if a point is valid
+        // Helper function to check if a point is valid (minimum distance from existing points)
         const isValidPoint = (x, y) => {
-            // More natural boundaries - allow points closer to edges for organic scattering
-            const margin = 20;
             if (x < margin || x >= this.width - margin || y < margin || y >= this.height - margin) return false;
             
-            const gridIndex = getGridIndex(x, y);
-            const gridX = gridIndex % gridWidth;
-            const gridY = Math.floor(gridIndex / gridWidth);
-            
-            // Check neighboring grid cells
-            for (let dy = -2; dy <= 2; dy++) {
-                for (let dx = -2; dx <= 2; dx++) {
-                    const nx = gridX + dx;
-                    const ny = gridY + dy;
-                    
-                    if (nx >= 0 && nx < gridWidth && ny >= 0 && ny < gridHeight) {
-                        const neighborIndex = ny * gridWidth + nx;
-                        const neighbor = grid[neighborIndex];
-                        
-                        if (neighbor) {
-                            const dist = Math.sqrt((x - neighbor.x) ** 2 + (y - neighbor.y) ** 2);
-                            if (dist < this.gridSize) return false;
-                        }
-                    }
-                }
+            for (const point of points) {
+                const dist = Math.sqrt((x - point.x) ** 2 + (y - point.y) ** 2);
+                if (dist < this.gridSize) return false;
             }
-            
             return true;
         };
         
-        // Generate initial point - more scattered placement
-        const initialX = this.width * 0.2 + Math.random() * this.width * 0.6;
-        const initialY = this.height * 0.2 + Math.random() * this.height * 0.6;
-        const initialPoint = { x: initialX, y: initialY };
+        // Strategy 1: Grid-based placement with randomization for even distribution
+        const rows = Math.ceil(Math.sqrt(numSamples * (this.height / this.width)));
+        const cols = Math.ceil(numSamples / rows);
+        const cellWidth = (this.width - 2 * margin) / cols;
+        const cellHeight = (this.height - 2 * margin) / rows;
         
-        points.push(initialPoint);
-        activeList.push(initialPoint);
-        grid[getGridIndex(initialX, initialY)] = initialPoint;
-        
-        // Generate points using Poisson disk sampling
-        while (activeList.length > 0 && points.length < numSamples) {
-            const randomIndex = Math.floor(Math.random() * activeList.length);
-            const point = activeList[randomIndex];
-            let found = false;
-            
-            // Try to generate a new point around the selected point
-            for (let tries = 0; tries < 30; tries++) {
-                const angle = Math.random() * 2 * Math.PI;
-                const distance = this.gridSize + Math.random() * this.gridSize;
-                const newX = point.x + Math.cos(angle) * distance;
-                const newY = point.y + Math.sin(angle) * distance;
+        // Place one point per grid cell with random offset
+        for (let row = 0; row < rows && points.length < numSamples; row++) {
+            for (let col = 0; col < cols && points.length < numSamples; col++) {
+                const baseX = margin + col * cellWidth + cellWidth * 0.2;
+                const baseY = margin + row * cellHeight + cellHeight * 0.2;
                 
-                if (isValidPoint(newX, newY)) {
-                    const newPoint = { x: newX, y: newY };
-                    points.push(newPoint);
-                    activeList.push(newPoint);
-                    grid[getGridIndex(newX, newY)] = newPoint;
-                    found = true;
-                    break;
+                // Add randomization within cell bounds
+                const offsetX = Math.random() * cellWidth * 0.6;
+                const offsetY = Math.random() * cellHeight * 0.6;
+                
+                const x = baseX + offsetX;
+                const y = baseY + offsetY;
+                
+                if (isValidPoint(x, y)) {
+                    points.push({ x, y });
                 }
-            }
-            
-            if (!found) {
-                activeList.splice(randomIndex, 1);
             }
         }
         
-        // If we need more points, fill in with random placement
-        while (points.length < numSamples) {
-            const x = 50 + Math.random() * (this.width - 100);
-            const y = 50 + Math.random() * (this.height - 100);
+        // Strategy 2: Fill remaining with truly random placement
+        let attemptCount = 0;
+        while (points.length < numSamples && attemptCount < attempts) {
+            const x = margin + Math.random() * (this.width - 2 * margin);
+            const y = margin + Math.random() * (this.height - 2 * margin);
             
             if (isValidPoint(x, y)) {
                 points.push({ x, y });
             }
+            attemptCount++;
         }
         
+        console.log(`Generated ${points.length} territories distributed across ${this.width}x${this.height} map`);
         return points.slice(0, numSamples);
     }
     

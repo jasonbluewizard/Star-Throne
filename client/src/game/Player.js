@@ -283,10 +283,13 @@ export class Player {
                 oldOwner.isEliminated = true;
                 this.territoriesConquered += territoriesToTransfer.length;
                 
-                // Set throne star ownership
+                // Destroy the captured throne star (no empire should have multiple thrones)
+                defendingTerritory.isThronestar = false;
                 defendingTerritory.ownerId = this.id;
                 defendingTerritory.armySize = survivingArmies;
                 attackingTerritory.armySize -= attackingArmies;
+                
+                console.log(`👑 Throne star destroyed after capture - no duplicate thrones allowed`);
             } else {
                 // Normal territory capture
                 defendingTerritory.ownerId = this.id;
