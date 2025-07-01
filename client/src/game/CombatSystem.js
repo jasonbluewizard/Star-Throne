@@ -207,6 +207,40 @@ export class CombatSystem {
             toTerritory.strokeColor = player.color;
         }
         
+        // Check for throne star capture - triggers empire collapse
+        if (toTerritory.isThronestar && defendingPlayer) {
+            console.log(`👑 THRONE STAR CAPTURED! ${attackingPlayer.name} conquers ${defendingPlayer.name}'s empire!`);
+            
+            // Transfer ALL remaining territories from defender to attacker
+            const defendingTerritories = [...defendingPlayer.territories];
+            for (const territoryId of defendingTerritories) {
+                const territory = this.game.gameMap.territories[territoryId];
+                if (territory && territory.id !== toTerritory.id) { // Skip the already captured throne
+                    // Remove from defender
+                    const defenderIndex = defendingPlayer.territories.indexOf(territoryId);
+                    if (defenderIndex > -1) {
+                        defendingPlayer.territories.splice(defenderIndex, 1);
+                    }
+                    
+                    // Transfer to attacker
+                    territory.ownerId = attackingPlayer.id;
+                    territory.baseColor = attackingPlayer.color;
+                    territory.strokeColor = attackingPlayer.color;
+                    attackingPlayer.territories.push(territoryId);
+                    
+                    console.log(`Territory ${territoryId} transferred to ${attackingPlayer.name}`);
+                }
+            }
+            
+            // Mark defender as eliminated
+            defendingPlayer.isEliminated = true;
+            console.log(`${defendingPlayer.name} has been eliminated!`);
+            
+            // Destroy the captured throne star to prevent multiple thrones
+            toTerritory.isThronestar = false;
+            console.log(`Throne star ${toTerritory.id} destroyed`);
+        }
+        
         // Create ship animation
         this.game.createShipAnimation(fromTerritory, toTerritory, attackingPlayer.color, 1000);
     }

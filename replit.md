@@ -410,6 +410,13 @@ Changelog:
   * Centralized input management with FSM integration for cleaner code organization
   * Resolved rendering issues restoring starfield, territories, and fleet number displays
   * Enhanced code maintainability with separated concerns and reduced technical debt
+- January 2, 2025. Enhanced probe system and throne star fixes:
+  * Added comprehensive probe announcement system in discovery panel with color-coded results
+  * Implemented explosion animations for failed probes with expanding ring effects
+  * Fixed critical throne star capture bug - now properly triggers empire collapse and territory transfer
+  * Per-player discovery tracking ensures empire bonuses display only player's advances
+  * Removed manual zoom buttons for cleaner interface (mousewheel zoom retained)
+  * Factory icons now appear on planets with Precursor Factory Complex discoveries
 - January 1, 2025. Planet density optimization and improved tooltips:
   * Reduced territory density: increased grid spacing from 80px to 150px for less crowded maps
   * Lowered default map size from 200 to 80 territories for better spacing

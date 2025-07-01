@@ -91,6 +91,11 @@ export default class StarThrone {
         this.dragEnd = null;
         this.isDraggingForSupplyRoute = false;
         
+        // Background image system
+        this.backgroundImage = null;
+        this.backgroundLoaded = false;
+        this.backgroundScale = 1.0;
+        
         // Parallax starfield system
         this.starfield = {
             farStars: [],      // Slowest moving, smallest stars
@@ -119,6 +124,59 @@ export default class StarThrone {
         this.messageTimer = 0;
         
         this.init();
+        this.loadBackgroundImage();
+    }
+    
+    loadBackgroundImage() {
+        // Load the background galaxy image
+        this.backgroundImage = new Image();
+        this.backgroundImage.onload = () => {
+            this.backgroundLoaded = true;
+            console.log('Background galaxy image loaded');
+        };
+        this.backgroundImage.onerror = () => {
+            console.log('Background image failed to load, using default starfield');
+            this.backgroundLoaded = false;
+        };
+        // Set the image path - user should upload the image to client/public/
+        this.backgroundImage.src = '/attached_assets/AdobeStock_855418753_1751386108440.jpeg';
+    }
+    
+    renderBackgroundImage() {
+        if (!this.backgroundImage || !this.backgroundLoaded) return;
+        
+        this.ctx.save();
+        
+        // Calculate parallax offset (background moves slower than camera)
+        const parallaxFactor = 0.2; // Background moves at 20% of camera speed
+        const offsetX = -this.camera.x * parallaxFactor;
+        const offsetY = -this.camera.y * parallaxFactor;
+        
+        // Calculate scale to ensure image covers the entire viewport
+        const imageAspect = this.backgroundImage.width / this.backgroundImage.height;
+        const canvasAspect = this.canvas.width / this.canvas.height;
+        
+        let drawWidth, drawHeight;
+        if (imageAspect > canvasAspect) {
+            // Image is wider - fit to height
+            drawHeight = this.canvas.height * 1.5; // Scale up for parallax coverage
+            drawWidth = drawHeight * imageAspect;
+        } else {
+            // Image is taller - fit to width
+            drawWidth = this.canvas.width * 1.5; // Scale up for parallax coverage
+            drawHeight = drawWidth / imageAspect;
+        }
+        
+        // Center the image with parallax offset
+        const drawX = (this.canvas.width - drawWidth) / 2 + offsetX;
+        const drawY = (this.canvas.height - drawHeight) / 2 + offsetY;
+        
+        // Draw the background image
+        this.ctx.globalAlpha = 0.8; // Slightly transparent for layering effect
+        this.ctx.drawImage(this.backgroundImage, drawX, drawY, drawWidth, drawHeight);
+        this.ctx.globalAlpha = 1.0;
+        
+        this.ctx.restore();
     }
     
     // Add notification to display queue
@@ -1793,9 +1851,14 @@ export default class StarThrone {
     render() {
         const startTime = performance.now();
         
-        // Clear canvas with background color
-        this.ctx.fillStyle = '#0a0a1a';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        // Render background image with parallax if loaded
+        if (this.backgroundLoaded && this.backgroundImage) {
+            this.renderBackgroundImage();
+        } else {
+            // Clear canvas with dark space background color
+            this.ctx.fillStyle = '#0a0a1a';
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        }
         
         // Apply camera transformations
         this.ctx.save();
