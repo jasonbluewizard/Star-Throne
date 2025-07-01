@@ -2059,6 +2059,7 @@ export default class StarThrone {
         if (clickedTerritory.isColonizable && this.selectedTerritory && 
             this.selectedTerritory.ownerId === this.humanPlayer.id) {
             
+            console.log(`Attempting to probe: from territory ${this.selectedTerritory.id} (armies: ${this.selectedTerritory.armySize}) to planet ${clickedTerritory.id}`);
             this.launchProbe(this.selectedTerritory, clickedTerritory);
             this.selectedTerritory = null;
             return;
