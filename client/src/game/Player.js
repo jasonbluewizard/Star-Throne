@@ -258,6 +258,9 @@ export class Player {
             gameMap.game.createShipAnimation(attackingTerritory, defendingTerritory, true);
         }
         
+        // Store original owner ID first for debugging
+        const oldOwnerId = defendingTerritory.ownerId;
+        
         // Enhanced logging for throne star attacks
         if (defendingTerritory.isThronestar || Math.random() < 0.05) {
             console.log(`AI ${this.name} attacking territory ${defendingTerritory.id} from ${attackingTerritory.id}${defendingTerritory.isThronestar ? ' (👑 THRONE STAR!)' : ''}`);
@@ -276,8 +279,6 @@ export class Player {
         // Battle calculation
         const attackPower = attackingArmies * (0.8 + Math.random() * 0.4);
         const defensePower = defendingArmies * (1.0 + Math.random() * 0.2);
-        
-        const oldOwnerId = defendingTerritory.ownerId;
         
         if (attackPower > defensePower) {
             // Attack successful
