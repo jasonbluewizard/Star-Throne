@@ -962,35 +962,97 @@ export default class StarThrone {
     }
     
     renderArmies() {
-        // Optimized army rendering with visibility culling and batch operations
+        // Dynamic Level of Detail based on camera zoom level
+        const zoomLevel = this.camera.getZoomLevel();
+        const currentZoom = this.camera.zoom;
+        
         this.ctx.save();
-        this.ctx.font = 'bold 14px Arial';
-        this.ctx.textAlign = 'center';
         
         const territories = this.visibleTerritories || Object.values(this.gameMap.territories);
         const playersLookup = {}; // Cache player lookups
         
-        for (let i = 0; i < territories.length; i++) {
-            const territory = territories[i];
-            if (territory.ownerId !== null && territory.armySize > 0) {
-                // Use cached player lookup
-                let owner = playersLookup[territory.ownerId];
-                if (!owner) {
-                    owner = this.players[territory.ownerId];
-                    if (owner) playersLookup[territory.ownerId] = owner;
+        // Strategic View (zoomed out) - Show simplified information
+        if (zoomLevel === 'strategic') {
+            this.ctx.font = 'bold 12px Arial';
+            this.ctx.textAlign = 'center';
+            
+            for (let i = 0; i < territories.length; i++) {
+                const territory = territories[i];
+                if (territory.ownerId !== null) {
+                    // Use cached player lookup
+                    let owner = playersLookup[territory.ownerId];
+                    if (!owner) {
+                        owner = this.players[territory.ownerId];
+                        if (owner) playersLookup[territory.ownerId] = owner;
+                    }
+                    
+                    if (owner && territory.armySize >= 10) { // Only show significant fleets
+                        const armyText = territory.armySize >= 100 ? `${Math.floor(territory.armySize / 10)}0+` : territory.armySize.toString();
+                        
+                        // Simplified text rendering for performance
+                        this.ctx.fillStyle = '#ffffff';
+                        this.ctx.fillText(armyText, territory.x, territory.y + 3);
+                    }
                 }
-                
-                if (owner) {
-                    const armyText = territory.armySize.toString();
+            }
+        }
+        // Operational View (mid zoom) - Show fleet counts as icons
+        else if (zoomLevel === 'operational') {
+            this.ctx.font = 'bold 13px Arial';
+            this.ctx.textAlign = 'center';
+            
+            for (let i = 0; i < territories.length; i++) {
+                const territory = territories[i];
+                if (territory.ownerId !== null && territory.armySize > 0) {
+                    // Use cached player lookup
+                    let owner = playersLookup[territory.ownerId];
+                    if (!owner) {
+                        owner = this.players[territory.ownerId];
+                        if (owner) playersLookup[territory.ownerId] = owner;
+                    }
                     
-                    // Draw white outline for contrast
-                    this.ctx.strokeStyle = '#ffffff';
-                    this.ctx.lineWidth = 3;
-                    this.ctx.strokeText(armyText, territory.x, territory.y + 5);
+                    if (owner) {
+                        const armyText = territory.armySize.toString();
+                        
+                        // White outline for readability
+                        this.ctx.strokeStyle = '#ffffff';
+                        this.ctx.lineWidth = 2;
+                        this.ctx.strokeText(armyText, territory.x, territory.y + 4);
+                        
+                        // Color-coded text based on owner
+                        this.ctx.fillStyle = owner.id === this.humanPlayer?.id ? '#000000' : '#333333';
+                        this.ctx.fillText(armyText, territory.x, territory.y + 4);
+                    }
+                }
+            }
+        }
+        // Tactical View (zoomed in) - Show full detail
+        else {
+            this.ctx.font = 'bold 14px Arial';
+            this.ctx.textAlign = 'center';
+            
+            for (let i = 0; i < territories.length; i++) {
+                const territory = territories[i];
+                if (territory.ownerId !== null && territory.armySize > 0) {
+                    // Use cached player lookup
+                    let owner = playersLookup[territory.ownerId];
+                    if (!owner) {
+                        owner = this.players[territory.ownerId];
+                        if (owner) playersLookup[territory.ownerId] = owner;
+                    }
                     
-                    // Draw main black text
-                    this.ctx.fillStyle = '#000000';
-                    this.ctx.fillText(armyText, territory.x, territory.y + 5);
+                    if (owner) {
+                        const armyText = territory.armySize.toString();
+                        
+                        // High-contrast text with thick outline
+                        this.ctx.strokeStyle = '#ffffff';
+                        this.ctx.lineWidth = 3;
+                        this.ctx.strokeText(armyText, territory.x, territory.y + 5);
+                        
+                        // Main black text
+                        this.ctx.fillStyle = '#000000';
+                        this.ctx.fillText(armyText, territory.x, territory.y + 5);
+                    }
                 }
             }
         }
@@ -1890,6 +1952,29 @@ export default class StarThrone {
             case 'P':
                 this.showPerformancePanel = !this.showPerformancePanel;
                 console.log('Performance panel toggled with P key:', this.showPerformancePanel ? 'shown' : 'hidden');
+                break;
+            case ' ':
+                // Spacebar - Focus on Selected Territory
+                if (this.selectedTerritory) {
+                    this.camera.focusOnTerritory(this.selectedTerritory);
+                    console.log('Focused camera on selected territory');
+                } else if (this.humanPlayer && this.humanPlayer.territories.length > 0) {
+                    // Focus on first owned territory if none selected
+                    const firstTerritory = this.gameMap.territories[this.humanPlayer.territories[0]];
+                    if (firstTerritory) {
+                        this.camera.focusOnTerritory(firstTerritory);
+                        console.log('Focused camera on first owned territory');
+                    }
+                }
+                break;
+            case 'h':
+            case 'H':
+                // H key - Frame all human player territories
+                if (this.humanPlayer && this.humanPlayer.territories.length > 0) {
+                    const playerTerritories = this.humanPlayer.territories.map(id => this.gameMap.territories[id]);
+                    this.camera.frameRegion(playerTerritories);
+                    console.log('Framed all player territories');
+                }
                 break;
         }
     }
