@@ -171,9 +171,15 @@ export default class StarThrone {
         const drawX = (this.canvas.width - drawWidth) / 2 + offsetX;
         const drawY = (this.canvas.height - drawHeight) / 2 + offsetY;
         
-        // Draw the background image
-        this.ctx.globalAlpha = 0.8; // Slightly transparent for layering effect
+        // Draw the background image with low opacity
+        this.ctx.globalAlpha = 0.3; // Much more transparent for subtle background effect
         this.ctx.drawImage(this.backgroundImage, drawX, drawY, drawWidth, drawHeight);
+        
+        // Add dark overlay to further dim the background
+        this.ctx.globalAlpha = 0.4;
+        this.ctx.fillStyle = '#000000';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
         this.ctx.globalAlpha = 1.0;
         
         this.ctx.restore();
