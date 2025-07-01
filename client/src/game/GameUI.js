@@ -534,6 +534,81 @@ export class GameUI {
         this.renderTextWithShadow(ctx, '▼', startX + size - 5, startY - 5, this.textColor);
     }
     
+    renderTooltip(ctx, gameData) {
+        if (!gameData.hoveredTerritory || !gameData.mousePos) return;
+        
+        const territory = gameData.hoveredTerritory;
+        const mouseX = gameData.mousePos.x;
+        const mouseY = gameData.mousePos.y;
+        
+        // Get territory information
+        let ownerName = 'Neutral';
+        let territoryColor = '#666666';
+        
+        if (territory.ownerId !== null && gameData.players[territory.ownerId]) {
+            const owner = gameData.players[territory.ownerId];
+            ownerName = owner.name;
+            territoryColor = owner.color;
+        }
+        
+        // Prepare tooltip text
+        let tooltipLines = [];
+        if (territory.isColonizable) {
+            tooltipLines.push(`Unexplored System`);
+            tooltipLines.push(`Click to probe`);
+        } else {
+            tooltipLines.push(`${ownerName}`);
+            tooltipLines.push(`${territory.armySize} Fleets`);
+            
+            if (territory.isThronestar) {
+                tooltipLines.push(`👑 Throne Star`);
+            }
+        }
+        
+        // Tooltip dimensions
+        const padding = 8;
+        const lineHeight = 16;
+        const fontSize = 12;
+        ctx.font = `${fontSize}px Arial`;
+        
+        const maxWidth = Math.max(...tooltipLines.map(line => ctx.measureText(line).width));
+        const tooltipWidth = maxWidth + padding * 2;
+        const tooltipHeight = tooltipLines.length * lineHeight + padding * 2;
+        
+        // Position tooltip near mouse but keep it on screen
+        let tooltipX = mouseX + 15;
+        let tooltipY = mouseY - tooltipHeight - 10;
+        
+        if (tooltipX + tooltipWidth > this.canvas.width) {
+            tooltipX = mouseX - tooltipWidth - 15;
+        }
+        if (tooltipY < 0) {
+            tooltipY = mouseY + 15;
+        }
+        
+        // Draw tooltip background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+        ctx.fillRect(tooltipX, tooltipY, tooltipWidth, tooltipHeight);
+        
+        // Draw tooltip border
+        ctx.strokeStyle = territoryColor;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(tooltipX, tooltipY, tooltipWidth, tooltipHeight);
+        
+        // Draw tooltip text
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `${fontSize}px Arial`;
+        ctx.textAlign = 'left';
+        
+        tooltipLines.forEach((line, index) => {
+            ctx.fillText(
+                line,
+                tooltipX + padding,
+                tooltipY + padding + (index + 1) * lineHeight - 4
+            );
+        });
+    }
+    
     renderZoomControls(ctx, gameData) {
         const buttonSize = 50;
         const margin = 20;

@@ -1001,6 +1001,8 @@ export default class StarThrone {
                 players: this.players,
                 humanPlayer: this.humanPlayer,
                 selectedTerritory: this.selectedTerritory,
+                hoveredTerritory: this.hoveredTerritory,
+                mousePos: this.mousePos,
                 fps: this.fps,
                 currentPlayers: this.currentPlayers,
                 maxPlayers: this.maxPlayers,
