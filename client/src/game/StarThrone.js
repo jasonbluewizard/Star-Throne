@@ -1073,6 +1073,7 @@ export default class StarThrone {
         this.renderSupplyRoutes();
         this.renderDragPreview();
         this.renderProportionalDragUI();
+        this.renderTransferPreview();
         this.renderShipAnimations();
         this.renderProbes();
         this.renderArmies();
@@ -1421,6 +1422,85 @@ export default class StarThrone {
             this.ctx.stroke();
             this.ctx.setLineDash([]);
         }
+        
+        this.ctx.restore();
+    }
+    
+    renderTransferPreview() {
+        // Show fleet allocation preview when hovering over targets during selection
+        if (!this.selectedTerritory || !this.hoveredTerritory || 
+            this.selectedTerritory.id === this.hoveredTerritory.id ||
+            this.selectedTerritory.ownerId !== this.humanPlayer?.id ||
+            this.isProportionalDrag) { // Don't show during proportional drag
+            return;
+        }
+        
+        const from = this.selectedTerritory;
+        const to = this.hoveredTerritory;
+        
+        // Only show preview for valid targets (neighbors or colonizable)
+        const isValidTarget = from.neighbors.includes(to.id) || to.isColonizable;
+        if (!isValidTarget) return;
+        
+        // Determine transfer percentage based on target type
+        let transferPercentage = 0.5; // Default 50%
+        if (to.ownerId === this.humanPlayer?.id) {
+            transferPercentage = 0.5; // Transfer to own territory
+        } else if (to.isColonizable) {
+            transferPercentage = Math.min(1.0, 10 / from.armySize); // Probe cost (10 ships or all if less)
+        } else {
+            transferPercentage = 0.75; // Attack enemy territory
+        }
+        
+        // Calculate amounts
+        const availableShips = Math.max(0, from.armySize - 1);
+        const shipsToSend = Math.min(availableShips, Math.max(1, Math.floor(from.armySize * transferPercentage)));
+        const remaining = from.armySize - shipsToSend;
+        
+        // Convert to screen coordinates for UI display
+        const screenPos = this.camera.worldToScreen(to.x, to.y);
+        
+        this.ctx.save();
+        
+        // Background for readability
+        const padding = 8;
+        const lineHeight = 16;
+        this.ctx.font = 'bold 12px Arial';
+        this.ctx.textAlign = 'left';
+        
+        const sendText = `Send: ${shipsToSend}`;
+        const keepText = `Keep: ${remaining}`;
+        const maxWidth = Math.max(this.ctx.measureText(sendText).width, this.ctx.measureText(keepText).width);
+        
+        const bgX = screenPos.x + 20;
+        const bgY = screenPos.y - 25;
+        const bgWidth = maxWidth + padding * 2;
+        const bgHeight = lineHeight * 2 + padding;
+        
+        // Background
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        this.ctx.fillRect(bgX, bgY, bgWidth, bgHeight);
+        
+        // Border with action-specific color
+        let borderColor = '#ffffff';
+        if (to.ownerId === this.humanPlayer?.id) {
+            borderColor = '#00ff00'; // Green for transfer
+        } else if (to.isColonizable) {
+            borderColor = '#ffff00'; // Yellow for probe
+        } else {
+            borderColor = '#ff4444'; // Red for attack
+        }
+        
+        this.ctx.strokeStyle = borderColor;
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeRect(bgX, bgY, bgWidth, bgHeight);
+        
+        // Text
+        this.ctx.fillStyle = '#00ff00'; // Green for send
+        this.ctx.fillText(sendText, bgX + padding, bgY + lineHeight);
+        
+        this.ctx.fillStyle = '#ffffff'; // White for keep
+        this.ctx.fillText(keepText, bgX + padding, bgY + lineHeight * 2);
         
         this.ctx.restore();
     }
