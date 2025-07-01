@@ -772,9 +772,11 @@ export default class StarThrone {
         this.renderConnections();
         this.renderSupplyRoutes();
         this.renderDragPreview();
+        this.renderProportionalDragUI();
         this.renderShipAnimations();
         this.renderProbes();
         this.renderArmies();
+        this.renderFloatingTexts();
         
         // Restore context
         this.ctx.restore();
@@ -970,6 +972,121 @@ export default class StarThrone {
             
             this.ctx.restore();
         }
+    }
+    
+    renderProportionalDragUI() {
+        if (!this.isProportionalDrag || !this.proportionalDragStart) return;
+        
+        this.ctx.save();
+        
+        const territory = this.proportionalDragStart.territory;
+        const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+        const targetTerritory = this.findTerritoryAt(worldPos.x, worldPos.y);
+        
+        // Draw radial percentage indicator around source territory
+        const radius = territory.radius + 15;
+        const percentage = this.fleetPercentage;
+        
+        // Background circle
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        this.ctx.lineWidth = 8;
+        this.ctx.beginPath();
+        this.ctx.arc(territory.x, territory.y, radius, 0, Math.PI * 2);
+        this.ctx.stroke();
+        
+        // Percentage arc
+        const startAngle = -Math.PI / 2;
+        const endAngle = startAngle + (percentage * Math.PI * 2);
+        
+        // Color based on percentage
+        let color = '#44ff44'; // Green for low
+        if (percentage > 0.7) color = '#ff4444'; // Red for high
+        else if (percentage > 0.4) color = '#ffaa00'; // Orange for medium
+        
+        this.ctx.strokeStyle = color;
+        this.ctx.lineWidth = 6;
+        this.ctx.beginPath();
+        this.ctx.arc(territory.x, territory.y, radius, startAngle, endAngle);
+        this.ctx.stroke();
+        
+        // Calculate ships to send
+        const availableShips = Math.max(0, territory.armySize - 1);
+        const shipsToSend = Math.max(1, Math.floor(availableShips * percentage));
+        const remaining = territory.armySize - shipsToSend;
+        
+        // Display text
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.font = 'bold 12px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.strokeStyle = '#000000';
+        this.ctx.lineWidth = 2;
+        
+        // Sending text
+        const sendText = `Send: ${shipsToSend}`;
+        this.ctx.strokeText(sendText, territory.x, territory.y - 8);
+        this.ctx.fillText(sendText, territory.x, territory.y - 8);
+        
+        // Remaining text
+        const remainText = `Keep: ${remaining}`;
+        this.ctx.strokeText(remainText, territory.x, territory.y + 8);
+        this.ctx.fillText(remainText, territory.x, territory.y + 8);
+        
+        // Draw drag line to target
+        if (targetTerritory) {
+            // Color based on action type
+            let lineColor = '#666666';
+            if (targetTerritory.ownerId === this.humanPlayer?.id) {
+                lineColor = '#44ff44'; // Green for transfer
+            } else if (targetTerritory.isColonizable) {
+                lineColor = '#ffff00'; // Yellow for probe
+            } else {
+                lineColor = '#ff4444'; // Red for attack
+            }
+            
+            this.ctx.strokeStyle = lineColor;
+            this.ctx.lineWidth = 3;
+            this.ctx.setLineDash([8, 4]);
+            this.ctx.beginPath();
+            this.ctx.moveTo(territory.x, territory.y);
+            this.ctx.lineTo(worldPos.x, worldPos.y);
+            this.ctx.stroke();
+            this.ctx.setLineDash([]);
+        }
+        
+        this.ctx.restore();
+    }
+    
+    renderFloatingTexts() {
+        if (!this.floatingTexts) return;
+        
+        this.ctx.save();
+        this.ctx.font = 'bold 14px Arial';
+        this.ctx.textAlign = 'center';
+        
+        // Update and render floating texts
+        const now = Date.now();
+        this.floatingTexts = this.floatingTexts.filter(text => {
+            const elapsed = now - text.startTime;
+            if (elapsed >= text.duration) return false;
+            
+            // Calculate animation progress
+            const progress = elapsed / text.duration;
+            const alpha = 1 - progress;
+            const yOffset = progress * 30; // Float upward
+            
+            // Render text
+            this.ctx.globalAlpha = alpha;
+            this.ctx.fillStyle = text.color;
+            this.ctx.strokeStyle = '#000000';
+            this.ctx.lineWidth = 2;
+            
+            this.ctx.strokeText(text.text, text.x, text.y - yOffset);
+            this.ctx.fillText(text.text, text.x, text.y - yOffset);
+            
+            return true;
+        });
+        
+        this.ctx.restore();
     }
     
     renderArmies() {
@@ -1695,6 +1812,53 @@ export default class StarThrone {
             }
         }
         return null;
+    }
+    
+    // Core fleet command execution with percentage control
+    executeFleetCommand(fromTerritory, toTerritory, fleetPercentage) {
+        if (!fromTerritory || !toTerritory || fromTerritory.ownerId !== this.humanPlayer?.id) {
+            return;
+        }
+        
+        // Calculate ships to send based on percentage
+        const availableShips = Math.max(0, fromTerritory.armySize - 1); // Always leave at least 1
+        const shipsToSend = Math.max(1, Math.floor(availableShips * fleetPercentage));
+        
+        // Visual feedback - show number flying off
+        this.showFleetCommandFeedback(fromTerritory, shipsToSend, fleetPercentage);
+        
+        if (toTerritory.ownerId === this.humanPlayer?.id) {
+            // Transfer to own territory
+            this.transferArmies(fromTerritory.id, toTerritory.id);
+            console.log(`Fleet transfer: ${shipsToSend} ships (${Math.round(fleetPercentage * 100)}%) from ${fromTerritory.id} to ${toTerritory.id}`);
+        } else if (toTerritory.isColonizable) {
+            // Probe colonizable territory
+            this.launchProbe(fromTerritory.id, toTerritory.id);
+            console.log(`Probe launched from ${fromTerritory.id} to colonizable ${toTerritory.id}`);
+        } else {
+            // Attack enemy territory
+            this.attackTerritory(fromTerritory.id, toTerritory.id);
+            console.log(`Attack: ${shipsToSend} ships (${Math.round(fleetPercentage * 100)}%) from ${fromTerritory.id} to ${toTerritory.id}`);
+        }
+    }
+    
+    // Visual feedback for fleet commands
+    showFleetCommandFeedback(territory, shipsToSend, percentage) {
+        // Flash the territory briefly
+        territory.lastCombatFlash = Date.now();
+        
+        // Show floating text with ship count
+        const floatingText = {
+            x: territory.x + (Math.random() - 0.5) * 40,
+            y: territory.y - 20,
+            text: `-${shipsToSend}`,
+            color: percentage >= 0.8 ? '#ff4444' : percentage >= 0.5 ? '#ffaa00' : '#44ff44',
+            startTime: Date.now(),
+            duration: 1500
+        };
+        
+        if (!this.floatingTexts) this.floatingTexts = [];
+        this.floatingTexts.push(floatingText);
     }
     
     attackTerritory(attackingTerritory, defendingTerritory) {

@@ -345,6 +345,20 @@ Changelog:
   * Smooth camera animations with distance-based easing for natural movement transitions
   * Interactive tooltip system showing territory information, owner names, and strategic context
   * Cursor mode system with context-sensitive indicators (attack/transfer/probe actions)
+- January 1, 2025. Comprehensive fleet command system implementation:
+  * Hybrid control system supporting multiple input methods for all skill levels:
+    - Default right-click: sends 50% of available fleet (safe and fast)
+    - Shift + right-click: sends all available fleet minus 1 (aggressive all-in attacks)
+    - Ctrl + right-click: sends 25% of fleet (conservative probing and reinforcement)
+    - Left-click drag: proportional fleet control with visual radial percentage indicator
+  * Enhanced visual feedback system with real-time fleet allocation display:
+    - Radial percentage indicator shows fleet split with color-coded risk levels
+    - Real-time "Send: X / Keep: Y" text display during proportional drag
+    - Color-coded drag lines (green=transfer, yellow=probe, red=attack)
+    - Floating damage numbers with color-coded intensity feedback
+  * Modifier key tracking system for advanced power-user controls
+  * Visual confirmation system with territory flashing and animated floating text
+  * Context-sensitive cursor modes adapt to target type and available actions
 
 ## User Preferences
 
