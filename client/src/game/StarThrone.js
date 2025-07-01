@@ -38,8 +38,10 @@ export default class StarThrone {
         // Input handling
         this.mousePos = { x: 0, y: 0 };
         this.selectedTerritory = null;
+        this.hoveredTerritory = null;
         this.isDragging = false;
         this.lastMousePos = { x: 0, y: 0 };
+        this.cursorMode = 'default'; // 'default', 'attack', 'transfer', 'probe'
         
         // Performance
         this.lastFrameTime = 0;
@@ -1064,6 +1066,11 @@ export default class StarThrone {
             this.camera.pan(-deltaX / this.camera.zoom, -deltaY / this.camera.zoom);
         }
         
+        // Update hover state and cursor mode
+        if (!this.isDragging && !this.isDraggingForSupplyRoute) {
+            this.updateHoverState(newMousePos);
+        }
+        
         this.mousePos = newMousePos;
     }
     
@@ -1072,19 +1079,22 @@ export default class StarThrone {
         const clickDuration = Date.now() - (this.dragStartTime || 0);
         const wasQuickClick = clickDuration < 300 && !this.isDragging && !this.isDraggingForSupplyRoute;
         
+        const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+        const targetTerritory = this.findTerritoryAt(worldPos.x, worldPos.y);
+        
         // Handle supply route creation
         if (this.isDraggingForSupplyRoute && this.dragStart) {
-            const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
-            const endTerritory = this.findTerritoryAt(worldPos.x, worldPos.y);
-            
-            if (endTerritory && endTerritory.ownerId === this.humanPlayer?.id && endTerritory.id !== this.dragStart.id) {
-                this.createSupplyRoute(this.dragStart, endTerritory);
+            if (targetTerritory && targetTerritory.ownerId === this.humanPlayer?.id && targetTerritory.id !== this.dragStart.id) {
+                this.createSupplyRoute(this.dragStart, targetTerritory);
             }
         }
         else if (e.button === 0 && (wasQuickClick || !this.isDragging)) {
             // Left click - handle territory selection
-            const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
             this.handleTerritorySelection(worldPos);
+        }
+        else if (e.button === 2 && wasQuickClick && this.selectedTerritory) {
+            // Right click - context-sensitive action
+            this.handleContextAction(targetTerritory);
         }
         
         // Reset drag state
@@ -1094,6 +1104,73 @@ export default class StarThrone {
         this.dragStartTime = null;
         this.dragStart = null;
         this.dragEnd = null;
+    }
+    
+    updateHoverState(mousePos) {
+        const worldPos = this.camera.screenToWorld(mousePos.x, mousePos.y);
+        const territory = this.findTerritoryAt(worldPos.x, worldPos.y);
+        
+        this.hoveredTerritory = territory;
+        
+        // Determine cursor mode based on selection and hover target
+        if (this.selectedTerritory && this.selectedTerritory.ownerId === this.humanPlayer?.id && territory) {
+            if (territory.ownerId === this.humanPlayer?.id && territory.id !== this.selectedTerritory.id) {
+                this.cursorMode = 'transfer';
+            } else if (territory.ownerId !== this.humanPlayer?.id && territory.ownerId !== null) {
+                this.cursorMode = 'attack';
+            } else if (territory.isColonizable) {
+                this.cursorMode = 'probe';
+            } else {
+                this.cursorMode = 'default';
+            }
+        } else {
+            this.cursorMode = 'default';
+        }
+        
+        // Update canvas cursor
+        this.updateCanvasCursor();
+    }
+    
+    updateCanvasCursor() {
+        if (!this.canvas) return;
+        
+        switch (this.cursorMode) {
+            case 'attack':
+                this.canvas.style.cursor = 'crosshair';
+                break;
+            case 'transfer':
+                this.canvas.style.cursor = 'move';
+                break;
+            case 'probe':
+                this.canvas.style.cursor = 'help';
+                break;
+            default:
+                this.canvas.style.cursor = 'default';
+                break;
+        }
+    }
+    
+    handleContextAction(targetTerritory) {
+        if (!this.selectedTerritory || this.selectedTerritory.ownerId !== this.humanPlayer?.id || !targetTerritory) {
+            return;
+        }
+        
+        const fromTerritory = this.selectedTerritory;
+        
+        // Determine action based on target
+        if (targetTerritory.ownerId === this.humanPlayer?.id && targetTerritory.id !== fromTerritory.id) {
+            // Right-click on friendly territory - transfer
+            this.transferArmies(fromTerritory, targetTerritory);
+        } else if (targetTerritory.ownerId !== this.humanPlayer?.id && targetTerritory.ownerId !== null) {
+            // Right-click on enemy territory - attack
+            this.attackTerritory(fromTerritory, targetTerritory);
+        } else if (targetTerritory.isColonizable) {
+            // Right-click on colonizable territory - launch probe
+            this.launchProbe(fromTerritory, targetTerritory);
+        }
+        
+        // Visual feedback - flash the target territory
+        targetTerritory.lastActionFlash = Date.now();
     }
     
     handleWheel(e) {

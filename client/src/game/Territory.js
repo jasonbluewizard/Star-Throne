@@ -87,8 +87,9 @@ export class Territory {
         }
     }
     
-    render(ctx, players, selectedTerritory, gameData) {
+    render(ctx, players, selectedTerritory, gameData, hoveredTerritory = null) {
         const isSelected = selectedTerritory && selectedTerritory.id === this.id;
+        const isHovered = hoveredTerritory && hoveredTerritory.id === this.id;
         
         // Determine territory color
         let fillColor = this.neutralColor;
