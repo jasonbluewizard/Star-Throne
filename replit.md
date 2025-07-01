@@ -440,6 +440,7 @@ Changelog:
   * Fixed JavaScript null reference errors in discovery system with comprehensive safety checks
   * Discovery system now properly filters to show only human player discoveries, not AI player discoveries
   * Implemented smart zoom limits preventing zoom-out beyond full galaxy visibility
+  * Fixed discovery panel rendering issue - panel and floating announcements now appear correctly for human player discoveries
 - January 1, 2025. Planet density optimization and improved tooltips:
   * Reduced territory density: increased grid spacing from 80px to 150px for less crowded maps
   * Lowered default map size from 200 to 80 territories for better spacing
