@@ -479,6 +479,10 @@ export class GameEngine {
       defendingTerritory.armySize = survivingDefenders;
       attackingTerritory.armySize = 1;
 
+      // Track territory changes for delta updates
+      this.changedTerritories.add(attackingTerritory.id);
+      this.changedTerritories.add(defendingTerritory.id);
+
       return {
         attackerId: attackingTerritory.ownerId!,
         defenderId: defendingTerritory.ownerId,
@@ -564,6 +568,12 @@ export class GameEngine {
     };
 
     this.gameState.probes.push(probe);
+    
+    // Track territory and probe changes for delta updates
+    this.changedTerritories.add(fromTerritory.id);
+    this.changedPlayers.add(playerId);
+    this.changedProbes = true;
+    
     return null;
   }
 
@@ -574,6 +584,53 @@ export class GameEngine {
 
   public getGameState(): GameState {
     return { ...this.gameState };
+  }
+
+  // Get delta state containing only changed elements since last tick
+  public getDeltaSince(lastTick: number): Partial<GameState> {
+    const delta: Partial<GameState> = {
+      tick: this.gameState.tick,
+      lastUpdate: this.gameState.lastUpdate,
+      gamePhase: this.gameState.gamePhase,
+      winner: this.gameState.winner
+    };
+
+    // Include changed territories
+    if (this.changedTerritories.size > 0) {
+      delta.territories = {};
+      this.changedTerritories.forEach(territoryId => {
+        const territory = this.gameState.territories[territoryId];
+        if (territory) {
+          delta.territories![territoryId] = territory;
+        }
+      });
+    }
+
+    // Include changed players
+    if (this.changedPlayers.size > 0) {
+      delta.players = {};
+      this.changedPlayers.forEach(playerId => {
+        const player = this.gameState.players[playerId];
+        if (player) {
+          delta.players![playerId] = player;
+        }
+      });
+    }
+
+    // Include all probes if any changed (probes are small array so send all)
+    if (this.changedProbes) {
+      delta.probes = [...this.gameState.probes];
+    }
+
+    // Always include supply routes for now (small data size)
+    delta.supplyRoutes = [...this.gameState.supplyRoutes];
+
+    // Clear change tracking for next delta
+    this.changedTerritories.clear();
+    this.changedPlayers.clear();
+    this.changedProbes = false;
+
+    return delta;
   }
 
   public getPlayerGameState(playerId: string): Partial<GameState> {

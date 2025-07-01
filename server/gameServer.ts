@@ -29,6 +29,7 @@ interface GameRoom {
   gameMode: 'single' | 'multiplayer';
   lastUpdate: number;
   tickRate: number;
+  lastSentTick: number;
 }
 
 export class GameServer {
@@ -65,7 +66,8 @@ export class GameServer {
           aiPlayerCount: data.aiCount,
           gameMode: 'multiplayer',
           lastUpdate: Date.now(),
-          tickRate: 20
+          tickRate: 20,
+          lastSentTick: 0
         };
 
         this.rooms.set(roomId, room);
@@ -110,7 +112,8 @@ export class GameServer {
           aiPlayerCount: data.aiCount,
           gameMode: 'single',
           lastUpdate: Date.now(),
-          tickRate: 20
+          tickRate: 20,
+          lastSentTick: 0
         };
 
         this.rooms.set(roomId, room);
@@ -249,9 +252,12 @@ export class GameServer {
       // Update game engine
       room.gameEngine!.update(deltaTime);
 
-      // Broadcast state updates to all players
-      const gameState = room.gameEngine!.getGameState();
-      this.broadcastGameStateUpdate(roomId, gameState);
+      // Broadcast delta state updates to all players (only changed data)
+      this.broadcastGameStateUpdate(
+        roomId,
+        room.gameEngine!.getDeltaSince(room.lastSentTick)
+      );
+      room.lastSentTick = room.gameEngine!.tick;
 
       // Check if game ended
       if (gameState.gamePhase === 'ended') {
@@ -260,10 +266,10 @@ export class GameServer {
     }, tickInterval);
   }
 
-  private broadcastGameStateUpdate(roomId: string, gameState: any) {
+  private broadcastGameStateUpdate(roomId: string, delta: Partial<GameState>) {
     const update: GameStateUpdate = {
       type: 'DELTA_STATE',
-      gameState,
+      gameState: delta,
       timestamp: Date.now()
     };
     
