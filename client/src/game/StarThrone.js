@@ -771,7 +771,7 @@ export default class StarThrone {
         this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
         this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
         this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
-        this.canvas.addEventListener('wheel', (e) => this.handleWheel(e));
+        // Wheel events handled by InputHandler
         
         // Touch events for mobile - with better event handling
         this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
@@ -2103,23 +2103,7 @@ export default class StarThrone {
         targetTerritory.lastActionFlash = Date.now();
     }
     
-    handleWheel(e) {
-        e.preventDefault();
-        
-        if (!this.camera) return;
-        
-        const rect = this.canvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
-        
-        const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-        
-        // Use the camera's zoomTo method directly to avoid naming conflict
-        const newZoom = Math.max(0.1, Math.min(3.0, this.camera.targetZoom * zoomFactor));
-        this.camera.zoomTo(newZoom, mouseX, mouseY);
-        
-        console.log('Mouse wheel zoom:', Math.round(this.camera.targetZoom * 100) + '%');
-    }
+    // Wheel handling moved to InputHandler
     
     handleUIClick(screenX, screenY) {
         // Handle UI element clicks (moved from old handleTerritorySelection)
