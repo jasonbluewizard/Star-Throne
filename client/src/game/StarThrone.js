@@ -2148,6 +2148,71 @@ export default class StarThrone {
         this.performanceStats.renderTime = performance.now() - startTime;
     }
     
+    renderFloatingDiscoveryTexts() {
+        if (!this.floatingDiscoveryTexts || this.floatingDiscoveryTexts.length === 0) return;
+        
+        const now = Date.now();
+        
+        // Filter out expired texts and render remaining ones
+        this.floatingDiscoveryTexts = this.floatingDiscoveryTexts.filter(text => {
+            const age = now - text.startTime;
+            if (age > text.duration) return false; // Remove expired texts
+            
+            // Only show human player discoveries
+            if (text.playerId !== this.humanPlayer?.id) return false;
+            
+            // Calculate world position (not affected by camera)
+            const worldX = text.x;
+            const worldY = text.y - (age / text.duration) * 30; // Float upward over time
+            
+            // Convert to screen coordinates
+            const screenX = (worldX - this.camera.x) * this.camera.zoom + this.canvas.width / 2;
+            const screenY = (worldY - this.camera.y) * this.camera.zoom + this.canvas.height / 2;
+            
+            // Only render if on screen
+            if (screenX < -100 || screenX > this.canvas.width + 100 || 
+                screenY < -100 || screenY > this.canvas.height + 100) {
+                return true; // Keep in array but don't render
+            }
+            
+            // Calculate opacity (fade out in last 1 second)
+            let opacity = 1;
+            if (age > text.duration - text.fadeOutDuration) {
+                const fadeAge = age - (text.duration - text.fadeOutDuration);
+                opacity = 1 - (fadeAge / text.fadeOutDuration);
+            }
+            
+            // Set up text rendering
+            this.ctx.save();
+            this.ctx.globalAlpha = opacity;
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            
+            // Measure text with correct font
+            this.ctx.font = 'bold 14px Arial';
+            const textWidth = this.ctx.measureText(text.text).width;
+            const padding = 8;
+            
+            // Draw text background for better visibility
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            this.ctx.fillRect(screenX - textWidth/2 - padding, screenY - 12, textWidth + padding*2, 24);
+            
+            // Draw discovery icon
+            this.ctx.font = '20px Arial';
+            this.ctx.fillStyle = text.color;
+            this.ctx.fillText(text.icon, screenX - textWidth/2 - 15, screenY);
+            
+            // Draw discovery text
+            this.ctx.font = 'bold 14px Arial';
+            this.ctx.fillStyle = text.color;
+            this.ctx.fillText(text.text, screenX, screenY);
+            
+            this.ctx.restore();
+            
+            return true; // Keep in array
+        });
+    }
+    
     renderUI() {
         if (this.ui) {
             const inputState = this.inputHandler ? this.inputHandler.getInputState() : {};
