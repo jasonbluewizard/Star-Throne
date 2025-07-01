@@ -1314,6 +1314,16 @@ export default class StarThrone {
         });
     }
     
+    getTransferPercentage(event) {
+        // Default to 50% transfer
+        if (!event) return 0.5;
+        
+        // Modifier key controls for different transfer amounts
+        if (event.shiftKey) return 0.95; // Send almost all (leave 1)
+        if (event.ctrlKey) return 0.25;  // Send quarter
+        return 0.5; // Default 50%
+    }
+    
     renderDragPreview() {
         // Show drag preview when creating supply route
         if (this.isDraggingForSupplyRoute && this.dragStart) {

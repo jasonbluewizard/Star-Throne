@@ -410,6 +410,32 @@ Changelog:
   * Increased connection range from 140px to 200px to accommodate larger spacing
   * Enhanced tooltip system: context-aware probe instructions based on selected territory and fleet count
   * Fixed misleading "Click to probe" tooltips - now shows requirements and helpful guidance
+- January 1, 2025. Strategic camera system implementation (Supreme Commander-style):
+  * Enhanced strategic zoom range: extreme zoom-out (0.05x) to tactical close-up (8.0x) for galaxy-wide view
+  * Implemented inertial panning with smooth momentum and friction for natural camera movement
+  * Added RTS-style edge panning: mouse near screen edges automatically scrolls the map
+  * Dynamic Level of Detail (LOD) system adapts UI based on zoom level:
+    - Strategic view: simplified fleet indicators, performance-optimized rendering
+    - Operational view: balanced detail with fleet counts and owner identification
+    - Tactical view: full detail with army counts, visual effects, and combat feedback
+  * Enhanced camera controls with spacebar "Focus on Selected" and H key "Frame All Territories"
+  * Smooth camera animations with distance-based easing for natural movement transitions
+  * Interactive tooltip system showing territory information, owner names, and strategic context
+  * Cursor mode system with context-sensitive indicators (attack/transfer/probe actions)
+- January 1, 2025. Comprehensive fleet command system implementation:
+  * Hybrid control system supporting multiple input methods for all skill levels:
+    - Default right-click: sends 50% of available fleet (safe and fast)
+    - Shift + right-click: sends all available fleet minus 1 (aggressive all-in attacks)
+    - Ctrl + right-click: sends 25% of fleet (conservative probing and reinforcement)
+    - Left-click drag: proportional fleet control with visual radial percentage indicator
+  * Enhanced visual feedback system with real-time fleet allocation display:
+    - Radial percentage indicator shows fleet split with color-coded risk levels
+    - Real-time "Send: X / Keep: Y" text display during proportional drag
+    - Color-coded drag lines (green=transfer, yellow=probe, red=attack)
+    - Floating damage numbers with color-coded intensity feedback
+  * Modifier key tracking system for advanced power-user controls
+  * Visual confirmation system with territory flashing and animated floating text
+  * Context-sensitive cursor modes adapt to target type and available actions
 
 ## User Preferences
 
