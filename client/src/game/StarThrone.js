@@ -43,6 +43,16 @@ export default class StarThrone {
         this.lastMousePos = { x: 0, y: 0 };
         this.cursorMode = 'default'; // 'default', 'attack', 'transfer', 'probe'
         
+        // Fleet command system
+        this.isProportionalDrag = false;
+        this.proportionalDragStart = null;
+        this.fleetPercentage = 0.5; // Default 50%
+        this.modifierKeys = {
+            shift: false,
+            ctrl: false,
+            alt: false
+        };
+        
         // Performance
         this.lastFrameTime = 0;
         this.fps = 0;
@@ -403,6 +413,7 @@ export default class StarThrone {
         
         // Keyboard events
         window.addEventListener('keydown', (e) => this.handleKeyDown(e));
+        window.addEventListener('keyup', (e) => this.handleKeyUp(e));
         
         // Prevent context menu
         this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -1102,18 +1113,28 @@ export default class StarThrone {
         this.dragStartTime = Date.now();
         this.isDragging = false;
         this.isDraggingForSupplyRoute = false;
+        this.isProportionalDrag = false;
         
-        // Check if starting drag on an owned territory for supply route
+        // Check if starting drag on an owned territory
         const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
         const startTerritory = this.findTerritoryAt(worldPos.x, worldPos.y);
         
         if (startTerritory && startTerritory.ownerId === this.humanPlayer?.id) {
             this.dragStart = startTerritory;
+            
+            // Left click on owned territory with armies starts proportional drag
+            if (e.button === 0 && startTerritory.armySize > 1) {
+                this.proportionalDragStart = {
+                    territory: startTerritory,
+                    screenPos: { ...this.mousePos },
+                    worldPos: { x: startTerritory.x, y: startTerritory.y }
+                };
+            }
         } else {
             this.dragStart = null;
         }
         
-        if (e.button === 2) { // Right click starts immediate drag
+        if (e.button === 2) { // Right click starts immediate action
             this.isDragging = true;
         }
     }
@@ -1133,13 +1154,29 @@ export default class StarThrone {
             );
             
             if (dragDistance > 8) {
+                // If we have proportional drag start, activate proportional fleet command
+                if (this.proportionalDragStart) {
+                    this.isProportionalDrag = true;
+                    console.log('Started proportional fleet drag');
+                }
                 // If we have a valid drag start territory, this is a supply route drag
-                if (this.dragStart) {
+                else if (this.dragStart) {
                     this.isDraggingForSupplyRoute = true;
                 } else {
                     this.isDragging = true;
                 }
             }
+        }
+        
+        // Handle proportional drag for fleet commands
+        if (this.isProportionalDrag && this.proportionalDragStart) {
+            const dragDistance = Math.sqrt(
+                (newMousePos.x - this.proportionalDragStart.screenPos.x) ** 2 + 
+                (newMousePos.y - this.proportionalDragStart.screenPos.y) ** 2
+            );
+            
+            // Calculate percentage based on drag distance (0-100 pixels = 0-100%)
+            this.fleetPercentage = Math.min(1.0, Math.max(0.1, dragDistance / 100));
         }
         
         // Pan camera if dragging (but not if creating supply route)
@@ -1167,8 +1204,12 @@ export default class StarThrone {
         const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
         const targetTerritory = this.findTerritoryAt(worldPos.x, worldPos.y);
         
+        // Handle proportional fleet command
+        if (this.isProportionalDrag && this.proportionalDragStart && targetTerritory) {
+            this.executeFleetCommand(this.proportionalDragStart.territory, targetTerritory, this.fleetPercentage);
+        }
         // Handle supply route creation
-        if (this.isDraggingForSupplyRoute && this.dragStart) {
+        else if (this.isDraggingForSupplyRoute && this.dragStart) {
             if (targetTerritory && targetTerritory.ownerId === this.humanPlayer?.id && targetTerritory.id !== this.dragStart.id) {
                 this.createSupplyRoute(this.dragStart, targetTerritory);
             }
@@ -1178,13 +1219,16 @@ export default class StarThrone {
             this.handleTerritorySelection(worldPos);
         }
         else if (e.button === 2 && wasQuickClick && this.selectedTerritory) {
-            // Right click - context-sensitive action
-            this.handleContextAction(targetTerritory);
+            // Right click - context-sensitive action with modifier key support
+            this.handleContextActionWithModifiers(targetTerritory);
         }
         
         // Reset drag state
         this.isDragging = false;
         this.isDraggingForSupplyRoute = false;
+        this.isProportionalDrag = false;
+        this.proportionalDragStart = null;
+        this.fleetPercentage = 0.5; // Reset to default
         this.dragStartPos = null;
         this.dragStartTime = null;
         this.dragStart = null;
@@ -1235,6 +1279,23 @@ export default class StarThrone {
         }
     }
     
+    // Enhanced context action with modifier key support
+    handleContextActionWithModifiers(targetTerritory) {
+        if (!this.selectedTerritory || !targetTerritory) return;
+        
+        // Determine fleet percentage based on modifier keys
+        let fleetPercentage = 0.5; // Default 50%
+        
+        if (this.modifierKeys.shift) {
+            fleetPercentage = 1.0; // Send all available (leave 1)
+        } else if (this.modifierKeys.ctrl) {
+            fleetPercentage = 0.25; // Send 25% - conservative probe
+        }
+        
+        this.executeFleetCommand(this.selectedTerritory, targetTerritory, fleetPercentage);
+    }
+    
+    // Legacy context action for compatibility
     handleContextAction(targetTerritory) {
         if (!this.selectedTerritory || this.selectedTerritory.ownerId !== this.humanPlayer?.id || !targetTerritory) {
             return;
@@ -1929,6 +1990,11 @@ export default class StarThrone {
     }
     
     handleKeyDown(e) {
+        // Track modifier keys
+        this.modifierKeys.shift = e.shiftKey;
+        this.modifierKeys.ctrl = e.ctrlKey;
+        this.modifierKeys.alt = e.altKey;
+        
         switch (e.key) {
             case 'Escape':
                 this.selectedTerritory = null;
@@ -1977,6 +2043,13 @@ export default class StarThrone {
                 }
                 break;
         }
+    }
+    
+    handleKeyUp(e) {
+        // Track modifier keys
+        this.modifierKeys.shift = e.shiftKey;
+        this.modifierKeys.ctrl = e.ctrlKey;
+        this.modifierKeys.alt = e.altKey;
     }
     
     handleLongPress() {
