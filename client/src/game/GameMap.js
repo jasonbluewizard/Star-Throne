@@ -18,10 +18,57 @@ export class GameMap {
         this.probeColonization = config.probeColonization !== undefined ? config.probeColonization : true;
     }
     
+    // Helper function to check if a point is within organic galaxy boundaries
+    isWithinGalaxyBounds(x, y) {
+        const centerX = this.width / 2;
+        const centerY = this.height / 2;
+        
+        // Calculate normalized position (0 to 1 from center)
+        const normalizedX = (x - centerX) / (this.width / 2);
+        const normalizedY = (y - centerY) / (this.height / 2);
+        
+        // Create organic galaxy shape using multiple sine waves for irregular edges
+        const baseRadius = 0.85; // Base galaxy size (85% of max)
+        
+        // Use angle from center for perlin-like noise effect
+        const angle = Math.atan2(normalizedY, normalizedX);
+        
+        // Create multiple frequency sine waves for organic edge variation
+        const edgeVariation = 
+            0.15 * Math.sin(angle * 3.7) + // Large bumps
+            0.08 * Math.sin(angle * 7.2) + // Medium bumps  
+            0.05 * Math.sin(angle * 11.8) + // Small bumps
+            0.03 * Math.sin(angle * 17.3); // Fine detail
+        
+        // Calculate distance from center
+        const distanceFromCenter = Math.sqrt(normalizedX * normalizedX + normalizedY * normalizedY);
+        
+        // Organic boundary with variation
+        const maxDistance = baseRadius + edgeVariation;
+        
+        return distanceFromCenter <= maxDistance;
+    }
+
+    // Helper function to get max radius at a specific angle for organic boundary
+    getMaxRadiusAtAngle(angle) {
+        const baseRadius = 0.85; // Base galaxy size (85% of max)
+        
+        // Create organic edge variation using the same formula as boundary check
+        const edgeVariation = 
+            0.15 * Math.sin(angle * 3.7) + // Large bumps
+            0.08 * Math.sin(angle * 7.2) + // Medium bumps  
+            0.05 * Math.sin(angle * 11.8) + // Small bumps
+            0.03 * Math.sin(angle * 17.3); // Fine detail
+        
+        return baseRadius + edgeVariation;
+    }
+
     // Helper function to check if a point is too close to existing points
     isValidPosition(x, y, existingPoints, minDistance = this.gridSize) {
-        if (x < 30 || x >= this.width - 30 || y < 30 || y >= this.height - 30) return false;
+        // First check if within organic galaxy boundaries
+        if (!this.isWithinGalaxyBounds(x, y)) return false;
         
+        // Then check minimum distance from other territories
         for (const point of existingPoints) {
             const dist = Math.sqrt((x - point.x) ** 2 + (y - point.y) ** 2);
             if (dist < minDistance) return false;
@@ -88,9 +135,22 @@ export class GameMap {
         const nebulaCount = this.nebulaCount;
         
         for (let i = 0; i < nebulaCount; i++) {
+            let attempts = 0;
+            let x, y;
+            
+            // Find positions within organic galaxy boundaries
+            do {
+                x = Math.random() * this.width;
+                y = Math.random() * this.height;
+                attempts++;
+            } while (!this.isWithinGalaxyBounds(x, y) && attempts < 50);
+            
+            // If we couldn't find a valid position after many attempts, skip this nebula
+            if (attempts >= 50) continue;
+            
             const nebula = {
-                x: Math.random() * this.width,
-                y: Math.random() * this.height,
+                x: x,
+                y: y,
                 radius: 80 + Math.random() * 120, // Size varies from 80 to 200
                 opacity: 0.3 + Math.random() * 0.4, // Opacity varies from 0.3 to 0.7
                 color: `rgba(147, 51, 234, ${0.3 + Math.random() * 0.4})` // Purple with varying opacity
@@ -106,9 +166,10 @@ export class GameMap {
         const margin = 50;
         const attempts = numSamples * 100; // Maximum attempts to place points
         
-        // Helper function to check if a point is valid (minimum distance from existing points)
+        // Helper function to check if a point is valid (within galaxy bounds and minimum distance from existing points)
         const isValidPoint = (x, y) => {
-            if (x < margin || x >= this.width - margin || y < margin || y >= this.height - margin) return false;
+            // Check organic galaxy boundaries instead of rectangular bounds
+            if (!this.isWithinGalaxyBounds(x, y)) return false;
             
             for (const point of points) {
                 const dist = Math.sqrt((x - point.x) ** 2 + (y - point.y) ** 2);
@@ -117,36 +178,41 @@ export class GameMap {
             return true;
         };
         
-        // Strategy 1: Grid-based placement with randomization for even distribution
-        const rows = Math.ceil(Math.sqrt(numSamples * (this.height / this.width)));
-        const cols = Math.ceil(numSamples / rows);
-        const cellWidth = (this.width - 2 * margin) / cols;
-        const cellHeight = (this.height - 2 * margin) / rows;
+        // Strategy 1: Organic distribution using rejection sampling within galaxy bounds
+        // First, fill the center area more densely then spread outward
+        const centerX = this.width / 2;
+        const centerY = this.height / 2;
+        const maxRadius = Math.min(this.width, this.height) * 0.4; // Maximum sampling radius
         
-        // Place one point per grid cell with random offset
-        for (let row = 0; row < rows && points.length < numSamples; row++) {
-            for (let col = 0; col < cols && points.length < numSamples; col++) {
-                const baseX = margin + col * cellWidth + cellWidth * 0.2;
-                const baseY = margin + row * cellHeight + cellHeight * 0.2;
-                
-                // Add randomization within cell bounds
-                const offsetX = Math.random() * cellWidth * 0.6;
-                const offsetY = Math.random() * cellHeight * 0.6;
-                
-                const x = baseX + offsetX;
-                const y = baseY + offsetY;
-                
-                if (isValidPoint(x, y)) {
-                    points.push({ x, y });
-                }
+        // Sample points using polar coordinates for more natural distribution
+        let placementAttempts = 0;
+        const maxPlacementAttempts = numSamples * 20;
+        
+        while (points.length < numSamples * 0.8 && placementAttempts < maxPlacementAttempts) {
+            // Use weighted random radius (favor center, but spread outward)
+            const radiusWeight = Math.random() * Math.random(); // Bias toward smaller values
+            const radius = radiusWeight * maxRadius;
+            const angle = Math.random() * 2 * Math.PI;
+            
+            const x = centerX + radius * Math.cos(angle);
+            const y = centerY + radius * Math.sin(angle);
+            
+            if (isValidPoint(x, y)) {
+                points.push({ x, y });
             }
+            placementAttempts++;
         }
         
-        // Strategy 2: Fill remaining with truly random placement
+        // Strategy 2: Fill remaining with random placement throughout entire galaxy bounds
         let attemptCount = 0;
         while (points.length < numSamples && attemptCount < attempts) {
-            const x = margin + Math.random() * (this.width - 2 * margin);
-            const y = margin + Math.random() * (this.height - 2 * margin);
+            // Sample across the entire galaxy bounds, not just center
+            const angle = Math.random() * 2 * Math.PI;
+            const maxRadiusAtAngle = this.getMaxRadiusAtAngle(angle);
+            const radius = Math.random() * maxRadiusAtAngle * (this.width / 2) * 0.85;
+            
+            const x = centerX + radius * Math.cos(angle);
+            const y = centerY + radius * Math.sin(angle);
             
             if (isValidPoint(x, y)) {
                 points.push({ x, y });

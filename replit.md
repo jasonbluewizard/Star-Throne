@@ -378,6 +378,13 @@ Changelog:
   * Combat system integration: discovery bonuses automatically applied to attack/defense calculations
   * Probe speed enhancement: Precursor Drive bonuses accelerate exploration missions
   * Territory generation bonuses: Nanotech and factory discoveries boost army production rates
+- January 1, 2025. Organic galaxy boundaries system implementation:
+  * Replaced rectangular map boundaries with natural, irregular galaxy edges using multi-frequency sine waves
+  * Organic boundary calculation with 4 layers of sine wave variation for realistic galactic shapes
+  * Enhanced territory distribution using polar coordinate sampling favoring galactic center density
+  * Updated nebula generation to respect organic galaxy boundaries for natural cloud placement
+  * Improved Poisson disk sampling with angle-based radius calculation for natural star distribution
+  * Galaxy boundaries now feature organic bumps, indentations, and irregular edges instead of hard rectangles
 
 ## User Preferences
 
