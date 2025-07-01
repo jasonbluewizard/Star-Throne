@@ -631,7 +631,19 @@ export class GameUI {
         let tooltipLines = [];
         if (territory.isColonizable) {
             tooltipLines.push(`Unexplored System`);
-            tooltipLines.push(`Click to probe`);
+            
+            // Only show "Click to probe" if player has a valid selected territory that can reach it
+            const canProbe = gameData.selectedTerritory && 
+                            gameData.selectedTerritory.ownerId === gameData.humanPlayer?.id &&
+                            gameData.selectedTerritory.armySize >= 10; // Need 10 fleets for probe
+            
+            if (canProbe) {
+                tooltipLines.push(`Click to probe (10 fleets)`);
+            } else if (gameData.selectedTerritory && gameData.selectedTerritory.ownerId === gameData.humanPlayer?.id) {
+                tooltipLines.push(`Need 10 fleets to probe`);
+            } else {
+                tooltipLines.push(`Select owned territory first`);
+            }
         } else {
             tooltipLines.push(`${ownerName}`);
             tooltipLines.push(`${territory.armySize} Fleets`);
