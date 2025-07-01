@@ -367,6 +367,17 @@ Changelog:
   * Subtle twinkling animation system with varying speeds and intensities per layer
   * Performance-optimized rendering with viewport culling to skip off-screen stars
   * Seamless integration with existing nebula and territory rendering systems
+- January 1, 2025. Comprehensive planetary discovery system implementation:
+  * Random discovery events triggered on every successful planet colonization
+  * 11 discovery types with balanced probability distribution (hostile aliens to precursor technology)
+  * Empire-wide bonuses: Precursor Weapons (+10% attack), Drive (+20% speed), Shield (+10% defense), Nanotech (+10% generation)
+  * Planet-specific bonuses: Factory worlds (200% generation), mineral deposits (150% generation), void storms (75% generation)
+  * Risk-reward mechanics: 15% chance hostile aliens destroy probe and prevent colonization
+  * Positive discoveries: Friendly aliens provide instant 50 fleet strength bonus
+  * Discovery tracking system with visual UI panel showing all active empire bonuses
+  * Combat system integration: discovery bonuses automatically applied to attack/defense calculations
+  * Probe speed enhancement: Precursor Drive bonuses accelerate exploration missions
+  * Territory generation bonuses: Nanotech and factory discoveries boost army production rates
 
 ## User Preferences
 

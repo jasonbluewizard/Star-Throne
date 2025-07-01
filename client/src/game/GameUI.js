@@ -86,6 +86,9 @@ export class GameUI {
             this.renderMinimap(ctx, gameData);
         }
         
+        // Discovery panel showing empire bonuses
+        this.renderDiscoveryPanel(ctx, gameData);
+        
         // Performance panel (togglable with P key)
         this.renderPerformanceInfo(ctx, gameData);
         
@@ -450,6 +453,79 @@ export class GameUI {
                 ctx.fillText(line, 10, this.canvas.height - 60 + (index * 16));
             });
         }
+    }
+    
+    renderDiscoveryPanel(ctx, gameData) {
+        // Only show if player has any discoveries
+        if (!gameData.discoveries || !gameData.humanPlayer) return;
+        
+        const discoveries = gameData.discoveries;
+        let discoveryCount = 0;
+        
+        // Count active discoveries
+        if (discoveries.precursorWeapons > 0) discoveryCount++;
+        if (discoveries.precursorDrive > 0) discoveryCount++;
+        if (discoveries.precursorShield > 0) discoveryCount++;
+        if (discoveries.precursorNanotech > 0) discoveryCount++;
+        if (discoveries.factoryPlanets && discoveries.factoryPlanets.size > 0) discoveryCount++;
+        
+        // Only render if there are discoveries to show
+        if (discoveryCount === 0) return;
+        
+        const x = 20;
+        const y = this.canvas.height - 200;
+        const width = 280;
+        const lineHeight = 20;
+        const padding = 10;
+        const height = Math.max(80, discoveryCount * lineHeight + padding * 2);
+        
+        // Background with transparency
+        ctx.fillStyle = 'rgba(0, 20, 40, 0.9)';
+        ctx.fillRect(x, y, width, height);
+        
+        // Border with discovery theme color
+        ctx.strokeStyle = '#4CAF50';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, width, height);
+        
+        // Title
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'left';
+        this.renderTextWithShadow(ctx, '🔬 Empire Discoveries', x + padding, y + 20, '#4CAF50');
+        
+        ctx.font = '12px Arial';
+        let currentY = y + 40;
+        
+        // Show empire-wide bonuses
+        if (discoveries.precursorWeapons > 0) {
+            this.renderTextWithShadow(ctx, `⚔️ Weapons Lvl ${discoveries.precursorWeapons}: +${discoveries.precursorWeapons * 10}% Attack`, x + padding, currentY, '#FF6B6B');
+            currentY += lineHeight;
+        }
+        
+        if (discoveries.precursorDrive > 0) {
+            this.renderTextWithShadow(ctx, `🚀 Drive Lvl ${discoveries.precursorDrive}: +${discoveries.precursorDrive * 20}% Speed`, x + padding, currentY, '#4ECDC4');
+            currentY += lineHeight;
+        }
+        
+        if (discoveries.precursorShield > 0) {
+            this.renderTextWithShadow(ctx, `🛡️ Shield Lvl ${discoveries.precursorShield}: +${discoveries.precursorShield * 10}% Defense`, x + padding, currentY, '#45B7D1');
+            currentY += lineHeight;
+        }
+        
+        if (discoveries.precursorNanotech > 0) {
+            this.renderTextWithShadow(ctx, `🔬 Nanotech Lvl ${discoveries.precursorNanotech}: +${discoveries.precursorNanotech * 10}% Generation`, x + padding, currentY, '#96CEB4');
+            currentY += lineHeight;
+        }
+        
+        if (discoveries.factoryPlanets && discoveries.factoryPlanets.size > 0) {
+            this.renderTextWithShadow(ctx, `🏭 Factory Worlds: ${discoveries.factoryPlanets.size} (+100% each)`, x + padding, currentY, '#FECA57');
+            currentY += lineHeight;
+        }
+        
+        // Discovery count summary
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'right';
+        this.renderTextWithShadow(ctx, `Total: ${discoveryCount} discoveries`, x + width - padding, y + height - 5, '#888888');
     }
     
     renderMinimap(ctx, gameData) {
