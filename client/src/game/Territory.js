@@ -428,6 +428,49 @@ export class Territory {
         ctx.restore();
     }
     
+    renderExplosion(ctx) {
+        const elapsed = Date.now() - this.explosionTime;
+        const progress = elapsed / this.explosionDuration;
+        
+        if (progress >= 1) return; // Animation finished
+        
+        ctx.save();
+        
+        // Multiple explosion rings expanding outward
+        const maxRadius = this.radius * 3;
+        const numRings = 3;
+        
+        for (let i = 0; i < numRings; i++) {
+            const ringProgress = Math.max(0, progress - i * 0.2);
+            const radius = ringProgress * maxRadius;
+            const opacity = Math.max(0, 1 - ringProgress * 2);
+            
+            if (radius > 0 && opacity > 0) {
+                // Orange/red explosion colors
+                const colors = ['#ff4444', '#ff8800', '#ffaa00'];
+                ctx.strokeStyle = colors[i % colors.length];
+                ctx.globalAlpha = opacity;
+                ctx.lineWidth = Math.max(1, 4 - ringProgress * 3);
+                
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        }
+        
+        // Central flash effect
+        if (progress < 0.3) {
+            const flashOpacity = (0.3 - progress) / 0.3;
+            ctx.fillStyle = `rgba(255, 255, 255, ${flashOpacity * 0.8})`;
+            ctx.globalAlpha = flashOpacity;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius * 1.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        ctx.restore();
+    }
+    
     renderPotentialTargets(ctx, players) {
         // Show attackable neighbors with red outline
         this.neighbors.forEach(neighborId => {
