@@ -389,6 +389,14 @@ Changelog:
   * Adaptive spacing: stars cluster closer together in high-density regions, spread apart in voids
   * Galactic bar density: central region has higher star concentration like real spiral galaxies
   * Rejection sampling with density probability creates natural void regions and clumping patterns
+- January 1, 2025. Enhanced UI and visual feedback system implementation:
+  * Transfer preview UI: "Send: X / Keep: Y" display when hovering over fleet command targets
+  * Color-coded transfer preview borders: green for transfers, yellow for probes, red for attacks
+  * Hover state tracking with territory highlighting and visual feedback
+  * Level of Detail (LOD) rendering system adapts UI complexity based on zoom level
+  * Pulsating selection effects for human player territories with enhanced visual distinction
+  * Dynamic cursor mode system with context-sensitive fleet command preview
+  * Enhanced drag preview system with real-time fleet allocation calculations
 
 ## User Preferences
 
