@@ -180,34 +180,7 @@ export class CombatSystem {
     handleVictoriousAttack(fromTerritory, toTerritory, attackingPlayer, defendingPlayer, survivingArmies) {
         console.log(`${attackingPlayer.name} captures territory ${toTerritory.id}`);
         
-        // Remove territory from defender
-        if (defendingPlayer) {
-            const territoryIndex = defendingPlayer.territories.indexOf(toTerritory.id);
-            if (territoryIndex > -1) {
-                defendingPlayer.territories.splice(territoryIndex, 1);
-            }
-        }
-        
-        // Transfer territory to attacker
-        toTerritory.ownerId = attackingPlayer.id;
-        toTerritory.armySize = survivingArmies;
-        attackingPlayer.territories.push(toTerritory.id);
-        
-        // Reveal hidden connections for newly captured territory
-        if (toTerritory.hiddenNeighbors && toTerritory.hiddenNeighbors.length > 0) {
-            toTerritory.neighbors.push(...toTerritory.hiddenNeighbors);
-            toTerritory.hiddenNeighbors = [];
-            console.log(`Hidden star lanes revealed for territory ${toTerritory.id}`);
-        }
-        
-        // Update territory visual properties
-        const player = this.game.players.find(p => p.id === toTerritory.ownerId);
-        if (player) {
-            toTerritory.baseColor = player.color;
-            toTerritory.strokeColor = player.color;
-        }
-        
-        // Check for throne star capture - triggers empire collapse
+        // CRITICAL: Check for throne star capture BEFORE any territory transfers!
         console.log(`DEBUG: Throne check - isThronestar: ${toTerritory.isThronestar}, defendingPlayer: ${defendingPlayer ? defendingPlayer.name : 'null'}`);
         if (toTerritory.isThronestar && defendingPlayer) {
             console.log(`👑 THRONE STAR CAPTURED! ${attackingPlayer.name} conquers ${defendingPlayer.name}'s empire!`);
@@ -216,7 +189,7 @@ export class CombatSystem {
             const defendingTerritories = [...defendingPlayer.territories];
             for (const territoryId of defendingTerritories) {
                 const territory = this.game.gameMap.territories[territoryId];
-                if (territory && territory.id !== toTerritory.id) { // Skip the already captured throne
+                if (territory && territory.id !== toTerritory.id) { // Skip the throne being captured
                     // Remove from defender
                     const defenderIndex = defendingPlayer.territories.indexOf(territoryId);
                     if (defenderIndex > -1) {
@@ -240,6 +213,34 @@ export class CombatSystem {
             // Destroy the captured throne star to prevent multiple thrones
             toTerritory.isThronestar = false;
             console.log(`Throne star ${toTerritory.id} destroyed`);
+        }
+        
+        // Remove territory from defender
+        if (defendingPlayer) {
+            const territoryIndex = defendingPlayer.territories.indexOf(toTerritory.id);
+            if (territoryIndex > -1) {
+                defendingPlayer.territories.splice(territoryIndex, 1);
+            }
+        }
+        
+        // Transfer territory to attacker
+        console.log(`DEBUG: About to transfer territory ${toTerritory.id} from ${toTerritory.ownerId} to ${attackingPlayer.id}`);
+        toTerritory.ownerId = attackingPlayer.id;
+        toTerritory.armySize = survivingArmies;
+        attackingPlayer.territories.push(toTerritory.id);
+        
+        // Reveal hidden connections for newly captured territory
+        if (toTerritory.hiddenNeighbors && toTerritory.hiddenNeighbors.length > 0) {
+            toTerritory.neighbors.push(...toTerritory.hiddenNeighbors);
+            toTerritory.hiddenNeighbors = [];
+            console.log(`Hidden star lanes revealed for territory ${toTerritory.id}`);
+        }
+        
+        // Update territory visual properties
+        const player = this.game.players.find(p => p.id === toTerritory.ownerId);
+        if (player) {
+            toTerritory.baseColor = player.color;
+            toTerritory.strokeColor = player.color;
         }
         
         // Create ship animation
