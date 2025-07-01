@@ -18,7 +18,7 @@ export class Territory {
         // Animation
         this.pulsePhase = Math.random() * Math.PI * 2;
         this.lastArmyGeneration = 0;
-        this.armyGenerationRate = 2000; // Generate army every 2 seconds
+        this.armyGenerationRate = 3000; // Generate army every 3 seconds (matches GAME_CONSTANTS)
         
         // Combat flash effect
         this.combatFlashTime = 0;
@@ -71,6 +71,11 @@ export class Territory {
     generateArmies(deltaTime, player, gameSpeed = 1.0, game = null) {
         // Neutral territories have fixed army sizes and don't generate armies
         if (this.ownerId === null) return;
+        
+        // Don't generate armies until a few seconds after game start to prevent initialization issues
+        if (game && game.gameStartTime && (Date.now() - game.gameStartTime) < 5000) {
+            return;
+        }
         
         // Apply game speed multiplier to army generation timing
         const speedAdjustedDelta = deltaTime * gameSpeed;

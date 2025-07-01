@@ -263,6 +263,7 @@ export default class StarThrone {
         this.combatSystem = new CombatSystem(this);
         this.supplySystem = new SupplySystem(this);
         
+        this.gameStartTime = Date.now(); // Track when game actually starts
         this.startGame();
         this.gameLoop();
     }
