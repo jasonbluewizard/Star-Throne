@@ -138,8 +138,8 @@ export default class StarThrone {
             console.log('Background image failed to load, using default starfield');
             this.backgroundLoaded = false;
         };
-        // Set the image path - user should upload the image to client/public/
-        this.backgroundImage.src = '/attached_assets/AdobeStock_855418753_1751386108440.jpeg';
+        // Set the image path
+        this.backgroundImage.src = '/galaxy-background.jpg';
     }
     
     renderBackgroundImage() {
