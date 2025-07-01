@@ -90,7 +90,7 @@ export default class StarThrone {
     init() {
         this.setupCanvas();
         this.setupEventListeners();
-        this.gameMap = new GameMap(2000, 1500, this.config.layout); // Large map with selected layout
+        this.gameMap = new GameMap(2000, 1500, this.config); // Large map with advanced configuration
         this.gameMap.game = this; // Reference for AI animations
         this.camera = new Camera(this.canvas.width, this.canvas.height);
         

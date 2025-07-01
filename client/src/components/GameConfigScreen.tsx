@@ -20,6 +20,7 @@ export interface GameConfig {
   warpLaneDensity: number;
   connectionRange: number;
   nebulaCount: number;
+  probeSpeed: number;
   nebulaSlowdown: boolean;
   supplyRoutes: boolean;
   probeColonization: boolean;
@@ -36,6 +37,7 @@ export function GameConfigScreen({ onStartGame, onBack }: GameConfigScreenProps)
   const [warpLaneDensity, setWarpLaneDensity] = useState(80); // Default 80% density
   const [connectionRange, setConnectionRange] = useState(140); // Default 140px range
   const [nebulaCount, setNebulaCount] = useState(10); // Default 10 nebulas
+  const [probeSpeed, setProbeSpeed] = useState(100); // Default 100% speed
   
   // Special features
   const [nebulaSlowdown, setNebulaSlowdown] = useState(true);
@@ -54,6 +56,7 @@ export function GameConfigScreen({ onStartGame, onBack }: GameConfigScreenProps)
       warpLaneDensity: warpLaneDensity,
       connectionRange: connectionRange,
       nebulaCount: nebulaCount,
+      probeSpeed: probeSpeed,
       nebulaSlowdown: nebulaSlowdown,
       supplyRoutes: supplyRoutes,
       probeColonization: probeColonization
@@ -285,6 +288,25 @@ export function GameConfigScreen({ onStartGame, onBack }: GameConfigScreenProps)
                 step={1}
                 value={[nebulaCount]}
                 onValueChange={(value) => setNebulaCount(value[0])}
+                className="w-full"
+              />
+            </div>
+
+            {/* Probe Speed */}
+            <div className="space-y-2">
+              <Label htmlFor="probeSpeed" className="text-white">
+                Probe Speed: {probeSpeed}%
+                <span className="text-gray-400 ml-2">
+                  ({probeSpeed < 80 ? 'Slow' : probeSpeed < 120 ? 'Normal' : 'Fast'} exploration)
+                </span>
+              </Label>
+              <Slider
+                id="probeSpeed"
+                min={50}
+                max={200}
+                step={25}
+                value={[probeSpeed]}
+                onValueChange={(value) => setProbeSpeed(value[0])}
                 className="w-full"
               />
             </div>
