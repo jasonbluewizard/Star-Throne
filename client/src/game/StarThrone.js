@@ -1317,9 +1317,13 @@ export default class StarThrone {
     renderTerritories() {
         this.updateVisibleTerritories();
         
+        // Get current selected territory from input handler
+        const inputState = this.inputHandler ? this.inputHandler.getInputState() : {};
+        const selectedTerritory = inputState.selectedTerritory;
+        
         // Render only visible territories
         this.visibleTerritories.forEach(territory => {
-            territory.render(this.ctx, this.players, this.selectedTerritory, {
+            territory.render(this.ctx, this.players, selectedTerritory, {
                 humanPlayer: this.humanPlayer,
                 homeSystemFlashStart: this.homeSystemFlashStart,
                 homeSystemFlashDuration: this.homeSystemFlashDuration
@@ -1765,7 +1769,7 @@ export default class StarThrone {
         this.camera.applyTransform(this.ctx);
         
         // Render parallax starfield
-        this.renderStarfield();
+        this.renderParallaxStarfield();
         
         // Render game background elements
         this.renderNebulas();
@@ -1791,10 +1795,7 @@ export default class StarThrone {
         // Render proportional drag interface
         this.renderProportionalDrag();
         
-        // Render selection indicators
-        if (this.inputHandler && this.inputHandler.getInputState().selectedTerritory) {
-            this.renderSelectionIndicator(this.inputHandler.getInputState().selectedTerritory);
-        }
+        // Selection is handled by Territory render method itself
         
         this.ctx.restore();
         
