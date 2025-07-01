@@ -269,7 +269,8 @@ export class Player {
         // Debug: Log attacking army strength for throne star attacks
         if (defendingTerritory.isThronestar) {
             console.log(`Throne attack details: Attacker ${attackingTerritory.armySize} armies (${Math.floor(attackingTerritory.armySize * 0.7)} attacking) vs Defender ${defendingTerritory.armySize} armies`);
-            console.log(`Defending player: ${oldOwnerId} (human player is 0)`);
+            const isHumanTarget = oldOwnerId === 0; // Human player always has ID 0
+            console.log(`Defending player: ${oldOwnerId} ${isHumanTarget ? '(👤 HUMAN PLAYER!)' : '(AI player)'}`);
         }
         
         // Use 70% of armies for attack
@@ -297,12 +298,17 @@ export class Player {
                 console.log(`Transferring ${oldOwner.territories.length} territories from ${oldOwner.name} to ${this.name}`);
                 
                 // Special alert if human player's throne is captured (by AI)
-                if (oldOwner && oldOwner.type === 'human') {
+                const isHumanPlayer = oldOwner && (oldOwner.type === 'human' || oldOwner.id === 0);
+                if (isHumanPlayer) {
                     console.log(`💀 HUMAN PLAYER'S THRONE STAR CAPTURED! Game should end!`);
+                    console.log(`TRIGGERING GAME END: Human player ${oldOwner.name} (ID: ${oldOwner.id}) defeated by ${this.name}`);
                     if (gameMap.game) {
                         gameMap.game.gameState = 'ended';
                         gameMap.game.showMessage(`💀 Your empire has fallen! ${this.name} captured your throne star!`, 10000);
-                        // (showGameOver will be handled by the CombatSystem or UI)
+                        // Force UI to show game over screen
+                        if (gameMap.game.ui) {
+                            gameMap.game.ui.showGameOver = true;
+                        }
                     }
                 }
                 

@@ -490,12 +490,12 @@ export class GameUI {
         
         let discoveryCount = 0;
         
-        // Count active discoveries
-        if (discoveries.precursorWeapons > 0) discoveryCount++;
-        if (discoveries.precursorDrive > 0) discoveryCount++;
-        if (discoveries.precursorShield > 0) discoveryCount++;
-        if (discoveries.precursorNanotech > 0) discoveryCount++;
-        if (discoveries.factoryPlanets && discoveries.factoryPlanets.size > 0) discoveryCount++;
+        // Count active discoveries (with safety checks)
+        if (discoveries && discoveries.precursorWeapons > 0) discoveryCount++;
+        if (discoveries && discoveries.precursorDrive > 0) discoveryCount++;
+        if (discoveries && discoveries.precursorShield > 0) discoveryCount++;
+        if (discoveries && discoveries.precursorNanotech > 0) discoveryCount++;
+        if (discoveries && discoveries.factoryPlanets && discoveries.factoryPlanets.size > 0) discoveryCount++;
         
         // Only render if there are discoveries or recent probe results to show
         if (discoveryCount === 0 && validResults.length === 0) return;
@@ -560,28 +560,28 @@ export class GameUI {
         // Show empire-wide bonuses
         ctx.font = '12px Arial';
         
-        // Show empire-wide bonuses
-        if (discoveries.precursorWeapons > 0) {
+        // Show empire-wide bonuses (with safety checks)
+        if (discoveries && discoveries.precursorWeapons > 0) {
             this.renderTextWithShadow(ctx, `⚔️ Weapons Lvl ${discoveries.precursorWeapons}: +${discoveries.precursorWeapons * 10}% Attack`, x + padding, currentY, '#FF6B6B');
             currentY += lineHeight;
         }
         
-        if (discoveries.precursorDrive > 0) {
+        if (discoveries && discoveries.precursorDrive > 0) {
             this.renderTextWithShadow(ctx, `🚀 Drive Lvl ${discoveries.precursorDrive}: +${discoveries.precursorDrive * 20}% Speed`, x + padding, currentY, '#4ECDC4');
             currentY += lineHeight;
         }
         
-        if (discoveries.precursorShield > 0) {
+        if (discoveries && discoveries.precursorShield > 0) {
             this.renderTextWithShadow(ctx, `🛡️ Shield Lvl ${discoveries.precursorShield}: +${discoveries.precursorShield * 10}% Defense`, x + padding, currentY, '#45B7D1');
             currentY += lineHeight;
         }
         
-        if (discoveries.precursorNanotech > 0) {
+        if (discoveries && discoveries.precursorNanotech > 0) {
             this.renderTextWithShadow(ctx, `🔬 Nanotech Lvl ${discoveries.precursorNanotech}: +${discoveries.precursorNanotech * 10}% Generation`, x + padding, currentY, '#96CEB4');
             currentY += lineHeight;
         }
         
-        if (discoveries.factoryPlanets && discoveries.factoryPlanets.size > 0) {
+        if (discoveries && discoveries.factoryPlanets && discoveries.factoryPlanets.size > 0) {
             this.renderTextWithShadow(ctx, `🏭 Factory Worlds: ${discoveries.factoryPlanets.size} (+100% each)`, x + padding, currentY, '#FECA57');
             currentY += lineHeight;
         }
