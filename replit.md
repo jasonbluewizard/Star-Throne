@@ -417,6 +417,13 @@ Changelog:
   * Per-player discovery tracking ensures empire bonuses display only player's advances
   * Removed manual zoom buttons for cleaner interface (mousewheel zoom retained)
   * Factory icons now appear on planets with Precursor Factory Complex discoveries
+- January 2, 2025. Background image system and improved territory selection:
+  * Added background galaxy image with subtle parallax movement (20% of camera speed)
+  * Background image opacity reduced to 15% with 60% dark overlay for minimal interference
+  * Enhanced parallax starfield visibility with increased brightness (far 70%, mid 80%, near 100%)
+  * Fixed territory selection persistence: territories stay selected after attacks, transfers, and probes
+  * Clicking same territory no longer deselects - allows multiple consecutive actions
+  * Click empty space to deliberately deselect territory and return to default camera mode
 - January 1, 2025. Planet density optimization and improved tooltips:
   * Reduced territory density: increased grid spacing from 80px to 150px for less crowded maps
   * Lowered default map size from 200 to 80 territories for better spacing

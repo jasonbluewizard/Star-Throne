@@ -208,6 +208,7 @@ export class CombatSystem {
         }
         
         // Check for throne star capture - triggers empire collapse
+        console.log(`DEBUG: Throne check - isThronestar: ${toTerritory.isThronestar}, defendingPlayer: ${defendingPlayer ? defendingPlayer.name : 'null'}`);
         if (toTerritory.isThronestar && defendingPlayer) {
             console.log(`👑 THRONE STAR CAPTURED! ${attackingPlayer.name} conquers ${defendingPlayer.name}'s empire!`);
             

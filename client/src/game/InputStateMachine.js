@@ -226,9 +226,9 @@ class TerritorySelectedState extends BaseState {
             return true;
         }
         
-        // Clicking same territory - deselect
+        // Clicking same territory - keep selected (no deselect for better UX)
         if (territory.id === this.selectedTerritory.id) {
-            this.fsm.transitionTo('Default');
+            // Stay selected to allow multiple actions
             return true;
         }
         
@@ -237,7 +237,7 @@ class TerritorySelectedState extends BaseState {
             if (this.areNeighbors(this.selectedTerritory, territory)) {
                 // Fleet transfer to adjacent territory
                 this.game.transferFleet(this.selectedTerritory, territory);
-                this.fsm.transitionTo('Default');
+                // Keep territory selected for multiple transfers
                 return true;
             } else {
                 // Select new territory (distant owned territory)
@@ -250,7 +250,7 @@ class TerritorySelectedState extends BaseState {
         // Clicking enemy/neutral territory - attack
         if (!territory.isColonizable) {
             this.game.attackTerritory(this.selectedTerritory, territory);
-            this.fsm.transitionTo('Default');
+            // Keep territory selected for multiple attacks
             return true;
         }
         
