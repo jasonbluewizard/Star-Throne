@@ -171,12 +171,12 @@ export default class StarThrone {
         const drawX = (this.canvas.width - drawWidth) / 2 + offsetX;
         const drawY = (this.canvas.height - drawHeight) / 2 + offsetY;
         
-        // Draw the background image with low opacity
-        this.ctx.globalAlpha = 0.3; // Much more transparent for subtle background effect
+        // Draw the background image with very low opacity
+        this.ctx.globalAlpha = 0.15; // Even more transparent for very subtle background effect
         this.ctx.drawImage(this.backgroundImage, drawX, drawY, drawWidth, drawHeight);
         
         // Add dark overlay to further dim the background
-        this.ctx.globalAlpha = 0.4;
+        this.ctx.globalAlpha = 0.6;
         this.ctx.fillStyle = '#000000';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
@@ -925,6 +925,9 @@ export default class StarThrone {
         
         this.gameState = 'playing';
         
+        // Initialize parallax starfield after map is generated
+        this.initializeStarfield();
+        
         // Start home system flashing for player identification
         this.homeSystemFlashStart = Date.now();
         
@@ -1327,7 +1330,7 @@ export default class StarThrone {
         this.ctx.save();
         
         // Far stars (slowest parallax, barely moves)
-        this.ctx.globalAlpha = 0.4; // Dimmer for background depth
+        this.ctx.globalAlpha = 0.7; // Brighter for better visibility against background
         this.starfield.farStars.forEach(star => {
             // Very subtle parallax movement (5% of camera movement)
             const parallaxX = star.x - (cameraPosX * 0.05);
@@ -1338,7 +1341,7 @@ export default class StarThrone {
             
             // Subtle twinkling effect
             const twinkle = star.twinkle + Math.sin(time * 0.5 + star.x * 0.01) * 0.1;
-            this.ctx.globalAlpha = star.brightness * twinkle * 0.4;
+            this.ctx.globalAlpha = star.brightness * twinkle * 0.7;
             
             this.ctx.fillStyle = '#ffffff';
             this.ctx.beginPath();
@@ -1347,7 +1350,7 @@ export default class StarThrone {
         });
         
         // Mid stars (moderate parallax)
-        this.ctx.globalAlpha = 0.6;
+        this.ctx.globalAlpha = 0.8;
         this.starfield.midStars.forEach(star => {
             // Moderate parallax movement (15% of camera movement)
             const parallaxX = star.x - (cameraPosX * 0.15);
@@ -1356,7 +1359,7 @@ export default class StarThrone {
             if (!this.camera.isPointVisible(parallaxX, parallaxY, 100)) return;
             
             const twinkle = star.twinkle + Math.sin(time * 0.8 + star.x * 0.02) * 0.15;
-            this.ctx.globalAlpha = star.brightness * twinkle * 0.6;
+            this.ctx.globalAlpha = star.brightness * twinkle * 0.8;
             
             this.ctx.fillStyle = '#ffffff';
             this.ctx.beginPath();
@@ -1365,7 +1368,7 @@ export default class StarThrone {
         });
         
         // Near stars (most parallax movement)
-        this.ctx.globalAlpha = 0.8;
+        this.ctx.globalAlpha = 1.0;
         this.starfield.nearStars.forEach(star => {
             // Stronger parallax movement (30% of camera movement)
             const parallaxX = star.x - (cameraPosX * 0.3);
@@ -1374,7 +1377,7 @@ export default class StarThrone {
             if (!this.camera.isPointVisible(parallaxX, parallaxY, 100)) return;
             
             const twinkle = star.twinkle + Math.sin(time * 1.2 + star.x * 0.03) * 0.2;
-            this.ctx.globalAlpha = star.brightness * twinkle * 0.8;
+            this.ctx.globalAlpha = star.brightness * twinkle * 1.0;
             
             this.ctx.fillStyle = '#ffffff';
             this.ctx.beginPath();
