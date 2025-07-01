@@ -113,7 +113,7 @@ export class InputHandler {
             
             if (dragDistance > 15 && timeSinceDragStart > 300) {
                 this.startProportionalDrag();
-            } else if (dragDistance > 5 && !this.game.selectedTerritory) {
+            } else if (dragDistance > 10 && !this.game.selectedTerritory) {
                 this.isDragging = true;
             }
         }
@@ -154,7 +154,7 @@ export class InputHandler {
                 this.game.createSupplyRoute(this.dragStart, targetTerritory);
             }
         }
-        else if (e.button === 0 && (wasQuickClick || !this.isDragging)) {
+        else if (e.button === 0 && (wasQuickClick || (!this.isDragging && !this.isProportionalDrag))) {
             // Check UI elements first
             if (this.game.handleUIClick(this.mousePos.x, this.mousePos.y)) {
                 this.resetDragState();
