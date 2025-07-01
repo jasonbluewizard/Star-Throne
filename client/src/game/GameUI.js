@@ -506,9 +506,8 @@ export class GameUI {
         if (discoveries && discoveries.precursorNanotech > 0) discoveryCount++;
         if (discoveries && discoveries.factoryPlanets && discoveries.factoryPlanets.size > 0) discoveryCount++;
         
-        // Show panel if there are any discoveries or recent probe results from any player
-        const hasAnyContent = discoveryCount > 0 || validResults.length > 0 || 
-                            (gameData.discoveryLog && gameData.discoveryLog.length > 0);
+        // Show panel only if there are human player discoveries or recent probe results
+        const hasAnyContent = discoveryCount > 0 || validResults.length > 0 || recentDiscoveries.length > 0;
         
         // Only render if there are discoveries or recent probe results to show
         if (!hasAnyContent) return;
@@ -679,12 +678,13 @@ export class GameUI {
     }
     
     renderFloatingAnnouncements(ctx, gameData) {
-        if (!gameData.discoveryLog) return;
+        if (!gameData.discoveryLog || !gameData.humanPlayer) return;
         
         const now = Date.now();
+        const humanPlayerId = gameData.humanPlayer.id;
         const announcements = gameData.discoveryLog.filter(entry => {
             const age = (now - entry.timestamp) / 1000;
-            return age <= 4; // Show for 4 seconds
+            return age <= 4 && entry.playerId === humanPlayerId; // Only show human player discoveries for 4 seconds
         });
         
         announcements.forEach(announcement => {
