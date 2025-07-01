@@ -1706,8 +1706,9 @@ export default class StarThrone {
         if (startTerritory && startTerritory.ownerId === this.humanPlayer?.id) {
             this.dragStart = startTerritory;
             
-            // Left click on owned territory with armies starts proportional drag
+            // Only setup proportional drag on left click with armies (but don't activate until intentional drag)
             if (e.button === 0 && startTerritory.armySize > 1) {
+                // Store potential for proportional drag, but don't activate until significant movement
                 this.proportionalDragStart = {
                     territory: startTerritory,
                     screenPos: { ...this.mousePos },
@@ -1716,6 +1717,7 @@ export default class StarThrone {
             }
         } else {
             this.dragStart = null;
+            this.proportionalDragStart = null; // Clear if not on owned territory
         }
         
         if (e.button === 2) { // Right click starts immediate action

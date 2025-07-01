@@ -397,6 +397,12 @@ Changelog:
   * Pulsating selection effects for human player territories with enhanced visual distinction
   * Dynamic cursor mode system with context-sensitive fleet command preview
   * Enhanced drag preview system with real-time fleet allocation calculations
+- January 1, 2025. Control system refinements and warp lane validation:
+  * Fixed control conflict between supply routes and proportional fleet commands
+  * Changed supply route creation from long-press to double-click to eliminate interference
+  * Added warp lane validation: fleet commands only work between connected territories or to colonizable planets
+  * Increased proportional drag threshold (15px + 300ms delay) to prevent accidental activation
+  * Enhanced fleet command validation prevents sending ships to unreachable destinations
 
 ## User Preferences
 
