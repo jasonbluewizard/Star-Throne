@@ -2037,6 +2037,18 @@ export default class StarThrone {
             return;
         }
         
+        // FIRST: Check if we can probe BEFORE changing selection
+        console.log(`Click analysis: clicked=${clickedTerritory?.id}, isColonizable=${clickedTerritory?.isColonizable}, selected=${this.selectedTerritory?.id}, selectedOwner=${this.selectedTerritory?.ownerId}, humanPlayer=${this.humanPlayer?.id}`);
+        
+        if (clickedTerritory.isColonizable && this.selectedTerritory && 
+            this.selectedTerritory.ownerId === this.humanPlayer.id) {
+            
+            console.log(`Attempting to probe: from territory ${this.selectedTerritory.id} (armies: ${this.selectedTerritory.armySize}) to planet ${clickedTerritory.id}`);
+            this.launchProbe(this.selectedTerritory, clickedTerritory);
+            this.selectedTerritory = null;
+            return;
+        }
+        
         // If clicking on own territory
         if (clickedTerritory.ownerId === this.humanPlayer.id) {
             // If we already have a territory selected and clicking another owned territory
@@ -2052,18 +2064,6 @@ export default class StarThrone {
             }
             
             this.selectedTerritory = clickedTerritory;
-            return;
-        }
-        
-        // If clicking on a colonizable planet, launch a probe
-        console.log(`Click analysis: clicked=${clickedTerritory?.id}, isColonizable=${clickedTerritory?.isColonizable}, selected=${this.selectedTerritory?.id}, selectedOwner=${this.selectedTerritory?.ownerId}, humanPlayer=${this.humanPlayer?.id}`);
-        
-        if (clickedTerritory.isColonizable && this.selectedTerritory && 
-            this.selectedTerritory.ownerId === this.humanPlayer.id) {
-            
-            console.log(`Attempting to probe: from territory ${this.selectedTerritory.id} (armies: ${this.selectedTerritory.armySize}) to planet ${clickedTerritory.id}`);
-            this.launchProbe(this.selectedTerritory, clickedTerritory);
-            this.selectedTerritory = null;
             return;
         }
         
