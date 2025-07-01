@@ -49,12 +49,12 @@ export class Player {
         return strategies[Math.floor(Math.random() * strategies.length)];
     }
     
-    update(deltaTime, gameMap, gameSpeed = 1.0) {
-        // Generate armies for all owned territories with speed multiplier
+    update(deltaTime, gameMap, gameSpeed = 1.0, game = null) {
+        // Generate armies for all owned territories with speed multiplier and discovery bonuses
         this.territories.forEach(territoryId => {
             const territory = gameMap.territories[territoryId];
             if (territory) {
-                territory.generateArmies(deltaTime, this, gameSpeed);
+                territory.generateArmies(deltaTime, this, gameSpeed, game);
             }
         });
         

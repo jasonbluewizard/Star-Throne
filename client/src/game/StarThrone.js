@@ -104,6 +104,21 @@ export default class StarThrone {
             initialized: false
         };
         
+        // Discovery system for planet colonization
+        this.discoveries = {
+            // Empire-wide bonuses (levels stack)
+            precursorWeapons: 0,    // +10% attack per level
+            precursorDrive: 0,      // +20% probe/ship speed per level
+            precursorShield: 0,     // +10% defense per level
+            precursorNanotech: 0,   // +10% empire-wide generation per level
+            
+            // Planet-specific bonuses
+            factoryPlanets: new Set(), // Planets with 200% generation
+            
+            // Discovery history for display
+            discoveryLog: []
+        };
+        
         this.init();
     }
     
@@ -130,6 +145,108 @@ export default class StarThrone {
         
         this.startGame();
         this.gameLoop();
+    }
+    
+    // Define discovery types and their probabilities
+    getDiscoveryTypes() {
+        return [
+            {
+                id: 'hostile_aliens',
+                name: 'Hostile Aliens',
+                description: 'Hostile alien life destroys your probe!',
+                probability: 0.15,
+                type: 'negative',
+                effect: 'probe_lost'
+            },
+            {
+                id: 'friendly_aliens',
+                name: 'Friendly Aliens',
+                description: 'Friendly aliens join your empire!',
+                probability: 0.12,
+                type: 'positive',
+                effect: 'extra_fleet',
+                bonus: 50
+            },
+            {
+                id: 'precursor_weapons',
+                name: 'Precursor Weapons Cache',
+                description: 'Ancient weapon technology discovered!',
+                probability: 0.08,
+                type: 'empire_bonus',
+                effect: 'attack_bonus',
+                bonus: 10 // +10% attack
+            },
+            {
+                id: 'precursor_drive',
+                name: 'Precursor Drive System',
+                description: 'Advanced propulsion technology found!',
+                probability: 0.08,
+                type: 'empire_bonus',
+                effect: 'speed_bonus',
+                bonus: 20 // +20% speed
+            },
+            {
+                id: 'precursor_shield',
+                name: 'Precursor Shield Matrix',
+                description: 'Defensive technology enhances your empire!',
+                probability: 0.08,
+                type: 'empire_bonus',
+                effect: 'defense_bonus',
+                bonus: 10 // +10% defense
+            },
+            {
+                id: 'precursor_factory',
+                name: 'Precursor Factory Complex',
+                description: 'Ancient manufacturing facility still operational!',
+                probability: 0.06,
+                type: 'planet_bonus',
+                effect: 'factory_planet',
+                bonus: 100 // +100% generation (200% total)
+            },
+            {
+                id: 'precursor_nanotech',
+                name: 'Precursor Nanotechnology',
+                description: 'Self-replicating technology spreads across your empire!',
+                probability: 0.05,
+                type: 'empire_bonus',
+                effect: 'generation_bonus',
+                bonus: 10 // +10% empire-wide generation
+            },
+            {
+                id: 'mineral_deposits',
+                name: 'Rich Mineral Deposits',
+                description: 'Valuable resources boost this planet\'s output!',
+                probability: 0.10,
+                type: 'planet_bonus',
+                effect: 'mineral_planet',
+                bonus: 50 // +50% generation
+            },
+            {
+                id: 'ancient_ruins',
+                name: 'Ancient Ruins',
+                description: 'Mysterious structures provide no immediate benefit.',
+                probability: 0.08,
+                type: 'neutral',
+                effect: 'cosmetic'
+            },
+            {
+                id: 'void_storm',
+                name: 'Void Storm Remnants',
+                description: 'Dangerous energy storms reduce planet effectiveness.',
+                probability: 0.06,
+                type: 'negative',
+                effect: 'reduced_generation',
+                bonus: -25 // -25% generation
+            },
+            {
+                id: 'no_discovery',
+                name: 'Standard Planet',
+                description: 'A typical world with no special features.',
+                probability: 0.14,
+                type: 'neutral',
+                effect: 'none'
+            }
+        ];
     }
     
     // Initialize parallax starfield layers
@@ -177,6 +294,113 @@ export default class StarThrone {
         
         this.starfield.initialized = true;
         console.log('Parallax starfield initialized with 530 stars across 3 layers');
+    }
+    
+    // Random discovery selection based on probabilities
+    selectRandomDiscovery() {
+        const discoveries = this.getDiscoveryTypes();
+        const random = Math.random();
+        let cumulative = 0;
+        
+        for (const discovery of discoveries) {
+            cumulative += discovery.probability;
+            if (random <= cumulative) {
+                return discovery;
+            }
+        }
+        
+        // Fallback to no discovery
+        return discoveries.find(d => d.id === 'no_discovery');
+    }
+    
+    // Process discovery when a planet is successfully colonized
+    processDiscovery(territory, discovery, playerId) {
+        const player = this.players[playerId];
+        if (!player) return;
+        
+        // Add to discovery log
+        this.discoveries.discoveryLog.push({
+            timestamp: Date.now(),
+            territoryId: territory.id,
+            playerId: playerId,
+            discovery: discovery,
+            playerName: player.name
+        });
+        
+        console.log(`🔍 Discovery on planet ${territory.id}: ${discovery.name} - ${discovery.description}`);
+        
+        // Apply discovery effects
+        switch (discovery.effect) {
+            case 'probe_lost':
+                // Probe is destroyed, planet remains unexplored
+                territory.isColonizable = true;
+                territory.ownerId = null;
+                territory.armySize = territory.hiddenArmySize || Math.floor(Math.random() * 50) + 1;
+                console.log(`💀 Probe lost to hostile aliens! Planet ${territory.id} remains unexplored.`);
+                return false; // Colonization failed
+                
+            case 'extra_fleet':
+                // Friendly aliens boost fleet strength
+                territory.armySize = discovery.bonus;
+                console.log(`👽 Friendly aliens provide ${discovery.bonus} fleet strength!`);
+                break;
+                
+            case 'attack_bonus':
+                // Empire-wide attack bonus
+                this.discoveries.precursorWeapons++;
+                console.log(`⚔️ Precursor Weapons Level ${this.discoveries.precursorWeapons}! Empire attack increased by 10%`);
+                break;
+                
+            case 'speed_bonus':
+                // Empire-wide speed bonus
+                this.discoveries.precursorDrive++;
+                console.log(`🚀 Precursor Drive Level ${this.discoveries.precursorDrive}! Empire speed increased by 20%`);
+                break;
+                
+            case 'defense_bonus':
+                // Empire-wide defense bonus
+                this.discoveries.precursorShield++;
+                console.log(`🛡️ Precursor Shield Level ${this.discoveries.precursorShield}! Empire defense increased by 10%`);
+                break;
+                
+            case 'factory_planet':
+                // Planet gets double generation rate
+                this.discoveries.factoryPlanets.add(territory.id);
+                territory.discoveryBonus = 'factory';
+                console.log(`🏭 Precursor Factory discovered! Planet ${territory.id} has 200% generation rate`);
+                break;
+                
+            case 'generation_bonus':
+                // Empire-wide generation bonus
+                this.discoveries.precursorNanotech++;
+                console.log(`🔬 Precursor Nanotech Level ${this.discoveries.precursorNanotech}! Empire generation increased by 10%`);
+                break;
+                
+            case 'mineral_planet':
+                // Planet gets +50% generation
+                territory.discoveryBonus = 'minerals';
+                console.log(`💎 Rich minerals found! Planet ${territory.id} has 150% generation rate`);
+                break;
+                
+            case 'reduced_generation':
+                // Planet gets reduced generation
+                territory.discoveryBonus = 'void_storm';
+                console.log(`⚡ Void storm remnants! Planet ${territory.id} has 75% generation rate`);
+                break;
+                
+            case 'cosmetic':
+                // Ancient ruins - cosmetic only
+                territory.discoveryBonus = 'ruins';
+                console.log(`🏛️ Ancient ruins discovered on planet ${territory.id}`);
+                break;
+                
+            default:
+                // No special effect
+                console.log(`🌍 Standard planet colonized: ${territory.id}`);
+                break;
+        }
+        
+        return true; // Colonization successful
     }
     
     // Create ship movement animation
@@ -311,9 +535,24 @@ export default class StarThrone {
         
         console.log(`Probe colonizing planet ${planet.id} for player ${player.name}`);
         
-        // Set ownership and start with 1 army
+        // Trigger discovery event before colonization
+        const discovery = this.selectRandomDiscovery();
+        const colonizationSuccessful = this.processDiscovery(planet, discovery, player.id);
+        
+        // If probe was lost to hostile aliens, colonization fails
+        if (!colonizationSuccessful) {
+            console.log(`Colonization of planet ${planet.id} failed due to hostile encounter!`);
+            return;
+        }
+        
+        // Set ownership - discovery might have already set army size
         planet.ownerId = player.id;
-        planet.armySize = 1; // Colonized planets always start with 1 army
+        if (planet.armySize === 0 || planet.armySize === planet.hiddenArmySize) {
+            planet.armySize = 1; // Default if not set by discovery
+        }
+        
+        // Mark as no longer colonizable
+        planet.isColonizable = false;
         
         // Add to player's territories
         player.territories.push(planet.id);
@@ -332,7 +571,7 @@ export default class StarThrone {
         // Update player stats
         player.updateStats();
         
-        console.log(`Planet ${planet.id} colonized! Started with 1 army, revealed ${planet.neighbors.length} connections.`);
+        console.log(`Planet ${planet.id} colonized successfully! Discovery: ${discovery.name}`);
     }
     
     // Render ship animations

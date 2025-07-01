@@ -68,7 +68,7 @@ export class Territory {
         };
     }
     
-    generateArmies(deltaTime, player, gameSpeed = 1.0) {
+    generateArmies(deltaTime, player, gameSpeed = 1.0, game = null) {
         // Neutral territories have fixed army sizes and don't generate armies
         if (this.ownerId === null) return;
         
@@ -76,10 +76,28 @@ export class Territory {
         const speedAdjustedDelta = deltaTime * gameSpeed;
         this.lastArmyGeneration += speedAdjustedDelta;
         
-        if (this.lastArmyGeneration >= this.armyGenerationRate) {
-            const armiesGenerated = Math.floor(this.lastArmyGeneration / this.armyGenerationRate);
+        // Calculate generation rate with discovery bonuses
+        let effectiveGenerationRate = this.armyGenerationRate;
+        
+        // Apply planet-specific bonuses
+        if (this.discoveryBonus === 'factory') {
+            effectiveGenerationRate *= 0.5; // 200% speed (half the time)
+        } else if (this.discoveryBonus === 'minerals') {
+            effectiveGenerationRate *= 0.67; // 150% speed
+        } else if (this.discoveryBonus === 'void_storm') {
+            effectiveGenerationRate *= 1.33; // 75% speed
+        }
+        
+        // Apply empire-wide nanotech bonus
+        if (game && game.discoveries && game.discoveries.precursorNanotech > 0) {
+            const nanotechBonus = 1 + (game.discoveries.precursorNanotech * 0.1);
+            effectiveGenerationRate /= nanotechBonus;
+        }
+        
+        if (this.lastArmyGeneration >= effectiveGenerationRate) {
+            const armiesGenerated = Math.floor(this.lastArmyGeneration / effectiveGenerationRate);
             this.armySize += armiesGenerated;
-            this.lastArmyGeneration = this.lastArmyGeneration % this.armyGenerationRate;
+            this.lastArmyGeneration = this.lastArmyGeneration % effectiveGenerationRate;
             
             if (player) {
                 player.totalArmies += armiesGenerated;
