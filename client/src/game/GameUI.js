@@ -117,6 +117,9 @@ export class GameUI {
         // Render notifications
         this.renderNotifications(ctx, gameData);
         
+        // Render floating discovery announcements
+        this.renderFloatingAnnouncements(ctx, gameData);
+        
         // Game over screen for human player
         const humanPlayer = gameData.humanPlayer;
         if (humanPlayer && humanPlayer.territories.length === 0) {
@@ -503,6 +506,14 @@ export class GameUI {
         if (discoveries && discoveries.precursorNanotech > 0) discoveryCount++;
         if (discoveries && discoveries.factoryPlanets && discoveries.factoryPlanets.size > 0) discoveryCount++;
         
+        // Debug logging
+        console.log('Discovery panel check:', {
+            discoveryCount,
+            validResultsCount: validResults.length,
+            discoveries: discoveries,
+            discoveryLog: gameData.discoveryLog
+        });
+        
         // Only render if there are discoveries or recent probe results to show
         if (discoveryCount === 0 && validResults.length === 0) return;
         
@@ -669,6 +680,48 @@ export class GameUI {
             'ancient_ruins': '#ffa726'
         };
         return colors[effect] || '#ffffff';
+    }
+    
+    renderFloatingAnnouncements(ctx, gameData) {
+        if (!gameData.discoveryLog) return;
+        
+        const now = Date.now();
+        const announcements = gameData.discoveryLog.filter(entry => {
+            const age = (now - entry.timestamp) / 1000;
+            return age <= 4; // Show for 4 seconds
+        });
+        
+        announcements.forEach(announcement => {
+            const age = (now - announcement.timestamp) / 1000;
+            const fadeProgress = age / 4; // Fade over 4 seconds
+            const opacity = Math.max(0, 1 - fadeProgress);
+            
+            // Find the territory position
+            const territory = gameData.gameState && gameData.gameState.territories && 
+                            gameData.gameState.territories[announcement.territoryId];
+            if (!territory) return;
+            
+            // Convert world coordinates to screen coordinates
+            const camera = gameData.camera;
+            if (!camera) return;
+            
+            const screenX = (territory.x - camera.x) * camera.zoom;
+            const screenY = (territory.y - camera.y) * camera.zoom - 50; // Float above territory
+            
+            // Get discovery info
+            const icon = this.getDiscoveryIcon(announcement.discovery.effect);
+            const color = this.getDiscoveryColor(announcement.discovery.effect);
+            
+            // Apply opacity
+            const rgb = this.hexToRgb(color);
+            const fadeColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${opacity})`;
+            
+            // Render floating text
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            const text = `${icon} ${announcement.discovery.name}`;
+            this.renderTextWithShadow(ctx, text, screenX, screenY, fadeColor);
+        });
     }
     
     renderMinimap(ctx, gameData) {

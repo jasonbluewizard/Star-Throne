@@ -138,7 +138,13 @@ export class Camera {
     
     zoomTo(newZoom, screenX, screenY) {
         const oldZoom = this.zoom;
-        this.targetZoom = Math.max(this.minZoom, Math.min(this.maxZoom, newZoom));
+        
+        // Calculate minimum zoom to show full map
+        const minZoomForWidth = this.viewportWidth / (this.mapWidth + this.boundaryPadding * 2);
+        const minZoomForHeight = this.viewportHeight / (this.mapHeight + this.boundaryPadding * 2);
+        const smartMinZoom = Math.max(minZoomForWidth, minZoomForHeight, 0.05);
+        
+        this.targetZoom = Math.max(smartMinZoom, Math.min(this.maxZoom, newZoom));
         
         if (screenX !== undefined && screenY !== undefined) {
             // Zoom towards a specific point
