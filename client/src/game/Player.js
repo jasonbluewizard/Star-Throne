@@ -263,6 +263,11 @@ export class Player {
             console.log(`AI ${this.name} attacking territory ${defendingTerritory.id} from ${attackingTerritory.id}${defendingTerritory.isThronestar ? ' (👑 THRONE STAR!)' : ''}`);
         }
         
+        // Debug: Log attacking army strength for throne star attacks
+        if (defendingTerritory.isThronestar) {
+            console.log(`Throne attack details: Attacker ${attackingTerritory.armySize} armies (${Math.floor(attackingTerritory.armySize * 0.7)} attacking) vs Defender ${defendingTerritory.armySize} armies`);
+        }
+        
         // Use 70% of armies for attack
         const attackingArmies = Math.floor(attackingTerritory.armySize * 0.7);
         const defendingArmies = defendingTerritory.armySize;
@@ -276,6 +281,11 @@ export class Player {
         if (attackPower > defensePower) {
             // Attack successful
             const survivingArmies = Math.max(1, attackingArmies - defendingArmies);
+            
+            // Debug: Log successful throne attacks
+            if (defendingTerritory.isThronestar) {
+                console.log(`🏆 THRONE ATTACK SUCCESSFUL! ${this.name} captures throne star ${defendingTerritory.id} from ${oldOwnerId}`);
+            }
             
             // Check if this is a throne star capture
             if (defendingTerritory.isThronestar && oldOwnerId !== null && gameMap.players && gameMap.players[oldOwnerId]) {
