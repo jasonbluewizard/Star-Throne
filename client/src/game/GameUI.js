@@ -522,8 +522,8 @@ export class GameUI {
         
         console.log('Panel visibility check:', { discoveryCount, validResultsLength: validResults.length, recentDiscoveriesLength: recentDiscoveries.length, hasAnyContent });
         
-        // Only render if there are discoveries or recent probe results to show
-        if (!hasAnyContent) return;
+        // TEMPORARY: Always render for debugging
+        // if (!hasAnyContent) return;
         
         const x = 20;
         const width = 280;
