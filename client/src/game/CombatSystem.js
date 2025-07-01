@@ -60,9 +60,10 @@ export class CombatSystem {
         this.triggerCombatFlash(toTerritory);
         this.createFloatingDamageText(toTerritory, combatResult);
         
-        // Check for throne star capture
+        // Check for throne star capture - CRITICAL FIX
         if (combatResult.victory && toTerritory.isThronestar) {
-            this.handleThroneStarCapture(attackingPlayer, defendingPlayer);
+            console.log(`🏆 THRONE STAR CAPTURE DETECTED! ${attackingPlayer.name} captures ${defendingPlayer?.name}'s throne!`);
+            this.handleThroneStarCapture(attackingPlayer, defendingPlayer, toTerritory);
         }
         
         // Check elimination
@@ -181,21 +182,9 @@ export class CombatSystem {
         console.log(`${attackingPlayer.name} captures territory ${toTerritory.id}`);
         
         // CRITICAL: Check for throne star capture BEFORE any territory transfers!
-        console.log(`DEBUG: Throne check - isThronestar: ${toTerritory.isThronestar}, defendingPlayer: ${defendingPlayer ? defendingPlayer.name : 'null'}`);
+        console.log(`DEBUG: Throne check - isThronestar: ${toTerritory.isThronestar}, defendingPlayer: ${defendingPlayer ? defendingPlayer.name : 'null'}, defendingPlayer.type: ${defendingPlayer ? defendingPlayer.type : 'null'}`);
         if (toTerritory.isThronestar && defendingPlayer) {
             console.log(`👑 THRONE STAR CAPTURED! ${attackingPlayer.name} conquers ${defendingPlayer.name}'s empire!`);
-            
-            // Special handling if human player's throne is captured
-            if (defendingPlayer.type === 'human') {
-                console.log(`💀 HUMAN PLAYER'S THRONE STAR CAPTURED! Game should end!`);
-                this.game.gameState = 'ended';
-                this.game.showMessage(`💀 Your empire has fallen! ${attackingPlayer.name} captured your throne star!`, 10000);
-                
-                // Force game to show end screen
-                if (this.game.ui) {
-                    this.game.ui.showGameOver = true;
-                }
-            }
             
             // Transfer ALL remaining territories from defender to attacker
             const defendingTerritories = [...defendingPlayer.territories];
@@ -218,9 +207,18 @@ export class CombatSystem {
                 }
             }
             
+            // CRITICAL FIX: Clear ALL remaining territories from defending player to trigger game over
+            defendingPlayer.territories = [];
+            
             // Mark defender as eliminated
             defendingPlayer.isEliminated = true;
             console.log(`${defendingPlayer.name} has been eliminated!`);
+            
+            // Special handling if human player's throne is captured
+            if (defendingPlayer.type === 'human') {
+                console.log(`💀 HUMAN PLAYER'S THRONE STAR CAPTURED! Game over triggered!`);
+                this.game.gameState = 'ended';
+            }
             
             // Destroy the captured throne star to prevent multiple thrones
             toTerritory.isThronestar = false;
