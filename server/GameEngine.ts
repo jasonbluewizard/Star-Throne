@@ -11,6 +11,11 @@ export class GameEngine {
   private changedTerritories: Set<number> = new Set();
   private changedPlayers: Set<string> = new Set();
   private changedProbes: boolean = false;
+  
+  // Public access to tick for delta tracking
+  public get tick(): number {
+    return this.gameState.tick;
+  }
 
   constructor(config: { mapSize: number; tickRate?: number; gameSpeed?: number }) {
     this.tickRate = config.tickRate || 20; // 20 updates per second

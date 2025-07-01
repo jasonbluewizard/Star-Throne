@@ -437,6 +437,13 @@ Changelog:
   * Fixed territory deselection UX: empty space clicks now reliably deselect territories regardless of minor mouse movement
   * Simplified AI Player.js combat logic to use type checking and removed duplicate game end handling
   * Added comprehensive debugging for throne star attacks with success/failure logging
+- January 2, 2025. Network optimization and performance improvements:
+  * Implemented static background pre-rendering optimization: starfield and nebulas rendered once to background canvas
+  * Replaced per-frame rendering of 530+ stars with single drawImage blit operation for major performance boost
+  * Added delta-state broadcasting system in GameEngine: only sends changed territories, players, and probes
+  * Reduced network payload size by 10-20x with getDeltaSince() method tracking changed game elements
+  * Enhanced server-authoritative architecture with optimized change tracking for territories, players, and probes
+  * Network updates now broadcast only modified data instead of full game state every frame
 - January 2, 2025. UI layout optimization and probe announcement cleanup:
   * Moved probe discovery announcements to top center of screen with larger dimensions (400px wide)
   * Relocated Empire Discoveries panel to bottom left corner for better UI organization

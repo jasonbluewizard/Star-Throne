@@ -1,7 +1,7 @@
 import { Server as SocketServer } from 'socket.io';
 import { Server } from 'http';
-import { GameEngine } from './gameEngine.js';
-import { PlayerState, GameConfig, ClientCommand, CommandType, GameStateUpdate, CombatResult, CommandError } from '../common/types/index.js';
+import { GameEngine } from './GameEngine.js';
+import { PlayerState, GameConfig, ClientCommand, CommandType, GameStateUpdate, CombatResult, CommandError, GameState } from '../common/types/index.js';
 import { GAME_CONSTANTS } from '../common/gameConstants.js';
 
 interface Player {
@@ -260,7 +260,8 @@ export class GameServer {
       room.lastSentTick = room.gameEngine!.tick;
 
       // Check if game ended
-      if (gameState.gamePhase === 'ended') {
+      const currentGameState = room.gameEngine!.getGameState();
+      if (currentGameState.gamePhase === 'ended') {
         this.endGame(roomId);
       }
     }, tickInterval);
