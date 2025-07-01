@@ -284,6 +284,15 @@ export class Player {
                 console.log(`🏆 THRONE STAR CAPTURED! ${oldOwner.name}'s empire falls to ${this.name}!`);
                 console.log(`Transferring ${oldOwner.territories.length} territories from ${oldOwner.name} to ${this.name}`);
                 
+                // Special alert if human player's throne is captured
+                if (oldOwnerId === 0) {
+                    console.log(`💀 HUMAN PLAYER'S THRONE STAR CAPTURED! Game should end!`);
+                    if (gameMap.game) {
+                        gameMap.game.gameState = 'ended';
+                        gameMap.game.showMessage(`💀 Your empire has fallen! ${this.name} captured your throne star!`, 10000);
+                    }
+                }
+                
                 // Transfer all territories from old owner to attacker
                 const territoriesToTransfer = [...oldOwner.territories];
                 territoriesToTransfer.forEach(territoryId => {
