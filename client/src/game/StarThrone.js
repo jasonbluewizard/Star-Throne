@@ -438,16 +438,12 @@ export default class StarThrone {
         return discoveries.find(d => d.id === 'no_discovery');
     }
     
-    // Process discovery when a planet is successfully colonized
-    processDiscovery(territory, discovery, playerId) {
+    // Log discovery for UI display (called for both successful and failed probes)
+    logDiscoveryForUI(territory, playerId, discovery) {
         const player = this.players[playerId];
         if (!player) return;
         
-        // Get player's discoveries
-        const playerDiscoveries = this.playerDiscoveries.get(playerId);
-        if (!playerDiscoveries) return;
-        
-        // Add to discovery log
+        // Add to discovery log for UI display
         this.discoveryLog.push({
             timestamp: Date.now(),
             territoryId: territory.id,
@@ -475,6 +471,100 @@ export default class StarThrone {
         if (this.recentProbeResults.length > 10) {
             this.recentProbeResults.shift();
         }
+    }
+    
+    // Process discovery when a planet is successfully colonized
+    processDiscovery(territory, playerId, discovery) {
+        const player = this.players[playerId];
+        if (!player) return false;
+        
+        // Get player's discoveries
+        const playerDiscoveries = this.playerDiscoveries.get(playerId);
+        if (!playerDiscoveries) return false;
+        
+        // Apply discovery effects
+        switch (discovery.effect) {
+            case 'probe_lost':
+                // Probe is destroyed, planet remains unexplored
+                territory.isColonizable = true;
+                territory.ownerId = null;
+                territory.armySize = territory.hiddenArmySize || Math.floor(Math.random() * 50) + 1;
+                
+                // Add explosion animation for the territory
+                territory.explosionTime = Date.now();
+                territory.explosionDuration = 1500; // 1.5 second explosion
+                
+                console.log(`💀 Probe lost to hostile aliens! Planet ${territory.id} remains unexplored.`);
+                return false; // Colonization failed
+                
+            case 'extra_fleet':
+                // Friendly aliens boost fleet strength
+                territory.armySize += discovery.bonus;
+                const friendlyMessage = `👽 Friendly aliens provide ${discovery.bonus} fleet strength!`;
+                console.log(friendlyMessage);
+                if (playerId === this.humanPlayer?.id) {
+                    this.addNotification(friendlyMessage, '#44ff44');
+                }
+                break;
+                
+            case 'attack_bonus':
+                // Empire-wide attack bonus
+                playerDiscoveries.precursorWeapons++;
+                const weaponMessage = `⚔️ Precursor Weapons Level ${playerDiscoveries.precursorWeapons}! Empire attack increased by 10%`;
+                console.log(weaponMessage);
+                if (playerId === this.humanPlayer?.id) {
+                    this.addNotification(weaponMessage, '#ff6600');
+                }
+                break;
+                
+            case 'speed_bonus':
+                // Empire-wide speed bonus
+                playerDiscoveries.precursorDrive++;
+                const driveMessage = `🚀 Precursor Drive Level ${playerDiscoveries.precursorDrive}! Empire speed increased by 20%`;
+                console.log(driveMessage);
+                if (playerId === this.humanPlayer?.id) {
+                    this.addNotification(driveMessage, '#00ddff');
+                }
+                break;
+                
+            case 'defense_bonus':
+                // Empire-wide defense bonus
+                playerDiscoveries.precursorShield++;
+                const shieldMessage = `🛡️ Precursor Shield Level ${playerDiscoveries.precursorShield}! Empire defense increased by 10%`;
+                console.log(shieldMessage);
+                if (playerId === this.humanPlayer?.id) {
+                    this.addNotification(shieldMessage, '#0088ff');
+                }
+                break;
+                
+            case 'factory_planet':
+                // Planet gets double generation rate
+                playerDiscoveries.factoryPlanets.add(territory.id);
+                territory.discoveryBonus = 'factory';
+                territory.hasFactory = true; // Add factory icon
+                const factoryMessage = `🏭 Precursor Factory discovered! Planet ${territory.id} has 200% generation rate`;
+                console.log(factoryMessage);
+                if (playerId === this.humanPlayer?.id) {
+                    this.addNotification(factoryMessage, '#ff8800');
+                }
+                break;
+                
+            case 'generation_bonus':
+                // Planet gets improved generation rate
+                playerDiscoveries.precursorNanotech++;
+                const nanotechMessage = `🔬 Precursor Nanotech Level ${playerDiscoveries.precursorNanotech}! Empire generation increased by 10%`;
+                console.log(nanotechMessage);
+                if (playerId === this.humanPlayer?.id) {
+                    this.addNotification(nanotechMessage, '#00ff88');
+                }
+                break;
+                
+            default:
+                // Standard planet colonization
+                break;
+        }
+        
+        return true; // Colonization successful
     }
     
     addFloatingDiscoveryText(territory, discovery, playerId) {
@@ -808,7 +898,10 @@ export default class StarThrone {
         
         // Trigger discovery event before colonization
         const discovery = this.selectRandomDiscovery();
-        const colonizationSuccessful = this.processDiscovery(planet, discovery, player.id);
+        const colonizationSuccessful = this.processDiscovery(planet, player.id, discovery);
+        
+        // Always log the discovery for UI display (both success and failure)
+        this.logDiscoveryForUI(planet, player.id, discovery);
         
         // If probe was lost to hostile aliens, colonization fails
         if (!colonizationSuccessful) {

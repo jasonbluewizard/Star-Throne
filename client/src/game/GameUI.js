@@ -509,8 +509,9 @@ export class GameUI {
         // Show panel only if there are human player discoveries or recent probe results
         const hasAnyContent = discoveryCount > 0 || validResults.length > 0 || recentDiscoveries.length > 0;
         
-        // Only render if there are discoveries or recent probe results to show
-        if (!hasAnyContent) return;
+        // Always show panel if human player has ANY discoveries or if there are recent probe results
+        // This ensures failed probes also show up in the log
+        if (discoveryCount === 0 && validResults.length === 0 && recentDiscoveries.length === 0) return;
         
         const x = 20;
         const width = 280;
