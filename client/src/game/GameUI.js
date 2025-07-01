@@ -506,16 +506,12 @@ export class GameUI {
         if (discoveries && discoveries.precursorNanotech > 0) discoveryCount++;
         if (discoveries && discoveries.factoryPlanets && discoveries.factoryPlanets.size > 0) discoveryCount++;
         
-        // Debug logging
-        console.log('Discovery panel check:', {
-            discoveryCount,
-            validResultsCount: validResults.length,
-            discoveries: discoveries,
-            discoveryLog: gameData.discoveryLog
-        });
+        // Show panel if there are any discoveries or recent probe results from any player
+        const hasAnyContent = discoveryCount > 0 || validResults.length > 0 || 
+                            (gameData.discoveryLog && gameData.discoveryLog.length > 0);
         
         // Only render if there are discoveries or recent probe results to show
-        if (discoveryCount === 0 && validResults.length === 0) return;
+        if (!hasAnyContent) return;
         
         const x = 20;
         const width = 280;
