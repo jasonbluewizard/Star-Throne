@@ -241,6 +241,11 @@ export class Territory {
             this.renderFactoryIcon(ctx);
         }
         
+        // Draw explosion animation for failed probes
+        if (this.explosionTime && Date.now() - this.explosionTime < this.explosionDuration) {
+            this.renderExplosion(ctx);
+        }
+        
         // Draw army count for neutral territories or "?" for colonizable
         if (this.ownerId === null) {
             ctx.font = 'bold 14px Arial';

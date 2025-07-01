@@ -480,6 +480,14 @@ export class GameUI {
         
         const discoveries = gameData.playerDiscoveries.get(gameData.humanPlayer.id);
         if (!discoveries) return;
+        
+        // Get recent probe announcements (last 5 seconds)
+        const recentProbeResults = gameData.recentProbeResults || [];
+        const now = Date.now();
+        const validResults = recentProbeResults.filter(result => 
+            result.playerId === gameData.humanPlayer.id && (now - result.timestamp) < 5000
+        );
+        
         let discoveryCount = 0;
         
         // Count active discoveries
@@ -489,15 +497,18 @@ export class GameUI {
         if (discoveries.precursorNanotech > 0) discoveryCount++;
         if (discoveries.factoryPlanets && discoveries.factoryPlanets.size > 0) discoveryCount++;
         
-        // Only render if there are discoveries to show
-        if (discoveryCount === 0) return;
+        // Only render if there are discoveries or recent probe results to show
+        if (discoveryCount === 0 && validResults.length === 0) return;
         
         const x = 20;
-        const y = this.canvas.height - 200;
         const width = 280;
         const lineHeight = 20;
         const padding = 10;
-        const height = Math.max(80, discoveryCount * lineHeight + padding * 2);
+        const probeResultHeight = validResults.length * 22; // 22px per probe result
+        const discoveryHeight = discoveryCount * lineHeight;
+        const titleHeight = 25;
+        const height = Math.max(80, titleHeight + probeResultHeight + discoveryHeight + padding * 2);
+        const y = this.canvas.height - height - 20;
         
         // Background with transparency
         ctx.fillStyle = 'rgba(0, 20, 40, 0.9)';
@@ -513,8 +524,41 @@ export class GameUI {
         ctx.textAlign = 'left';
         this.renderTextWithShadow(ctx, '🔬 Empire Discoveries', x + padding, y + 20, '#4CAF50');
         
+        let currentY = y + 30;
+        
+        // Show recent probe results at the top
+        if (validResults.length > 0) {
+            ctx.font = '11px Arial';
+            for (const result of validResults.slice(-3)) { // Show last 3 results
+                const age = (now - result.timestamp) / 1000;
+                const opacity = Math.max(0.3, 1 - age / 5); // Fade over 5 seconds
+                
+                let color = result.success ? '#44ff44' : '#ff4444';
+                let icon = result.success ? '✓' : '✗';
+                let text = `${icon} Planet ${result.territoryId}: ${result.discoveryName}`;
+                
+                // Apply opacity to color
+                const rgb = this.hexToRgb(color);
+                const fadeColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${opacity})`;
+                
+                this.renderTextWithShadow(ctx, text, x + padding, currentY, fadeColor);
+                currentY += 22;
+            }
+            
+            // Add separator line
+            if (discoveryCount > 0) {
+                ctx.strokeStyle = '#4CAF50';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(x + padding, currentY);
+                ctx.lineTo(x + width - padding, currentY);
+                ctx.stroke();
+                currentY += 10;
+            }
+        }
+        
+        // Show empire-wide bonuses
         ctx.font = '12px Arial';
-        let currentY = y + 40;
         
         // Show empire-wide bonuses
         if (discoveries.precursorWeapons > 0) {
@@ -546,6 +590,15 @@ export class GameUI {
         ctx.font = '10px Arial';
         ctx.textAlign = 'right';
         this.renderTextWithShadow(ctx, `Total: ${discoveryCount} discoveries`, x + width - padding, y + height - 5, '#888888');
+    }
+    
+    hexToRgb(hex) {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? {
+            r: parseInt(result[1], 16),
+            g: parseInt(result[2], 16),
+            b: parseInt(result[3], 16)
+        } : {r: 255, g: 255, b: 255};
     }
     
     renderMinimap(ctx, gameData) {

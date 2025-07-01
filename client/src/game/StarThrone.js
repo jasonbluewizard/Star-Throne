@@ -105,6 +105,9 @@ export default class StarThrone {
         // Global discovery log for all players
         this.discoveryLog = [];
         
+        // Recent probe results for UI announcements
+        this.recentProbeResults = [];
+        
         // Notification system
         this.notifications = [];
         
@@ -386,6 +389,21 @@ export default class StarThrone {
         
         console.log(`🔍 Discovery on planet ${territory.id}: ${discovery.name} - ${discovery.description}`);
         
+        // Track probe result for UI announcements
+        this.recentProbeResults.push({
+            timestamp: Date.now(),
+            territoryId: territory.id,
+            playerId: playerId,
+            discoveryName: discovery.name,
+            success: discovery.effect !== 'probe_lost',
+            discovery: discovery
+        });
+        
+        // Keep only recent results (last 10)
+        if (this.recentProbeResults.length > 10) {
+            this.recentProbeResults.shift();
+        }
+        
         // Apply discovery effects
         switch (discovery.effect) {
             case 'probe_lost':
@@ -393,6 +411,11 @@ export default class StarThrone {
                 territory.isColonizable = true;
                 territory.ownerId = null;
                 territory.armySize = territory.hiddenArmySize || Math.floor(Math.random() * 50) + 1;
+                
+                // Add explosion animation for the territory
+                territory.explosionTime = Date.now();
+                territory.explosionDuration = 1500; // 1.5 second explosion
+                
                 console.log(`💀 Probe lost to hostile aliens! Planet ${territory.id} remains unexplored.`);
                 return false; // Colonization failed
                 
