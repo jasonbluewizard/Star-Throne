@@ -437,6 +437,12 @@ Changelog:
   * Fixed territory deselection UX: empty space clicks now reliably deselect territories regardless of minor mouse movement
   * Simplified AI Player.js combat logic to use type checking and removed duplicate game end handling
   * Added comprehensive debugging for throne star attacks with success/failure logging
+- January 2, 2025. UI layout optimization and probe announcement cleanup:
+  * Moved probe discovery announcements to top center of screen with larger dimensions (400px wide)
+  * Relocated Empire Discoveries panel to bottom left corner for better UI organization
+  * Removed duplicate probe result displays from discovery panel - now only shows at top center
+  * Cleaned up discovery panel to only show recent discoveries and empire bonuses
+  * Streamlined probe notification workflow: top center → fade out → permanent record in discoveries panel
 - January 2, 2025. Floating discovery announcement system implementation:
   * Added floating discovery text that appears above colonized planets for 4 seconds with fade-out effects
   * Discovery announcements show color-coded icons and text matching discovery type (weapons=red, drive=cyan, etc.)

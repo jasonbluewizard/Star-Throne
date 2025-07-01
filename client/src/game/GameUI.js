@@ -542,12 +542,6 @@ export class GameUI {
             entry.playerId === gameData.humanPlayer.id && (now - entry.timestamp) < 8000
         ).slice(-3); // Show last 3 discoveries
         
-        // Get recent probe announcements (last 5 seconds)
-        const recentProbeResults = gameData.recentProbeResults || [];
-        const validResults = recentProbeResults.filter(result => 
-            result.playerId === gameData.humanPlayer.id && (now - result.timestamp) < 5000
-        );
-        
         let discoveryCount = 0;
         
         // Count active discoveries (with safety checks)
@@ -557,22 +551,17 @@ export class GameUI {
         if (discoveries && discoveries.precursorNanotech > 0) discoveryCount++;
         if (discoveries && discoveries.factoryPlanets && discoveries.factoryPlanets.size > 0) discoveryCount++;
         
-        // Show panel only if there are human player discoveries or recent probe results
-        const hasAnyContent = discoveryCount > 0 || validResults.length > 0 || recentDiscoveries.length > 0;
-        
-        // Always show panel if human player has ANY discoveries or if there are recent probe results
-        // This ensures failed probes also show up in the log
-        if (discoveryCount === 0 && validResults.length === 0 && recentDiscoveries.length === 0) return;
+        // Show panel only if there are human player discoveries or recent discoveries
+        if (discoveryCount === 0 && recentDiscoveries.length === 0) return;
         
         const x = 20;
         const width = 280;
         const lineHeight = 20;
         const padding = 10;
         const recentDiscoveryHeight = recentDiscoveries.length * 22; // 22px per recent discovery
-        const probeResultHeight = validResults.length * 22; // 22px per probe result
         const discoveryHeight = discoveryCount * lineHeight;
         const titleHeight = 25;
-        const height = Math.max(80, titleHeight + recentDiscoveryHeight + probeResultHeight + discoveryHeight + padding * 2);
+        const height = Math.max(80, titleHeight + recentDiscoveryHeight + discoveryHeight + padding * 2);
         const y = this.canvas.height - height - 20; // Bottom left positioning
         
         // Background with transparency
@@ -622,36 +611,7 @@ export class GameUI {
             }
         }
         
-        // Show recent probe results
-        if (validResults.length > 0) {
-            ctx.font = '11px Arial';
-            for (const result of validResults.slice(-3)) { // Show last 3 results
-                const age = (now - result.timestamp) / 1000;
-                const opacity = Math.max(0.3, 1 - age / 5); // Fade over 5 seconds
-                
-                let color = result.success ? '#44ff44' : '#ff4444';
-                let icon = result.success ? '✓' : '✗';
-                let text = `${icon} Planet ${result.territoryId}: ${result.discoveryName}`;
-                
-                // Apply opacity to color
-                const rgb = this.hexToRgb(color);
-                const fadeColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${opacity})`;
-                
-                this.renderTextWithShadow(ctx, text, x + padding, currentY, fadeColor);
-                currentY += 22;
-            }
-            
-            // Add separator line
-            if (discoveryCount > 0) {
-                ctx.strokeStyle = '#4CAF50';
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.moveTo(x + padding, currentY);
-                ctx.lineTo(x + width - padding, currentY);
-                ctx.stroke();
-                currentY += 10;
-            }
-        }
+        // Remove recent probe results section - only show at top center
         
         // Show empire-wide bonuses
         ctx.font = '12px Arial';
