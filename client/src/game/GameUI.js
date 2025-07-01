@@ -476,10 +476,11 @@ export class GameUI {
     }
     
     renderDiscoveryPanel(ctx, gameData) {
-        // Only show if player has any discoveries
-        if (!gameData.discoveries || !gameData.humanPlayer) return;
+        // Only show human player's discoveries
+        if (!gameData.playerDiscoveries || !gameData.humanPlayer) return;
         
-        const discoveries = gameData.discoveries;
+        const discoveries = gameData.playerDiscoveries.get(gameData.humanPlayer.id);
+        if (!discoveries) return;
         let discoveryCount = 0;
         
         // Count active discoveries

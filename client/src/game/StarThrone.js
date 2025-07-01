@@ -371,8 +371,12 @@ export default class StarThrone {
         const player = this.players[playerId];
         if (!player) return;
         
+        // Get player's discoveries
+        const playerDiscoveries = this.playerDiscoveries.get(playerId);
+        if (!playerDiscoveries) return;
+        
         // Add to discovery log
-        this.discoveries.discoveryLog.push({
+        this.discoveryLog.push({
             timestamp: Date.now(),
             territoryId: territory.id,
             playerId: playerId,
@@ -404,8 +408,8 @@ export default class StarThrone {
                 
             case 'attack_bonus':
                 // Empire-wide attack bonus
-                this.discoveries.precursorWeapons++;
-                const weaponMessage = `⚔️ Precursor Weapons Level ${this.discoveries.precursorWeapons}! Empire attack increased by 10%`;
+                playerDiscoveries.precursorWeapons++;
+                const weaponMessage = `⚔️ Precursor Weapons Level ${playerDiscoveries.precursorWeapons}! Empire attack increased by 10%`;
                 console.log(weaponMessage);
                 if (playerId === this.humanPlayer?.id) {
                     this.addNotification(weaponMessage, '#ff6600');
@@ -414,8 +418,8 @@ export default class StarThrone {
                 
             case 'speed_bonus':
                 // Empire-wide speed bonus
-                this.discoveries.precursorDrive++;
-                const driveMessage = `🚀 Precursor Drive Level ${this.discoveries.precursorDrive}! Empire speed increased by 20%`;
+                playerDiscoveries.precursorDrive++;
+                const driveMessage = `🚀 Precursor Drive Level ${playerDiscoveries.precursorDrive}! Empire speed increased by 20%`;
                 console.log(driveMessage);
                 if (playerId === this.humanPlayer?.id) {
                     this.addNotification(driveMessage, '#00ddff');
@@ -424,8 +428,8 @@ export default class StarThrone {
                 
             case 'defense_bonus':
                 // Empire-wide defense bonus
-                this.discoveries.precursorShield++;
-                const shieldMessage = `🛡️ Precursor Shield Level ${this.discoveries.precursorShield}! Empire defense increased by 10%`;
+                playerDiscoveries.precursorShield++;
+                const shieldMessage = `🛡️ Precursor Shield Level ${playerDiscoveries.precursorShield}! Empire defense increased by 10%`;
                 console.log(shieldMessage);
                 if (playerId === this.humanPlayer?.id) {
                     this.addNotification(shieldMessage, '#0088ff');
@@ -434,7 +438,7 @@ export default class StarThrone {
                 
             case 'factory_planet':
                 // Planet gets double generation rate
-                this.discoveries.factoryPlanets.add(territory.id);
+                playerDiscoveries.factoryPlanets.add(territory.id);
                 territory.discoveryBonus = 'factory';
                 territory.hasFactory = true; // Add factory icon
                 const factoryMessage = `🏭 Precursor Factory discovered! Planet ${territory.id} has 200% generation rate`;
@@ -446,8 +450,8 @@ export default class StarThrone {
                 
             case 'generation_bonus':
                 // Empire-wide generation bonus
-                this.discoveries.precursorNanotech++;
-                const nanotechMessage = `🔬 Precursor Nanotech Level ${this.discoveries.precursorNanotech}! Empire generation increased by 10%`;
+                playerDiscoveries.precursorNanotech++;
+                const nanotechMessage = `🔬 Precursor Nanotech Level ${playerDiscoveries.precursorNanotech}! Empire generation increased by 10%`;
                 console.log(nanotechMessage);
                 if (playerId === this.humanPlayer?.id) {
                     this.addNotification(nanotechMessage, '#aa00ff');
@@ -929,10 +933,25 @@ export default class StarThrone {
             
             // Generate human-like name with clan designation
             const aiName = this.generateAIName(i - 1);
-            this.players.push(new Player(i, aiName, playerColor, 'ai'));
+            const aiPlayer = new Player(i, aiName, playerColor, 'ai');
+            this.players.push(aiPlayer);
+            this.initializePlayerDiscoveries(aiPlayer.id);
         }
         
         this.currentPlayers = this.players.length;
+    }
+    
+    initializePlayerDiscoveries(playerId) {
+        this.playerDiscoveries.set(playerId, {
+            // Empire-wide bonuses (levels stack)
+            precursorWeapons: 0,    // +10% attack per level
+            precursorDrive: 0,      // +20% probe/ship speed per level
+            precursorShield: 0,     // +10% defense per level
+            precursorNanotech: 0,   // +10% empire-wide generation per level
+            
+            // Planet-specific bonuses
+            factoryPlanets: new Set() // Planets with 200% generation
+        });
     }
     
     adjustColorBrightness(hex, percent) {
@@ -1824,7 +1843,7 @@ export default class StarThrone {
                 visibleTerritories: this.performanceStats.visibleTerritories,
                 probeCount: this.probes.length,
                 notifications: this.notifications,
-                discoveries: this.discoveries,
+                playerDiscoveries: this.playerDiscoveries,
                 showBonusPanel: this.showBonusPanel,
                 inputState: inputState,
                 messageText: this.messageText,
