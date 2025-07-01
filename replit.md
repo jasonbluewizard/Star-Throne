@@ -424,6 +424,12 @@ Changelog:
   * Fixed territory selection persistence: territories stay selected after attacks, transfers, and probes
   * Clicking same territory no longer deselects - allows multiple consecutive actions
   * Click empty space to deliberately deselect territory and return to default camera mode
+- January 2, 2025. Complete codebase documentation creation:
+  * Created comprehensive "sumbitch.txt" file containing all 15,000+ lines of game code
+  * Detailed architecture analysis covering frontend React components and JavaScript game engine
+  * Complete documentation of discovery system, camera controls, input handling, and multiplayer architecture
+  * Technical decision rationales and component interaction patterns for AI examination
+  * Structured for external AI analysis with clear section headers and code annotations
 - January 2, 2025. CRITICAL throne star capture and deselection fixes:
   * Centralized throne star capture logic in CombatSystem.js for consistent detection
   * Fixed human player type detection using player.type === 'human' instead of ID comparison
