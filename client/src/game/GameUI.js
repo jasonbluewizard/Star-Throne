@@ -491,11 +491,11 @@ export class GameUI {
         
         if (!latestProbe) return;
         
-        // Position above where discovery panel will be
-        const x = 20;
-        const y = 150; // Above discovery panel
-        const width = 300;
-        const height = 40;
+        // Top center positioning
+        const width = 400;
+        const height = 50;
+        const x = (this.canvas.width - width) / 2;
+        const y = 20;
         
         // Background with transparency
         ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
@@ -573,7 +573,7 @@ export class GameUI {
         const discoveryHeight = discoveryCount * lineHeight;
         const titleHeight = 25;
         const height = Math.max(80, titleHeight + recentDiscoveryHeight + probeResultHeight + discoveryHeight + padding * 2);
-        const y = 200; // Position below probe notification
+        const y = this.canvas.height - height - 20; // Bottom left positioning
         
         // Background with transparency
         ctx.fillStyle = 'rgba(0, 20, 40, 0.9)';
