@@ -285,11 +285,18 @@ export class Player {
                 console.log(`Transferring ${oldOwner.territories.length} territories from ${oldOwner.name} to ${this.name}`);
                 
                 // Special alert if human player's throne is captured
-                if (oldOwnerId === 0) {
+                if (oldOwnerId === 0 || (oldOwner && oldOwner.type === 'human')) {
                     console.log(`💀 HUMAN PLAYER'S THRONE STAR CAPTURED! Game should end!`);
+                    console.log(`Throne captured by ${this.name} from human player ${oldOwner ? oldOwner.name : 'Unknown'}`);
                     if (gameMap.game) {
                         gameMap.game.gameState = 'ended';
                         gameMap.game.showMessage(`💀 Your empire has fallen! ${this.name} captured your throne star!`, 10000);
+                        // Force game to show end screen
+                        setTimeout(() => {
+                            if (gameMap.game && gameMap.game.ui) {
+                                gameMap.game.ui.showGameOver = true;
+                            }
+                        }, 1000);
                     }
                 }
                 
