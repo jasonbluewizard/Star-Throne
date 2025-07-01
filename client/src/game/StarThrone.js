@@ -119,7 +119,42 @@ export default class StarThrone {
             discoveryLog: []
         };
         
+        // Notification system
+        this.notifications = [];
+        
+        // Bonus panel state
+        this.showBonusPanel = true;
+        
         this.init();
+    }
+    
+    // Add notification to display queue
+    addNotification(text, color = '#44ff44', duration = 4000) {
+        this.notifications.push({
+            text: text,
+            color: color,
+            createdAt: Date.now(),
+            duration: duration,
+            opacity: 1.0
+        });
+    }
+    
+    // Update and clean up notifications
+    updateNotifications() {
+        const now = Date.now();
+        this.notifications = this.notifications.filter(notification => {
+            const age = now - notification.createdAt;
+            if (age > notification.duration) {
+                return false; // Remove expired notifications
+            }
+            
+            // Fade out in the last 500ms
+            if (age > notification.duration - 500) {
+                notification.opacity = (notification.duration - age) / 500;
+            }
+            
+            return true;
+        });
     }
     
     init() {
@@ -342,61 +377,101 @@ export default class StarThrone {
             case 'extra_fleet':
                 // Friendly aliens boost fleet strength
                 territory.armySize = discovery.bonus;
-                console.log(`👽 Friendly aliens provide ${discovery.bonus} fleet strength!`);
+                const friendlyMessage = `👽 Friendly aliens provide ${discovery.bonus} fleet strength!`;
+                console.log(friendlyMessage);
+                if (playerId === this.humanPlayer?.id) {
+                    this.addNotification(friendlyMessage, '#44ff44');
+                }
                 break;
                 
             case 'attack_bonus':
                 // Empire-wide attack bonus
                 this.discoveries.precursorWeapons++;
-                console.log(`⚔️ Precursor Weapons Level ${this.discoveries.precursorWeapons}! Empire attack increased by 10%`);
+                const weaponMessage = `⚔️ Precursor Weapons Level ${this.discoveries.precursorWeapons}! Empire attack increased by 10%`;
+                console.log(weaponMessage);
+                if (playerId === this.humanPlayer?.id) {
+                    this.addNotification(weaponMessage, '#ff6600');
+                }
                 break;
                 
             case 'speed_bonus':
                 // Empire-wide speed bonus
                 this.discoveries.precursorDrive++;
-                console.log(`🚀 Precursor Drive Level ${this.discoveries.precursorDrive}! Empire speed increased by 20%`);
+                const driveMessage = `🚀 Precursor Drive Level ${this.discoveries.precursorDrive}! Empire speed increased by 20%`;
+                console.log(driveMessage);
+                if (playerId === this.humanPlayer?.id) {
+                    this.addNotification(driveMessage, '#00ddff');
+                }
                 break;
                 
             case 'defense_bonus':
                 // Empire-wide defense bonus
                 this.discoveries.precursorShield++;
-                console.log(`🛡️ Precursor Shield Level ${this.discoveries.precursorShield}! Empire defense increased by 10%`);
+                const shieldMessage = `🛡️ Precursor Shield Level ${this.discoveries.precursorShield}! Empire defense increased by 10%`;
+                console.log(shieldMessage);
+                if (playerId === this.humanPlayer?.id) {
+                    this.addNotification(shieldMessage, '#0088ff');
+                }
                 break;
                 
             case 'factory_planet':
                 // Planet gets double generation rate
                 this.discoveries.factoryPlanets.add(territory.id);
                 territory.discoveryBonus = 'factory';
-                console.log(`🏭 Precursor Factory discovered! Planet ${territory.id} has 200% generation rate`);
+                const factoryMessage = `🏭 Precursor Factory discovered! Planet ${territory.id} has 200% generation rate`;
+                console.log(factoryMessage);
+                if (playerId === this.humanPlayer?.id) {
+                    this.addNotification(factoryMessage, '#ff8800');
+                }
                 break;
                 
             case 'generation_bonus':
                 // Empire-wide generation bonus
                 this.discoveries.precursorNanotech++;
-                console.log(`🔬 Precursor Nanotech Level ${this.discoveries.precursorNanotech}! Empire generation increased by 10%`);
+                const nanotechMessage = `🔬 Precursor Nanotech Level ${this.discoveries.precursorNanotech}! Empire generation increased by 10%`;
+                console.log(nanotechMessage);
+                if (playerId === this.humanPlayer?.id) {
+                    this.addNotification(nanotechMessage, '#aa00ff');
+                }
                 break;
                 
             case 'mineral_planet':
                 // Planet gets +50% generation
                 territory.discoveryBonus = 'minerals';
-                console.log(`💎 Rich minerals found! Planet ${territory.id} has 150% generation rate`);
+                const mineralMessage = `💎 Rich minerals found! Planet ${territory.id} has 150% generation rate`;
+                console.log(mineralMessage);
+                if (playerId === this.humanPlayer?.id) {
+                    this.addNotification(mineralMessage, '#ffdd00');
+                }
                 break;
                 
             case 'reduced_generation':
                 // Planet gets reduced generation
                 territory.discoveryBonus = 'void_storm';
-                console.log(`⚡ Void storm remnants! Planet ${territory.id} has 75% generation rate`);
+                const stormMessage = `⚡ Void storm remnants! Planet ${territory.id} has 75% generation rate`;
+                console.log(stormMessage);
+                if (playerId === this.humanPlayer?.id) {
+                    this.addNotification(stormMessage, '#ff4444');
+                }
                 break;
                 
             case 'cosmetic':
                 // Ancient ruins - cosmetic only
                 territory.discoveryBonus = 'ruins';
-                console.log(`🏛️ Ancient ruins discovered on planet ${territory.id}`);
+                const ruinsMessage = `🏛️ Ancient ruins discovered on planet ${territory.id}`;
+                console.log(ruinsMessage);
+                if (playerId === this.humanPlayer?.id) {
+                    this.addNotification(ruinsMessage, '#888888');
+                }
                 break;
                 
             default:
                 // No special effect
-                console.log(`🌍 Standard planet colonized: ${territory.id}`);
+                const standardMessage = `🌍 Standard planet colonized: ${territory.id}`;
+                console.log(standardMessage);
+                if (playerId === this.humanPlayer?.id) {
+                    this.addNotification(standardMessage, '#aaaaaa');
+                }
                 break;
         }
         
@@ -1709,14 +1784,8 @@ export default class StarThrone {
         
         // Territory selection for left clicks
         if (e.button === 0 && startTerritory) {
-            // Don't change selection if we're about to probe a colonizable planet
-            if (!(startTerritory.isColonizable && this.selectedTerritory && 
-                  this.selectedTerritory.ownerId === this.humanPlayer?.id)) {
-                this.selectedTerritory = startTerritory;
-                console.log(`Selected territory ${startTerritory.id} (Owner: ${startTerritory.ownerId})`);
-            } else {
-                console.log(`Preserving selection ${this.selectedTerritory.id} for probe to ${startTerritory.id}`);
-            }
+            this.selectedTerritory = startTerritory;
+            console.log(`Selected territory ${startTerritory.id} (Owner: ${startTerritory.ownerId})`);
         }
         
         if (startTerritory && startTerritory.ownerId === this.humanPlayer?.id) {
