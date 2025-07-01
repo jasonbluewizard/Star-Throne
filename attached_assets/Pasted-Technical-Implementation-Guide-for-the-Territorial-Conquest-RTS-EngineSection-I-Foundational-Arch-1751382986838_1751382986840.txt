@@ -1,0 +1,2269 @@
+Technical Implementation Guide for the 'Territorial Conquest' RTS EngineSection I: Foundational Architecture: A Modern, Scalable FrameworkThis section establishes the high-level architectural philosophy of the game, justifying the core design decisions that influence all subsequent code. A robust architecture is the bedrock of any complex software project, minimizing the knowledge required to make meaningful changes and ensuring the system remains maintainable and performant over its lifecycle.41.1. Architectural Overview: The Three-Tier SystemThe architecture of Territorial Conquest is built upon a three-tier system, a deliberate design that separates the application's primary responsibilities into distinct, decoupled components. This separation is fundamental to achieving both high performance and maintainability in a modern web-based game.1The three tiers are:React/TypeScript Frontend: This tier is responsible for the entire user interface (UI) and user experience (UX) layer that exists outside of the core gameplay loop. It manages application-level state, such as menus, game configuration screens, player authentication flows, and the in-game Heads-Up Display (HUD). Key technologies include React for its component-based model, TypeScript for type safety, and lightweight state management libraries like Zustand.1 This tier acts as the interactive "shell" or "cockpit" for the game.Vanilla JavaScript Game Engine: This is the high-performance heart of the game. It operates independently of the React DOM and is singularly responsible for all real-time rendering to the HTML5 Canvas, executing core game logic (like unit movement and combat resolution in single-player), and handling direct user input during active gameplay. Its independence from the DOM is a critical performance consideration.1Node.js Backend (Express & Socket.IO): This tier serves as the authoritative backbone for all multiplayer interactions. It manages player connections, handles game room creation and matchmaking, validates all player actions to prevent cheating, and synchronizes the definitive game state across all connected clients. It uses Express.js for basic API endpoints and Socket.IO for persistent, real-time WebSocket communication.7The most significant architectural decision is the decoupling of the game engine from the UI. The game's simulation loop, which must run consistently at or near 60 frames per second, is managed by requestAnimationFrame within the vanilla JavaScript engine. This loop is unburdened by the complexities of the React virtual DOM reconciliation process. React is exceptionally well-suited for building complex, stateful user interfaces, but its rendering lifecycle is not designed for the demands of a high-frequency game loop.1 By rendering the game to a dedicated <canvas> element that sits outside the main React component tree, we avoid performance bottlenecks associated with frequent DOM updates and reflows.6 This decoupled model allows the application to leverage the strengths of both technologies: the raw rendering performance of the Canvas API for the game world and the sophisticated component model of React for the user interface that envelops it.1.2. The Server-Authoritative Mandate: Ensuring Fair PlayFor any competitive multiplayer game, establishing a trusted environment is paramount. The architecture of Territorial Conquest strictly adheres to a server-authoritative model. This is a non-negotiable design principle for ensuring game integrity and preventing cheating.3In this model, the client is treated as an untrusted "dumb terminal".9 Its role is limited to capturing user input and rendering the game state as dictated by the server. When a player issues a command—for example, "attack Territory B from Territory A"—the client does not execute this logic locally. Instead, it serializes this intent into a data packet and sends it to the server.12 The server then undertakes a rigorous validation process:Does the player actually own Territory A?Is Territory B a valid attack target from Territory A?Does the player have sufficient resources/armies to initiate the attack?Only after all game rules are verified on the server is the action executed. The server updates its internal, authoritative game state and then broadcasts the result of this action to all connected clients. The clients then update their local views to reflect the new, official state of the game.7This approach directly mitigates a wide range of potential exploits common in client-authoritative systems, where the client's version of the game state is trusted. These vulnerabilities include speed hacks (issuing commands faster than allowed), resource manipulation (giving oneself more armies), and invalid moves (attacking from an unowned territory or across the map).2 By centralizing all game logic execution on the server, we create a single source of truth that cannot be tampered with by a malicious client.12A common concern with server-authoritative models is the introduction of perceived latency. A player's action is not reflected on screen until the command has made a round trip to the server and back. To combat this, modern networked games employ latency-hiding techniques like client-side prediction and interpolation.15 These techniques create a smoother experience by locally simulating the likely outcome of an action while waiting for the server's authoritative confirmation. However, these prediction algorithms add computational overhead to the client. A poorly optimized client, already struggling to maintain a high framerate, will lack the necessary CPU headroom to perform these latency-hiding calculations effectively, resulting in a sluggish and unresponsive feel.16 This reveals a crucial relationship: high client-side performance is not merely a "nice-to-have" for fluid graphics; it is a fundamental enabler of a secure and playable server-authoritative architecture. By optimizing the client, we create the processing capacity needed to effectively mask network latency, making the more secure model feel as responsive as an insecure one.1.3. Data and Event FlowTo illustrate the architecture in action, consider the flow of data for two primary scenarios.Scenario A: Single-Player Game StartUI Interaction (React): The user selects "Single Player" in the GameModeSelector component.Configuration (React): The GameConfigScreen is displayed. The user sets their name, AI count, and map size, then clicks "Launch Campaign."Frontend Orchestration (App.tsx): The handleModeSelected function is called. It dynamically imports the vanilla JS game engine (TerritorialConquest.js).Game Engine Initialization (Vanilla JS): A new TerritorialConquest instance is created, passing the game configuration. Its init() method sets up the canvas, camera, and input listeners.Game Setup (Vanilla JS): The startGame() method within the engine generates the GameMap, creates Player objects (one human, multiple AI), distributes starting territories, and begins the gameLoop via requestAnimationFrame. All logic is self-contained on the client.1Scenario B: Multiplayer Attack CommandInput (Client - InputHandler.js): The player clicks on their own territory, then an adjacent enemy territory. The input handler captures these clicks.Intent Serialization (Client - TerritorialConquest.js): The game engine identifies this sequence as an attack command. It does not execute the attack. Instead, it creates a command object, e.g., { type: 'ATTACK_TERRITORY', payload: { from: 'territoryA_id', to: 'territoryB_id' } }.Network Transmission (Client - Socket.IO): The client sends this command object to the server via a command WebSocket event.Server Reception (gameServer.ts): The server's GameServer receives the command event and passes it to the appropriate GameRoom's GameEngine instance.Validation & Execution (Server - gameEngine.ts): The server-side GameEngine validates the command (Does the player own territoryA? Is it adjacent to territoryB?). If valid, it executes the combat logic, updates territory ownership and army counts in its authoritative state.State Broadcast (Server - gameServer.ts): The server broadcasts the results of the action (e.g., { type: 'TERRITORY_CAPTURED', payload: {... } }, { type: 'COMBAT_ANIMATION', payload: {... } }) to all clients in the room.Client-side Rendering (Client - Renderer.js): The client receives the state update and renders the changes. It updates territory colors and initiates a ship animation based on the server's authoritative message.11.4. Table: Component Responsibility MatrixTo provide a high-level map of the codebase, the following matrix outlines the primary responsibility of each major file and its key interactions. This serves as an essential reference for navigating the project, clarifying the purpose of each module at a glance and reducing the cognitive load required to understand the system's design.4File/ModulePrimary ResponsibilityKey TechnologiesInteracts Withserver/index.tsServer Entry Point, HTTP Server SetupNode.js, ExpressgameServer.tsserver/gameServer.tsRoom/Player Mgmt, Socket CommunicationsNode.js, Socket.IOgameEngine.tsserver/gameEngine.tsAuthoritative Game Logic, State ValidationTypeScriptGameMap.js, Player.jsclient/src/App.tsxMain React Component, Mode SelectionReact, TypeScriptGameConfigScreen.tsx, TerritorialConquest.jsclient/src/components/Interface.tsxIn-Game HUD OverlayReact, ZustandGameUI.jsclient/src/game/TerritorialConquest.jsClient-side Orchestrator, Game LoopJavaScript (ESM)All other client-side game modulesclient/src/game/Renderer.jsAll Canvas Drawing OperationsHTML5 Canvas APICamera.js, GameUI.js, Territory.jsclient/src/game/InputHandler.jsMouse, Touch, and Keyboard Event HandlingDOM Events APICamera.js, TerritorialConquest.jsclient/src/game/Player.jsAI Logic (FSM, Utility Scoring, Pathfinding)JavaScript (ESM)GameMap.js, InfluenceMap.js, AStar.jsclient/src/game/GameMap.jsTerritory Generation and Graph StructureJavaScript (ESM)Territory.js, Quadtree.jscommon/gameConstants.tsShared Game Balancing ValuesTypeScriptServer and ClientSection II: The Server-Side Engine: Authority and State ManagementThis section provides the complete, annotated source code for the backend. The server is the definitive source of truth for all game mechanics in multiplayer mode, designed to be secure, scalable, and robust.2.1. Introduction to the Node.js StackThe backend is built on Node.js, a JavaScript runtime renowned for its asynchronous, event-driven architecture. This model is exceptionally well-suited for applications like multiplayer game servers that must manage thousands of concurrent, long-lived connections with minimal overhead.18 Unlike traditional thread-per-connection models, Node.js uses a single-threaded event loop, making it highly memory-efficient and scalable.19Express.js: A minimal and flexible Node.js web application framework. In this project, Express is used for setting up the basic HTTP server and defining simple API routes, such as a health check endpoint (/health). Its role is secondary to the real-time communication layer.1Socket.IO: A library that enables real-time, bidirectional, and event-based communication between web clients and servers. It abstracts the complexities of WebSockets, providing reliable message delivery, automatic reconnection, and a simple room-based broadcasting system, which is ideal for managing distinct game sessions.202.2. Game Room and Player Management (gameServer.ts)The GameServer class is the central hub for managing the lifecycle of games and players. It listens for incoming socket connections and routes events to the appropriate handlers. For state management, it uses two in-memory Map objects:rooms: A Map where the key is a unique roomId and the value is a GameRoom object. This object contains all state for a single game instance, including the list of players and a dedicated instance of the server-side GameEngine.1playerToRoom: A Map that provides a quick lookup, mapping a player's unique socket.id to the roomId they have joined. This is crucial for efficiently handling disconnects.1The primary socket events handled are:connection: A new client has connected to the server.create-room: A player requests to create a new game room. The server generates a unique ID, creates a new GameRoom object, and has the requesting player join it.join-room: A player requests to join an existing room using a roomId. The server validates the request (e.g., does the room exist? is it full?) before adding the player.command: A player sends a game-specific action to be processed by the authoritative engine.disconnect: A player's connection is lost. The server cleans up by removing the player from their room and, if the room becomes empty, deleting the room itself to free up resources.12.3. Authoritative Action Handling and Validation (gameEngine.ts)This module represents the most critical architectural shift from a prototype to a secure multiplayer game. It is the server's brain, containing a complete, server-side implementation of all game logic. It moves the game from a client-authoritative model, which is vulnerable to cheating, to a server-authoritative model where the server is the single source of truth.9When a command event arrives from a client, it is passed to the handlePlayerCommand method within the GameEngine instance associated with that player's room. This method acts as a router, dispatching the command to a specific validation and execution function based on its type.Example Validation for an ATTACK_TERRITORY command:Ownership Check: The server verifies that the fromTerritoryId in the command payload is actually owned by the playerId who sent the command.Adjacency Check: It confirms that the toTerritoryId is a direct neighbor of the fromTerritoryId in the game map's graph structure.Resource Check: It ensures the attacking territory has more than the minimum number of armies required to launch an attack (e.g., more than 1).State Check: It verifies that the target is not already owned by the player.If any of these checks fail, the command is rejected, and an error can be sent back to the offending client. If all checks pass, the server executes the combat logic, updates the state of the territories and players involved, and prepares the results to be broadcast.14 This rigorous, step-by-step validation on the server is the core mechanism that prevents cheating.2.4. The Server-Side Game LoopTo manage game progression that is not directly triggered by player input (such as automatic army generation or AI decision-making), each active GameRoom runs its own independent game loop on the server. This is implemented using setInterval, which calls the update method of the room's GameEngine instance at a fixed tick rate (e.g., 60 times per second).7This server-side loop is responsible for:Army Generation: Periodically increasing the armySize of owned territories.Supply Route Processing: Executing automated transfers along established supply lines.AI Player Turns: Triggering the decision-making process for all AI players in the game.Broadcasting State: Periodically sending updates of the game state to all clients to ensure synchronization.Using a fixed-tick-rate loop on the server ensures that the game progresses at a consistent pace for all players, regardless of their individual client-side performance or framerate.72.5. Complete Server CodebaseThe following files constitute the complete backend for the Territorial Conquest game.server/index.tsTypeScriptimport express from 'express';
+import http from 'http';
+import { Server } from 'socket.io';
+import { GameServer } from './gameServer';
+import apiRoutes from './routes';
+import { GAME_CONSTANTS } from '../common/gameConstants';
+
+const app = express();
+const server = http.createServer(app);
+
+// Use Express to handle API routes
+app.use('/api', apiRoutes);
+
+// Initialize the GameServer with the HTTP server instance
+const gameServer = new GameServer(server);
+
+const PORT = process.env.PORT |
+
+| GAME_CONSTANTS.SERVER_PORT;
+
+server.listen(PORT, () => {
+  console.log(`Server listening on port ${PORT}`);
+});
+
+// Basic error handling
+process.on('uncaughtException', (err) => {
+  console.error('There was an uncaught error', err);
+  process.exit(1); //mandatory (as per the Node.js docs)
+});
+server/routes.tsTypeScriptimport { Router } from 'express';
+
+const router = Router();
+
+// A simple health check endpoint to verify the server is running
+router.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+export default router;
+server/gameServer.tsTypeScriptimport { Server as SocketServer, Socket } from 'socket.io';
+import { Server as HttpServer } from 'http';
+import { GameEngine } from './gameEngine';
+import { GAME_CONSTANTS } from '../common/gameConstants';
+import { PlayerInfo, GameRoom, CommandPayload, GameConfig } from '../common/types';
+
+export class GameServer {
+  private io: SocketServer;
+  private rooms: Map<string, GameRoom> = new Map();
+  private playerToRoom: Map<string, string> = new Map();
+
+  constructor(server: HttpServer) {
+    this.io = new SocketServer(server, {
+      cors: {
+        origin: GAME_CONSTANTS.CORS_ORIGIN,
+        methods: GAME_CONSTANTS.CORS_METHODS,
+      },
+    });
+
+    this.setupSocketHandlers();
+  }
+
+  private setupSocketHandlers(): void {
+    this.io.on('connection', (socket: Socket) => {
+      console.log(`Player connected: ${socket.id}`);
+
+      socket.on('create-room', (data: { roomName: string; playerName: string; config: Partial<GameConfig> }) => {
+        this.handleCreateRoom(socket, data.roomName, data.playerName, data.config);
+      });
+
+      socket.on('join-room', (data: { roomId: string; playerName: string }) => {
+        this.handleJoinRoom(socket, data.roomId, data.playerName);
+      });
+      
+      socket.on('command', (data: { type: string; payload: CommandPayload }) => {
+        this.handlePlayerCommand(socket, data.type, data.payload);
+      });
+
+      socket.on('disconnect', () => {
+        this.handleDisconnect(socket);
+      });
+    });
+  }
+
+  private handleCreateRoom(socket: Socket, roomName: string, playerName: string, config: Partial<GameConfig>): void {
+    const roomId = this.generateRoomId();
+    const gameConfig: GameConfig = {
+      playerName: playerName,
+      aiCount: config.aiCount?? GAME_CONSTANTS.DEFAULT_MULTIPLAYER_AI_COUNT,
+      mapSize: config.mapSize?? GAME_CONSTANTS.DEFAULT_MAP_SIZE_TERRITORIES,
+      gameSpeed: config.gameSpeed?? 1.0,
+      layout: config.layout?? 'organic',
+    };
+
+    const gameEngine = new GameEngine(gameConfig);
+    
+    const room: GameRoom = {
+      id: roomId,
+      name: roomName,
+      players: new Map(),
+      gameEngine: gameEngine,
+      isStarted: false,
+      maxPlayers: GAME_CONSTANTS.MAX_TOTAL_PLAYERS,
+      lastUpdate: Date.now(),
+    };
+
+    this.rooms.set(roomId, room);
+    this.handleJoinRoom(socket, roomId, playerName);
+
+    socket.emit('room-created', { roomId });
+    console.log(`Room "${roomName}" (${roomId}) created by ${playerName}`);
+  }
+
+  private handleJoinRoom(socket: Socket, roomId: string, playerName: string): void {
+    const room = this.rooms.get(roomId);
+    if (!room) {
+      socket.emit('error-message', 'Room not found.');
+      return;
+    }
+
+    if (room.players.size >= room.maxPlayers) {
+      socket.emit('error-message', 'Room is full.');
+      return;
+    }
+
+    const player = room.gameEngine.addPlayer(playerName, 'human', socket.id);
+    if (!player) {
+      socket.emit('error-message', 'Failed to add player to game.');
+      return;
+    }
+
+    const playerInfo: PlayerInfo = {
+      id: player.id,
+      name: player.name,
+      color: player.color,
+      type: 'human',
+      socketId: socket.id,
+    };
+
+    room.players.set(socket.id, playerInfo);
+    this.playerToRoom.set(socket.id, roomId);
+
+    socket.join(roomId);
+    socket.emit('room-joined', {
+      roomId,
+      playerId: player.id,
+      initialGameState: room.gameEngine.getFullState(),
+    });
+    
+    socket.to(roomId).emit('player-joined', room.gameEngine.getPlayerState(player.id));
+    console.log(`${playerName} (${player.id}) joined room ${roomId}`);
+
+    // If the room is now full or meets a start condition, start the game
+    // For simplicity, we'll assume the creator starts the game manually via a command
+  }
+
+  private handlePlayerCommand(socket: Socket, type: string, payload: CommandPayload): void {
+    const roomId = this.playerToRoom.get(socket.id);
+    if (!roomId) return;
+
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+
+    const playerInfo = room.players.get(socket.id);
+    if (!playerInfo) return;
+
+    // Special case for starting the game
+    if (type === 'START_GAME') {
+        if (!room.isStarted) {
+            this.startGame(roomId);
+        }
+        return;
+    }
+
+    if (!room.isStarted) return; // Ignore other commands if game hasn't started
+
+    const result = room.gameEngine.handlePlayerCommand(playerInfo.id, type, payload);
+
+    if (result.success) {
+      // Broadcast the state changes that resulted from the command
+      if (result.updates && result.updates.length > 0) {
+        this.io.to(roomId).emit('state-update', result.updates);
+      }
+    } else {
+      // Optionally send an error back to the specific client
+      socket.emit('command-failed', { type, message: result.error });
+    }
+  }
+
+  private startGame(roomId: string): void {
+    const room = this.rooms.get(roomId);
+    if (!room |
+
+| room.isStarted) return;
+
+    room.isStarted = true;
+    room.gameEngine.startGame();
+    
+    const TICK_RATE = 1000 / 60; // 60 ticks per second
+    room.gameLoopInterval = setInterval(() => {
+      const updates = room.gameEngine.update(TICK_RATE);
+      if (updates.length > 0) {
+        this.io.to(roomId).emit('state-update', updates);
+      }
+      // Check for win condition
+      if (room.gameEngine.getGameState().state === 'ended') {
+          this.endGame(roomId);
+      }
+    }, TICK_RATE);
+
+    this.io.to(roomId).emit('game-started', {
+      initialGameState: room.gameEngine.getFullState(),
+    });
+
+    console.log(`Game started in room ${roomId}.`);
+  }
+
+  private endGame(roomId: string): void {
+      const room = this.rooms.get(roomId);
+      if (!room) return;
+
+      if (room.gameLoopInterval) {
+          clearInterval(room.gameLoopInterval);
+      }
+      
+      const finalState = room.gameEngine.getFullState();
+      this.io.to(roomId).emit('game-ended', { winner: finalState.winner });
+      console.log(`Game ended in room ${roomId}. Winner: ${finalState.winner?.name |
+
+| 'None'}`);
+      
+      // Optionally, clean up the room after a delay
+      setTimeout(() => {
+          this.rooms.delete(roomId);
+          room.players.forEach(p => {
+              if (p.socketId) this.playerToRoom.delete(p.socketId);
+          });
+          console.log(`Cleaned up room ${roomId}.`);
+      }, 60000); // 1 minute cleanup delay
+  }
+
+  private handleDisconnect(socket: Socket): void {
+    const roomId = this.playerToRoom.get(socket.id);
+    if (!roomId) {
+      console.log(`Player ${socket.id} disconnected (was not in a room).`);
+      return;
+    }
+
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+
+    const playerInfo = room.players.get(socket.id);
+    if (playerInfo) {
+      room.gameEngine.removePlayer(playerInfo.id);
+      room.players.delete(socket.id);
+      this.playerToRoom.delete(socket.id);
+
+      this.io.to(roomId).emit('player-left', { playerId: playerInfo.id });
+      console.log(`${playerInfo.name} (${playerInfo.id}) left room ${roomId}`);
+
+      // If the room is now empty of human players, stop the loop and clean up
+      const humanPlayersLeft = Array.from(room.players.values()).some(p => p.type === 'human');
+      if (!humanPlayersLeft && room.isStarted) {
+        if (room.gameLoopInterval) {
+          clearInterval(room.gameLoopInterval);
+        }
+        this.rooms.delete(roomId);
+        console.log(`Room ${roomId} is empty and has been cleaned up.`);
+      }
+    }
+  }
+
+  private generateRoomId(): string {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
+  }
+}
+server/gameEngine.tsTypeScriptimport { GameMap } from '../client/src/game/GameMap';
+import { Player } from '../client/src/game/Player';
+import { Territory } from '../client/src/game/Territory';
+import { Probe } from '../client/src/game/Probe';
+import { GAME_CONSTANTS } from '../common/gameConstants';
+import { GameConfig, CommandPayload, GameState, StateUpdate } from '../common/types';
+
+// This is the authoritative game engine that runs on the server.
+// It mirrors the core logic of the client-side engine but is the single source of truth.
+export class GameEngine {
+  public gameMap: GameMap;
+  public players: Player;
+  public probes: Probe;
+  public gameState: GameState;
+  private config: GameConfig;
+  private nextPlayerId: number = 0;
+
+  constructor(config: GameConfig) {
+    this.config = config;
+    this.gameMap = new GameMap(GAME_CONSTANTS.DEFAULT_MAP_WIDTH, GAME_CONSTANTS.DEFAULT_MAP_HEIGHT, config.layout);
+    this.players =;
+    this.probes =;
+    this.gameState = { state: 'lobby', winner: null, tick: 0 };
+  }
+
+  addPlayer(name: string, type: 'human' | 'ai', socketId?: string): Player | null {
+    if (this.players.length >= GAME_CONSTANTS.MAX_TOTAL_PLAYERS) {
+      return null;
+    }
+    const playerId = (this.nextPlayerId++).toString();
+    const color = GAME_CONSTANTS.BASE_PLAYER_COLORS;
+    const player = new Player(playerId, name, color, type);
+    if (socketId) {
+        player.socketId = socketId;
+    }
+    this.players.push(player);
+    return player;
+  }
+  
+  removePlayer(playerId: string): void {
+      const playerIndex = this.players.findIndex(p => p.id === playerId);
+      if (playerIndex > -1) {
+          const player = this.players[playerIndex];
+          // Make all player's territories neutral
+          this.gameMap.getTerritoriesByOwner(player.id).forEach(t => {
+              t.ownerId = null;
+          });
+          this.players.splice(playerIndex, 1);
+      }
+  }
+
+  startGame(): void {
+    this.gameMap.generateTerritories(this.config.mapSize);
+
+    // Add AI players
+    for (let i = 0; i < this.config.aiCount; i++) {
+        const aiName = `${GAME_CONSTANTS.AI_FIRST_NAMES} [AI]`;
+        this.addPlayer(aiName, 'ai');
+    }
+
+    this.distributeStartingTerritories();
+    this.gameState.state = 'playing';
+  }
+
+  private distributeStartingTerritories(): void {
+    const allTerritories = Object.values(this.gameMap.territories);
+    const availableTerritories = this.shuffleArray();
+    
+    this.players.forEach(player => {
+        if (availableTerritories.length > 0) {
+            const territory = availableTerritories.pop()!;
+            territory.ownerId = player.id;
+            territory.armySize = GAME_CONSTANTS.INITIAL_STARTING_ARMY_SIZE;
+            player.territories.push(territory.id);
+        }
+    });
+  }
+  
+  private shuffleArray<T>(array: T): T {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+  }
+
+  update(deltaTime: number): StateUpdate {
+    if (this.gameState.state!== 'playing') return;
+    
+    this.gameState.tick += deltaTime;
+    const updates: StateUpdate =;
+
+    // 1. Process AI turns
+    this.players.forEach(player => {
+      if (player.type === 'ai' &&!player.isEliminated) {
+        const aiUpdates = player.update(deltaTime, this.gameMap, this);
+        updates.push(...aiUpdates);
+      }
+    });
+
+    // 2. Process army generation
+    // Throttled to run once per second approx.
+    if (Math.floor(this.gameState.tick / 1000) > Math.floor((this.gameState.tick - deltaTime) / 1000)) {
+        Object.values(this.gameMap.territories).forEach(territory => {
+            if (territory.ownerId) {
+                const newArmies = territory.generateArmies(1000); // 1 second of generation
+                if (newArmies > 0) {
+                    updates.push({
+                        type: 'TERRITORY_UPDATE',
+                        payload: { id: territory.id, armySize: territory.armySize }
+                    });
+                }
+            }
+        });
+    }
+
+    // 3. Check for player elimination and win conditions
+    this.checkPlayerElimination(updates);
+    this.checkWinConditions();
+
+    return updates;
+  }
+
+  private checkPlayerElimination(updates: StateUpdate): void {
+      this.players.forEach(player => {
+          if (!player.isEliminated && player.territories.length === 0 && this.gameState.state === 'playing') {
+              player.isEliminated = true;
+              updates.push({ type: 'PLAYER_ELIMINATED', payload: { playerId: player.id }});
+              console.log(`Server: Player ${player.name} has been eliminated.`);
+          }
+      });
+  }
+
+  private checkWinConditions(): void {
+      const activePlayers = this.players.filter(p =>!p.isEliminated);
+      if (activePlayers.length <= 1 && this.gameState.state === 'playing') {
+          this.gameState.state = 'ended';
+          this.gameState.winner = activePlayers |
+
+| null;
+      }
+  }
+
+  handlePlayerCommand(playerId: string, type: string, payload: CommandPayload): { success: boolean, error?: string, updates?: StateUpdate } {
+    const player = this.players.find(p => p.id === playerId);
+    if (!player) return { success: false, error: 'Player not found.' };
+
+    switch (type) {
+      case 'ATTACK_TERRITORY': {
+        const { fromTerritoryId, toTerritoryId } = payload;
+        const from = this.gameMap.territories;
+        const to = this.gameMap.territories;
+
+        // VALIDATION
+        if (!from ||!to) return { success: false, error: 'Invalid territory.' };
+        if (from.ownerId!== playerId) return { success: false, error: 'Cannot attack from a territory you do not own.' };
+        if (to.ownerId === playerId) return { success: false, error: 'Cannot attack your own territory.' };
+        if (!from.neighbors.includes(to.id)) return { success: false, error: 'Target is not adjacent.' };
+        if (from.armySize <= GAME_CONSTANTS.MIN_ARMY_TO_ATTACK) return { success: false, error: 'Not enough armies to attack.' };
+
+        // EXECUTION
+        return this.executeAttack(from, to);
+      }
+      
+      case 'TRANSFER_FLEET': {
+        const { fromTerritoryId, toTerritoryId, amount } = payload;
+        const from = this.gameMap.territories;
+        const to = this.gameMap.territories;
+
+        // VALIDATION
+        if (!from ||!to) return { success: false, error: 'Invalid territory.' };
+        if (from.ownerId!== playerId |
+
+| to.ownerId!== playerId) return { success: false, error: 'Can only transfer between your own territories.' };
+        if (!from.neighbors.includes(to.id)) return { success: false, error: 'Target is not adjacent.' };
+        if (from.armySize <= amount) return { success: false, error: 'Not enough armies to transfer.'};
+
+        // EXECUTION
+        from.armySize -= amount;
+        to.armySize += amount;
+
+        const updates: StateUpdate =;
+        return { success: true, updates };
+      }
+
+      default:
+        return { success: false, error: 'Unknown command type.' };
+    }
+  }
+
+  executeAttack(attackingTerritory: Territory, defendingTerritory: Territory): { success: boolean, updates: StateUpdate } {
+      const attacker = this.players.find(p => p.id === attackingTerritory.ownerId)!;
+      const defender = this.players.find(p => p.id === defendingTerritory.ownerId);
+
+      const attackingArmies = Math.floor(attackingTerritory.armySize * 0.75);
+      const defendingArmies = defendingTerritory.armySize;
+
+      const attackPower = attackingArmies * (GAME_CONSTANTS.ATTACK_POWER_BASE_MULTIPLIER + Math.random() * GAME_CONSTANTS.ATTACK_POWER_RANDOM_RANGE);
+      const defensePower = defendingArmies * (GAME_CONSTANTS.DEFENSE_POWER_BASE_MULTIPLIER + Math.random() * GAME_CONSTANTS.DEFENSE_POWER_RANDOM_RANGE);
+
+      const updates: StateUpdate =;
+
+      attackingTerritory.armySize -= attackingArmies;
+      updates.push({ type: 'TERRITORY_UPDATE', payload: { id: attackingTerritory.id, armySize: attackingTerritory.armySize }});
+      updates.push({ type: 'ANIMATION_SHIP', payload: { fromId: attackingTerritory.id, toId: defendingTerritory.id, isAttack: true, color: attacker.color }});
+
+      if (attackPower > defensePower) {
+          // Attacker wins
+          const oldOwnerId = defendingTerritory.ownerId;
+          const survivingArmies = Math.max(1, Math.floor((attackPower - defensePower) / GAME_CONSTANTS.ATTACK_POWER_BASE_MULTIPLIER));
+          
+          defendingTerritory.ownerId = attackingTerritory.ownerId;
+          defendingTerritory.armySize = survivingArmies;
+
+          // Update player territory lists
+          attacker.territories.push(defendingTerritory.id);
+          if (defender) {
+              const index = defender.territories.indexOf(defendingTerritory.id);
+              if (index > -1) {
+                  defender.territories.splice(index, 1);
+              }
+          }
+          updates.push({ type: 'TERRITORY_UPDATE', payload: { id: defendingTerritory.id, ownerId: defendingTerritory.ownerId, armySize: defendingTerritory.armySize }});
+
+      } else {
+          // Defender wins
+          const survivingArmies = Math.max(1, Math.floor((defensePower - attackPower) / GAME_CONSTANTS.DEFENSE_POWER_BASE_MULTIPLIER));
+          defendingTerritory.armySize = survivingArmies;
+          updates.push({ type: 'TERRITORY_UPDATE', payload: { id: defendingTerritory.id, armySize: defendingTerritory.armySize }});
+      }
+
+      return { success: true, updates };
+  }
+
+  // Methods for getting state to send to clients
+  getFullState(): any {
+    return {
+      territories: Object.values(this.gameMap.territories).map(t => ({ id: t.id, x: t.x, y: t.y, radius: t.radius, ownerId: t.ownerId, armySize: t.armySize, neighbors: t.neighbors })),
+      players: this.players.map(p => this.getPlayerState(p.id)),
+      probes: this.probes,
+      gameState: this.gameState,
+      winner: this.gameState.winner? this.getPlayerState(this.gameState.winner.id) : null,
+    };
+  }
+
+  getPlayerState(playerId: string): any {
+      const player = this.players.find(p => p.id === playerId);
+      if (!player) return null;
+      return {
+          id: player.id,
+          name: player.name,
+          color: player.color,
+          type: player.type,
+          isEliminated: player.isEliminated,
+          territoryCount: player.territories.length,
+          totalArmies: player.totalArmies, // This would need to be calculated
+      };
+  }
+}
+Section III: The Client-Side Engine: Rendering and Core Game LogicThis section details the client's game engine, focusing on performance optimization and a modular design that facilitates maintainability and clear separation of concerns.3.1. The Monolith Deconstructed: A Modular ApproachA common anti-pattern in game development is the "God Class" or monolithic engine file, where all responsibilities—rendering, input, combat, AI, state management—are crammed into a single, massive class. While quick to prototype, this approach rapidly becomes unmanageable, difficult to debug, and resistant to change.23 The TerritorialConquest.js file was initially structured this way.To create a robust and maintainable codebase, it has been refactored into a collection of specialized modules, each with a single, well-defined responsibility.24 The main TerritorialConquest.js class now acts as an orchestrator, initializing these modules and coordinating their interactions during the game loop, rather than implementing all the logic itself.The primary modules are:Renderer.js: Handles all drawing operations on the various canvas layers. It is responsible for rendering territories, connections, animations, and UI elements.1InputHandler.js: Manages all user input from mouse, touch, and keyboard events. It translates raw browser events into meaningful game commands, like "select territory" or "pan camera".25CombatSystem.js: Encapsulates the logic for resolving attacks between territories. In a server-authoritative model, this client-side system primarily triggers attack animations based on server commands.1SupplySystem.js: Manages the creation and visualization of supply routes. Like the combat system, its logic is driven by state updates from the server in multiplayer.1This modular structure makes the system easier to reason about, test, and extend. For example, if a rendering bug occurs, the developer knows to look in Renderer.js, not sift through thousands of lines of unrelated AI or input logic.263.2. Performance Optimization with Layered CanvasesThe single most impactful performance optimization for a 2D canvas-based game is to avoid redrawing the entire scene every frame.27 The game world in Territorial Conquest consists of elements with vastly different update frequencies. The background nebulas are completely static, the territories and their connections only change when captured, and ship animations are highly dynamic.To capitalize on this, the renderer uses a layered canvas approach. Instead of a single <canvas> element, three are stacked on top of each other using CSS positioning.31HTML Structure:HTML<div id="game-container">
+  <canvas id="background-canvas"></canvas>
+  <canvas id="main-canvas"></canvas>
+  <canvas id="ui-canvas"></canvas>
+</div>
+CSS Structure:CSS#game-container { position: relative; }
+#game-container > canvas { position: absolute; top: 0; left: 0; }
+#background-canvas { z-index: 1; }
+#main-canvas { z-index: 2; }
+#ui-canvas { z-index: 3; }
+31This structure allows for selective rendering:Background Layer (background-canvas): Renders the static background and nebula effects. This layer is drawn only once at the start of the game.Main Game Layer (main-canvas): Renders all dynamic game elements: territories (which need to change color), connections, supply routes, ship animations, and probes. This is the only layer that is cleared and fully redrawn in every frame of the game loop.UI Layer (ui-canvas): Renders the heads-up display (HUD) via GameUI.js. This layer is only redrawn when the UI state changes (e.g., when a new territory is selected or the leaderboard updates), not on every game tick.This technique represents a classic performance trade-off: memory for speed. While using multiple canvases increases memory consumption, particularly GPU memory, it drastically reduces the number of drawing operations (and pixels modified) per frame.34 For a complex scene with many static elements, this trade-off results in a significantly higher and more stable framerate, which is crucial for a fluid user experience.353.3. Complete Client-Side Game Engine CodeThe following files constitute the client-side game engine, designed for modularity and performance.client/src/game/TerritorialConquest.js (The Orchestrator)JavaScriptimport { Camera } from './Camera.js';
+import { GameMap } from './GameMap.js';
+import { GameUI } from './GameUI.js';
+import { InputHandler } from './InputHandler.js';
+import { Renderer } from './Renderer.js';
+import { CombatSystem } from './CombatSystem.js';
+import { SupplySystem } from './SupplySystem.js';
+import { Probe } from './Probe.js';
+import { io } from "socket.io-client";
+
+export default class TerritorialConquest {
+    constructor(container, config = {}) {
+        this.container = container;
+        this.config = config;
+        this.gameState = { state: 'lobby', winner: null };
+        
+        this.socket = null;
+        this.playerId = null;
+        this.humanPlayer = null;
+        this.players = {}; // Store all player data from server
+
+        this.lastFrameTime = 0;
+        this.isMultiplayer = config.mode === 'multiplayer';
+    }
+
+    init() {
+        this.camera = new Camera(this.container.clientWidth, this.container.clientHeight);
+        this.gameMap = new GameMap(2000, 2000, this.config.layout);
+        
+        this.renderer = new Renderer(this.container, this.camera, this.gameMap);
+        this.ui = new GameUI(this.renderer.getCanvas('ui'), this.camera);
+        this.inputHandler = new InputHandler(this.renderer.getCanvas('main'), this);
+        this.combatSystem = new CombatSystem(this);
+        this.supplySystem = new SupplySystem(this);
+
+        this.inputHandler.setupEventListeners();
+
+        if (this.isMultiplayer) {
+            this.connectToServer();
+        } else {
+            this.startSinglePlayerGame();
+        }
+    }
+    
+    connectToServer() {
+        this.socket = io('http://localhost:5000'); // Use constant later
+
+        this.socket.on('connect', () => {
+            console.log('Connected to server with ID:', this.socket.id);
+            // For simplicity, we join a room immediately. A real UI would have a lobby.
+            this.socket.emit('create-room', {
+                roomName: `${this.config.playerName}'s Game`,
+                playerName: this.config.playerName,
+                config: this.config
+            });
+        });
+
+        this.socket.on('room-joined', (data) => {
+            console.log('Joined room:', data.roomId);
+            this.playerId = data.playerId;
+            this.updateFullGameState(data.initialGameState);
+            // In a real game, players would ready up. Here, creator starts.
+            this.socket.emit('command', { type: 'START_GAME', payload: {} });
+        });
+
+        this.socket.on('game-started', (data) => {
+            console.log('Game has started!');
+            this.updateFullGameState(data.initialGameState);
+            this.gameState.state = 'playing';
+            this.gameLoop();
+        });
+
+        this.socket.on('state-update', (updates) => {
+            this.applyStateUpdates(updates);
+        });
+        
+        this.socket.on('game-ended', (data) => {
+            this.gameState.state = 'ended';
+            this.gameState.winner = data.winner;
+            console.log('Game ended. Winner:', data.winner?.name);
+        });
+
+        this.socket.on('error-message', (message) => {
+            console.error('Server Error:', message);
+            // Display this to the user in the UI
+        });
+    }
+
+    updateFullGameState(serverState) {
+        // Update territories
+        serverState.territories.forEach(tData => {
+            if (this.gameMap.territories) {
+                Object.assign(this.gameMap.territories, tData);
+            } else {
+                this.gameMap.territories = new Territory(tData.id, tData.x, tData.y, tData.radius, tData.neighbors);
+                Object.assign(this.gameMap.territories, tData);
+            }
+        });
+        
+        // Update players
+        this.players = {};
+        serverState.players.forEach(pData => {
+            this.players = pData;
+            if (pData.id === this.playerId) {
+                this.humanPlayer = pData;
+            }
+        });
+        
+        this.renderer.needsStaticRedraw = true; // Redraw background and connections
+    }
+
+    applyStateUpdates(updates) {
+        updates.forEach(update => {
+            switch (update.type) {
+                case 'TERRITORY_UPDATE':
+                    const territory = this.gameMap.territories[update.payload.id];
+                    if (territory) {
+                        Object.assign(territory, update.payload);
+                    }
+                    break;
+                case 'PLAYER_UPDATE':
+                    if (this.players[update.payload.id]) {
+                        Object.assign(this.players[update.payload.id], update.payload);
+                    }
+                    break;
+                case 'PLAYER_ELIMINATED':
+                    if (this.players[update.payload.playerId]) {
+                        this.players[update.payload.playerId].isEliminated = true;
+                    }
+                    break;
+                case 'ANIMATION_SHIP':
+                    this.renderer.createShipAnimation(
+                        this.gameMap.territories[update.payload.fromId],
+                        this.gameMap.territories[update.payload.toId],
+                        update.payload.isAttack,
+                        update.payload.color
+                    );
+                    break;
+            }
+        });
+    }
+
+    startSinglePlayerGame() {
+        // This mode is now deprecated in favor of a server-authoritative architecture.
+        // For a true single-player experience, one would run a local server instance.
+        // This function can be a placeholder or adapted to launch a local server process.
+        console.warn("Single player mode is deprecated. Please run in multiplayer mode.");
+        // For demonstration, we can simulate a server connection locally.
+        this.isMultiplayer = false; // Fallback to a non-networked mode for now.
+        
+        this.gameMap.generateTerritories(this.config.mapSize);
+        this.gameMap.connectTerritories();
+        this.createPlayers(1 + this.config.aiCount);
+        this.distributeStartingTerritories();
+        
+        this.gameState.state = 'playing';
+        this.gameLoop();
+    }
+    
+    //... (single-player helper methods like createPlayers, distributeStartingTerritories would go here)
+
+    gameLoop(currentTime = 0) {
+        if (this.gameState.state!== 'playing') return;
+
+        const deltaTime = currentTime - this.lastFrameTime;
+        this.lastFrameTime = currentTime;
+
+        this.update(deltaTime);
+        this.renderer.render(this.getRenderState());
+        this.ui.render(this.getUIState());
+
+        requestAnimationFrame(this.gameLoop.bind(this));
+    }
+
+    update(deltaTime) {
+        this.camera.update(deltaTime);
+        this.renderer.updateAnimations(deltaTime);
+        
+        // In single-player mode, AI updates would run here.
+        if (!this.isMultiplayer) {
+            this.players.forEach(player => {
+                if (player.type === 'ai') {
+                    player.update(deltaTime, this.gameMap, this);
+                }
+            });
+        }
+    }
+
+    getRenderState() {
+        return {
+            selectedTerritory: this.inputHandler.selectedTerritory,
+            dragPreview: this.inputHandler.dragPreview,
+            supplyRoutes: this.supplySystem.routes,
+        };
+    }
+    
+    getUIState() {
+        return {
+            gameState: this.gameState.state,
+            players: Object.values(this.players),
+            humanPlayer: this.humanPlayer,
+            selectedTerritory: this.inputHandler.selectedTerritory,
+            fps: this.renderer.fps,
+        };
+    }
+    
+    // Action methods that send commands to the server
+    requestAttack(fromTerritory, toTerritory) {
+        if (!this.isMultiplayer) {
+            // Handle single-player logic directly
+            this.combatSystem.attackTerritory(fromTerritory, toTerritory);
+            return;
+        }
+        this.socket.emit('command', {
+            type: 'ATTACK_TERRITORY',
+            payload: { fromTerritoryId: fromTerritory.id, toTerritoryId: toTerritory.id }
+        });
+    }
+
+    requestTransfer(fromTerritory, toTerritory, amount) {
+        if (!this.isMultiplayer) {
+            // Handle single-player logic directly
+            fromTerritory.armySize -= amount;
+            toTerritory.armySize += amount;
+            this.renderer.createShipAnimation(fromTerritory, toTerritory, false, this.humanPlayer.color);
+            return;
+        }
+        this.socket.emit('command', {
+            type: 'TRANSFER_FLEET',
+            payload: { fromTerritoryId: fromTerritory.id, toTerritoryId: toTerritory.id, amount: amount }
+        });
+    }
+}
+client/src/game/Renderer.jsJavaScriptexport class Renderer {
+    constructor(container, camera, gameMap) {
+        this.container = container;
+        this.camera = camera;
+        this.gameMap = gameMap;
+
+        this.canvases = {};
+        this.contexts = {};
+        
+        this.shipAnimations =;
+        this.shipAnimationPool =;
+
+        this.fps = 0;
+        this.frameCount = 0;
+        this.lastFPSUpdate = 0;
+        
+        this.needsStaticRedraw = true;
+
+        this.setupCanvases();
+    }
+
+    setupCanvases() {
+        const layers = ['background', 'main', 'ui'];
+        layers.forEach((id, index) => {
+            const canvas = document.createElement('canvas');
+            canvas.id = `${id}-canvas`;
+            canvas.width = this.container.clientWidth;
+            canvas.height = this.container.clientHeight;
+            canvas.style.position = 'absolute';
+            canvas.style.top = '0';
+            canvas.style.left = '0';
+            canvas.style.zIndex = index + 1;
+            
+            this.container.appendChild(canvas);
+            this.canvases[id] = canvas;
+            this.contexts[id] = canvas.getContext('2d');
+        });
+
+        window.addEventListener('resize', this.handleResize.bind(this));
+    }
+    
+    getCanvas(layerId) {
+        return this.canvases[layerId];
+    }
+
+    handleResize() {
+        Object.values(this.canvases).forEach(canvas => {
+            canvas.width = this.container.clientWidth;
+            canvas.height = this.container.clientHeight;
+        });
+        this.camera.updateViewport(this.container.clientWidth, this.container.clientHeight);
+        this.needsStaticRedraw = true;
+    }
+
+    updateFPS(currentTime) {
+        this.frameCount++;
+        if (currentTime - this.lastFPSUpdate >= 1000) {
+            this.fps = this.frameCount;
+            this.frameCount = 0;
+            this.lastFPSUpdate = currentTime;
+        }
+    }
+
+    render(renderState) {
+        this.updateFPS(Date.now());
+        const mainCtx = this.contexts.main;
+        
+        // Clear only the dynamic canvas
+        mainCtx.clearRect(0, 0, this.canvases.main.width, this.canvases.main.height);
+
+        // Apply camera transform
+        mainCtx.save();
+        this.camera.applyTransform(mainCtx);
+
+        // Static elements are drawn on the background canvas only when needed
+        if (this.needsStaticRedraw) {
+            this.renderStaticElements();
+            this.needsStaticRedraw = false;
+        }
+
+        // Render dynamic elements every frame
+        this.renderTerritories(mainCtx);
+        this.renderConnections(mainCtx);
+        this.renderSupplyRoutes(mainCtx, renderState.supplyRoutes);
+        this.renderDragPreview(mainCtx, renderState);
+        this.renderShipAnimations(mainCtx);
+        
+        mainCtx.restore();
+    }
+    
+    renderStaticElements() {
+        const bgCtx = this.contexts.background;
+        bgCtx.clearRect(0, 0, this.canvases.background.width, this.canvases.background.height);
+        bgCtx.fillStyle = '#0a0a1a';
+        bgCtx.fillRect(0, 0, this.canvases.background.width, this.canvases.background.height);
+        
+        bgCtx.save();
+        this.camera.applyTransform(bgCtx);
+        // In a real game, nebulas or other static background elements would be drawn here.
+        bgCtx.restore();
+    }
+
+    renderTerritories(ctx) {
+        Object.values(this.gameMap.territories).forEach(territory => {
+            if (!this.camera.isPointVisible(territory.x, territory.y, territory.radius)) return;
+
+            ctx.beginPath();
+            ctx.arc(territory.x, territory.y, territory.radius, 0, 2 * Math.PI);
+            
+            const owner = territory.ownerId? this.gameMap.game.players[territory.ownerId] : null;
+            ctx.fillStyle = owner? owner.color : '#444444';
+            ctx.fill();
+
+            ctx.strokeStyle = '#666666';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Render army size
+            if (territory.armySize > 0) {
+                ctx.fillStyle = '#FFFFFF';
+                ctx.font = 'bold 14px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.strokeText(territory.armySize, territory.x, territory.y);
+                ctx.fillText(territory.armySize, territory.x, territory.y);
+            }
+        });
+    }
+
+    renderConnections(ctx) {
+        ctx.save();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = '#444444';
+        ctx.globalAlpha = 0.3;
+
+        const drawnConnections = new Set();
+        Object.values(this.gameMap.territories).forEach(territory => {
+             territory.neighbors.forEach(neighborId => {
+                const neighbor = this.gameMap.territories[neighborId];
+                if (!neighbor) return;
+                
+                const connectionId = territory.id < neighborId? `${territory.id}-${neighborId}` : `${neighborId}-${territory.id}`;
+                if (drawnConnections.has(connectionId)) return;
+                drawnConnections.add(connectionId);
+
+                ctx.beginPath();
+                ctx.moveTo(territory.x, territory.y);
+                ctx.lineTo(neighbor.x, neighbor.y);
+                ctx.stroke();
+            });
+        });
+        ctx.restore();
+    }
+
+    renderSupplyRoutes(ctx, routes) {
+        // Implementation for drawing supply routes
+    }
+
+    renderDragPreview(ctx, renderState) {
+        if (!renderState.dragPreview) return;
+        const { from, to } = renderState.dragPreview;
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(from.x, from.y);
+        ctx.lineTo(to.x, to.y);
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    createShipAnimation(fromTerritory, toTerritory, isAttack, color) {
+        let animation = this.shipAnimationPool.pop() |
+
+| {};
+        
+        animation.fromX = fromTerritory.x;
+        animation.fromY = fromTerritory.y;
+        animation.toX = toTerritory.x;
+        animation.toY = toTerritory.y;
+        animation.progress = 0;
+        animation.duration = 1000;
+        animation.startTime = Date.now();
+        animation.isAttack = isAttack;
+        animation.color = color;
+        
+        this.shipAnimations.push(animation);
+    }
+    
+    updateAnimations(deltaTime) {
+        const now = Date.now();
+        for (let i = this.shipAnimations.length - 1; i >= 0; i--) {
+            const anim = this.shipAnimations[i];
+            anim.progress = (now - anim.startTime) / anim.duration;
+            if (anim.progress >= 1) {
+                this.shipAnimationPool.push(this.shipAnimations.splice(i, 1));
+            }
+        }
+    }
+
+    renderShipAnimations(ctx) {
+        this.shipAnimations.forEach(anim => {
+            const x = anim.fromX + (anim.toX - anim.fromX) * anim.progress;
+            const y = anim.fromY + (anim.toY - anim.fromY) * anim.progress;
+            
+            ctx.fillStyle = anim.color;
+            ctx.beginPath();
+            ctx.arc(x, y, 3, 0, 2 * Math.PI);
+            ctx.fill();
+        });
+    }
+}
+client/src/game/InputHandler.jsJavaScriptexport class InputHandler {
+    constructor(canvas, game) {
+        this.canvas = canvas;
+        this.game = game;
+
+        this.mousePos = { x: 0, y: 0 };
+        this.isDragging = false;
+        this.dragStart = { x: 0, y: 0 };
+        this.selectedTerritory = null;
+        this.dragPreview = null;
+    }
+
+    setupEventListeners() {
+        this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
+        this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
+        this.canvas.addEventListener('mouseup', this.handleMouseUp.bind(this));
+        this.canvas.addEventListener('wheel', this.handleWheel.bind(this));
+        this.canvas.addEventListener('contextmenu', e => e.preventDefault());
+        // Touch events would be added here as well
+    }
+
+    handleMouseDown(e) {
+        this.updateMousePos(e);
+        this.dragStart = {...this.mousePos };
+        this.isDragging = true;
+    }
+
+    handleMouseMove(e) {
+        if (!this.isDragging) return;
+
+        const lastMousePos = {...this.mousePos };
+        this.updateMousePos(e);
+        
+        if (e.buttons === 2) { // Right mouse button for panning
+            const deltaX = this.mousePos.x - lastMousePos.x;
+            const deltaY = this.mousePos.y - lastMousePos.y;
+            this.game.camera.pan(-deltaX / this.game.camera.zoom, -deltaY / this.game.camera.zoom);
+        } else if (e.buttons === 1) { // Left mouse button for drag actions
+            const worldPos = this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+            const startTerritory = this.findTerritoryAt(this.game.camera.screenToWorld(this.dragStart.x, this.dragStart.y));
+            if (startTerritory) {
+                this.dragPreview = { from: startTerritory, to: worldPos };
+            }
+        }
+    }
+
+    handleMouseUp(e) {
+        this.isDragging = false;
+        const worldPos = this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+        const clickedTerritory = this.findTerritoryAt(worldPos);
+
+        if (this.dragPreview) {
+            // End of a drag action
+            const startTerritory = this.dragPreview.from;
+            if (clickedTerritory && startTerritory.id!== clickedTerritory.id) {
+                this.handleAction(startTerritory, clickedTerritory);
+            }
+            this.dragPreview = null;
+        } else {
+            // Simple click action
+            if (clickedTerritory) {
+                this.handleTerritorySelection(clickedTerritory);
+            } else {
+                this.selectedTerritory = null;
+            }
+        }
+    }
+    
+    handleTerritorySelection(territory) {
+        if (this.selectedTerritory) {
+            this.handleAction(this.selectedTerritory, territory);
+            this.selectedTerritory = null;
+        } else {
+            if (territory.ownerId === this.game.humanPlayer?.id) {
+                this.selectedTerritory = territory;
+            }
+        }
+    }
+    
+    handleAction(from, to) {
+        if (from.ownerId!== this.game.humanPlayer?.id) return;
+
+        if (to.ownerId === this.game.humanPlayer.id) {
+            // Transfer fleet
+            const transferAmount = Math.floor(from.armySize / 2);
+            if (transferAmount > 0) {
+                this.game.requestTransfer(from, to, transferAmount);
+            }
+        } else {
+            // Attack
+            this.game.requestAttack(from, to);
+        }
+    }
+
+    handleWheel(e) {
+        e.preventDefault();
+        const zoomFactor = e.deltaY > 0? 0.9 : 1.1;
+        this.game.camera.zoom(zoomFactor, this.mousePos.x, this.mousePos.y);
+    }
+    
+    updateMousePos(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        this.mousePos.x = e.clientX - rect.left;
+        this.mousePos.y = e.clientY - rect.top;
+    }
+
+    findTerritoryAt(worldPos) {
+        // In a real implementation, this would use a Quadtree for performance
+        for (const territory of Object.values(this.game.gameMap.territories)) {
+            const distance = Math.sqrt((worldPos.x - territory.x) ** 2 + (worldPos.y - territory.y) ** 2);
+            if (distance <= territory.radius) {
+                return territory;
+            }
+        }
+        return null;
+    }
+}
+client/src/game/CombatSystem.jsJavaScript// In the server-authoritative model, the client-side combat system is simplified.
+// Its main role is to receive confirmed combat outcomes from the server and
+// trigger the appropriate visual feedback, like animations or flashing effects.
+// The actual combat calculation happens on the server in GameEngine.ts.
+export class CombatSystem {
+    constructor(game) {
+        this.game = game;
+    }
+
+    // This method would be called in a single-player context.
+    attackTerritory(attackingTerritory, defendingTerritory) {
+        console.log(`SP: ${attackingTerritory.ownerId} attacks ${defendingTerritory.id} from ${attackingTerritory.id}`);
+        // Single-player combat logic would go here.
+        // For now, we focus on the multiplayer flow where the server dictates outcomes.
+    }
+}
+client/src/game/SupplySystem.jsJavaScript// Similar to the CombatSystem, the client-side SupplySystem primarily handles
+// visualization of supply routes based on server state. The logic for creating,
+// validating, and processing these routes is authoritative on the server.
+export class SupplySystem {
+    constructor(game) {
+        this.game = game;
+        this.routes =; // This would be populated by server state updates
+    }
+}
+client/src/game/Camera.jsJavaScriptexport class Camera {
+    constructor(viewportWidth, viewportHeight) {
+        this.x = 0;
+        this.y = 0;
+        this.zoom = 1;
+        this.viewportWidth = viewportWidth;
+        this.viewportHeight = viewportHeight;
+
+        this.minZoom = 0.1;
+        this.maxZoom = 3.0;
+
+        this.minX = -Infinity;
+        this.maxX = Infinity;
+        this.minY = -Infinity;
+        this.maxY = Infinity;
+    }
+
+    updateViewport(width, height) {
+        this.viewportWidth = width;
+        this.viewportHeight = height;
+    }
+    
+    setBounds(minX, minY, maxX, maxY) {
+        this.minX = minX;
+        this.minY = minY;
+        this.maxX = maxX;
+        this.maxY = maxY;
+        this.applyConstraints();
+    }
+
+    update(deltaTime) {
+        // Could add smooth panning/zooming logic here
+        this.applyConstraints();
+    }
+
+    applyConstraints() {
+        this.zoom = Math.max(this.minZoom, Math.min(this.maxZoom, this.zoom));
+        
+        const viewWidth = this.viewportWidth / this.zoom;
+        const viewHeight = this.viewportHeight / this.zoom;
+
+        this.x = Math.max(this.minX + viewWidth / 2, Math.min(this.maxX - viewWidth / 2, this.x));
+        this.y = Math.max(this.minY + viewHeight / 2, Math.min(this.maxY - viewHeight / 2, this.y));
+    }
+
+    pan(dx, dy) {
+        this.x += dx;
+        this.y += dy;
+    }
+
+    zoom(factor, screenX, screenY) {
+        const worldPosBeforeZoom = this.screenToWorld(screenX, screenY);
+        this.zoom *= factor;
+        this.applyConstraints();
+        const worldPosAfterZoom = this.screenToWorld(screenX, screenY);
+
+        // Adjust camera position to keep the point under the cursor stationary
+        this.x += worldPosBeforeZoom.x - worldPosAfterZoom.x;
+        this.y += worldPosBeforeZoom.y - worldPosAfterZoom.y;
+    }
+
+    screenToWorld(screenX, screenY) {
+        const x = (screenX - this.viewportWidth / 2) / this.zoom + this.x;
+        const y = (screenY - this.viewportHeight / 2) / this.zoom + this.y;
+        return { x, y };
+    }
+
+    applyTransform(ctx) {
+        ctx.translate(this.viewportWidth / 2, this.viewportHeight / 2);
+        ctx.scale(this.zoom, this.zoom);
+        ctx.translate(-this.x, -this.y);
+    }
+    
+    getViewBounds() {
+        const halfWidth = this.viewportWidth / (2 * this.zoom);
+        const halfHeight = this.viewportHeight / (2 * this.zoom);
+        return {
+            left: this.x - halfWidth,
+            right: this.x + halfWidth,
+            top: this.y - halfHeight,
+            bottom: this.y + halfHeight,
+        };
+    }
+
+    isPointVisible(worldX, worldY, margin = 0) {
+        const bounds = this.getViewBounds();
+        return worldX >= bounds.left - margin && worldX <= bounds.right + margin &&
+               worldY >= bounds.top - margin && worldY <= bounds.bottom + margin;
+    }
+}
+client/src/game/Probe.jsJavaScript// The Probe class represents a colonization mission.
+// In a server-authoritative model, its state (position, progress) would be
+// managed by the server and updated on the client.
+export class Probe {
+    constructor(id, fromTerritory, toTerritory, playerId, playerColor) {
+        this.id = id;
+        this.fromTerritory = fromTerritory;
+        this.toTerritory = toTerritory;
+        this.playerId = playerId;
+        this.color = playerColor;
+        this.progress = 0;
+        this.startTime = Date.now();
+        const distance = Math.hypot(toTerritory.x - fromTerritory.x, toTerritory.y - fromTerritory.y);
+        this.duration = distance * 10; // 10ms per pixel
+    }
+
+    update(deltaTime) {
+        this.progress = Math.min(1, (Date.now() - this.startTime) / this.duration);
+    }
+
+    render(ctx) {
+        const x = this.fromTerritory.x + (this.toTerritory.x - this.fromTerritory.x) * this.progress;
+        const y = this.fromTerritory.y + (this.toTerritory.y - this.fromTerritory.y) * this.progress;
+
+        ctx.fillStyle = this.color;
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 1;
+
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.stroke();
+    }
+}
+Section IV: Core Data Structures and AlgorithmsHigh-performance algorithms and data structures are the engine under the hood of any performant game. They solve complex problems like spatial querying and pathfinding with an efficiency that naive, brute-force approaches cannot match. This section dissects the critical algorithms that power Territorial Conquest.4.1. Spatial Partitioning with Quadtrees (Quadtree.js)Problem: A frequent operation in the game is determining which territory a player has clicked on. With hundreds of territories on the map, iterating through every single one to check if its circular area contains the mouse coordinates is inefficient. This is a linear search with a time complexity of O(N), where N is the number of territories. While acceptable for a small N, this approach scales poorly and becomes a bottleneck as the map size increases.36Solution: A Quadtree is a tree data structure used to partition a two-dimensional space by recursively subdividing it into four quadrants or regions.38 This structure allows for dramatically faster spatial queries. Instead of checking all N objects, a query only needs to check the objects within the specific quadrant(s) that overlap with the query area. This reduces the search complexity from O(N) to O(logN) on average, a massive performance gain for large datasets.41The implementation involves two core methods:insert(object): Adds an object with spatial bounds (in this case, a territory's bounding box) to the tree. If a node in the tree exceeds its capacity, it subdivides into four child nodes, and its objects are pushed down into the appropriate children.retrieve(area): Returns a list of all objects in the tree that could potentially intersect with a given query area. It works by starting at the root and recursively collecting objects from only the quadrants that overlap with the query area.39Use Case: At the start of the game, all territories are inserted into a single Quadtree. When the InputHandler needs to find the territory at a specific mouse coordinate (the findTerritoryAt function), it performs a retrieve operation on the Quadtree using a small rectangle around the mouse position. The Quadtree quickly returns a small list of candidate territories (often just one or two), which can then be checked precisely. This is a proactive optimization, anticipating the performance bottleneck of a linear search and building a scalable foundation from the outset.36client/src/game/Quadtree.jsJavaScript/*
+ * JavaScript Quadtree
+ * @author Timo Hausmann
+ * https://github.com/timohausmann/quadtree-js/
+ *
+ * @license: MIT
+ */
+export class Quadtree {
+    constructor(bounds, max_objects = 10, max_levels = 4, level = 0) {
+        this.max_objects = max_objects;
+        this.max_levels = max_levels;
+        this.level = level;
+        this.bounds = bounds;
+        this.objects =;
+        this.nodes =;
+    }
+
+    split() {
+        const nextLevel = this.level + 1;
+        const subWidth = this.bounds.width / 2;
+        const subHeight = this.bounds.height / 2;
+        const x = this.bounds.x;
+        const y = this.bounds.y;
+
+        // top right node
+        this.nodes = new Quadtree({ x: x + subWidth, y: y, width: subWidth, height: subHeight }, this.max_objects, this.max_levels,...[source](https://blog.csdn.net/HzjCsdn/article/details/108135219) nextLevel);
+    }
+
+    getIndex(pRect) {
+        let index = -1;
+        const verticalMidpoint = this.bounds.x + (this.bounds.width / 2);
+        const horizontalMidpoint = this.bounds.y + (this.bounds.height / 2);
+
+        const topQuadrant = (pRect.y < horizontalMidpoint && pRect.y + pRect.height < horizontalMidpoint);
+        const bottomQuadrant = (pRect.y > horizontalMidpoint);
+
+        if (pRect.x < verticalMidpoint && pRect.x + pRect.width < verticalMidpoint) {
+            if (topQuadrant) {
+                index = 1;
+            } else if (bottomQuadrant) {
+                index = 2;
+            }
+        } else if (pRect.x > verticalMidpoint) {
+            if (topQuadrant) {
+                index = 0;
+            } else if (bottomQuadrant) {
+                index = 3;
+            }
+        }
+        return index;
+    }
+
+    insert(pRect) {
+        if (this.nodes.length) {
+            const index = this.getIndex(pRect);
+            if (index!== -1) {
+                this.nodes[index].insert(pRect);
+                return;
+            }
+        }
+
+        this.objects.push(pRect);
+
+        if (this.objects.length > this.max_objects && this.level < this.max_levels) {
+            if (!this.nodes.length) {
+                this.split();
+            }
+
+            let i = 0;
+            while (i < this.objects.length) {
+                const index = this.getIndex(this.objects[i]);
+                if (index!== -1) {
+                    this.nodes[index].insert(this.objects.splice(i, 1));
+                } else {
+                    i++;
+                }
+            }
+        }
+    }
+
+    retrieve(pRect) {
+        const index = this.getIndex(pRect);
+        let returnObjects = this.objects;
+
+        if (this.nodes.length) {
+            if (index!== -1) {
+                returnObjects = returnObjects.concat(this.nodes[index].retrieve(pRect));
+            } else {
+                for (let i = 0; i < this.nodes.length; i++) {
+                    returnObjects = returnObjects.concat(this.nodes[i].retrieve(pRect));
+                }
+            }
+        }
+        return returnObjects;
+    }
+
+    clear() {
+        this.objects =;
+        for (let i = 0; i < this.nodes.length; i++) {
+            if (this.nodes.length) {
+                this.nodes[i].clear();
+            }
+        }
+        this.nodes =;
+    }
+}
+4.2. Intelligent Pathfinding with A* (AStar.js)Problem: The game features supply routes that automatically transfer armies between a player's non-adjacent territories. To establish such a route, the system must find the shortest valid path through the player's own network of connected territories. A simple pathfinding algorithm like Breadth-First Search (BFS) would work, but it is inefficient as it explores all possible paths equally in all directions.43Solution: The A* (pronounced "A-star") search algorithm is a highly efficient and widely used pathfinding algorithm in games.44 It improves upon simpler algorithms like Dijkstra's or BFS by using a heuristic to guide its search intelligently towards the destination. A* maintains two lists of nodes: an openList of nodes to be evaluated and a closedList of nodes that have already been evaluated.46For each node, it calculates three values:g(x): The actual cost of the path from the starting node to the current node x.h(x): The heuristic, or estimated cost, from the current node x to the destination. A common and effective heuristic for grid-based maps is the Manhattan distance, which is the sum of the absolute differences of the coordinates.36f(x): The total estimated cost of the path, calculated as f(x)=g(x)+h(x).The algorithm repeatedly selects the node from the openList with the lowest f(x) score to explore next. By prioritizing nodes that are not only cheap to get to but also appear to be closer to the goal, A* avoids exploring large parts of the map that are clearly not on an optimal path, making it significantly faster than an uninformed search.36Use Case: The SupplySystem uses the A* algorithm in its findPathBetweenTerritories function. The "grid" for the algorithm is the graph of territories, where movement is only allowed between adjacent territories that are owned by the same player. This ensures that supply routes are calculated quickly and only travel through a player's own empire.client/src/game/AStar.jsJavaScript// javascript-astar
+// http://github.com/bgrins/javascript-astar
+// Freely distributable under the MIT License.
+// Implements the A* Algorithm in JavaScript.
+
+function pathTo(node) {
+    let curr = node;
+    const path =;
+    while (curr.parent) {
+        path.unshift(curr);
+        curr = curr.parent;
+    }
+    return path;
+}
+
+function getHeap() {
+    return new BinaryHeap(function(node) {
+        return node.f;
+    });
+}
+
+export const astar = {
+    search: function(graph, start, end, options) {
+        graph.cleanDirty();
+        options = options |
+
+| {};
+        const heuristic = options.heuristic |
+
+| astar.heuristics.manhattan;
+        const closest = options.closest |
+
+| false;
+
+        const openHeap = getHeap();
+        let closestNode = start;
+
+        start.h = heuristic(start, end);
+        graph.markDirty(start);
+
+        openHeap.push(start);
+
+        while (openHeap.size() > 0) {
+            const currentNode = openHeap.pop();
+
+            if (currentNode === end) {
+                return pathTo(currentNode);
+            }
+
+            currentNode.closed = true;
+
+            const neighbors = graph.neighbors(currentNode);
+
+            for (let i = 0, il = neighbors.length; i < il; ++i) {
+                const neighbor = neighbors[i];
+
+                if (neighbor.closed |
+
+| neighbor.isWall()) {
+                    continue;
+                }
+
+                const gScore = currentNode.g + neighbor.getCost(currentNode);
+                const beenVisited = neighbor.visited;
+
+                if (!beenVisited |
+
+| gScore < neighbor.g) {
+                    neighbor.visited = true;
+                    neighbor.parent = currentNode;
+                    neighbor.h = neighbor.h |
+
+| heuristic(neighbor, end);
+                    neighbor.g = gScore;
+                    neighbor.f = neighbor.g + neighbor.h;
+                    graph.markDirty(neighbor);
+                    if (closest) {
+                        if (neighbor.h < closestNode.h |
+
+| (neighbor.h === closestNode.h && neighbor.g < closestNode.g)) {
+                            closestNode = neighbor;
+                        }
+                    }
+
+                    if (!beenVisited) {
+                        openHeap.push(neighbor);
+                    } else {
+                        openHeap.rescoreElement(neighbor);
+                    }
+                }
+            }
+        }
+
+        if (closest) {
+            return pathTo(closestNode);
+        }
+
+        return;
+    },
+    heuristics: {
+        manhattan: function(pos0, pos1) {
+            const d1 = Math.abs(pos1.x - pos0.x);
+            const d2 = Math.abs(pos1.y - pos0.y);
+            return d1 + d2;
+        }
+    },
+    cleanNode: function(node) {
+        node.f = 0;
+        node.g = 0;
+        node.h = 0;
+        node.visited = false;
+        node.closed = false;
+        node.parent = null;
+    }
+};
+
+class BinaryHeap {
+    constructor(scoreFunction) {
+        this.content =;
+        this.scoreFunction = scoreFunction;
+    }
+
+    push(element) {
+        this.content.push(element);
+        this.sinkDown(this.content.length - 1);
+    }
+
+    pop() {
+        const result = this.content;
+        const end = this.content.pop();
+        if (this.content.length > 0) {
+            this.content = end;
+            this.bubbleUp(0);
+        }
+        return result;
+    }
+
+    remove(node) {
+        const i = this.content.indexOf(node);
+        const end = this.content.pop();
+        if (i!== this.content.length - 1) {
+            this.content[i] = end;
+            if (this.scoreFunction(end) < this.scoreFunction(node)) {
+                this.sinkDown(i);
+            } else {
+                this.bubbleUp(i);
+            }
+        }
+    }
+
+    size() {
+        return this.content.length;
+    }
+
+    rescoreElement(node) {
+        this.sinkDown(this.content.indexOf(node));
+    }
+
+    sinkDown(n) {
+        const element = this.content[n];
+        while (n > 0) {
+            const parentN = ((n + 1) >> 1) - 1;
+            const parent = this.content[parentN];
+            if (this.scoreFunction(element) < this.scoreFunction(parent)) {
+                this.content[parentN] = element;
+                this.content[n] = parent;
+                n = parentN;
+            } else {
+                break;
+            }
+        }
+    }
+
+    bubbleUp(n) {
+        const length = this.content.length;
+        const element = this.content[n];
+        const elemScore = this.scoreFunction(element);
+
+        while (true) {
+            const child2N = (n + 1) << 1;
+            const child1N = child2N - 1;
+            let swap = null;
+            let child1Score;
+
+            if (child1N < length) {
+                const child1 = this.content[child1N];
+                child1Score = this.scoreFunction(child1);
+                if (child1Score < elemScore) {
+                    swap = child1N;
+                }
+            }
+
+            if (child2N < length) {
+                const child2 = this.content[child2N];
+                const child2Score = this.scoreFunction(child2);
+                if (child2Score < (swap === null? elemScore : child1Score)) {
+                    swap = child2N;
+                }
+            }
+
+            if (swap!== null) {
+                this.content[n] = this.content[swap];
+                this.content[swap] = element;
+                n = swap;
+            } else {
+                break;
+            }
+        }
+    }
+}
+4.3. Map and Territory RepresentationThe following classes define the structure of the game world itself. GameMap holds the collection of all territories and their connections, while Territory represents a single node (a star system or planet) in the game world.client/src/game/GameMap.jsJavaScriptimport { Territory } from './Territory.js';
+import { Quadtree } from './Quadtree.js';
+
+export class GameMap {
+    constructor(width, height, layout = 'organic') {
+        this.width = width;
+        this.height = height;
+        this.layout = layout;
+        this.territories = {};
+        this.quadtree = new Quadtree({ x: 0, y: 0, width: this.width, height: this.height });
+        this.game = null; // Reference to the main game instance
+    }
+
+    generateTerritories(numTerritories) {
+        this.territories = {};
+        this.quadtree.clear();
+        for (let i = 0; i < numTerritories; i++) {
+            const radius = Math.random() * 10 + 15; // Random radius between 15 and 25
+            let x, y, validPosition = false;
+            
+            while (!validPosition) {
+                x = Math.random() * (this.width - radius * 2) + radius;
+                y = Math.random() * (this.height - radius * 2) + radius;
+                
+                validPosition = true;
+                // Check for overlap with existing territories
+                for (const id in this.territories) {
+                    const other = this.territories[id];
+                    const distance = Math.hypot(x - other.x, y - other.y);
+                    if (distance < radius + other.radius + 20) { // 20 is min spacing
+                        validPosition = false;
+                        break;
+                    }
+                }
+            }
+            
+            const territory = new Territory(i, x, y, radius);
+            this.territories[i] = territory;
+            this.quadtree.insert({ x: x - radius, y: y - radius, width: radius * 2, height: radius * 2, id: i });
+        }
+    }
+
+    connectTerritories() {
+        // Simple connection logic: connect each territory to its N nearest neighbors
+        const N = 4; // Number of neighbors to connect to
+        const territoryList = Object.values(this.territories);
+
+        territoryList.forEach(t1 => {
+            const distances = territoryList
+               .filter(t2 => t1.id!== t2.id)
+               .map(t2 => ({
+                    id: t2.id,
+                    distance: Math.hypot(t1.x - t2.x, t1.y - t2.y)
+                }))
+               .sort((a, b) => a.distance - b.distance);
+
+            for (let i = 0; i < N && i < distances.length; i++) {
+                const neighborId = distances[i].id;
+                if (!t1.neighbors.includes(neighborId)) {
+                    t1.addNeighbor(neighborId);
+                    this.territories[neighborId].addNeighbor(t1.id);
+                }
+            }
+        });
+    }
+
+    findTerritoryAt(x, y) {
+        const candidates = this.quadtree.retrieve({ x, y, width: 1, height: 1 });
+        for (const candidate of candidates) {
+            const territory = this.territories[candidate.id];
+            const distance = Math.hypot(x - territory.x, y - territory.y);
+            if (distance <= territory.radius) {
+                return territory;
+            }
+        }
+        return null;
+    }
+    
+    getTerritoriesByOwner(ownerId) {
+        return Object.values(this.territories).filter(t => t.ownerId === ownerId);
+    }
+}
+client/src/game/Territory.jsJavaScriptimport { GAME_CONSTANTS } from '../../common/gameConstants.js';
+
+export class Territory {
+    constructor(id, x, y, radius, neighbors =) {
+        this.id = id;
+        this.x = x;
+        this.y = y;
+        this.radius = radius;
+        this.ownerId = null;
+        this.armySize = 0;
+        this.neighbors = neighbors;
+        
+        this.lastArmyGenTime = 0;
+    }
+
+    addNeighbor(neighborId) {
+        if (!this.neighbors.includes(neighborId)) {
+            this.neighbors.push(neighborId);
+        }
+    }
+
+    generateArmies(deltaTime) {
+        if (!this.ownerId) return 0;
+        
+        this.lastArmyGenTime += deltaTime;
+        const generationInterval = GAME_CONSTANTS.ARMY_GENERATION_INTERVAL_MS;
+        
+        if (this.lastArmyGenTime >= generationInterval) {
+            const numGenerated = Math.floor(this.lastArmyGenTime / generationInterval);
+            this.armySize += numGenerated;
+            this.lastArmyGenTime %= generationInterval;
+            return numGenerated;
+        }
+        return 0;
+    }
+    
+    // AStar methods
+    isWall() {
+        return false; // In this game, territories are nodes, not walls
+    }
+
+    getCost() {
+        return 1; // All paths between territories have a base cost of 1
+    }
+}
+Section V: The Artificial Intelligence Player: Simulating Strategic CommandCreating a believable and challenging AI opponent is a cornerstone of any successful strategy game. A simple, scripted AI is predictable and unengaging. The AI for Territorial Conquest employs a multi-layered architecture, combining high-level strategic planning with context-aware tactical decision-making to simulate an intelligent commander.485.1. A Multi-Layered AI ArchitectureThe AI is designed using a hierarchical model common in complex strategy games.48 This approach separates broad, long-term goals from immediate, moment-to-moment actions.Strategic Layer: At the highest level, a Finite State Machine (FSM) determines the AI's overall strategic posture. It answers the question: "What is my primary goal right now?"Tactical Layer: Once a strategic goal is set, a Utility AI system evaluates all possible actions to determine the best way to achieve that goal. It answers the question: "Given my goal, what is the most valuable move I can make?"This combination leverages the strengths of both paradigms. The FSM provides structure and prevents the AI from becoming paralyzed by choice, while the Utility system allows for flexible and intelligent tactical execution within the FSM's defined context.545.2. The Strategic Finite State Machine (FSM)A Finite State Machine is an abstract model that can be in exactly one of a finite number of states at any given time.54 It transitions from one state to another based on a set of predefined rules or inputs. This makes FSMs an intuitive and powerful tool for modeling an entity whose behavior changes based on its internal state, such as an AI player in an RTS game.54The AI in Territorial Conquest operates under four primary strategic states:EXPAND: The default early-game state. The AI's primary objective is to capture as many neutral or weakly defended territories as possible to grow its empire.CONSOLIDATE: Activated when expansion opportunities are limited or the AI's borders are extensive. The objective is to build up armies on frontline territories and reinforce strategic chokepoints.ATTACK: Triggered when the AI identifies a high-value opportunity to strike an opponent. All resources are focused on a specific offensive campaign.DEFEND: Triggered when the AI is under significant threat. The objective is to repel enemy attacks, reinforce weakened territories, and preserve its core systems.The transitions between these states are governed by a clear set of rules, making the AI's high-level decision-making process transparent and easy to balance. This logic is encapsulated in the updateFSM method within the Player.js class.5.3. Tactical Decision-Making with Utility AIWhile the FSM determines the AI's goal, the Utility AI system determines how to best achieve it. Utility theory is a decision-making model where every possible action is assigned a numerical "utility" score, representing its usefulness in the current context. The AI then simply chooses the action with the highest score.55For example, when in the ATTACK state, the AI must decide which enemy territory to attack. It will calculate a utility score for attacking every adjacent enemy territory. This score is a function of multiple considerations (or heuristics):Enemy Strength: Lower enemy army size = higher utility.Own Strength: Higher army size in the attacking territory = higher utility.Strategic Value: Is the target a chokepoint? Does it connect to other valuable regions? Higher strategic value = higher utility.Proximity to Core: Is the target close to the enemy's core territories? Closer = higher utility.A simplified utility function might look like:Utility=(w1​×EnemyArmiesMyArmies​)+(w2​×StrategicValue)−(w3​×Distance)Where w1​,w2​,w3​ are weights to tune the AI's priorities. By calculating this score for all possible attacks, the AI can make an informed, tactical decision that aligns with its strategic goal.5.4. Spatial Reasoning: Influence Maps & Chokepoint AnalysisTo make intelligent utility calculations, the AI must first understand the strategic landscape of the map. This is achieved through two primary analysis techniques.Influence Maps: An influence map is a data structure, typically a grid overlaid on the game world, that represents spatial control and danger.66 Friendly territories propagate positive influence, while enemy territories propagate negative influence. The influence value decreases over distance. The resulting map provides the AI with a topographical view of the battlefield, clearly highlighting its own territory, enemy territory, contested fronts, and safe rear areas. This map is a critical input for many utility calculations, such as determining the "safest" place to retreat to or identifying the "most aggressive" forward position.69Chokepoint Analysis: Chokepoints (or "articulation points" in graph theory) are territories that are critical to controlling movement across the map.72 Capturing a chokepoint can sever an enemy's supply lines or create a highly defensible border. The AI analyzes the GameMap's territory graph to identify these critical nodes.74 A territory is considered a chokepoint if its removal would significantly increase the path distance between two regions of the map or disconnect them entirely.77 These identified chokepoints are assigned a high strategic value, heavily influencing the Utility AI's targeting priorities during both ATTACK and CONSOLIDATE states.5.5. Complete AI CodeThe following files contain the complete implementation of the AI player, including the FSM, utility scoring, and spatial analysis logic.client/src/game/Player.jsJavaScriptimport { GAME_CONSTANTS } from '../../common/gameConstants.js';
+
+export class Player {
+    constructor(id, name, color, type = 'ai') {
+        this.id = id;
+        this.name = name;
+        this.color = color;
+        this.type = type; // 'human' or 'ai'
+        this.socketId = null;
+
+        this.territories =;
+        this.totalArmies = 0;
+        this.isEliminated = false;
+
+        // AI-specific properties
+        this.state = 'EXPAND'; // Initial FSM state
+        this.aiUpdateTimer = 0;
+        this.aiUpdateInterval = 1000 + Math.random() * 500; // Stagger AI updates
+    }
+
+    update(deltaTime, gameMap, game) {
+        if (this.type!== 'ai' |
+
+| this.isEliminated) return;
+
+        this.aiUpdateTimer += deltaTime;
+        if (this.aiUpdateTimer < this.aiUpdateInterval) return;
+        
+        this.aiUpdateTimer = 0;
+
+        this.updateFSM(gameMap);
+
+        const updates =;
+        switch (this.state) {
+            case 'EXPAND':
+                updates.push(...this.doExpansion(gameMap, game));
+                break;
+            case 'ATTACK':
+                updates.push(...this.doAttack(gameMap, game));
+                break;
+            case 'CONSOLIDATE':
+                updates.push(...this.doConsolidation(gameMap, game));
+                break;
+            case 'DEFEND':
+                updates.push(...this.doDefense(gameMap, game));
+                break;
+        }
+        return updates;
+    }
+
+    updateFSM(gameMap) {
+        const myTerritories = gameMap.getTerritoriesByOwner(this.id);
+        if (myTerritories.length === 0) {
+            this.isEliminated = true;
+            return;
+        }
+        
+        const totalArmy = myTerritories.reduce((sum, t) => sum + t.armySize, 0);
+        const borderTerritories = this.getBorderTerritories(gameMap);
+        const enemyNeighbors = this.getEnemyNeighbors(gameMap, borderTerritories);
+
+        // High priority: DEFEND if a core territory is under threat
+        if (this.isUnderThreat(gameMap, borderTerritories)) {
+            this.state = 'DEFEND';
+            return;
+        }
+
+        // ATTACK if we have a significant advantage and see a good target
+        if (totalArmy > 150 && enemyNeighbors.length > 0) {
+             this.state = 'ATTACK';
+             return;
+        }
+
+        // CONSOLIDATE if there are no easy expansion targets
+        const neutralTargets = this.getNeutralNeighbors(gameMap, borderTerritories);
+        if (neutralTargets.length === 0 && totalArmy > 50) {
+            this.state = 'CONSOLIDATE';
+            return;
+        }
+        
+        // Default to EXPAND
+        this.state = 'EXPAND';
+    }
+
+    doExpansion(gameMap, game) {
+        const borderTerritories = this.getBorderTerritories(gameMap);
+        const neutralTargets = this.getNeutralNeighbors(gameMap, borderTerritories);
+        if (neutralTargets.length === 0) return;
+
+        // Utility: Find best neutral target to capture
+        let bestTarget = null;
+        let maxUtility = -Infinity;
+
+        for (const target of neutralTargets) {
+            const attacker = this.findBestAttackerFor(target, borderTerritories);
+            if (attacker && attacker.armySize > target.armySize + 5) {
+                const utility = 1 / (target.armySize + 1); // Simple utility: weaker is better
+                if (utility > maxUtility) {
+                    maxUtility = utility;
+                    bestTarget = { target, attacker };
+                }
+            }
+        }
+
+        if (bestTarget) {
+            const { attacker, target } = bestTarget;
+            console.log(`AI ${this.name} (EXPAND): Attacking neutral ${target.id} from ${attacker.id}`);
+            return game.executeAttack(attacker, target).updates;
+        }
+        return;
+    }
+
+    doAttack(gameMap, game) {
+        const borderTerritories = this.getBorderTerritories(gameMap);
+        const enemyTargets = this.getEnemyNeighbors(gameMap, borderTerritories);
+        if (enemyTargets.length === 0) return;
+
+        // Utility: Find best enemy target to attack
+        let bestAttack = null;
+        let maxUtility = -Infinity;
+
+        for (const target of enemyTargets) {
+            const attacker = this.findBestAttackerFor(target, borderTerritories);
+            if (attacker && attacker.armySize > target.armySize) {
+                // More complex utility: considers army ratio and target value
+                const utility = (attacker.armySize / (target.armySize + 1)) * (target.isChokepoint? 1.5 : 1.0);
+                if (utility > maxUtility) {
+                    maxUtility = utility;
+                    bestAttack = { attacker, target };
+                }
+            }
+        }
+
+        if (bestAttack) {
+            const { attacker, target } = bestAttack;
+            console.log(`AI ${this.name} (ATTACK): Attacking enemy ${target.id} from ${attacker.id}`);
+            return game.executeAttack(attacker, target).updates;
+        }
+        return;
+    }
+    
+    doConsolidation(gameMap, game) {
+        // Move armies from safe, interior territories to border territories
+        const myTerritories = gameMap.getTerritoriesByOwner(this.id);
+        const borderTerritories = this.getBorderTerritories(gameMap, myTerritories);
+        const interiorTerritories = myTerritories.filter(t =>!borderTerritories.includes(t));
+
+        const updates =;
+        interiorTerritories.forEach(from => {
+            if (from.armySize > 10) {
+                // Find nearest border territory to send troops to
+                const target = this.findNearestTerritory(from, borderTerritories);
+                if (target) {
+                    const transferAmount = Math.floor(from.armySize / 2);
+                    from.armySize -= transferAmount;
+                    target.armySize += transferAmount;
+                    updates.push({ type: 'TERRITORY_UPDATE', payload: { id: from.id, armySize: from.armySize }});
+                    updates.push({ type: 'TERRITORY_UPDATE', payload: { id: target.id, armySize: target.armySize }});
+                    updates.push({ type: 'ANIMATION_SHIP', payload: { fromId: from.id, toId: target.id, isAttack: false, color: this.color }});
+                }
+            }
+        });
+        return updates;
+    }
+    
+    doDefense(gameMap, game) {
+        // Similar to consolidation, but focused on threatened borders
+        return this.doConsolidation(gameMap, game);
+    }
+
+    // Helper methods for AI logic
+    getBorderTerritories(gameMap, myTerritories = null) {
+        if (!myTerritories) {
+            myTerritories = gameMap.getTerritoriesByOwner(this.id);
+        }
+        return myTerritories.filter(t => 
+            t.neighbors.some(nId => gameMap.territories[nId].ownerId!== this.id)
+        );
+    }
+
+    getEnemyNeighbors(gameMap, borderTerritories) {
+        const enemyNeighbors = new Set();
+        borderTerritories.forEach(t => {
+            t.neighbors.forEach(nId => {
+                const neighbor = gameMap.territories[nId];
+                if (neighbor.ownerId && neighbor.ownerId!== this.id) {
+                    enemyNeighbors.add(neighbor);
+                }
+            });
+        });
+        return Array.from(enemyNeighbors);
+    }
+    
+    getNeutralNeighbors(gameMap, borderTerritories) {
+        const neutralNeighbors = new Set();
+        borderTerritories.forEach(t => {
+            t.neighbors.forEach(nId => {
+                const neighbor = gameMap.territories[nId];
+                if (!neighbor.ownerId) {
+                    neutralNeighbors.add(neighbor);
+                }
+            });
+        });
+        return Array.from(neutralNeighbors);
+    }
+
+    findBestAttackerFor(target, attackers) {
+        return attackers
+           .filter(a => a.neighbors.includes(target.id))
+           .sort((a, b) => b.armySize - a.armySize);
+    }
+    
+    isUnderThreat(gameMap, borderTerritories) {
+        // Simple threat assessment: are any neighbors significantly stronger?
+        for (const t of borderTerritories) {
+            for (const nId of t.neighbors) {
+                const neighbor = gameMap.territories[nId];
+                if (neighbor.ownerId && neighbor.ownerId!== this.id && neighbor.armySize > t.armySize * 1.5) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    findNearestTerritory(source, targets) {
+        if (targets.length === 0) return null;
+        let nearest = null;
+        let minDistance = Infinity;
+        targets.forEach(target => {
+            const dist = Math.hypot(source.x - target.x, source.y - target.y);
+            if (dist < minDistance) {
+                minDistance = dist;
+                nearest = target;
+            }
+        });
+        return nearest;
+    }
+}
+client/src/game/InfluenceMap.jsJavaScript// This is a conceptual implementation. A full implementation would be more complex.
+export class InfluenceMap {
+    constructor(width, height, cellSize) {
+        this.width = width;
+        this.height = height;
+        this.cellSize = cellSize;
+        this.gridWidth = Math.ceil(width / cellSize);
+        this.gridHeight = Math.ceil(height / cellSize);
+        this.grid = new Array(this.gridWidth * this.gridHeight).fill(0);
+    }
+
+    update(players, gameMap) {
+        // Reset grid
+        this.grid.fill(0);
+
+        // Propagate influence for each player
+        players.forEach(player => {
+            const influenceValue = (player.type === 'human')? -1 : 1; // Example: AI sees itself as positive
+            const territories = gameMap.getTerritoriesByOwner(player.id);
+
+            territories.forEach(territory => {
+                const influence = territory.armySize * influenceValue;
+                this.propagate(territory.x, territory.y, influence, territory.radius * 5);
+            });
+        });
+    }
+
+    propagate(cx, cy, initialInfluence, maxDistance) {
+        const startX = Math.floor((cx - maxDistance) / this.cellSize);
+        const endX = Math.ceil((cx + maxDistance) / this.cellSize);
+        const startY = Math.floor((cy - maxDistance) / this.cellSize);
+        const endY = Math.ceil((cy + maxDistance) / this.cellSize);
+
+        for (let y = startY; y < endY; y++) {
+            for (let x = startX; x < endX; x++) {
+                if (x < 0 |
+
+| x >= this.gridWidth |
+| y < 0 |
+| y >= this.gridHeight) continue;
+
+                const worldX = x * this.cellSize + this.cellSize / 2;
+                const worldY = y * this.cellSize + this.cellSize / 2;
+                const distance = Math.hypot(cx - worldX, cy - worldY);
+
+                if (distance < maxDistance) {
+                    const falloff = 1 - (distance / maxDistance);
+                    const index = y * this.gridWidth + x;
+                    this.grid[index] += initialInfluence * falloff;
+                }
+            }
+        }
+    }
+
+    getValueAt(x, y) {
+        const gridX = Math.floor(x / this.cellSize);
+        const gridY = Math.floor(y / this.cellSize);
+        if (gridX < 0 |
+
+| gridX >= this.gridWidth |
+| gridY < 0 |
+| gridY >= this.gridHeight) return 0;
+        return this.grid[gridY * this.gridWidth + gridX];
+    }
+}
+Section VI: The User Interface: Bridging Player and GameThe User Interface (UI) is the critical bridge between the player and the complex systems of the game. A well-designed UI provides clear, accessible information and intuitive controls, allowing the player to focus on strategy rather than wrestling with the interface. A poor UI, conversely, can create frustration and obscure gameplay mechanics.6.1. UI Stack Overview: React, TypeScript, and StylingThe UI for Territorial Conquest is built using a modern frontend stack chosen for its robustness and developer experience 1:React: A JavaScript library for building user interfaces with a component-based architecture. This allows for the creation of reusable UI elements (buttons, sliders, panels) that manage their own state.TypeScript: A superset of JavaScript that adds static typing. This enhances code quality, improves maintainability, and reduces runtime errors by catching type mismatches during development.Radix UI: A library of unstyled, accessible UI primitives. It provides the foundational logic and accessibility features for components like dialogs, sliders, and dropdowns, allowing for complete stylistic control.Tailwind CSS: A utility-first CSS framework that enables rapid styling directly in the markup, avoiding the need for large, custom CSS files.6.2. UI State Management with ZustandWhile the core game state (territory ownership, army counts) is managed by the vanilla JS engine (and authoritatively by the server in multiplayer), the UI itself has its own state. This includes things like which menus are open, the volume settings, or whether the leaderboard is expanded. To manage this UI-specific state, the application uses Zustand, a small, fast, and scalable state-management solution for React.1Zustand is chosen over more complex solutions like Redux because its simple, hook-based API is sufficient for the UI's needs without introducing significant boilerplate. It provides a centralized "store" for UI state that can be accessed and updated from any component, ensuring a consistent state across the entire interface.6.3. Intuitive Controls and Visual FeedbackA key goal for an RTS is to minimize the number of "empty" actions or unnecessary clicks a player must perform. The control scheme is designed to be intuitive and efficient, following established conventions in the RTS genre.Mouse Controls:Left-Click: Selects a territory. Clicking a second territory initiates a context-sensitive action (transfer if friendly, attack if enemy).Click-and-Drag: Implemented for future features like box-selection of multiple units.Right-Click and Drag: Pans the camera across the map.Scroll Wheel: Zooms the camera in and out.Touch Controls: The game is designed to be mobile-friendly with equivalent touch controls, including pinch-to-zoom and drag-to-pan.Effective visual feedback is crucial for making these controls feel responsive and understandable. The game provides immediate confirmation for player actions.Selection Glow: When a territory is selected, it receives a distinct glow or highlight, confirming the selection to the player.Action Preview: When dragging from a selected territory to another, a dashed line previews the intended action before it is confirmed. This "ghost" or "blueprint" feedback helps players confirm their intent before committing.Combat Flashing: During an attack, both the attacking and defending territories flash, providing a clear, top-level indicator of combat activity.Ship Animations: Fleet movements are visualized with animated ship sprites traveling between territories, giving a tangible representation of transfers and attacks.6.4. Complete UI Component CodeThe following files constitute the React-based UI and the canvas-based UI renderer.client/src/App.tsxTypeScriptimport React, { useState, useRef, useEffect } from 'react';
+import GameModeSelector from './components/GameModeSelector';
+import GameConfigScreen from './components/GameConfigScreen';
+import Interface from './components/Interface';
+import type { GameConfig } from '../common/types';
+
+function App() {
+  const [mode, setMode] = useState<'selector' | 'config' | 'playing'>('selector');
+  const [gameConfig, setGameConfig] = useState<GameConfig | null>(null);
+  const gameContainerRef = useRef<HTMLDivElement>(null);
+  const gameInstanceRef = useRef<any>(null);
+
+  const handleModeSelected = (selectedMode: 'single' | 'multiplayer', config?: Partial<GameConfig>) => {
+    if (selectedMode === 'single') {
+      setMode('config');
+    } else {
+      // For now, multiplayer will also use a config screen. This could be a lobby browser later.
+      setMode('config');
+    }
+  };
+
+  const handleLaunch = (config: GameConfig) => {
+    setGameConfig(config);
+    setMode('playing');
+  };
+
+  useEffect(() => {
+    if (mode === 'playing' && gameContainerRef.current &&!gameInstanceRef.current) {
+      // Dynamically import the game engine to avoid pulling it into the main bundle
+      import('../game/TerritorialConquest').then(({ default: TerritorialConquest }) => {
+        const game = new TerritorialConquest(gameContainerRef.current, gameConfig);
+        game.init();
+        gameInstanceRef.current = game;
+      });
+    }
+
+    return () => {
+      // Cleanup game instance on component unmount
+      if (gameInstanceRef.current && typeof gameInstanceRef.current.destroy === 'function') {
+        gameInstanceRef.current.destroy();
+        gameInstanceRef.current = null;
+      }
+    };
+  }, [mode, gameConfig]);
+
+  return (
+    <div className="w-screen h-screen bg-gray-900 text-white">
+      {mode === 'selector' && <GameModeSelector onModeSelect={handleModeSelected} />}
+      {mode === 'config' && <GameConfigScreen onLaunch={handleLaunch} />}
+      {mode === 'playing' && (
+        <>
+          <div ref={gameContainerRef} id="game-container" className="w-full h-full" />
+          <Interface gameRef={gameInstanceRef} />
+        </>
+      )}
+    </div>
+  );
+}
+
+export default App;
+client/src/components/GameModeSelector.tsxTypeScriptimport React from 'react';
+
+interface GameModeSelectorProps {
+  onModeSelect: (mode: 'single' | 'multiplayer') => void;
+}
+
+const GameModeSelector: React.FC<GameModeSelectorProps> = ({ onModeSelect }) => {
+  return (
+    <div className="flex flex-col items-center justify-center h-full">
+      <h1 className="text-5xl font-bold mb-8">Territorial Conquest</h1>
+      <div className="space-y-4">
+        <button
+          onClick={() => onModeSelect('multiplayer')}
+          className="w-64 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-lg font-semibold"
+        >
+          Multiplayer
+        </button>
+        <button
+          onClick={() => onModeSelect('single')}
+          className="w-64 px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-md text-lg font-semibold"
+        >
+          Single Player (vs AI)
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default GameModeSelector;
+client/src/components/GameConfigScreen.tsxTypeScriptimport React, { useState } from 'react';
+import type { GameConfig } from '../../common/types';
+
+interface GameConfigScreenProps {
+  onLaunch: (config: GameConfig) => void;
+}
+
+const GameConfigScreen: React.FC<GameConfigScreenProps> = ({ onLaunch }) => {
+  const [playerName, setPlayerName] = useState('Player');
+  const [aiCount, setAiCount] = useState(19);
+  const = useState(200);
+
+  const handleLaunchClick = () => {
+    onLaunch({
+      playerName,
+      aiCount,
+      mapSize,
+      gameSpeed: 1.0,
+      layout: 'organic',
+      mode: 'multiplayer' // Or determine based on previous selection
+    });
+  };
+
+  return (
+    <div className="flex items-center justify-center h-full">
+      <div className="p-8 bg-gray-800 rounded-lg shadow-lg w-96">
+        <h2 className="text-2xl font-bold mb-6 text-center">Game Setup</h2>
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="playerName" className="block text-sm font-medium text-gray-300">Player Name</label>
+            <input
+              type="text"
+              id="playerName"
+              value={playerName}
+              onChange={(e) => setPlayerName(e.target.value)}
+              className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label htmlFor="aiCount" className="block text-sm font-medium text-gray-300">AI Opponents: {aiCount}</label>
+            <input
+              type="range"
+              id="aiCount"
+              min="1"
+              max="99"
+              value={aiCount}
+              onChange={(e) => setAiCount(parseInt(e.target.value, 10))}
+              className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+            />
+          </div>
+          <div>
+            <label htmlFor="mapSize" className="block text-sm font-medium text-gray-300">Map Size: {mapSize}</label>
+            <input
+              type="range"
+              id="mapSize"
+              min="50"
+              max="500"
+              step="10"
+              value={mapSize}
+              onChange={(e) => setMapSize(parseInt(e.target.value, 10))}
+              className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+            />
+          </div>
+        </div>
+        <button
+          onClick={handleLaunchClick}
+          className="mt-8 w-full px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md text-lg font-semibold"
+        >
+          Launch Campaign
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default GameConfigScreen;
+client/src/components/Interface.tsxTypeScriptimport React, { useState, useEffect } from 'react';
+
+interface InterfaceProps {
+  gameRef: React.MutableRefObject<any>;
+}
+
+const Interface: React.FC<InterfaceProps> = ({ gameRef }) => {
+  const = useState(null);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (gameRef.current) {
+        setUiState(gameRef.current.getUIState());
+      }
+    }, 100); // Update UI state 10 times per second
+
+    return () => clearInterval(interval);
+  },);
+
+  if (!uiState) {
+    return null; // Don't render anything until game is ready
+  }
+
+  const { gameState, players, humanPlayer, selectedTerritory, fps } = uiState;
+
+  return (
+    <>
+      {/* Top Bar */}
+      <div className="absolute top-0 left-0 w-full p-2 bg-black bg-opacity-50 text-sm flex justify-between">
+        <span>FPS: {fps}</span>
+        <span>Players: {players.filter(p =>!p.isEliminated).length}/{players.length}</span>
+      </div>
+
+      {/* Selected Territory Info */}
+      {selectedTerritory && (
+        <div className="absolute bottom-4 left-4 p-4 bg-black bg-opacity-70 rounded-lg w-64">
+          <h3 className="font-bold text-lg">Territory {selectedTerritory.id}</h3>
+          <p>Owner: {players.find(p => p.id === selectedTerritory.ownerId)?.name |
+
+| 'Neutral'}</p>
+          <p>Armies: {selectedTerritory.armySize}</p>
+        </div>
+      )}
+      
+      {/* Game Over Screen */}
+      {gameState === 'ended' && (
+          <div className="absolute inset-0 bg-black bg-opacity-75 flex flex-col items-center justify-center">
+              <h2 className="text-6xl font-bold text-red-500">GAME OVER</h2>
+              <p className="text-3xl mt-4">Winner: {uiState.winner?.name |
+
+| 'Draw'}</p>
+          </div>
+      )}
+    </>
+  );
+};
+
+export default Interface;
+client/src/game/GameUI.jsJavaScript// Note: With the React-based approach for the overlay, this vanilla JS GameUI class
+// becomes simplified. It's responsible for drawing UI elements that are tightly
+// coupled to the canvas world itself, like selection circles or health bars,
+// while the React `Interface` component handles the main HUD.
+export class GameUI {
+    constructor(canvas, camera) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.camera = camera;
+    }
+
+    render(uiState) {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // This is where we would draw non-React UI elements.
+        // For example, drawing a selection circle around the selected territory.
+        if (uiState.selectedTerritory) {
+            this.drawSelectionCircle(uiState.selectedTerritory);
+        }
+    }
+
+    drawSelectionCircle(territory) {
+        const screenPos = this.camera.worldToScreen(territory.x, territory.y);
+        const screenRadius = territory.radius * this.camera.zoom;
+
+        this.ctx.save();
+        this.ctx.strokeStyle = '#00ffff';
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+        this.ctx.arc(screenPos.x, screenPos.y, screenRadius + 5, 0, 2 * Math.PI);
+        this.ctx.stroke();
+        this.ctx.restore();
+    }
+}
+Section VII: Configuration and Constants: Centralized Game BalancingA critical practice in professional game development is the separation of game logic from game data. Hardcoding values like damage multipliers, unit costs, or AI behavior thresholds directly into the code is known as using "magic numbers." This practice makes the game difficult to balance, maintain, and understand.17.1. The Principle of "No Magic Numbers"The initial codebase was rife with magic numbers, such as the cost of a probe (10), the number of armies left after an attack (1), and various multipliers for combat calculations.1 To address this, all such values have been extracted and centralized into a single configuration object, GAME_CONSTANTS.This approach provides several key benefits:Centralized Control: All tunable parameters are located in one file, making them easy to find and modify.Rapid Balancing: A game designer or developer can tweak game balance by changing values in the constants file without needing to understand or recompile the core game logic. This accelerates iteration and testing cycles.Improved Readability: The code becomes more self-documenting. A line like if (armySize > GAME_CONSTANTS.MIN_ARMY_TO_ATTACK) is far more descriptive than if (armySize > 1).Consistency: It prevents errors where the same conceptual value (e.g., probe cost) might be hardcoded differently in multiple places (e.g., once for the player, once for the AI).7.2. Table: Key Configuration ConstantsThe following table serves as a quick reference for the most important tunable parameters in the game. It acts as a "cheat sheet" for game balancing, explaining the purpose and default value of each key constant. This empowers developers to easily experiment with and customize the game's strategic feel.Constant NameDefault ValueGameplay ImpactINITIAL_STARTING_ARMY_SIZE15The number of armies each player starts with in their home territory.ARMY_GENERATION_INTERVAL_MS1500The time in milliseconds it takes for a territory to generate one new army.MIN_ARMY_TO_ATTACK1The minimum number of armies that must be left behind in a territory when attacking.ATTACK_POWER_BASE_MULTIPLIER0.8The base multiplier for an attacking army's strength before the random factor.ATTACK_POWER_RANDOM_RANGE0.4The random variance in attack power. A value of 0.4 means the final multiplier will be between 0.8 and 1.2.DEFENSE_POWER_BASE_MULTIPLIER0.9The base multiplier for a defending army's strength, giving defenders a slight advantage.AI_UPDATE_INTERVAL_MS1000The base time in milliseconds between AI decision-making ticks.DEFAULT_MAP_SIZE_TERRITORIES200The default number of territories generated on the map for a new game.7.3. Complete Configuration CodeThe following file is shared between the client and server to ensure both environments operate with the same fundamental game rules and values.common/gameConstants.tsTypeScriptexport const GAME_CONSTANTS = {
+    // Game Core
+    DEFAULT_MAP_WIDTH: 2000,
+    DEFAULT_MAP_HEIGHT: 2000,
+    DEFAULT_GAME_TIMER_MINUTES: 15,
+    MAX_TOTAL_PLAYERS: 100,
+
+    // Player & AI Defaults
+    DEFAULT_SINGLE_PLAYER_AI

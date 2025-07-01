@@ -32,6 +32,23 @@ export class GameUI {
         ctx.fillText(text, x, y);
     }
     
+    // Method for FSM to update UI state
+    setInputState(state, data = {}) {
+        this.inputState = state;
+        this.inputStateData = data;
+        
+        // Update cursor based on FSM state
+        if (this.canvas) {
+            const cursorModes = {
+                'Default': 'default',
+                'TerritorySelected': 'pointer',
+                'ProbeTargeting': 'crosshair',
+                'EnemySelected': 'help'
+            };
+            this.canvas.style.cursor = cursorModes[state] || 'default';
+        }
+    }
+    
     render(ctx, gameData) {
         this.animationPhase += 0.02;
         
