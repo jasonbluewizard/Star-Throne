@@ -2138,6 +2138,9 @@ export default class StarThrone {
         
         this.ctx.restore();
         
+        // Render floating discovery texts over planets
+        this.renderFloatingDiscoveryTexts();
+        
         // Render UI overlay
         this.renderUI();
         

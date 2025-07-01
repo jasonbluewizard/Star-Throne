@@ -103,6 +103,9 @@ export class GameUI {
             this.renderMinimap(ctx, gameData);
         }
         
+        // Temporary probe notification above discovery panel
+        this.renderProbeNotification(ctx, gameData);
+        
         // Discovery panel showing empire bonuses
         this.renderDiscoveryPanel(ctx, gameData);
         
@@ -117,8 +120,7 @@ export class GameUI {
         // Render notifications
         this.renderNotifications(ctx, gameData);
         
-        // Render floating discovery announcements
-        this.renderFloatingAnnouncements(ctx, gameData);
+        // Floating discovery announcements are now rendered in main game renderer
         
         // Game over screen for human player
         const humanPlayer = gameData.humanPlayer;
@@ -477,6 +479,55 @@ export class GameUI {
         }
     }
     
+    renderProbeNotification(ctx, gameData) {
+        // Show temporary probe notification above discovery panel for 3 seconds
+        const recentProbeResults = gameData.recentProbeResults || [];
+        const now = Date.now();
+        
+        // Get most recent probe result for human player within last 3 seconds
+        const latestProbe = recentProbeResults
+            .filter(result => result.playerId === gameData.humanPlayer?.id && (now - result.timestamp) < 3000)
+            .sort((a, b) => b.timestamp - a.timestamp)[0];
+        
+        if (!latestProbe) return;
+        
+        // Position above where discovery panel will be
+        const x = 20;
+        const y = 150; // Above discovery panel
+        const width = 300;
+        const height = 40;
+        
+        // Background with transparency
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+        ctx.fillRect(x, y, width, height);
+        
+        // Border with probe result color
+        const borderColor = latestProbe.success ? '#00ff88' : '#ff4444';
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, width, height);
+        
+        // Probe notification text
+        ctx.fillStyle = borderColor;
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'left';
+        
+        const probeText = latestProbe.success 
+            ? `✓ Probe succeeded: ${latestProbe.discoveryName}`
+            : `✗ Probe failed: ${latestProbe.discoveryName}`;
+            
+        ctx.fillText(probeText, x + 10, y + 25);
+        
+        // Fade out effect
+        const age = now - latestProbe.timestamp;
+        if (age > 2000) { // Start fading after 2 seconds
+            const fadeAlpha = 1 - ((age - 2000) / 1000); // Fade over 1 second
+            ctx.globalAlpha = Math.max(0, fadeAlpha);
+            ctx.fillText(probeText, x + 10, y + 25);
+            ctx.globalAlpha = 1; // Reset alpha
+        }
+    }
+    
     renderDiscoveryPanel(ctx, gameData) {
         // Only show human player's discoveries
         if (!gameData.playerDiscoveries || !gameData.humanPlayer) return;
@@ -522,7 +573,7 @@ export class GameUI {
         const discoveryHeight = discoveryCount * lineHeight;
         const titleHeight = 25;
         const height = Math.max(80, titleHeight + recentDiscoveryHeight + probeResultHeight + discoveryHeight + padding * 2);
-        const y = this.canvas.height - height - 20;
+        const y = 200; // Position below probe notification
         
         // Background with transparency
         ctx.fillStyle = 'rgba(0, 20, 40, 0.9)';
