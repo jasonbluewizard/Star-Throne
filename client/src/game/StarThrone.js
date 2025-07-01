@@ -1753,18 +1753,70 @@ export default class StarThrone {
         this.ctx.restore();
     }
     
+    render() {
+        const startTime = performance.now();
+        
+        // Clear canvas with background color
+        this.ctx.fillStyle = '#0a0a1a';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Apply camera transformations
+        this.ctx.save();
+        this.camera.applyTransform(this.ctx);
+        
+        // Render parallax starfield
+        this.renderStarfield();
+        
+        // Render game background elements
+        this.renderNebulas();
+        
+        // Update performance tracking
+        this.updateVisibleTerritories();
+        
+        // Render connections between territories
+        this.renderConnections();
+        
+        // Render supply routes
+        this.renderSupplyRoutes();
+        
+        // Render territories with fleet counts
+        this.renderTerritories();
+        
+        // Render probes
+        this.renderProbes();
+        
+        // Render ship animations
+        this.renderShipAnimations();
+        
+        // Render proportional drag interface
+        this.renderProportionalDrag();
+        
+        // Render selection indicators
+        if (this.inputHandler && this.inputHandler.getInputState().selectedTerritory) {
+            this.renderSelectionIndicator(this.inputHandler.getInputState().selectedTerritory);
+        }
+        
+        this.ctx.restore();
+        
+        // Render UI overlay
+        this.renderUI();
+        
+        // Update performance stats
+        this.performanceStats.renderTime = performance.now() - startTime;
+    }
+    
     renderUI() {
         if (this.ui) {
-            const fsmState = this.inputFSM ? this.inputFSM.getState() : {};
+            const inputState = this.inputHandler ? this.inputHandler.getInputState() : {};
             
             this.ui.render(this.ctx, {
                 gameState: this.gameState,
                 gameTimer: this.gameTimer,
                 players: this.players,
                 humanPlayer: this.humanPlayer,
-                selectedTerritory: fsmState.selectedTerritory,
+                selectedTerritory: inputState.selectedTerritory,
                 hoveredTerritory: this.hoveredTerritory,
-                mousePos: this.mousePos,
+                mousePos: this.inputHandler ? this.inputHandler.mousePos : { x: 0, y: 0 },
                 fps: this.fps,
                 currentPlayers: this.currentPlayers,
                 maxPlayers: this.maxPlayers,
@@ -1783,7 +1835,7 @@ export default class StarThrone {
                 notifications: this.notifications,
                 discoveries: this.discoveries,
                 showBonusPanel: this.showBonusPanel,
-                inputState: fsmState,
+                inputState: inputState,
                 messageText: this.messageText,
                 messageTimer: this.messageTimer
             });
