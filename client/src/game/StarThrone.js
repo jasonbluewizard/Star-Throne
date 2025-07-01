@@ -2056,6 +2056,8 @@ export default class StarThrone {
         }
         
         // If clicking on a colonizable planet, launch a probe
+        console.log(`Click analysis: clicked=${clickedTerritory?.id}, isColonizable=${clickedTerritory?.isColonizable}, selected=${this.selectedTerritory?.id}, selectedOwner=${this.selectedTerritory?.ownerId}, humanPlayer=${this.humanPlayer?.id}`);
+        
         if (clickedTerritory.isColonizable && this.selectedTerritory && 
             this.selectedTerritory.ownerId === this.humanPlayer.id) {
             
