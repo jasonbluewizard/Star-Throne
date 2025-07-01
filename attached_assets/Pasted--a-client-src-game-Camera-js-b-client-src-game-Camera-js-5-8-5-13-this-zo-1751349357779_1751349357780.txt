@@ -1,0 +1,551 @@
+--- a/client/src/game/Camera.js
++++ b/client/src/game/Camera.js
+@@ -5,8 +5,13 @@
+         this.zoom = 1;
+         this.targetX = 0;
+         this.targetY = 0;
+         this.targetZoom = 1;
++
++        // Inertial panning properties
++        this.panVelocity = { x: 0, y: 0 };
++        this.isPanning = false;
++        this.dampingFactor = 0.85; // Lower is more 'slippery'
+         
+         this.viewportWidth = viewportWidth;
+         this.viewportHeight = viewportHeight;
+@@ -16,8 +21,8 @@
+         this.minY = 0;
+         this.maxY = 1000;
+         
+         // Zoom constraints
+-        this.minZoom = 0.15;
+-        // Allow seeing entire galaxy
++        // Allow zooming out to see the entire map (strategic zoom)
++        this.minZoom = 0.1;
+         this.maxZoom = 3.0;
+         // Animation properties
+         this.isAnimating = false;
+@@ -43,6 +48,14 @@
+             if (progress >= 1) {
+                 this.isAnimating = false;
+             }
++        } else if (!this.isPanning && (Math.abs(this.panVelocity.x) > 0.01 |
+
+| Math.abs(this.panVelocity.y) > 0.01)) {
++            // Apply inertial panning only when not actively panning
++            this.x += this.panVelocity.x * deltaTime;
++            this.y += this.panVelocity.y * deltaTime;
++
++            // Apply damping
++            this.panVelocity.x *= this.dampingFactor;
++            this.panVelocity.y *= this.dampingFactor;
+         }
+         
+         this.applyConstraints();
+@@ -71,8 +84,19 @@
+     
+     pan(deltaX, deltaY) {
+         this.x += deltaX;
+         this.y += deltaY;
++        this.panVelocity = { x: 0, y: 0 }; // Stop inertia when manually panning
+         this.applyConstraints();
+     }
+ 
++    startPan() {
++        this.isPanning = true;
++        this.panVelocity = { x: 0, y: 0 };
++    }
++
++    endPan(velocityX = 0, velocityY = 0) {
++        this.isPanning = false;
++        this.panVelocity = { x: velocityX, y: velocityY };
++    }
++
+     zoomTo(newZoom, screenX, screenY) {
+         const worldPos = this.screenToWorld(screenX, screenY);
+         this.zoom = Math.max(this.minZoom, Math.min(this.maxZoom, newZoom));
+--- a/client/src/game/StarThrone.js
++++ b/client/src/game/StarThrone.js
+@@ -30,8 +30,13 @@
+         
+         // Input handling
+         this.mousePos = { x: 0, y: 0 };
++        this.lastMousePos = { x: 0, y: 0 };
+         this.selectedTerritory = null;
++        this.selectedTerritories = new Set();
++        this.hoveredTerritory = null;
+         this.isDragging = false;
+-        this.lastMousePos = { x: 0, y: 0 };
++        this.dragStartPos = { x: 0, y: 0 };
++        this.lastEvent = null; // To store keyboard modifier state
++        this.controlGroups = new Map();
+         // Performance
+         this.lastFrameTime = 0;
+         this.fps = 0;
+@@ -194,6 +199,16 @@
+         // Update probes
+         this.updateProbes(deltaTime);
+         // Check for player elimination
++
++        // Handle edge-of-screen panning
++        if (!this.isDragging) {
++            const edgeMargin = 40;
++            const panSpeed = 0.6 * deltaTime;
++            if (this.mousePos.x < edgeMargin) this.camera.pan(-panSpeed, 0);
++            if (this.mousePos.x > this.canvas.width - edgeMargin) this.camera.pan(panSpeed, 0);
++            if (this.mousePos.y < edgeMargin) this.camera.pan(0, -panSpeed);
++            if (this.mousePos.y > this.canvas.height - edgeMargin) this.camera.pan(0, panSpeed);
++        }
+         this.checkPlayerElimination();
+         // Check win conditions
+         this.checkWinConditions();
+@@ -250,6 +265,11 @@
+         this.renderDragPreview();
+         // Render ship animations
+         this.renderShipAnimations();
++
++        // Render fleet transfer preview UI
++        if (this.isDragging && this.selectedTerritory && this.hoveredTerritory) {
++            this.renderTransferPreview();
++        }
+         // Render probes
+         this.renderProbes();
+         // Render armies on territories
+@@ -279,6 +299,12 @@
+         
+         territories.forEach(territory => {
+             this.ctx.save();
++
++            // Hover Effect (Affordance)
++            if (this.hoveredTerritory && this.hoveredTerritory.id === territory.id && this.selectedTerritory?.id!== territory.id) {
++                this.ctx.shadowColor = '#ffffff';
++                this.ctx.shadowBlur = 20;
++            }
+             
+             // Territory circle
+             this.ctx.beginPath();
+@@ -291,12 +317,18 @@
+                     
+                     // Human player territories get special highlighting
+                     if (player.type === 'human') {
+-                        // Thick cyan border for human territories
+-                        this.ctx.strokeStyle = '#00ffff';
+-                        this.ctx.lineWidth = 3;
+-                        this.ctx.stroke();
+-                        
+-                        // Add glow effect
++                        // Pulsating selection effect for selected territory
++                        if (this.selectedTerritory && this.selectedTerritory.id === territory.id) {
++                            const pulse = Math.sin(Date.now() * 0.006) * 0.5 + 0.5; // Pulsates between 0.5 and 1.0
++                            this.ctx.strokeStyle = `rgba(0, 255, 255, ${pulse})`;
++                            this.ctx.lineWidth = 4;
++                            this.ctx.stroke();
++                        } else {
++                            // Standard thick border for human territories
++                            this.ctx.strokeStyle = '#00ffff';
++                            this.ctx.lineWidth = 3;
++                            this.ctx.stroke();
++                        }
+                         this.ctx.shadowColor = '#00ffff';
+                         this.ctx.shadowBlur = 10;
+                         this.ctx.fill();
+@@ -391,17 +423,30 @@
+     }
+     
+     renderDragPreview() {
+-        // Show drag preview when creating supply route
+-        if (this.isDraggingForSupplyRoute && this.dragStart) {
++        // Enhanced drag preview for attacks and transfers
++        if (this.isDragging && this.selectedTerritory && e.buttons === 1) { // Only for left-click drag
+             const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+             this.ctx.save();
+-            this.ctx.strokeStyle = '#ffff00';
++
++            // Determine color based on target
++            if (this.hoveredTerritory && this.hoveredTerritory.ownerId!== this.humanPlayer?.id) {
++                this.ctx.strokeStyle = '#ff4444'; // Red for attack
++            } else {
++                this.ctx.strokeStyle = '#00ffff'; // Cyan for friendly transfer/move
++            }
++
+             this.ctx.lineWidth = 2;
+             this.ctx.globalAlpha = 0.7;
+             this.ctx.setLineDash();
+             
+             this.ctx.beginPath();
+-            this.ctx.moveTo(this.dragStart.x, this.dragStart.y);
++            this.ctx.moveTo(this.selectedTerritory.x, this.selectedTerritory.y);
+             this.ctx.lineTo(worldPos.x, worldPos.y);
+             this.ctx.stroke();
+             
+@@ -409,6 +454,33 @@
+         }
+     }
+     
++    renderTransferPreview() {
++        // Renders the "Sending vs Remaining" UI next to the cursor
++        const from = this.selectedTerritory;
++        const percentage = this.getTransferPercentage(this.lastEvent);
++        const transferAmount = Math.floor(from.armySize * percentage);
++        const remainingAmount = from.armySize - transferAmount;
++
++        const textToSend = `Send: ${transferAmount}`;
++        const textToRemain = `Keep: ${remainingAmount}`;
++
++        const screenPos = this.camera.worldToScreen(this.hoveredTerritory.x, this.hoveredTerritory.y);
++
++        this.ctx.save();
++        this.ctx.font = 'bold 14px Arial';
++        this.ctx.textAlign = 'left';
++
++        // Background for readability
++        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
++        this.ctx.fillRect(screenPos.x + 15, screenPos.y - 35, 100, 50);
++
++        // Text
++        this.renderTextWithShadow(this.ctx, textToSend, screenPos.x + 20, screenPos.y - 15, '#00ff00');
++        this.renderTextWithShadow(this.ctx, textToRemain, screenPos.x + 20, screenPos.y + 5, '#ffffff');
++
++        this.ctx.restore();
++    }
++
+     renderArmies() {
+         // Optimized army rendering with visibility culling and batch operations
+         this.ctx.save();
+@@ -416,7 +488,14 @@
+         this.ctx.textAlign = 'center';
+         
+-        const territories = this.visibleTerritories |
+
+| Object.values(this.gameMap.territories);
++        // Level of Detail (LOD) based on zoom
++        const isZoomedOut = this.camera.zoom < 0.3;
++
++        const territories = this.visibleTerritories.length > 0? this.visibleTerritories : Object.values(this.gameMap.territories);
+         const playersLookup = {};
+         // Cache player lookups
+         
+@@ -428,15 +507,22 @@
+                     playersLookup[territory.ownerId] = this.players.find(p => p.id === territory.ownerId);
+                 }
+                 
+-                // Black text with white outline for better readability
+-                this.ctx.fillStyle = '#000000';
+-this.ctx.strokeStyle = '#ffffff';
+-                this.ctx.lineWidth = 3;
+-                
+-                const text = territory.armySize.toString();
+-                this.ctx.strokeText(text, territory.x, territory.y + 5);
+-                this.ctx.fillText(text, territory.x, territory.y + 5);
+-            } else if (territory.isColonizable) {
++                if (isZoomedOut) {
++                    // Simplified rendering when zoomed out: just a colored dot
++                    this.ctx.fillStyle = playersLookup[territory.ownerId]?.color |
+
+| '#ffffff';
++                    this.ctx.beginPath();
++                    this.ctx.arc(territory.x, territory.y, territory.radius * 0.8, 0, 2 * Math.PI);
++                    this.ctx.fill();
++                } else {
++                    // Detailed rendering: army count
++                    this.ctx.fillStyle = '#000000';
++                    this.ctx.strokeStyle = '#ffffff';
++                    this.ctx.lineWidth = 3;
++                    const text = territory.armySize.toString();
++                    this.ctx.strokeText(text, territory.x, territory.y + 5);
++                    this.ctx.fillText(text, territory.x, territory.y + 5);
++                }
++            } else if (territory.isColonizable &&!isZoomedOut) {
+                 // Yellow question mark for unexplored systems
+                 this.ctx.fillStyle = '#ffff00';
+ this.ctx.strokeStyle = '#000000';
+@@ -445,7 +531,7 @@
+                 const text = '?';
+                 this.ctx.strokeText(text, territory.x, territory.y + 5);
+                 this.ctx.fillText(text, territory.x, territory.y + 5);
+-            } else if (!territory.ownerId && territory.armySize > 0) {
++            } else if (!territory.ownerId && territory.armySize > 0 &&!isZoomedOut) {
+                 // Neutral territory army count - white text with black outline
+                 this.ctx.fillStyle = '#ffffff';
+ this.ctx.strokeStyle = '#000000';
+@@ -479,20 +565,25 @@
+         this.mousePos.x = e.clientX - rect.left;
+         this.mousePos.y = e.clientY - rect.top;
+         this.lastMousePos = {...this.mousePos };
+-        
+-        this.isDragging = false;
++        this.lastEvent = e; // Store event for modifier keys
++        
+         // Check for UI interactions first
+         if (this.ui && this.ui.handleClick) {
+             const handled = this.ui.handleClick(this.mousePos.x, this.mousePos.y);
+             if (handled) return;
+         }
+         
++        const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
++        const clickedTerritory = this.findTerritoryAt(worldPos.x, worldPos.y);
++
+         if (e.button === 0) { // Left click
+-            // Territory selection will be handled in mouseup if not dragging
++            this.isDragging = true;
++            this.dragStartPos = {...this.mousePos };
++            this.selectedTerritory = clickedTerritory;
+         } else if (e.button === 2) { // Right click for camera drag
+             this.isDragging = true;
++            this.camera.startPan();
+         }
+     }
+     
+@@ -503,26 +594,66 @@
+             y: e.clientY - rect.top
+         };
+         const deltaX = newMousePos.x - this.mousePos.x;
+         const deltaY = newMousePos.y - this.mousePos.y;
+-        // Detect if this is a drag (moved more than a few pixels)
+-        const dragThreshold = 5;
+-        if (Math.abs(deltaX) > dragThreshold |
+
+| Math.abs(deltaY) > dragThreshold) {
+-            this.isDragging = true;
+-        }
+-        
+-        if (this.isDragging && (e.buttons === 2 |
+
+| e.buttons === 1)) { // Right click or left click drag
++        this.lastEvent = e;
++
++        // Update hovered territory
++        const worldPos = this.camera.screenToWorld(newMousePos.x, newMousePos.y);
++        this.hoveredTerritory = this.findTerritoryAt(worldPos.x, worldPos.y);
++        
++        if (this.isDragging && e.buttons === 2) { // Right-click drag for panning
+             this.camera.pan(-deltaX / this.camera.zoom, -deltaY / this.camera.zoom);
+         }
+         
+         this.mousePos = newMousePos;
+     }
+     
+     handleMouseUp(e) {
+-        if (e.button === 0 &&!this.isDragging) { // Left click without drag
+-            const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+-            this.handleTerritorySelection(worldPos);
++        const wasDragging = this.isDragging;
++        this.isDragging = false;
++        this.lastEvent = e;
++
++        const targetTerritory = this.hoveredTerritory;
++
++        if (e.button === 0) { // Left click release
++            const dragDistance = Math.hypot(this.mousePos.x - this.dragStartPos.x, this.mousePos.y - this.dragStartPos.y);
++            
++            if (dragDistance < 5) { // It was a click, not a drag
++                this.selectedTerritory = targetTerritory;
++            } else { // It was a drag
++                if (this.selectedTerritory && targetTerritory && this.selectedTerritory.id!== targetTerritory.id) {
++                    this.handleAction(this.selectedTerritory, targetTerritory, e);
++                }
++            }
++        } else if (e.button === 2) { // Right click release
++            this.camera.endPan();
++            if (this.selectedTerritory && targetTerritory && this.selectedTerritory.id!== targetTerritory.id) {
++                // Context-sensitive right-click action
++                this.handleAction(this.selectedTerritory, targetTerritory, e);
++            }
+         }
+-        
+-        this.isDragging = false;
++    }
++
++    getTransferPercentage(event) {
++        if (event?.shiftKey) {
++            return 1.0; // Send 100%
++        }
++        if (event?.ctrlKey) {
++            return 0.25; // Send 25%
++        }
++        return 0.5; // Default 50%
++    }
++
++    handleAction(from, to, event) {
++        if (!from |
+
+| from.ownerId!== this.humanPlayer?.id) return;
++
++        const percentage = this.getTransferPercentage(event);
++
++        if (to.ownerId === this.humanPlayer.id) {
++            // Transfer to friendly
++            this.transferFleet(from, to, percentage);
++        } else {
++            // Attack enemy or neutral
++            this.attackTerritory(from, to, percentage);
++        }
++        // Deselect after action to prevent accidental multi-orders
++        // this.selectedTerritory = null; 
+     }
+ 
+     handleWheel(e) {
+@@ -535,8 +666,8 @@
+             console.log('Mouse wheel zoom:', newZoom + '%');
+         }
+         
+-        // Auto-center when zoomed out far enough
+-        if (this.camera.zoom <= 0.3) {
++        // Auto-center when zoomed out far enough (now handled in Camera.js)
++        if (this.camera.zoom <= 0.15) {
+             this.camera.centerOn(this.gameMap.width / 2, this.gameMap.height / 2);
+         }
+     }
+@@ -544,56 +675,6 @@
+-    handleTerritorySelection(worldPos) {
+-        console.log('Territory selection at:', worldPos);
+-        const territory = this.findTerritoryAt(worldPos.x, worldPos.y);
+-        
+-        if (!territory) {
+-            this.selectedTerritory = null;
+-            return;
+-        }
+-        
+-        if (!this.selectedTerritory) {
+-            // First selection
+-            this.selectedTerritory = territory;
+-        } else {
+-            // Second selection - check for valid action
+-            if (this.selectedTerritory.id === territory.id) {
+-                // Same territory - deselect
+-                this.selectedTerritory = null;
+-            } else if (this.selectedTerritory.ownerId === this.humanPlayer?.id) {
+-                // Player owns selected territory
+-                if (territory.ownerId === this.humanPlayer.id) {
+-                    // Both territories owned by player - transfer armies or create supply route
+-                    if (this.selectedTerritory.neighbors.includes(territory.id)) {
+-                        // Adjacent territories - direct transfer
+-                        this.transferFleet(this.selectedTerritory, territory);
+-                    } else {
+-                        // Non-adjacent - create supply route
+-                        this.createSupplyRoute(this.selectedTerritory, territory);
+-                    }
+-                } else if (territory.isColonizable) {
+-                    // Launch probe to colonizable planet
+-                    this.launchProbe(this.selectedTerritory, territory);
+-                } else {
+-                    // Attack enemy territory
+-                    this.attackTerritory(this.selectedTerritory, territory);
+-                }
+-                this.selectedTerritory = null;
+-            } else {
+-                // Selected territory not owned by player - select new one
+-                this.selectedTerritory = territory;
+-            }
+-        }
+-    }
+-    
+     launchProbe(fromTerritory, toTerritory) {
+         const probeCost = 10;
+         if (fromTerritory.armySize <= probeCost) {
+@@ -638,15 +719,20 @@
+         return true;
+     }
+     
+-    transferFleet(fromTerritory, toTerritory) {
++    transferFleet(fromTerritory, toTerritory, percentage = 0.5) {
+         if (fromTerritory.armySize <= 1) {
+             console.log('Not enough armies to transfer!');
+             return;
+         }
+         
+         // Create ship animation for transfer
+-        this.createShipAnimation(fromTerritory, toTerritory, false);
+-        // Transfer half the armies, leaving at least 1
+-        const transferAmount = Math.floor(fromTerritory.armySize / 2);
++        this.createShipAnimation(fromTerritory, toTerritory, false); // false for transfer
++        // Transfer a percentage of armies, leaving at least 1
++        let transferAmount = Math.floor(fromTerritory.armySize * percentage);
++        if (fromTerritory.armySize - transferAmount < 1) {
++            transferAmount = fromTerritory.armySize - 1;
++        }
++
++        if (transferAmount <= 0) return;
++
+         fromTerritory.armySize -= transferAmount;
+         toTerritory.armySize += transferAmount;
+         
+@@ -750,20 +836,26 @@
+         return null;
+     }
+     
+-    attackTerritory(attackingTerritory, defendingTerritory) {
++    attackTerritory(attackingTerritory, defendingTerritory, percentage = 0.5) {
+         if (attackingTerritory.armySize <= 1) {
+             console.log('Not enough armies to attack!');
+             return;
+         }
+         
+         // Trigger combat flash on both territories
+-        attackingTerritory.triggerCombatFlash();
++        // attackingTerritory.triggerCombatFlash(); // Flashing is distracting on source
+         defendingTerritory.triggerCombatFlash();
+         
+         // Create ship animation for attack
+         this.createShipAnimation(attackingTerritory, defendingTerritory, true);
+-        // Use 70% of armies for attack
+-        const attackingArmies = Math.floor(attackingTerritory.armySize * 0.7);
++        // Use a percentage of armies for attack, leaving at least 1
++        let attackingArmies = Math.floor(attackingTerritory.armySize * percentage);
++        if (attackingTerritory.armySize - attackingArmies < 1) {
++            attackingArmies = attackingTerritory.armySize - 1;
++        }
++
++        if (attackingArmies <= 0) return;
++
+         const defendingArmies = defendingTerritory.armySize;
+         
+         // Combat calculation with random factors
+@@ -877,12 +969,32 @@
+     }
+     
+     handleKeyDown(e) {
+-        if (e.code === 'KeyM') {
+-            // Toggle minimap with M key
+-            if (this.ui && this.ui.toggleMinimap) {
+-                this.ui.toggleMinimap();
++        // Control Group Creation
++        if (e.ctrlKey && e.code.startsWith('Digit')) {
++            const groupNumber = parseInt(e.code.replace('Digit', ''));
++            if (this.selectedTerritory) {
++                this.controlGroups.set(groupNumber,);
++                console.log(`Control group ${groupNumber} created with territory ${this.selectedTerritory.id}`);
+             }
++            return;
+         }
++
++        // Control Group Selection
++        if (!e.ctrlKey &&!e.shiftKey && e.code.startsWith('Digit')) {
++            const groupNumber = parseInt(e.code.replace('Digit', ''));
++            if (this.controlGroups.has(groupNumber)) {
++                const territoryId = this.controlGroups.get(groupNumber);
++                this.selectedTerritory = this.gameMap.territories[territoryId];
++                console.log(`Selected control group ${groupNumber}`);
++            }
++            return;
++        }
++
++        switch (e.code) {
++            case 'Space':
++                if (this.selectedTerritory) {
++                    this.camera.animateTo(this.selectedTerritory.x, this.selectedTerritory.y, this.camera.zoom);
++                }
++                break;
++            case 'KeyM':
++                if (this.ui && this.ui.toggleMinimap) {
++                    this.ui.toggleMinimap();
++                }
++                break;
++            case 'Escape':
++                this.selectedTerritory = null;
++                this.selectedTerritories.clear();
++                break;
++        }
+     }
+     
+     handleLongPress() {

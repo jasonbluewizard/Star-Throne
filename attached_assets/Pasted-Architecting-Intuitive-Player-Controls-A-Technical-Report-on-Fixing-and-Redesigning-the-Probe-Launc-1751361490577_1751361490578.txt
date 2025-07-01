@@ -1,0 +1,341 @@
+Architecting Intuitive Player Controls: A Technical Report on Fixing and Redesigning the Probe Launch Mechanic
+Executive Summary
+This report provides a comprehensive technical analysis and a detailed implementation plan to resolve a critical bug within the probe launching mechanic of the game. The current system is functionally broken due to conflicting input handling logic, resulting in a confusing and frustrating user experience. The root cause of this issue is an architectural deficiency: the use of a single, monolithic function to interpret all player click-based interactions, leading to ambiguous states and unpredictable behavior.
+The proposed solution is a complete architectural overhaul of the player input system. The cornerstone of this new architecture is the implementation of a Finite State Machine (FSM). This industry-standard pattern will manage player input by creating explicit, mutually exclusive contexts for every action, such as selecting a territory, targeting a probe, or transferring a fleet. By ensuring the game can only be in one input state at a time, the FSM will eliminate the logical conflicts that currently plague the system.
+This architectural refactoring is complemented by a redesigned, intuitive control scheme that aligns with established Real-Time Strategy (RTS) conventions, primarily a "Select-Activate-Target" workflow. To support this new control scheme, a system of rich, multi-layered visual feedback will be implemented. This includes state-dependent cursors, contextual highlighting of valid targets, preview paths for intended actions, and clear, textual notifications for both successful actions and errors.
+The expected outcomes of implementing this plan are threefold. First, it will definitively fix the probe launching bug. Second, it will significantly enhance the game's user experience by providing clear, predictable, and responsive controls. Third, and most importantly, it will establish a robust, scalable, and maintainable foundation for all current and future player interactions, improving the long-term health and quality of the codebase.
+Diagnostic Analysis of the Conflicting Input Handler
+A thorough analysis of the game's codebase, particularly the StarThrone.js file, reveals that the "broken" probe launching mechanic is a symptom of a deeper architectural flaw in its input handling logic. The system's reliance on a single, complex function to interpret a wide range of player intentions has created a fragile and bug-prone implementation.
+Deconstruction of the handleTerritorySelection Function
+The epicenter of the issue lies within the handleTerritorySelection function in StarThrone.js. This function is intended to be the central handler for all left-click actions on the game map. However, its internal structure is a convoluted series of nested conditional (if/else if/else) statements that attempt to infer the player's intent based on a volatile combination of game state variables.
+A trace of its logic reveals the source of the conflict:
+ * Initial Check: The function first determines if a territory was clicked. If not, it deselects any currently selected territory.
+ * Probe Launch Attempt: It then immediately checks if the conditions for a probe launch are met (clickedTerritory.isColonizable and this.selectedTerritory is an owned territory). If so, it calls launchProbe and, critically, exits the function to allow the player to launch more probes from the same origin.
+ * Own-Territory Logic: If the probe launch condition is not met, it proceeds to check if the clickedTerritory is owned by the player.
+ * Fleet Transfer Attempt: Inside this block, it checks for a fleet transfer condition (a different owned territory is already selected and is a neighbor). If true, it executes the transfer and deselects everything.
+ * Selection Logic: If neither a probe launch nor a fleet transfer is executed, the function's final action is to simply set the clickedTerritory as the new this.selectedTerritory.
+This sequence creates multiple failure points. For example, if a player has an owned territory selected and clicks on a colonizable planet that is also a neighbor (a possible scenario in some map layouts), the logic for fleet transfer might be evaluated incorrectly. More commonly, a player intending to select a colonizable planet for inspection might accidentally trigger a probe launch if they had one of their own territories previously selected. The function attempts to manage at least four distinct user intentions—select, deselect, transfer, and probe—within a single, monolithic structure. This is a classic software development anti-pattern that results in "spaghetti code," a tangled web of logic that is exceedingly difficult to debug, maintain, or extend.
+The Perils of Implicit State Management
+The current system's reliance on boolean flags and nullable objects (like this.selectedTerritory) to determine context is a form of implicit state management. The game's "state" is not a single, clear variable but is instead inferred from a combination of other variables. This is notoriously error-prone. Game programming patterns have long highlighted the fragility of using multiple boolean flags to control character behavior, as it often allows for invalid combinations of states—for instance, a character being both isJumping and isDucking simultaneously.
+The game's input handler suffers from the exact same problem. It can find itself in a situation where the conditions for multiple actions are partially met, leading to unpredictable outcomes. The logic for launching a probe is not cleanly separated from the logic for selecting a territory. A Finite State Machine (FSM) resolves this by enforcing that the system can only be in one well-defined state at any given time. An action like "launch probe" would only be possible from a specific "targeting" state, which can only be entered under specific conditions, thus eliminating any ambiguity.
+Root Cause Analysis and Conclusion
+The fundamental flaw is the absence of an explicit state management system for player input. The handleTerritorySelection function violates the Single Responsibility Principle by attempting to be a universal interpreter for all click-based commands. This has created a system that is not only buggy but also unscalable. Introducing a new player action, such as "set rally point" or "use special ability," would require adding even more else if clauses to this function, geometrically increasing its complexity and the probability of introducing new, unforeseen bugs.
+Therefore, the issue with the probe mechanic is not merely a bug to be patched; it is an indicator of a critical architectural weakness. The solution requires a foundational refactoring of the input handling system. The implementation of an FSM is not just a fix but a necessary evolution of the game's architecture to support robust and scalable gameplay for the future.
+A Robust Control Architecture: The Player Input Finite State Machine (FSM)
+To eliminate the ambiguity and conflicts plaguing the current input system, a new architecture centered around a Finite State Machine (FSM) is proposed. An FSM is a computational model that can exist in exactly one of a finite number of states at any given time. This structure is perfectly suited for managing user input in games, as it allows for the creation of clear, distinct contexts for every player action, ensuring that inputs are interpreted correctly based on the current game situation.
+Introduction to FSMs for Input Management
+At its core, an FSM can be visualized as a "box and arrow" diagram. The boxes represent the possible states the system can be in (e.g., Standing, Jumping), and the arrows represent the transitions between those states, which are triggered by specific inputs or events (e.g., "Press Jump Key").
+By adopting this model, the game's input handler transforms from a reactive and chaotic series of if/else checks into a structured and predictable system. The FSM will act as a central controller, receiving raw input events from the player and deciding what they mean based on the FSM's current state. This elegantly solves the core problem of conflicting actions because an action like "launch probe" will only be a valid transition from a specific ProbeTargeting state, making it impossible to trigger accidentally from another state.
+Proposed Input FSM Design
+The proposed FSM will be designed with a set of states that cleanly map to the player's possible intentions within the game. This approach is a common and robust pattern in game development for managing both player character control and AI behavior.
+The necessary states are:
+ * Default: This is the base state where the player has nothing selected. In this state, inputs are interpreted as commands to select a territory, pan the camera, or interact with the main UI.
+ * TerritorySelected: The player has selected a territory they own. The game is now waiting for a command related to that territory, such as initiating a probe launch, a fleet transfer, or an attack. The UI will display contextual information about the selected territory.
+ * ProbeTargeting: The player has explicitly activated the probe-launching mode (e.g., by pressing a hotkey). The FSM is now exclusively listening for a targeting command. Mouse clicks will be interpreted as attempts to select a valid probe destination, and the cursor and on-screen visuals will change to reflect this mode.
+ * EnemySelected: The player has selected a territory they do not own (either neutral or belonging to an opponent). In this state, the game will display information about the target, but actions that require an owned origin point (like launching a probe) are disabled.
+State Transition Logic and Implementation
+The transitions between these states will be triggered by well-defined events, such as leftClick(target), rightClick(), pressKey('P'), and pressKey('Escape'). While dedicated FSM libraries like machina.js  or XState  exist, a simple but powerful implementation using a JavaScript object to define the transition rules is sufficient for this project's needs and avoids introducing external dependencies.
+The following table serves as the definitive blueprint for the new input logic. It makes the behavior of the system explicit, predictable, and easy to review, directly addressing the ambiguity of the old implementation.
+Table 1: Player Input FSM State Transitions
+| Current State | Input Event | Target Type | Action to Perform | Next State |
+|---|---|---|---|---|
+| Default | leftClick | Owned Territory | selectTerritory(target) | TerritorySelected |
+| Default | leftClick | Enemy/Neutral | selectTerritory(target) | EnemySelected |
+| Default | leftClick | Colonizable | selectTerritory(target) | EnemySelected |
+| Default | leftClick | Empty Space | deselectAll() | Default |
+| TerritorySelected | pressKey('P') | N/A | activateProbeTargetingMode() | ProbeTargeting |
+| TerritorySelected | leftClick | Same Territory | deselectAll() | Default |
+| TerritorySelected | leftClick | Other Owned (Neighbor) | transferFleet(from, to) | Default |
+| TerritorySelected | leftClick | Other Owned (Distant) | showError("Select adjacent territory for fleet transfer.") | TerritorySelected |
+| TerritorySelected | leftClick | Enemy/Neutral | attackTerritory(from, to) | Default |
+| TerritorySelected | pressKey('Escape') | N/A | deselectAll() | Default |
+| TerritorySelected | rightClick | Colonizable | launchProbe(from, to) | TerritorySelected |
+| ProbeTargeting | leftClick | Colonizable | launchProbe(from, to) | TerritorySelected |
+| ProbeTargeting | leftClick | Invalid Target | showError("Invalid Probe Target. Select an unexplored planet.") | ProbeTargeting |
+| ProbeTargeting | rightClick | N/A | deactivateProbeTargetingMode() | TerritorySelected |
+| ProbeTargeting | pressKey('Escape') | N/A | deactivateProbeTargetingMode() | TerritorySelected |
+| EnemySelected | leftClick | Any | selectTerritory(target) | (Determined by target type) |
+| EnemySelected | pressKey('Escape') | N/A | deselectAll() | Default |
+Designing an Intuitive and Clear Probe Launch Control Scheme
+With a robust FSM architecture in place, the next step is to design the user-facing control scheme. The primary goal is to create an interaction that is intuitive, minimizes errors, and aligns with player expectations for the RTS genre. A well-designed interface should be so seamless that the player stops noticing it and can focus entirely on strategic decisions. The design must prioritize clarity and reduce the player's cognitive load by making actions intentional and providing immediate, understandable feedback.
+Adhering to RTS UX Principles
+The most successful and widely adopted control pattern in RTS games is Select -> Command. Players first select a unit or building, and then issue a command to it. This two-step process is a learned behavior for genre veterans and provides a clear, unambiguous way to direct actions. The new probe launch mechanic will be built around this core principle.
+Primary Control Scheme: The "Select-Activate-Target" Flow
+This primary method is designed to be explicit and error-proof, making it ideal for all players, especially those new to the game. It breaks the action down into three distinct, logical steps:
+ * Selection (Left-Click): The player clicks on a territory they own. This action is unambiguous: the intent is to select. The FSM transitions to the TerritorySelected state, and the game provides visual feedback confirming the selection.
+ * Activation (Hotkey 'P' or UI Button): The player now explicitly signals their intent to launch a probe by pressing the 'P' key or clicking a "Launch Probe" icon in the UI. This is a crucial step that was absent in the original implementation. It cleanly separates the mode of interaction from the selection itself. The game is now in a dedicated targeting mode as the FSM transitions to ProbeTargeting.
+ * Targeting (Mouse Hover & Left-Click): While in the ProbeTargeting state, the game provides clear visual cues about what is and isn't a valid target. The player can safely move the mouse to explore options without fear of accidentally triggering another action. A final left-click on a valid, colonizable planet executes the launch command.
+ * Execution and Cancellation: A left-click on a valid target launches the probe and transitions the FSM back to a stable state (e.g., TerritorySelected), ready for the next command. A right-click or pressing the 'Escape' key will cancel the targeting mode and return the FSM to the TerritorySelected state without performing an action. This provides a clear and expected "out" for the player if they change their mind.
+Secondary Control Scheme (Optional Enhancement): Contextual Right-Click
+To accommodate experienced players and provide a faster workflow, a secondary, context-sensitive control scheme can be implemented as an alternative. This pattern is common in modern RTS games, where the right mouse button is used for context-aware commands (e.g., right-click an enemy to attack, right-click the ground to move).
+ * Concept: While a player has one of their own territories selected (i.e., the FSM is in the TerritorySelected state), a right-click on a valid, colonizable planet would directly trigger the launchProbe action.
+ * Justification: This provides a "power-user" shortcut that combines the activation and targeting steps into a single click. It does not conflict with the primary scheme but rather offers an additional, efficient pathway for players who have mastered the game's rules.
+ * Implementation: This would be implemented as an additional transition rule in the FSM table for the TerritorySelected state, as shown in Table 1.
+By offering both an explicit, step-by-step method and a faster, contextual alternative, the control scheme caters to players of all skill levels, enhancing the overall usability and accessibility of the game.
+A System of Comprehensive Visual Feedback
+A robust control scheme is only effective if it is supported by clear and immediate visual feedback. Functional visual feedback serves as a constant dialogue between the game and the player, confirming actions, clarifying possibilities, and reducing the frustration that comes from uncertainty. A well-designed feedback system makes gameplay feel responsive and fair, reinforcing the player's sense of control and agency. The goal is to create a system of affordances—visual cues that inherently suggest how an object can be used.
+The feedback system will be designed in tiers, providing different levels of visual intensity depending on the context and importance of the information:
+ * Low-Level Feedback (Awareness): Subtle cues that inform without distracting, such as highlighting an object on mouse hover.
+ * Medium-Level Feedback (Confirmation): Clear, persistent indicators that confirm a player's selection or current mode.
+ * Top-Level Feedback (Emphasis): Bold, energetic animations and effects that celebrate the successful completion of a significant action.
+State-Based Highlighting and Cursors
+The game's visuals must directly reflect the current state of the Input FSM. This creates a tight loop where the player's input changes the state, and the state change is immediately reflected on screen.
+ * In TerritorySelected State: The selected territory must be clearly distinguished from all others. This will be achieved with a persistent visual treatment, such as a pulsing glow or a thick, animated border rendered in the player's primary color. The game's UI panel, managed by GameUI.js, should simultaneously update to display detailed information about the selected territory.
+ * In ProbeTargeting State: This state requires the most distinct visual feedback to signify that the player is in a special interaction mode.
+   * Cursor Change: The standard mouse cursor will be replaced with a custom "targeting" or "crosshairs" icon. This is a powerful and universally understood affordance that immediately communicates the player's current capability: to target something.
+   * Target Highlighting: As the player hovers the new cursor over other territories, they will be dynamically highlighted based on their validity as a probe target. Valid colonizable planets will receive a welcoming green or blue highlight, while invalid targets (already owned planets, enemy territories, or neutral but uncolonizable bodies) will receive a prohibitive red highlight. This provides instant, at-a-glance information, allowing the player to quickly identify viable moves without needing to click or consult a tooltip.
+Action Preview and Confirmation
+To further reduce ambiguity and enhance player confidence, the system will provide feedback both before and after an action is committed.
+ * The "Blueprint" Path (Preview): When the FSM is in the ProbeTargeting state and the player is hovering over a valid target, the game will render a predictive visual line from the source territory to the cursor's position. This "ghost" or "blueprint" of the probe's path serves as a trial run, showing the player exactly what command they are about to issue before they commit with a click. This line can be styled as a dashed or glowing path in the player's color.
+ * Launch Confirmation (Execution): Upon a successful probe launch, the feedback becomes top-level and celebratory.
+   * Launch Effect: A brief, energetic particle effect or a bright flash will emanate from the source territory. The existing triggerProbeFlash property on the territory object can be repurposed and enhanced for this, providing immediate, satisfying confirmation that the command was received and executed.
+   * Probe Animation: The Probe object itself will be animated, visibly traveling from the source to the destination. This provides crucial ongoing feedback that the action is in progress and allows the player to track their probe's journey across the map.
+System Notifications and Error Messaging
+Explicit textual feedback is essential for communicating complex information, especially error states. The game's existing, but currently non-functional, notification system is the ideal channel for this.
+ * Diagnosing the Notification Bug: The StarThrone.js file correctly contains the logic to addNotification and to updateNotifications (handling fade-out and expiration). The updated notifications array is then passed to the GameUI.js instance for rendering. The fact that notifications do not appear on screen points to a definitive issue within the GameUI.js render loop, which is failing to iterate over and draw the notification data it receives.
+ * Proposed Fix: The render method within GameUI.js must be modified to include a loop that iterates through the gameData.notifications array. For each notification object, it will draw the text property to the canvas at a designated screen position (e.g., top-center), using the specified color and applying the current opacity to handle the fade-out effect.
+ * Contextual Usage: With the notification system fixed, it will be used to provide clear messages for both success and failure:
+   * Success Message: this.addNotification("Probe launched to Planet X-7.", '#44ff44');
+   * Error (Insufficient Resources): this.addNotification("Insufficient fleet power to launch probe (requires 10).", '#ff4444');
+   * Error (Invalid Target): this.addNotification("Invalid Target: Probes can only be sent to unexplored planets.", '#ff4444');
+This comprehensive, multi-layered feedback system ensures that the player is always informed, confident in their actions, and immersed in the gameplay experience.
+Implementation Guide: Refactoring and Code
+This section provides an actionable guide with code examples for implementing the proposed FSM-based input architecture, redesigning the control scheme, and enabling the visual feedback systems. The implementation prioritizes modularity and adherence to modern JavaScript best practices.
+Refactoring StarThrone.js into Modules
+The current monolithic structure of StarThrone.js is a significant source of complexity and should be addressed first. Following best practices for code organization, the input handling logic will be extracted into its own dedicated module. This separation of concerns makes the codebase cleaner, easier to navigate, and more maintainable.
+ * Create InputHandler.js: A new file, client/src/game/InputHandler.js, will be created. This file will contain the new InputHandlerFSM class.
+ * Instantiate in StarThrone.js: In the StarThrone constructor, a new instance of the input handler will be created and stored: this.inputHandler = new InputHandlerFSM(this);. The this reference provides the FSM with access to the main game instance, allowing it to call functions like launchProbe or selectTerritory.
+ * Delegate Events: The existing event listeners in StarThrone.js (handleMouseDown, handleMouseUp, etc.) will be simplified to delegate the raw events to the new inputHandler.
+InputHandlerFSM.js Implementation
+This class will encapsulate all the logic for the Finite State Machine. It will manage the current state and process transitions based on player input.
+// client/src/game/InputHandlerFSM.js
+
+export class InputHandlerFSM {
+    constructor(gameInstance) {
+        this.game = gameInstance; // Reference to the main StarThrone instance
+        this.currentState = 'Default';
+
+        this.transitions = {
+            'Default': {
+                leftClick: (payload) => {
+                    if (payload.target) {
+                        if (payload.target.ownerId === this.game.humanPlayer.id) {
+                            this.game.selectTerritory(payload.target);
+                            this.transitionTo('TerritorySelected');
+                        } else {
+                            this.game.selectTerritory(payload.target);
+                            this.transitionTo('EnemySelected');
+                        }
+                    } else {
+                        this.game.deselectAll();
+                    }
+                }
+            },
+            'TerritorySelected': {
+                pressKey: (payload) => {
+                    if (payload.key === 'p') {
+                        this.transitionTo('ProbeTargeting');
+                    } else if (payload.key === 'Escape') {
+                        this.game.deselectAll();
+                        this.transitionTo('Default');
+                    }
+                },
+                leftClick: (payload) => {
+                    if (!payload.target |
+
+| payload.target.id === this.game.selectedTerritory.id) {
+                        this.game.deselectAll();
+                        this.transitionTo('Default');
+                    } else if (payload.target.ownerId === this.game.humanPlayer.id) {
+                        // For simplicity, any click on another owned territory is a transfer
+                        this.game.transferFleet(this.game.selectedTerritory, payload.target);
+                        this.game.deselectAll();
+                        this.transitionTo('Default');
+                    } else {
+                        // Assume attack
+                        this.game.attackTerritory(this.game.selectedTerritory, payload.target);
+                        this.game.deselectAll();
+                        this.transitionTo('Default');
+                    }
+                },
+                rightClick: (payload) => {
+                    // Contextual right-click for probe launch
+                    if (payload.target && payload.target.isColonizable) {
+                        this.game.launchProbe(this.game.selectedTerritory, payload.target);
+                        // Stay in TerritorySelected state for more actions
+                    }
+                }
+            },
+            'ProbeTargeting': {
+                leftClick: (payload) => {
+                    if (payload.target && payload.target.isColonizable) {
+                        this.game.launchProbe(this.game.selectedTerritory, payload.target);
+                        this.transitionTo('TerritorySelected'); // Return to selected state
+                    } else {
+                        this.game.addNotification("Invalid Probe Target.", '#ff4444');
+                    }
+                },
+                rightClick: () => {
+                    this.transitionTo('TerritorySelected'); // Cancel targeting
+                },
+                pressKey: (payload) => {
+                    if (payload.key === 'Escape') {
+                        this.transitionTo('TerritorySelected'); // Cancel targeting
+                    }
+                }
+            },
+            'EnemySelected': {
+                leftClick: (payload) => {
+                    // Allow re-selection by delegating back to the Default state's logic
+                    this.transitions.leftClick(payload);
+                },
+                pressKey: (payload) => {
+                    if (payload.key === 'Escape') {
+                        this.game.deselectAll();
+                        this.transitionTo('Default');
+                    }
+                }
+            }
+        };
+    }
+
+    transitionTo(newState) {
+        console.log(`Transitioning from ${this.currentState} to ${newState}`);
+        this.currentState = newState;
+        // Future: Could emit events here for onEnter/onExit logic
+    }
+
+    handle(eventName, payload) {
+        const currentStateTransitions = this.transitions;
+        if (currentStateTransitions && currentStateTransitions[eventName]) {
+            currentStateTransitions[eventName](payload);
+        }
+    }
+}
+
+Revising StarThrone.js Input Handlers
+The event handlers in StarThrone.js become simple wrappers that pass data to the FSM.
+Revised handleMouseUp and handleKeyDown in StarThrone.js:
+// In StarThrone.js
+
+handleMouseUp(e) {
+    if (this.isDragging) {
+        this.isDragging = false;
+        return; // Don't process clicks at the end of a drag
+    }
+
+    const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+    const target = this.findTerritoryAt(worldPos.x, worldPos.y);
+
+    if (e.button === 0) { // Left click
+        this.inputHandler.handle('leftClick', { target, worldPos });
+    } else if (e.button === 2) { // Right click
+        this.inputHandler.handle('rightClick', { target, worldPos });
+    }
+}
+
+handleKeyDown(e) {
+    const key = e.key.toLowerCase();
+    if (key === 'p' |
+
+| key === 'escape') {
+        this.inputHandler.handle('pressKey', { key });
+    }
+    // Handle other keys like minimap toggle ('m') directly if they are not state-dependent
+    if (key === 'm' && this.ui && this.ui.toggleMinimap) {
+        this.ui.toggleMinimap();
+    }
+}
+
+New Rendering Functions for Visual Feedback
+A new function should be added to the main render loop in StarThrone.js to handle drawing the visual feedback associated with the ProbeTargeting state.
+// In StarThrone.js, add this function
+renderTargetingPreview() {
+    if (this.inputHandler.currentState!== 'ProbeTargeting' ||!this.selectedTerritory) {
+        return;
+    }
+
+    const from = this.selectedTerritory;
+    const to = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+
+    // Draw the "blueprint" line
+    this.ctx.save();
+    this.ctx.beginPath();
+    this.ctx.moveTo(from.x, from.y);
+    this.ctx.lineTo(to.x, to.y);
+    this.ctx.strokeStyle = '#00ffff'; // Cyan targeting line
+    this.ctx.lineWidth = 2;
+    this.ctx.setLineDash([span_0](start_span)[span_0](end_span)[span_1](start_span)[span_1](end_span));
+    this.ctx.stroke();
+    this.ctx.restore();
+
+    // Highlight valid targets
+    this.visibleTerritories.forEach(territory => {
+        if (territory.isColonizable) {
+            this.ctx.save();
+            this.ctx.beginPath();
+            this.ctx.arc(territory.x, territory.y, territory.radius + 5, 0, 2 * Math.PI);
+            this.ctx.strokeStyle = '#44ff44'; // Green highlight for valid targets
+            this.ctx.lineWidth = 3;
+            this.ctx.stroke();
+            this.ctx.restore();
+        }
+    });
+}
+
+// In StarThrone.js, modify the main render() method
+render() {
+    //... (clear canvas, apply camera transform)...
+
+    this.renderNebulas();
+    this.renderTerritories();
+    this.renderConnections();
+    this.renderSupplyRoutes();
+    
+    // NEW: Render targeting preview line
+    this.renderTargetingPreview();
+
+    this.renderShipAnimations();
+    this.renderProbes();
+    this.renderArmies();
+
+    this.ctx.restore();
+    this.renderUI();
+}
+
+Fixing the Notification System in GameUI.js
+To fix the non-displaying notifications, the render method in GameUI.js must be updated to draw the notifications passed to it.
+// In GameUI.js, inside the render(ctx, gameData) method, likely within renderGameUI()
+
+renderGameUI(ctx, gameData) {
+    //... (existing UI rendering for top bar, leaderboard, etc.)...
+
+    // NEW: Render notifications
+    if (gameData.notifications && gameData.notifications.length > 0) {
+        ctx.save();
+        ctx.font = 'bold 16px "Segoe UI", Arial, sans-serif';
+        ctx.textAlign = 'center';
+        
+        const startY = this.topBarHeight + 30; // Position below the top bar
+        
+        gameData.notifications.forEach((notification, index) => {
+            ctx.globalAlpha = notification.opacity; // Apply fade-out effect
+            
+            // Draw text shadow for readability
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            ctx.fillText(notification.text, this.canvas.width / 2, startY + (index * 25) + 2);
+
+            // Draw main text
+            ctx.fillStyle = notification.color;
+            ctx.fillText(notification.text, this.canvas.width / 2, startY + (index * 25));
+        });
+
+        ctx.restore();
+    }
+}
+
+This addition will iterate through the active notifications, respect their opacity for fading, and render them clearly on the screen, finally making the notification system functional.
+Conclusion and Recommendations
+The analysis presented in this report confirms that the issues with the probe launching mechanic stem from a fundamental architectural flaw in the game's input handling system. The monolithic handleTerritorySelection function creates a state of logical ambiguity, leading to conflicting behaviors and a poor user experience. The proposed solution—a complete refactoring of the input system around a Finite State Machine—is not merely a bug fix but a critical architectural upgrade.
+By implementing the FSM, the game's input logic becomes explicit, predictable, and robust. Each player action is handled within a clearly defined context, eliminating the possibility of conflicting interpretations. This new architecture, combined with an intuitive "Select-Activate-Target" control scheme and a comprehensive system of visual feedback, will resolve the immediate issues and significantly elevate the game's overall quality. The visual cues, including state-based cursors, target highlighting, preview paths, and functional notifications, will provide players with the clarity and confidence needed for engaging strategic gameplay.
+The primary recommendation is to prioritize the implementation of this FSM-based input handler. It is a foundational improvement that will yield substantial benefits throughout the remainder of the development cycle. It establishes a stable and scalable framework upon which all future player interactions—from simple selections to complex, multi-stage abilities—can be built. This investment in a solid architecture will reduce future development time, simplify debugging, and ultimately result in a more polished and enjoyable final product.

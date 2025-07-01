@@ -3,6 +3,7 @@ import { Player } from './Player.js';
 import { GameUI } from './GameUI.js';
 import { Camera } from './Camera.js';
 import { Probe } from './Probe.js';
+import { InputStateMachine } from './InputStateMachine.js';
 import { GAME_CONSTANTS } from '../../../common/gameConstants.ts';
 
 export default class StarThrone {
@@ -125,6 +126,10 @@ export default class StarThrone {
         // Bonus panel state
         this.showBonusPanel = true;
         
+        // Message display system
+        this.messageText = '';
+        this.messageTimer = 0;
+        
         this.init();
     }
     
@@ -157,6 +162,31 @@ export default class StarThrone {
         });
     }
     
+    // Message display system for FSM feedback
+    showMessage(text, duration = 3000) {
+        this.messageText = text;
+        this.messageTimer = duration;
+        console.log(`Message: ${text}`);
+    }
+    
+    hideMessage() {
+        this.messageText = '';
+        this.messageTimer = 0;
+    }
+    
+    showError(text) {
+        this.showMessage(`❌ ${text}`, 2000);
+    }
+    
+    updateMessage(deltaTime) {
+        if (this.messageTimer > 0) {
+            this.messageTimer -= deltaTime;
+            if (this.messageTimer <= 0) {
+                this.hideMessage();
+            }
+        }
+    }
+    
     init() {
         this.setupCanvas();
         this.setupEventListeners();
@@ -174,6 +204,9 @@ export default class StarThrone {
         this.camera.zoom = 0.25;
         
         this.ui = new GameUI(this.canvas, this.camera);
+        
+        // Initialize FSM for input handling
+        this.inputFSM = new InputStateMachine(this);
         
         // Initialize parallax starfield
         this.initializeStarfield();
@@ -1051,8 +1084,9 @@ export default class StarThrone {
         this.updateShipAnimations(deltaTime);
         this.updateProbes(deltaTime);
         
-        // Update notifications
+        // Update notifications and messages
         this.updateNotifications();
+        this.updateMessage(deltaTime);
         
         // Throttled heavy operations for better performance
         if (this.frameCount % 45 === 0) { // Every 45 frames (~0.75 seconds)
@@ -1890,12 +1924,24 @@ export default class StarThrone {
             }
         }
         else if (e.button === 0 && (wasQuickClick || !this.isDragging)) {
-            // Left click - handle territory selection
-            this.handleTerritorySelection(worldPos);
+            // Left click - use FSM for input handling
+            if (this.inputFSM) {
+                this.inputFSM.handleInput('leftClick', {
+                    territory: targetTerritory,
+                    worldPos: worldPos,
+                    screenPos: this.mousePos
+                });
+            }
         }
-        else if (e.button === 2 && wasQuickClick && this.selectedTerritory) {
-            // Right click - context-sensitive action with modifier key support
-            this.handleContextActionWithModifiers(targetTerritory);
+        else if (e.button === 2 && wasQuickClick) {
+            // Right click - use FSM for input handling
+            if (this.inputFSM) {
+                this.inputFSM.handleInput('rightClick', {
+                    territory: targetTerritory,
+                    worldPos: worldPos,
+                    screenPos: this.mousePos
+                });
+            }
         }
         
         // Reset drag state
