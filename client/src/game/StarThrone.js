@@ -686,8 +686,13 @@ export default class StarThrone {
             this.checkWinConditions();
         }
         
-        // Update camera
+        // Update camera with edge panning
         this.camera.update(deltaTime);
+        
+        // Edge panning when mouse is near screen edges (desktop only)
+        if (this.mousePos && !this.isDragging && !this.isMultiTouch) {
+            this.camera.updateEdgePanning(this.mousePos.x, this.mousePos.y, deltaTime);
+        }
         
         // Track performance
         this.performanceStats.updateTime = performance.now() - updateStart;

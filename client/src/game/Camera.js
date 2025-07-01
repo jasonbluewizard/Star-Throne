@@ -6,15 +6,26 @@ export class Camera {
         this.viewportWidth = viewportWidth;
         this.viewportHeight = viewportHeight;
         
-        // Zoom constraints - allow zooming out further to see larger maps
-        this.minZoom = 0.15;
-        this.maxZoom = 5.0;
+        // Strategic zoom constraints - Supreme Commander style
+        this.minZoom = 0.05;  // Allow extreme zoom out to see entire galaxy
+        this.maxZoom = 8.0;   // Allow tactical close-up
         
-        // Smooth movement
+        // Smooth movement with inertial panning
         this.targetX = 0;
         this.targetY = 0;
         this.targetZoom = 1;
-        this.smoothness = 0.1;
+        this.smoothness = 0.15;
+        
+        // Inertial panning system
+        this.velocityX = 0;
+        this.velocityY = 0;
+        this.friction = 0.92;
+        this.panInertia = true;
+        
+        // Edge panning for RTS-style navigation
+        this.edgePanSpeed = 300;
+        this.edgePanBorder = 20;
+        this.edgePanEnabled = true;
         
         // Pan constraints (map boundaries)
         this.mapWidth = 2000;
@@ -30,6 +41,16 @@ export class Camera {
     update(deltaTime) {
         // Smooth camera movement
         const factor = Math.min(1, this.smoothness * deltaTime / 16.67); // Normalize to 60fps
+        
+        // Apply inertial movement
+        if (this.panInertia) {
+            this.targetX += this.velocityX * deltaTime / 1000;
+            this.targetY += this.velocityY * deltaTime / 1000;
+            
+            // Apply friction
+            this.velocityX *= this.friction;
+            this.velocityY *= this.friction;
+        }
         
         this.x += (this.targetX - this.x) * factor;
         this.y += (this.targetY - this.y) * factor;
@@ -80,6 +101,39 @@ export class Camera {
         const panSpeed = 1 / this.zoom;
         this.targetX += deltaX * panSpeed;
         this.targetY += deltaY * panSpeed;
+        
+        // Add inertial velocity for smooth continuation
+        if (this.panInertia) {
+            this.velocityX = deltaX * panSpeed * 12; // Multiply for momentum effect
+            this.velocityY = deltaY * panSpeed * 12;
+        }
+    }
+    
+    // Edge panning for RTS-style navigation
+    updateEdgePanning(mouseX, mouseY, deltaTime) {
+        if (!this.edgePanEnabled) return;
+        
+        let edgePanX = 0;
+        let edgePanY = 0;
+        
+        // Check edges and calculate pan direction
+        if (mouseX < this.edgePanBorder) {
+            edgePanX = -this.edgePanSpeed * (1 - mouseX / this.edgePanBorder);
+        } else if (mouseX > this.viewportWidth - this.edgePanBorder) {
+            edgePanX = this.edgePanSpeed * ((mouseX - (this.viewportWidth - this.edgePanBorder)) / this.edgePanBorder);
+        }
+        
+        if (mouseY < this.edgePanBorder) {
+            edgePanY = -this.edgePanSpeed * (1 - mouseY / this.edgePanBorder);
+        } else if (mouseY > this.viewportHeight - this.edgePanBorder) {
+            edgePanY = this.edgePanSpeed * ((mouseY - (this.viewportHeight - this.edgePanBorder)) / this.edgePanBorder);
+        }
+        
+        if (edgePanX !== 0 || edgePanY !== 0) {
+            const deltaTimeSec = deltaTime / 1000;
+            this.targetX += edgePanX * deltaTimeSec / this.zoom;
+            this.targetY += edgePanY * deltaTimeSec / this.zoom;
+        }
     }
     
     zoomTo(newZoom, screenX, screenY) {
@@ -169,14 +223,77 @@ export class Camera {
         return this.screenToWorld(center.x, center.y);
     }
     
-    // Animate camera to a specific position
+    // Enhanced animate to with easing and duration control
     animateTo(worldX, worldY, zoomLevel = null, duration = 1000) {
-        // This could be enhanced with easing functions
-        this.centerOn(worldX, worldY);
+        this.targetX = worldX - this.viewportWidth / (2 * (zoomLevel || this.zoom));
+        this.targetY = worldY - this.viewportHeight / (2 * (zoomLevel || this.zoom));
         
         if (zoomLevel !== null) {
             this.targetZoom = Math.max(this.minZoom, Math.min(this.maxZoom, zoomLevel));
         }
+        
+        // Adjust smoothness based on distance for natural movement
+        const distance = Math.hypot(this.targetX - this.x, this.targetY - this.y);
+        const originalSmoothness = this.smoothness;
+        this.smoothness = Math.min(0.25, 0.08 + (distance / 2000) * 0.15);
+        
+        // Reset smoothness after animation
+        setTimeout(() => {
+            this.smoothness = originalSmoothness;
+        }, duration);
+    }
+    
+    // Focus on Selected - Spacebar hotkey functionality
+    focusOnTerritory(territory, optimalZoom = null) {
+        if (!territory) return;
+        
+        // Calculate optimal zoom if not provided
+        if (optimalZoom === null) {
+            // Choose zoom based on current zoom level for smart behavior
+            if (this.zoom < 0.5) {
+                optimalZoom = 1.2; // Zoom in from strategic view
+            } else if (this.zoom > 3.0) {
+                optimalZoom = 1.8; // Zoom out from tactical view
+            } else {
+                optimalZoom = this.zoom; // Keep current zoom
+            }
+        }
+        
+        this.animateTo(territory.x, territory.y, optimalZoom, 800);
+    }
+    
+    // Strategic zoom level detection for UI adaptation
+    getZoomLevel() {
+        if (this.zoom <= 0.2) return 'strategic'; // Entire galaxy view
+        if (this.zoom <= 0.8) return 'operational'; // Multi-system view
+        return 'tactical'; // Close-up detail view
+    }
+    
+    // Auto-zoom for optimal viewing of multiple territories
+    frameRegion(territories, padding = 150) {
+        if (!territories || territories.length === 0) return;
+        
+        let minX = Infinity, maxX = -Infinity;
+        let minY = Infinity, maxY = -Infinity;
+        
+        territories.forEach(territory => {
+            minX = Math.min(minX, territory.x);
+            maxX = Math.max(maxX, territory.x);
+            minY = Math.min(minY, territory.y);
+            maxY = Math.max(maxY, territory.y);
+        });
+        
+        const regionWidth = maxX - minX + padding * 2;
+        const regionHeight = maxY - minY + padding * 2;
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+        
+        // Calculate zoom to fit the region
+        const zoomX = this.viewportWidth / regionWidth;
+        const zoomY = this.viewportHeight / regionHeight;
+        const optimalZoom = Math.min(zoomX, zoomY, this.maxZoom * 0.7);
+        
+        this.animateTo(centerX, centerY, optimalZoom, 1200);
     }
     
     // Get camera state for saving/loading
