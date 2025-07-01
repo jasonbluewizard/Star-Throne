@@ -431,6 +431,13 @@ Changelog:
   * Fixed territory deselection UX: empty space clicks now reliably deselect territories regardless of minor mouse movement
   * Simplified AI Player.js combat logic to use type checking and removed duplicate game end handling
   * Added comprehensive debugging for throne star attacks with success/failure logging
+- January 2, 2025. Floating discovery announcement system implementation:
+  * Added floating discovery text that appears above colonized planets for 4 seconds with fade-out effects
+  * Discovery announcements show color-coded icons and text matching discovery type (weapons=red, drive=cyan, etc.)
+  * Enhanced Empire Discoveries panel with recent discovery log showing last 3 discoveries with timestamps
+  * Increased spacing in discovery panel for better readability between header and content
+  * Added discovery log tracking system with persistent display of recent probe results
+  * Fixed JavaScript null reference errors in discovery system with comprehensive safety checks
 - January 1, 2025. Planet density optimization and improved tooltips:
   * Reduced territory density: increased grid spacing from 80px to 150px for less crowded maps
   * Lowered default map size from 200 to 80 territories for better spacing

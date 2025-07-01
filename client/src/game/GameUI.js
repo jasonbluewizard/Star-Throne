@@ -510,10 +510,11 @@ export class GameUI {
         const width = 280;
         const lineHeight = 20;
         const padding = 10;
+        const recentDiscoveryHeight = recentDiscoveries.length * 22; // 22px per recent discovery
         const probeResultHeight = validResults.length * 22; // 22px per probe result
         const discoveryHeight = discoveryCount * lineHeight;
         const titleHeight = 25;
-        const height = Math.max(80, titleHeight + probeResultHeight + discoveryHeight + padding * 2);
+        const height = Math.max(80, titleHeight + recentDiscoveryHeight + probeResultHeight + discoveryHeight + padding * 2);
         const y = this.canvas.height - height - 20;
         
         // Background with transparency
@@ -532,7 +533,38 @@ export class GameUI {
         
         let currentY = y + 45; // Increased spacing from 30 to 45
         
-        // Show recent probe results at the top
+        // Show recent discoveries at the top with icons
+        if (recentDiscoveries.length > 0) {
+            ctx.font = 'bold 11px Arial';
+            for (const discovery of recentDiscoveries) {
+                const age = (now - discovery.timestamp) / 1000;
+                const opacity = Math.max(0.3, 1 - age / 8); // Fade over 8 seconds
+                
+                const icon = this.getDiscoveryIcon(discovery.discovery.effect);
+                const color = this.getDiscoveryColor(discovery.discovery.effect);
+                
+                // Apply opacity to color
+                const rgb = this.hexToRgb(color);
+                const fadeColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${opacity})`;
+                
+                const text = `${icon} Planet ${discovery.territoryId}: ${discovery.discovery.name}`;
+                this.renderTextWithShadow(ctx, text, x + padding, currentY, fadeColor);
+                currentY += 22;
+            }
+            
+            // Add separator line
+            if (recentDiscoveries.length > 0) {
+                ctx.strokeStyle = '#4CAF50';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(x + padding, currentY);
+                ctx.lineTo(x + width - padding, currentY);
+                ctx.stroke();
+                currentY += 10;
+            }
+        }
+        
+        // Show recent probe results
         if (validResults.length > 0) {
             ctx.font = '11px Arial';
             for (const result of validResults.slice(-3)) { // Show last 3 results
@@ -605,6 +637,38 @@ export class GameUI {
             g: parseInt(result[2], 16),
             b: parseInt(result[3], 16)
         } : {r: 255, g: 255, b: 255};
+    }
+    
+    getDiscoveryIcon(effect) {
+        const icons = {
+            'probe_lost': '💀',
+            'extra_fleet': '👽',
+            'precursor_weapons': '⚔️',
+            'precursor_drive': '🚀',
+            'precursor_shield': '🛡️',
+            'precursor_nanotech': '🔬',
+            'factory_complex': '🏭',
+            'mineral_deposits': '💎',
+            'void_storm': '⚡',
+            'ancient_ruins': '🏛️'
+        };
+        return icons[effect] || '🔍';
+    }
+    
+    getDiscoveryColor(effect) {
+        const colors = {
+            'probe_lost': '#ff4444',
+            'extra_fleet': '#44ff44',
+            'precursor_weapons': '#ff6b6b',
+            'precursor_drive': '#4ecdc4',
+            'precursor_shield': '#45b7d1',
+            'precursor_nanotech': '#96ceb4',
+            'factory_complex': '#feca57',
+            'mineral_deposits': '#ff9ff3',
+            'void_storm': '#a55eea',
+            'ancient_ruins': '#ffa726'
+        };
+        return colors[effect] || '#ffffff';
     }
     
     renderMinimap(ctx, gameData) {

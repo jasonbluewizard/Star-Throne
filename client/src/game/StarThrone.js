@@ -2078,6 +2078,7 @@ export default class StarThrone {
                 notifications: this.notifications,
                 playerDiscoveries: this.playerDiscoveries,
                 recentProbeResults: this.recentProbeResults,
+                discoveryLog: this.discoveryLog,
                 showBonusPanel: this.showBonusPanel,
                 inputState: inputState,
                 messageText: this.messageText,
