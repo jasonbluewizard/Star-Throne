@@ -108,6 +108,10 @@ export default class StarThrone {
             initialized: false
         };
         
+        // Static background optimization
+        this.staticBg = document.createElement('canvas');
+        this.staticBgCtx = this.staticBg.getContext('2d');
+        
         // Discovery system for planet colonization - per player tracking
         this.playerDiscoveries = new Map(); // Map of playerId -> discoveries
         
@@ -419,6 +423,72 @@ export default class StarThrone {
         
         this.starfield.initialized = true;
         console.log('Parallax starfield initialized with 530 stars across 3 layers');
+    }
+    
+    // Pre-render static background elements once for performance optimization
+    preRenderStaticBackground() {
+        // Set static canvas to game map size
+        this.staticBg.width = this.gameMap.width;
+        this.staticBg.height = this.gameMap.height;
+        
+        // Clear the static background
+        this.staticBgCtx.fillStyle = '#0a0a1a';
+        this.staticBgCtx.fillRect(0, 0, this.staticBg.width, this.staticBg.height);
+        
+        // Render starfield to static background (once only)
+        this.renderStarfieldStatic(this.staticBgCtx);
+        
+        // Render nebulas to static background (once only)
+        this.renderNebulasStatic(this.staticBgCtx);
+        
+        console.log('Static background pre-rendered for performance optimization');
+    }
+    
+    // Render starfield without parallax for static background
+    renderStarfieldStatic(ctx) {
+        if (!this.starfield.initialized) return;
+        
+        ctx.save();
+        
+        // Render all star layers at base positions (no parallax)
+        const renderLayer = (stars, baseOpacity) => {
+            stars.forEach(star => {
+                // Simple twinkling effect for static background
+                const twinkle = 0.8; // Static brightness
+                const opacity = star.brightness * baseOpacity * twinkle;
+                
+                ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        };
+        
+        // Render all layers
+        renderLayer(this.starfield.farStars, 0.7);
+        renderLayer(this.starfield.midStars, 0.8);
+        renderLayer(this.starfield.nearStars, 1.0);
+        
+        ctx.restore();
+    }
+    
+    // Render nebulas for static background
+    renderNebulasStatic(ctx) {
+        if (!this.gameMap.nebulas) return;
+        
+        this.gameMap.nebulas.forEach(nebula => {
+            const gradient = ctx.createRadialGradient(
+                nebula.x, nebula.y, 0,
+                nebula.x, nebula.y, nebula.radius
+            );
+            gradient.addColorStop(0, nebula.color);
+            gradient.addColorStop(1, 'rgba(147, 112, 219, 0)');
+            
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(nebula.x, nebula.y, nebula.radius, 0, Math.PI * 2);
+            ctx.fill();
+        });
     }
     
     // Random discovery selection based on probabilities
@@ -1153,6 +1223,9 @@ export default class StarThrone {
         
         // Initialize parallax starfield after map is generated
         this.initializeStarfield();
+        
+        // Pre-render static background for performance optimization
+        this.preRenderStaticBackground();
         
         // Start home system flashing for player identification
         this.homeSystemFlashStart = Date.now();
@@ -2095,11 +2168,17 @@ export default class StarThrone {
     render() {
         const startTime = performance.now();
         
-        // Render background image with parallax if loaded
-        if (this.backgroundLoaded && this.backgroundImage) {
-            this.renderBackgroundImage();
+        // Render optimized static background with single blit
+        if (this.staticBg && this.staticBg.width > 0) {
+            this.ctx.drawImage(
+                this.staticBg,
+                (this.canvas.width / 2) - this.camera.x * this.camera.zoom,
+                (this.canvas.height / 2) - this.camera.y * this.camera.zoom,
+                this.staticBg.width * this.camera.zoom,
+                this.staticBg.height * this.camera.zoom
+            );
         } else {
-            // Clear canvas with dark space background color
+            // Fallback if static background not ready
             this.ctx.fillStyle = '#0a0a1a';
             this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         }
@@ -2107,12 +2186,6 @@ export default class StarThrone {
         // Apply camera transformations
         this.ctx.save();
         this.camera.applyTransform(this.ctx);
-        
-        // Render parallax starfield
-        this.renderParallaxStarfield();
-        
-        // Render game background elements
-        this.renderNebulas();
         
         // Update performance tracking
         this.updateVisibleTerritories();
