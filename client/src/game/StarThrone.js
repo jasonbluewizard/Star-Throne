@@ -1790,8 +1790,7 @@ export default class StarThrone {
         // Render ship animations
         this.renderShipAnimations();
         
-        // Render proportional drag interface
-        this.renderProportionalDrag();
+        // Proportional drag interface handled by InputHandler
         
         // Selection is handled by Territory render method itself
         
