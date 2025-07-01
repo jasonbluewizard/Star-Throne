@@ -478,10 +478,21 @@ export class GameUI {
     }
     
     renderDiscoveryPanel(ctx, gameData) {
+        console.log('renderDiscoveryPanel called');
         // Only show human player's discoveries
-        if (!gameData.playerDiscoveries || !gameData.humanPlayer) return;
+        if (!gameData.playerDiscoveries || !gameData.humanPlayer) {
+            console.log('Early return: missing data', { playerDiscoveries: !!gameData.playerDiscoveries, humanPlayer: !!gameData.humanPlayer });
+            return;
+        }
         
         const discoveries = gameData.playerDiscoveries.get(gameData.humanPlayer.id);
+        console.log('Discovery panel debug:', {
+            humanPlayerId: gameData.humanPlayer.id,
+            playerDiscoveries: gameData.playerDiscoveries,
+            discoveries: discoveries,
+            discoveryLogLength: gameData.discoveryLog ? gameData.discoveryLog.length : 0,
+            recentProbeResultsLength: gameData.recentProbeResults ? gameData.recentProbeResults.length : 0
+        });
         if (!discoveries) return;
         
         // Get recent discoveries (last 8 seconds for longer visibility)
@@ -508,6 +519,8 @@ export class GameUI {
         
         // Show panel only if there are human player discoveries or recent probe results
         const hasAnyContent = discoveryCount > 0 || validResults.length > 0 || recentDiscoveries.length > 0;
+        
+        console.log('Panel visibility check:', { discoveryCount, validResultsLength: validResults.length, recentDiscoveriesLength: recentDiscoveries.length, hasAnyContent });
         
         // Only render if there are discoveries or recent probe results to show
         if (!hasAnyContent) return;
