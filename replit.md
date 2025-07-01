@@ -385,6 +385,10 @@ Changelog:
   * Updated nebula generation to respect organic galaxy boundaries for natural cloud placement
   * Improved Poisson disk sampling with angle-based radius calculation for natural star distribution
   * Galaxy boundaries now feature organic bumps, indentations, and irregular edges instead of hard rectangles
+  * Natural clustering system: 8-15 density clusters create realistic star formation regions
+  * Adaptive spacing: stars cluster closer together in high-density regions, spread apart in voids
+  * Galactic bar density: central region has higher star concentration like real spiral galaxies
+  * Rejection sampling with density probability creates natural void regions and clumping patterns
 
 ## User Preferences
 

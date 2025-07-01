@@ -163,65 +163,96 @@ export class GameMap {
     
     poissonDiskSampling(numSamples) {
         const points = [];
-        const margin = 50;
-        const attempts = numSamples * 100; // Maximum attempts to place points
+        const attempts = numSamples * 150; // Increased attempts for natural clustering
+        const centerX = this.width / 2;
+        const centerY = this.height / 2;
         
-        // Helper function to check if a point is valid (within galaxy bounds and minimum distance from existing points)
+        // Create density clusters for realistic galaxy structure
+        const clusters = this.generateDensityClusters();
+        
+        // Helper function to get density multiplier at a given position
+        const getDensityAt = (x, y) => {
+            let density = 0.1; // Base density everywhere
+            
+            // Add cluster influences
+            clusters.forEach(cluster => {
+                const dist = Math.sqrt((x - cluster.x) ** 2 + (y - cluster.y) ** 2);
+                const influence = Math.exp(-dist / cluster.radius) * cluster.strength;
+                density += influence;
+            });
+            
+            // Add galactic bar density (central dense region)
+            const distFromCenter = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
+            const maxRadius = Math.min(this.width, this.height) * 0.4;
+            if (distFromCenter < maxRadius * 0.3) {
+                density += 0.8 * (1 - distFromCenter / (maxRadius * 0.3));
+            }
+            
+            return Math.min(density, 1.0); // Cap at 1.0
+        };
+        
+        // Helper function to check if a point is valid with adaptive spacing
         const isValidPoint = (x, y) => {
-            // Check organic galaxy boundaries instead of rectangular bounds
             if (!this.isWithinGalaxyBounds(x, y)) return false;
+            
+            const localDensity = getDensityAt(x, y);
+            const adaptiveGridSize = this.gridSize * (1.2 - localDensity * 0.7); // Closer in dense areas
             
             for (const point of points) {
                 const dist = Math.sqrt((x - point.x) ** 2 + (y - point.y) ** 2);
-                if (dist < this.gridSize) return false;
+                if (dist < adaptiveGridSize) return false;
             }
             return true;
         };
         
-        // Strategy 1: Organic distribution using rejection sampling within galaxy bounds
-        // First, fill the center area more densely then spread outward
-        const centerX = this.width / 2;
-        const centerY = this.height / 2;
-        const maxRadius = Math.min(this.width, this.height) * 0.4; // Maximum sampling radius
-        
-        // Sample points using polar coordinates for more natural distribution
-        let placementAttempts = 0;
-        const maxPlacementAttempts = numSamples * 20;
-        
-        while (points.length < numSamples * 0.8 && placementAttempts < maxPlacementAttempts) {
-            // Use weighted random radius (favor center, but spread outward)
-            const radiusWeight = Math.random() * Math.random(); // Bias toward smaller values
-            const radius = radiusWeight * maxRadius;
-            const angle = Math.random() * 2 * Math.PI;
-            
-            const x = centerX + radius * Math.cos(angle);
-            const y = centerY + radius * Math.sin(angle);
-            
-            if (isValidPoint(x, y)) {
-                points.push({ x, y });
-            }
-            placementAttempts++;
-        }
-        
-        // Strategy 2: Fill remaining with random placement throughout entire galaxy bounds
+        // Strategy 1: Density-based placement using rejection sampling
         let attemptCount = 0;
         while (points.length < numSamples && attemptCount < attempts) {
-            // Sample across the entire galaxy bounds, not just center
+            // Generate candidate position
             const angle = Math.random() * 2 * Math.PI;
             const maxRadiusAtAngle = this.getMaxRadiusAtAngle(angle);
-            const radius = Math.random() * maxRadiusAtAngle * (this.width / 2) * 0.85;
+            const radius = Math.random() * maxRadiusAtAngle * (this.width / 2) * 0.9;
             
             const x = centerX + radius * Math.cos(angle);
             const y = centerY + radius * Math.sin(angle);
             
-            if (isValidPoint(x, y)) {
+            // Accept point based on local density
+            const density = getDensityAt(x, y);
+            const acceptanceProbability = density;
+            
+            if (Math.random() < acceptanceProbability && isValidPoint(x, y)) {
                 points.push({ x, y });
             }
             attemptCount++;
         }
         
-        console.log(`Generated ${points.length} territories distributed across ${this.width}x${this.height} map`);
-        return points.slice(0, numSamples);
+        console.log(`Generated ${points.length} territories out of ${numSamples} requested using density-based clustering`);
+        console.log(`Created ${clusters.length} density clusters for natural star formation`);
+        return points;
+    }
+    
+    generateDensityClusters() {
+        const clusters = [];
+        const numClusters = 8 + Math.floor(Math.random() * 8); // 8-15 clusters
+        const centerX = this.width / 2;
+        const centerY = this.height / 2;
+        
+        for (let i = 0; i < numClusters; i++) {
+            // Place clusters in spiral arms and random locations
+            const clusterAngle = Math.random() * 2 * Math.PI;
+            const clusterRadius = (Math.random() * 0.6 + 0.2) * Math.min(this.width, this.height) * 0.35;
+            
+            const cluster = {
+                x: centerX + clusterRadius * Math.cos(clusterAngle),
+                y: centerY + clusterRadius * Math.sin(clusterAngle),
+                radius: 80 + Math.random() * 120, // Cluster influence radius
+                strength: 0.3 + Math.random() * 0.5 // Density strength
+            };
+            
+            clusters.push(cluster);
+        }
+        
+        return clusters;
     }
     
     generateClusterLayout(count) {
