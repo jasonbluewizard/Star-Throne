@@ -810,9 +810,7 @@ export default class StarThrone {
         this.longPressTarget = null;
         this.longPressStartPos = null;
         
-        // Keyboard events
-        window.addEventListener('keydown', (e) => this.handleKeyDown(e));
-        window.addEventListener('keyup', (e) => this.handleKeyUp(e));
+        // Keyboard events now handled by InputHandler
         
         // Prevent context menu
         this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -2937,72 +2935,7 @@ export default class StarThrone {
         }
     }
     
-    handleKeyDown(e) {
-        // Track modifier keys
-        this.modifierKeys.shift = e.shiftKey;
-        this.modifierKeys.ctrl = e.ctrlKey;
-        this.modifierKeys.alt = e.altKey;
-        
-        // First check if FSM handles the key
-        if (this.inputFSM && this.inputFSM.handleInput('keyPress', { key: e.key })) {
-            return; // FSM handled the key
-        }
-        
-        // Handle non-FSM keys
-        switch (e.key) {
-            case 'r':
-            case 'R':
-                if (this.gameState === 'ended') {
-                    this.restartGame();
-                }
-                break;
-            case 'd':
-            case 'D':
-                this.showTouchDebug = !this.showTouchDebug;
-                break;
-            case 'm':
-            case 'M':
-                this.minimapMinimized = !this.minimapMinimized;
-                console.log('Minimap toggled with M key:', this.minimapMinimized ? 'minimized' : 'maximized');
-                break;
-            case 'q':
-            case 'Q':
-                this.showPerformancePanel = !this.showPerformancePanel;
-                console.log('Performance panel toggled with Q key:', this.showPerformancePanel ? 'shown' : 'hidden');
-                break;
-            case ' ':
-                // Spacebar - Focus on Selected Territory
-                const fsmState = this.inputFSM.getState();
-                if (fsmState.selectedTerritory) {
-                    this.camera.focusOnTerritory(fsmState.selectedTerritory);
-                    console.log('Focused camera on selected territory');
-                } else if (this.humanPlayer && this.humanPlayer.territories.length > 0) {
-                    // Focus on first owned territory if none selected
-                    const firstTerritory = this.gameMap.territories[this.humanPlayer.territories[0]];
-                    if (firstTerritory) {
-                        this.camera.focusOnTerritory(firstTerritory);
-                        console.log('Focused camera on first owned territory');
-                    }
-                }
-                break;
-            case 'h':
-            case 'H':
-                // H key - Frame all human player territories
-                if (this.humanPlayer && this.humanPlayer.territories.length > 0) {
-                    const playerTerritories = this.humanPlayer.territories.map(id => this.gameMap.territories[id]);
-                    this.camera.frameRegion(playerTerritories);
-                    console.log('Framed all player territories');
-                }
-                break;
-        }
-    }
-    
-    handleKeyUp(e) {
-        // Track modifier keys
-        this.modifierKeys.shift = e.shiftKey;
-        this.modifierKeys.ctrl = e.ctrlKey;
-        this.modifierKeys.alt = e.altKey;
-    }
+    // Keyboard handling is now done by InputHandler module
     
     handleDoubleClick(targetTerritory) {
         // Double-click detected - create supply route between owned territories

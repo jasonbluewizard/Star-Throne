@@ -25,6 +25,13 @@ export class InputHandler {
         this.dragStart = null;
         this.dragEnd = null;
         
+        // Modifier keys state
+        this.modifierKeys = {
+            shift: false,
+            ctrl: false,
+            alt: false
+        };
+        
         // Touch state
         this.touchState = {
             activeTouches: new Map(),
