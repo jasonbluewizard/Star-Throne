@@ -133,11 +133,22 @@ export class Territory {
         // Optimize rendering with batch operations
         ctx.save();
         
+        // Add hover glow effect
+        if (isHovered && !isSelected) {
+            ctx.shadowColor = '#ffffff';
+            ctx.shadowBlur = 15;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+        }
+        
         // Draw territory circle and border in single operation
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
         ctx.fillStyle = fillColor;
         ctx.fill();
+        
+        // Clear shadow for subsequent rendering
+        ctx.shadowBlur = 0;
         
         // Optimize player lookup using direct access
         const player = this.ownerId ? players[this.ownerId] : null;
@@ -145,8 +156,14 @@ export class Territory {
         
         // Set stroke properties based on state
         if (isSelected) {
-            ctx.strokeStyle = '#ffffff';
+            // Pulsating selection outline
+            const pulseIntensity = 0.7 + 0.3 * Math.sin(Date.now() * 0.005);
+            ctx.strokeStyle = `rgba(255, 255, 255, ${pulseIntensity})`;
             ctx.lineWidth = 4;
+        } else if (isHovered) {
+            // Bright white hover outline
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
         } else if (isHumanPlayer) {
             ctx.strokeStyle = '#00ffff';
             ctx.lineWidth = 3;
@@ -155,6 +172,17 @@ export class Territory {
             ctx.lineWidth = 1;
         }
         ctx.stroke();
+        
+        // Action confirmation flash
+        if (this.lastActionFlash && (currentTime - this.lastActionFlash) < 300) {
+            const flashProgress = (currentTime - this.lastActionFlash) / 300;
+            const flashIntensity = 1 - flashProgress;
+            ctx.strokeStyle = `rgba(0, 255, 0, ${flashIntensity})`;
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius + 3, 0, Math.PI * 2);
+            ctx.stroke();
+        }
         
         // Add extra ring for player territories
         if (this.ownerId !== null && player) {

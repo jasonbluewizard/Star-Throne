@@ -829,7 +829,7 @@ export default class StarThrone {
                 humanPlayer: this.humanPlayer,
                 homeSystemFlashStart: this.homeSystemFlashStart,
                 homeSystemFlashDuration: this.homeSystemFlashDuration
-            });
+            }, this.hoveredTerritory);
         });
     }
     
@@ -887,10 +887,16 @@ export default class StarThrone {
             if (fromTerritory && toTerritory && route.path && route.path.length > 1) {
                 this.ctx.save();
                 
-                // Draw route path with animated dashes
-                this.ctx.strokeStyle = '#00ffff';
+                // Draw route path with animated dashes - color based on activity
+                const routeActive = fromTerritory.armySize > 10; // Route is active if source has armies
+                if (routeActive) {
+                    this.ctx.strokeStyle = '#00ffff'; // Bright cyan for active routes
+                    this.ctx.globalAlpha = 0.9;
+                } else {
+                    this.ctx.strokeStyle = '#006666'; // Dimmed cyan for inactive routes
+                    this.ctx.globalAlpha = 0.5;
+                }
                 this.ctx.lineWidth = 3;
-                this.ctx.globalAlpha = 0.8;
                 
                 // Calculate direction-based animation offset
                 const fromPos = route.path[0];
@@ -924,11 +930,21 @@ export default class StarThrone {
         // Show drag preview when creating supply route
         if (this.isDraggingForSupplyRoute && this.dragStart) {
             const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+            const targetTerritory = this.findTerritoryAt(worldPos.x, worldPos.y);
             
             this.ctx.save();
-            this.ctx.strokeStyle = '#ffff00';
-            this.ctx.lineWidth = 2;
-            this.ctx.globalAlpha = 0.7;
+            
+            // Color-coded preview based on target validity
+            if (targetTerritory && targetTerritory.ownerId === this.humanPlayer?.id && 
+                targetTerritory.id !== this.dragStart.id) {
+                this.ctx.strokeStyle = '#00ff00'; // Green for valid supply route target
+                this.ctx.lineWidth = 3;
+            } else {
+                this.ctx.strokeStyle = '#ffff00'; // Yellow for neutral/unknown target
+                this.ctx.lineWidth = 2;
+            }
+            
+            this.ctx.globalAlpha = 0.8;
             this.ctx.setLineDash([5, 5]);
             
             this.ctx.beginPath();

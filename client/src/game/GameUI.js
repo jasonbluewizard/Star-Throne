@@ -92,6 +92,9 @@ export class GameUI {
         // Zoom controls
         this.renderZoomControls(ctx, gameData);
         
+        // Tooltip for hovered territory
+        this.renderTooltip(ctx, gameData);
+        
         // Game over screen for human player
         const humanPlayer = gameData.humanPlayer;
         if (humanPlayer && humanPlayer.territories.length === 0) {
