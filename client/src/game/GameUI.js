@@ -509,18 +509,8 @@ export class GameUI {
         // Show panel only if there are human player discoveries or recent probe results
         const hasAnyContent = discoveryCount > 0 || validResults.length > 0 || recentDiscoveries.length > 0;
         
-        // Debug why panel disappears
-        console.log('Discovery panel check:', {
-            discoveryCount,
-            validResultsLength: validResults.length,
-            recentDiscoveriesLength: recentDiscoveries.length,
-            hasAnyContent,
-            humanPlayerId: gameData.humanPlayer.id,
-            discoveryLogSample: gameData.discoveryLog ? gameData.discoveryLog.slice(-3) : []
-        });
-        
-        // TEMPORARY: Always show panel for debugging
-        // if (!hasAnyContent) return;
+        // Only render if there are discoveries or recent probe results to show
+        if (!hasAnyContent) return;
         
         const x = 20;
         const width = 280;

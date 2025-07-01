@@ -550,6 +550,10 @@ export default class StarThrone {
     }
     
     processDiscovery(territory, playerId, discovery) {
+        // Get player's discoveries
+        const playerDiscoveries = this.playerDiscoveries.get(playerId);
+        if (!playerDiscoveries) return false;
+        
         // Apply discovery effects
         switch (discovery.effect) {
             case 'probe_lost':
