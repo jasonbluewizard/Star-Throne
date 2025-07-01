@@ -481,9 +481,15 @@ export class GameUI {
         const discoveries = gameData.playerDiscoveries.get(gameData.humanPlayer.id);
         if (!discoveries) return;
         
+        // Get recent discoveries (last 8 seconds for longer visibility)
+        const discoveryLog = gameData.discoveryLog || [];
+        const now = Date.now();
+        const recentDiscoveries = discoveryLog.filter(entry => 
+            entry.playerId === gameData.humanPlayer.id && (now - entry.timestamp) < 8000
+        ).slice(-3); // Show last 3 discoveries
+        
         // Get recent probe announcements (last 5 seconds)
         const recentProbeResults = gameData.recentProbeResults || [];
-        const now = Date.now();
         const validResults = recentProbeResults.filter(result => 
             result.playerId === gameData.humanPlayer.id && (now - result.timestamp) < 5000
         );
@@ -524,7 +530,7 @@ export class GameUI {
         ctx.textAlign = 'left';
         this.renderTextWithShadow(ctx, '🔬 Empire Discoveries', x + padding, y + 20, '#4CAF50');
         
-        let currentY = y + 30;
+        let currentY = y + 45; // Increased spacing from 30 to 45
         
         // Show recent probe results at the top
         if (validResults.length > 0) {

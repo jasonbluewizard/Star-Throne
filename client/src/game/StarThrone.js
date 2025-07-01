@@ -529,7 +529,27 @@ export default class StarThrone {
             'ancient_ruins': '#ffa726'
         };
         return colors[effect] || '#ffffff';
+    }
+    
+    updateFloatingDiscoveryTexts(deltaTime) {
+        const now = Date.now();
         
+        // Update and remove expired floating texts
+        this.floatingDiscoveryTexts = this.floatingDiscoveryTexts.filter(text => {
+            const age = now - text.startTime;
+            
+            if (age > text.duration) {
+                return false; // Remove expired text
+            }
+            
+            // Animate the text (float upward)
+            text.y -= 20 * (deltaTime / 1000); // Move up 20 pixels per second
+            
+            return true;
+        });
+    }
+    
+    processDiscovery(territory, playerId, discovery) {
         // Apply discovery effects
         switch (discovery.effect) {
             case 'probe_lost':
@@ -862,6 +882,53 @@ export default class StarThrone {
         this.probes.forEach(probe => {
             probe.render(this.ctx);
         });
+    }
+    
+    renderFloatingDiscoveryTexts() {
+        if (this.floatingDiscoveryTexts.length === 0) return;
+        
+        this.ctx.save();
+        this.ctx.font = 'bold 14px Arial';
+        this.ctx.textAlign = 'center';
+        
+        this.floatingDiscoveryTexts.forEach(text => {
+            const now = Date.now();
+            const age = now - text.startTime;
+            const progress = age / text.duration;
+            
+            // Calculate opacity (fade out in the last 25% of duration)
+            let opacity = 1;
+            if (progress > 0.75) {
+                opacity = 1 - ((progress - 0.75) / 0.25);
+            }
+            
+            // Only render if text is within camera view
+            const screenPos = this.camera.worldToScreen(text.x, text.y);
+            if (screenPos.x >= -100 && screenPos.x <= this.canvas.width + 100 &&
+                screenPos.y >= -100 && screenPos.y <= this.canvas.height + 100) {
+                
+                // Draw background
+                this.ctx.fillStyle = `rgba(0, 0, 0, ${opacity * 0.8})`;
+                const textWidth = this.ctx.measureText(text.text).width;
+                this.ctx.fillRect(screenPos.x - textWidth/2 - 15, screenPos.y - 15, textWidth + 30, 20);
+                
+                // Draw border
+                this.ctx.strokeStyle = text.color;
+                this.ctx.globalAlpha = opacity;
+                this.ctx.lineWidth = 2;
+                this.ctx.strokeRect(screenPos.x - textWidth/2 - 15, screenPos.y - 15, textWidth + 30, 20);
+                
+                // Draw icon
+                this.ctx.fillStyle = text.color;
+                this.ctx.fillText(text.icon, screenPos.x - textWidth/2 - 5, screenPos.y - 2);
+                
+                // Draw text
+                this.ctx.fillStyle = text.color;
+                this.ctx.fillText(text.text, screenPos.x + 10, screenPos.y - 2);
+            }
+        });
+        
+        this.ctx.restore();
     }
     
     // Easing function for smooth animation
@@ -1352,6 +1419,7 @@ export default class StarThrone {
         this.renderTransferPreview();
         this.renderShipAnimations();
         this.renderProbes();
+        this.renderFloatingDiscoveryTexts();
         this.renderArmies();
         this.renderFloatingTexts();
         
