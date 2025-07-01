@@ -1665,6 +1665,32 @@ export default class StarThrone {
         console.log(`Transferred ${transferAmount} armies from territory ${fromTerritory.id} to ${toTerritory.id}`);
     }
     
+    // Enhanced fleet transfer with specific amount
+    transferFleetWithAmount(fromTerritory, toTerritory, amount) {
+        if (fromTerritory.armySize <= 1) {
+            console.log('Not enough armies to transfer!');
+            return;
+        }
+        
+        // Ensure we don't transfer more than available (minus 1 to keep)
+        const maxTransfer = fromTerritory.armySize - 1;
+        const actualTransfer = Math.min(amount, maxTransfer);
+        
+        if (actualTransfer <= 0) {
+            console.log('No armies available to transfer!');
+            return;
+        }
+        
+        // Create ship animation for transfer
+        this.createShipAnimation(fromTerritory, toTerritory, false);
+        
+        // Execute transfer
+        fromTerritory.armySize -= actualTransfer;
+        toTerritory.armySize += actualTransfer;
+        
+        console.log(`Transferred ${actualTransfer} armies from territory ${fromTerritory.id} to ${toTerritory.id}`);
+    }
+    
     // Supply route system
     createSupplyRoute(fromTerritory, toTerritory) {
         // Find path between territories through owned network
@@ -1828,16 +1854,16 @@ export default class StarThrone {
         this.showFleetCommandFeedback(fromTerritory, shipsToSend, fleetPercentage);
         
         if (toTerritory.ownerId === this.humanPlayer?.id) {
-            // Transfer to own territory
-            this.transferArmies(fromTerritory.id, toTerritory.id);
+            // Transfer to own territory with specific amount
+            this.transferFleetWithAmount(fromTerritory, toTerritory, shipsToSend);
             console.log(`Fleet transfer: ${shipsToSend} ships (${Math.round(fleetPercentage * 100)}%) from ${fromTerritory.id} to ${toTerritory.id}`);
         } else if (toTerritory.isColonizable) {
             // Probe colonizable territory
-            this.launchProbe(fromTerritory.id, toTerritory.id);
+            this.launchProbe(fromTerritory, toTerritory);
             console.log(`Probe launched from ${fromTerritory.id} to colonizable ${toTerritory.id}`);
         } else {
-            // Attack enemy territory
-            this.attackTerritory(fromTerritory.id, toTerritory.id);
+            // Attack enemy territory with specific amount
+            this.attackTerritoryWithAmount(fromTerritory, toTerritory, shipsToSend);
             console.log(`Attack: ${shipsToSend} ships (${Math.round(fleetPercentage * 100)}%) from ${fromTerritory.id} to ${toTerritory.id}`);
         }
     }
@@ -1948,6 +1974,106 @@ export default class StarThrone {
             attackingTerritory.armySize = attackingTerritory.armySize - attackingArmies + survivingAttackers;
             
             console.log('Attack failed!');
+        }
+        
+        // Update player stats
+        this.players.forEach(player => player.updateStats());
+    }
+    
+    // Enhanced attack method with custom army amount
+    attackTerritoryWithAmount(attackingTerritory, defendingTerritory, attackingArmies) {
+        if (attackingTerritory.armySize <= 1) {
+            console.log('Not enough armies to attack!');
+            return;
+        }
+        
+        // Ensure we don't use more armies than available (minus 1 to keep)
+        const maxAttack = attackingTerritory.armySize - 1;
+        const actualAttack = Math.min(attackingArmies, maxAttack);
+        
+        if (actualAttack <= 0) {
+            console.log('No armies available to attack!');
+            return;
+        }
+        
+        // Trigger combat flash on both territories
+        attackingTerritory.triggerCombatFlash();
+        defendingTerritory.triggerCombatFlash();
+        
+        // Create ship animation for attack
+        this.createShipAnimation(attackingTerritory, defendingTerritory, true);
+        
+        const defendingArmies = defendingTerritory.armySize;
+        
+        console.log(`Custom Attack: ${actualAttack} vs ${defendingArmies}`);
+        
+        // Simple battle calculation
+        const attackPower = actualAttack * (0.8 + Math.random() * 0.4);
+        const defensePower = defendingArmies * (1.0 + Math.random() * 0.2);
+        
+        if (attackPower > defensePower) {
+            // Attack successful
+            const oldOwnerId = defendingTerritory.ownerId;
+            const survivingArmies = Math.max(1, actualAttack - defendingArmies);
+            
+            // Check if this is a throne star capture
+            if (defendingTerritory.isThronestar && oldOwnerId !== null) {
+                const oldOwner = this.players[oldOwnerId];
+                if (oldOwner) {
+                    console.log(`THRONE STAR CAPTURED! ${oldOwner.name}'s empire falls!`);
+                    
+                    // Transfer all territories from old owner to attacker
+                    const territoriesToTransfer = [...oldOwner.territories];
+                    territoriesToTransfer.forEach(territoryId => {
+                        const territory = this.gameMap.territories[territoryId];
+                        if (territory && territory.ownerId === oldOwnerId) {
+                            territory.ownerId = this.humanPlayer.id;
+                            this.humanPlayer.territories.push(territoryId);
+                        }
+                    });
+                    
+                    // Clear old owner's territories
+                    oldOwner.territories = [];
+                    oldOwner.isEliminated = true;
+                }
+                
+                // Destroy the captured throne star
+                defendingTerritory.isThronestar = false;
+                defendingTerritory.ownerId = this.humanPlayer.id;
+                defendingTerritory.armySize = survivingArmies;
+                attackingTerritory.armySize -= actualAttack;
+                
+                console.log(`👑 Throne star destroyed after capture`);
+            } else {
+                // Normal territory capture
+                defendingTerritory.ownerId = this.humanPlayer.id;
+                defendingTerritory.armySize = survivingArmies;
+                attackingTerritory.armySize -= actualAttack;
+                
+                // Update player territories
+                this.humanPlayer.territories.push(defendingTerritory.id);
+                
+                if (oldOwnerId !== null) {
+                    const oldOwner = this.players[oldOwnerId];
+                    if (oldOwner) {
+                        const index = oldOwner.territories.indexOf(defendingTerritory.id);
+                        if (index > -1) {
+                            oldOwner.territories.splice(index, 1);
+                        }
+                    }
+                }
+            }
+            
+            console.log('Territory captured with custom attack!');
+        } else {
+            // Attack failed
+            const survivingDefenders = Math.max(1, defendingArmies - Math.floor(actualAttack * 0.7));
+            const survivingAttackers = Math.max(1, Math.floor(actualAttack * 0.3));
+            
+            defendingTerritory.armySize = survivingDefenders;
+            attackingTerritory.armySize = attackingTerritory.armySize - actualAttack + survivingAttackers;
+            
+            console.log('Custom attack failed!');
         }
         
         // Update player stats
