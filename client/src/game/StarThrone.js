@@ -85,6 +85,10 @@ export default class StarThrone {
         this.probes = [];
         this.nextProbeId = 0;
         
+        // Discovery announcements
+        this.floatingDiscoveryTexts = [];
+        this.discoveryLog = []; // Recent discovery announcements for panel display
+        
         // Ship funneling system
         this.supplyRoutes = new Map(); // territoryId -> { targetId, path, delay }
         this.dragStart = null;
@@ -454,6 +458,9 @@ export default class StarThrone {
         
         console.log(`🔍 Discovery on planet ${territory.id}: ${discovery.name} - ${discovery.description}`);
         
+        // Add floating discovery text above the planet
+        this.addFloatingDiscoveryText(territory, discovery, playerId);
+        
         // Track probe result for UI announcements
         this.recentProbeResults.push({
             timestamp: Date.now(),
@@ -468,6 +475,60 @@ export default class StarThrone {
         if (this.recentProbeResults.length > 10) {
             this.recentProbeResults.shift();
         }
+    }
+    
+    addFloatingDiscoveryText(territory, discovery, playerId) {
+        // Create floating text object
+        const floatingText = {
+            x: territory.x,
+            y: territory.y - 40, // Start above the planet
+            text: discovery.name,
+            icon: this.getDiscoveryIcon(discovery.effect),
+            color: this.getDiscoveryColor(discovery.effect),
+            startTime: Date.now(),
+            duration: 4000, // 4 seconds
+            fadeOutDuration: 1000, // Last 1 second fades out
+            playerId: playerId
+        };
+        
+        this.floatingDiscoveryTexts.push(floatingText);
+        
+        // Limit to 10 floating texts to prevent clutter
+        if (this.floatingDiscoveryTexts.length > 10) {
+            this.floatingDiscoveryTexts.shift();
+        }
+    }
+    
+    getDiscoveryIcon(effect) {
+        const icons = {
+            'probe_lost': '💀',
+            'extra_fleet': '👽',
+            'precursor_weapons': '⚔️',
+            'precursor_drive': '🚀',
+            'precursor_shield': '🛡️',
+            'precursor_nanotech': '🔬',
+            'factory_complex': '🏭',
+            'mineral_deposits': '💎',
+            'void_storm': '⚡',
+            'ancient_ruins': '🏛️'
+        };
+        return icons[effect] || '🔍';
+    }
+    
+    getDiscoveryColor(effect) {
+        const colors = {
+            'probe_lost': '#ff4444',
+            'extra_fleet': '#44ff44',
+            'precursor_weapons': '#ff6b6b',
+            'precursor_drive': '#4ecdc4',
+            'precursor_shield': '#45b7d1',
+            'precursor_nanotech': '#96ceb4',
+            'factory_complex': '#feca57',
+            'mineral_deposits': '#ff9ff3',
+            'void_storm': '#a55eea',
+            'ancient_ruins': '#ffa726'
+        };
+        return colors[effect] || '#ffffff';
         
         // Apply discovery effects
         switch (discovery.effect) {
@@ -1185,6 +1246,7 @@ export default class StarThrone {
         // Update ship animations and probes with normal delta time (speed applied internally)
         this.updateShipAnimations(deltaTime);
         this.updateProbes(deltaTime);
+        this.updateFloatingDiscoveryTexts(deltaTime);
         
         // Update notifications and messages
         this.updateNotifications();
