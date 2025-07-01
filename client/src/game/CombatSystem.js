@@ -185,6 +185,18 @@ export class CombatSystem {
         if (toTerritory.isThronestar && defendingPlayer) {
             console.log(`👑 THRONE STAR CAPTURED! ${attackingPlayer.name} conquers ${defendingPlayer.name}'s empire!`);
             
+            // Special handling if human player's throne is captured
+            if (defendingPlayer.type === 'human') {
+                console.log(`💀 HUMAN PLAYER'S THRONE STAR CAPTURED! Game should end!`);
+                this.game.gameState = 'ended';
+                this.game.showMessage(`💀 Your empire has fallen! ${attackingPlayer.name} captured your throne star!`, 10000);
+                
+                // Force game to show end screen
+                if (this.game.ui) {
+                    this.game.ui.showGameOver = true;
+                }
+            }
+            
             // Transfer ALL remaining territories from defender to attacker
             const defendingTerritories = [...defendingPlayer.territories];
             for (const territoryId of defendingTerritories) {

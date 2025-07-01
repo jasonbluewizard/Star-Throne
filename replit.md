@@ -424,6 +424,13 @@ Changelog:
   * Fixed territory selection persistence: territories stay selected after attacks, transfers, and probes
   * Clicking same territory no longer deselects - allows multiple consecutive actions
   * Click empty space to deliberately deselect territory and return to default camera mode
+- January 2, 2025. CRITICAL throne star capture and deselection fixes:
+  * Centralized throne star capture logic in CombatSystem.js for consistent detection
+  * Fixed human player type detection using player.type === 'human' instead of ID comparison
+  * Enhanced throne capture detection with proper game end state management
+  * Fixed territory deselection UX: empty space clicks now reliably deselect territories regardless of minor mouse movement
+  * Simplified AI Player.js combat logic to use type checking and removed duplicate game end handling
+  * Added comprehensive debugging for throne star attacks with success/failure logging
 - January 1, 2025. Planet density optimization and improved tooltips:
   * Reduced territory density: increased grid spacing from 80px to 150px for less crowded maps
   * Lowered default map size from 200 to 80 territories for better spacing

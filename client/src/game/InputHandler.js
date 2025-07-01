@@ -145,8 +145,8 @@ export class InputHandler {
         const targetTerritory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
         
         // Debug logging for click detection
-        if (!targetTerritory && wasQuickClick) {
-            console.log('Empty space click detected - should deselect territory');
+        if (!targetTerritory && wasQuickClick && this.game.selectedTerritory) {
+            console.log('Empty space click detected - deselecting territory');
         }
         
         // Handle proportional fleet command
@@ -172,12 +172,22 @@ export class InputHandler {
                 return;
             }
             
-            // Left click - use FSM for input handling
-            this.inputFSM.handleInput('leftClick', {
-                territory: targetTerritory,
-                worldPos: worldPos,
-                screenPos: this.mousePos
-            });
+            // Fix for territory deselection: Allow empty space clicks to deselect regardless of minor movement
+            if (!targetTerritory && this.game.selectedTerritory) {
+                console.log('Empty space click detected - deselecting territory via FSM');
+                this.inputFSM.handleInput('leftClick', {
+                    territory: null,
+                    worldPos: worldPos,
+                    screenPos: this.mousePos
+                });
+            } else {
+                // Left click - use FSM for input handling
+                this.inputFSM.handleInput('leftClick', {
+                    territory: targetTerritory,
+                    worldPos: worldPos,
+                    screenPos: this.mousePos
+                });
+            }
         }
         else if (e.button === 2 && wasQuickClick) {
             // Right click - use FSM for input handling
