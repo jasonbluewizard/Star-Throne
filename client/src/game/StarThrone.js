@@ -485,7 +485,7 @@ export default class StarThrone {
                 
             case 'extra_fleet':
                 // Friendly aliens boost fleet strength
-                territory.armySize = discovery.bonus;
+                territory.armySize += discovery.bonus;
                 const friendlyMessage = `👽 Friendly aliens provide ${discovery.bonus} fleet strength!`;
                 console.log(friendlyMessage);
                 if (playerId === this.humanPlayer?.id) {
@@ -1098,6 +1098,11 @@ export default class StarThrone {
                 bestTerritory.isThronestar = true; // Mark as throne star
                 
                 console.log(`🏠 Starting territory ${bestTerritory.id} for ${player.name}: ${GAME_CONSTANTS.INITIAL_STARTING_ARMY_SIZE} armies`);
+                
+                // Debug: Track army changes for human player
+                if (player.id === 0) { // Human player ID
+                    console.log(`👤 HUMAN PLAYER starting territory ${bestTerritory.id} initialized with ${bestTerritory.armySize} armies`);
+                }
                 
                 // Reveal connections for starting territories
                 bestTerritory.revealConnections();
