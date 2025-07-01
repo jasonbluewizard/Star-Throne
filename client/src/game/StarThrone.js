@@ -1749,7 +1749,10 @@ export default class StarThrone {
                 updateTime: this.performanceStats.updateTime,
                 territoryCount: Object.keys(this.gameMap.territories).length,
                 visibleTerritories: this.performanceStats.visibleTerritories,
-                probeCount: this.probes.length
+                probeCount: this.probes.length,
+                notifications: this.notifications,
+                discoveries: this.discoveries,
+                showBonusPanel: this.showBonusPanel
             });
         }
     }
@@ -2115,9 +2118,10 @@ export default class StarThrone {
             return;
         }
         
-        // FIRST: Check if we can probe BEFORE changing selection
+        // Check if we can probe BEFORE changing selection
         console.log(`Click analysis: clicked=${clickedTerritory?.id}, isColonizable=${clickedTerritory?.isColonizable}, selected=${this.selectedTerritory?.id}, selectedOwner=${this.selectedTerritory?.ownerId}, humanPlayer=${this.humanPlayer?.id}`);
         
+        // Handle probe launches to colonizable planets
         if (clickedTerritory.isColonizable && this.selectedTerritory && 
             this.selectedTerritory.ownerId === this.humanPlayer.id) {
             
@@ -2144,6 +2148,9 @@ export default class StarThrone {
             this.selectedTerritory = clickedTerritory;
             return;
         }
+        
+        // For all other cases (including colonizable planets when no valid selection)
+        this.selectedTerritory = clickedTerritory;
         
         // If we have a selected territory and clicking on a neighbor, attack (but not colonizable planets)
         if (this.selectedTerritory && 
