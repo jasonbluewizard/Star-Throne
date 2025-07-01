@@ -403,6 +403,13 @@ Changelog:
   * Added warp lane validation: fleet commands only work between connected territories or to colonizable planets
   * Increased proportional drag threshold (15px + 300ms delay) to prevent accidental activation
   * Enhanced fleet command validation prevents sending ships to unreachable destinations
+- January 1, 2025. Planet density optimization and improved tooltips:
+  * Reduced territory density: increased grid spacing from 80px to 150px for less crowded maps
+  * Lowered default map size from 200 to 80 territories for better spacing
+  * Updated map size ranges: 30-150 territories (down from 50-400) with adjusted descriptions
+  * Increased connection range from 140px to 200px to accommodate larger spacing
+  * Enhanced tooltip system: context-aware probe instructions based on selected territory and fleet count
+  * Fixed misleading "Click to probe" tooltips - now shows requirements and helpful guidance
 
 ## User Preferences
 

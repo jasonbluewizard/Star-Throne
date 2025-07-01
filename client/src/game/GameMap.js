@@ -6,11 +6,11 @@ export class GameMap {
         this.height = height * 1.4; // Expand height by 40%
         this.territories = {};
         this.nebulas = []; // Purple nebula clouds
-        this.gridSize = 80; // Space between territory centers
+        this.gridSize = 150; // Increased space between territory centers for less crowding
         
         // Advanced configuration options
         this.layout = config.layout || 'organic'; // Layout type: organic, clusters, spiral, core, ring, binary
-        this.connectionDistance = config.connectionRange || 140; // Max distance for territory connections
+        this.connectionDistance = config.connectionRange || 200; // Max distance for territory connections (increased for larger spacing)
         this.warpLaneDensity = config.warpLaneDensity || 80; // Percentage density for connections
         this.nebulaCount = config.nebulaCount !== undefined ? config.nebulaCount : 10; // Number of nebula fields
         this.nebulaSlowdown = config.nebulaSlowdown !== undefined ? config.nebulaSlowdown : true;

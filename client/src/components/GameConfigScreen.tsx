@@ -27,7 +27,7 @@ export interface GameConfig {
 }
 
 export function GameConfigScreen({ onStartGame, onBack }: GameConfigScreenProps) {
-  const [mapSize, setMapSize] = useState([200]); // Default 200 territories
+  const [mapSize, setMapSize] = useState([80]); // Default 80 territories for less crowding
   const [aiPlayerCount, setAiPlayerCount] = useState([19]); // Default 19 AI players
   const [playerName, setPlayerName] = useState('Player');
   const [gameSpeed, setGameSpeed] = useState([1.0]); // Default normal speed
@@ -64,9 +64,9 @@ export function GameConfigScreen({ onStartGame, onBack }: GameConfigScreenProps)
   };
 
   const getMapDescription = (size: number) => {
-    if (size <= 100) return 'Small - Quick battles';
-    if (size <= 200) return 'Medium - Balanced gameplay';
-    if (size <= 300) return 'Large - Epic conquests';
+    if (size <= 50) return 'Small - Quick skirmishes';
+    if (size <= 80) return 'Medium - Balanced exploration';
+    if (size <= 120) return 'Large - Epic campaigns';
     return 'Massive - Ultimate challenge';
   };
 
@@ -127,9 +127,9 @@ export function GameConfigScreen({ onStartGame, onBack }: GameConfigScreenProps)
             <Slider
               value={mapSize}
               onValueChange={setMapSize}
-              max={400}
-              min={50}
-              step={25}
+              max={150}
+              min={30}
+              step={10}
               className="w-full"
             />
             <p className="text-sm text-gray-400">{getMapDescription(mapSize[0])}</p>
