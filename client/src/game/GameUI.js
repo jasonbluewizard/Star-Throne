@@ -98,6 +98,9 @@ export class GameUI {
         // Tooltip for hovered territory
         this.renderTooltip(ctx, gameData);
         
+        // Render notifications
+        this.renderNotifications(ctx, gameData);
+        
         // Game over screen for human player
         const humanPlayer = gameData.humanPlayer;
         if (humanPlayer && humanPlayer.territories.length === 0) {
@@ -839,6 +842,40 @@ export class GameUI {
                 ctx.fillStyle = this.successColor;
                 ctx.fillText('Winner!', startX + width - 20, y);
             }
+        });
+    }
+    
+    // Render notification messages for discoveries
+    renderNotifications(ctx, gameData) {
+        if (!gameData.notifications || gameData.notifications.length === 0) return;
+        
+        const notifications = gameData.notifications;
+        const startY = 150; // Start below top UI elements
+        const lineHeight = 40;
+        const padding = 15;
+        const maxWidth = 400;
+        
+        notifications.forEach((notification, index) => {
+            const y = startY + index * lineHeight;
+            const x = this.canvas.width - maxWidth - 20; // Right side of screen
+            
+            // Background with fade
+            ctx.globalAlpha = notification.opacity;
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            ctx.fillRect(x - padding, y - 25, maxWidth + padding * 2, 35);
+            
+            // Border based on notification type
+            ctx.strokeStyle = notification.color;
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x - padding, y - 25, maxWidth + padding * 2, 35);
+            
+            // Text
+            ctx.fillStyle = notification.color;
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText(notification.text, x, y);
+            
+            ctx.globalAlpha = 1.0; // Reset opacity
         });
     }
 }

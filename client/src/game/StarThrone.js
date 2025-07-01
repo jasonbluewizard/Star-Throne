@@ -1051,6 +1051,9 @@ export default class StarThrone {
         this.updateShipAnimations(deltaTime);
         this.updateProbes(deltaTime);
         
+        // Update notifications
+        this.updateNotifications();
+        
         // Throttled heavy operations for better performance
         if (this.frameCount % 45 === 0) { // Every 45 frames (~0.75 seconds)
             this.validateSupplyRoutes();
@@ -2120,7 +2123,7 @@ export default class StarThrone {
             
             console.log(`Attempting to probe: from territory ${this.selectedTerritory.id} (armies: ${this.selectedTerritory.armySize}) to planet ${clickedTerritory.id}`);
             this.launchProbe(this.selectedTerritory, clickedTerritory);
-            this.selectedTerritory = null;
+            // Keep selection so player can launch multiple probes
             return;
         }
         
