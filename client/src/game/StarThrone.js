@@ -1709,8 +1709,14 @@ export default class StarThrone {
         
         // Territory selection for left clicks
         if (e.button === 0 && startTerritory) {
-            this.selectedTerritory = startTerritory;
-            console.log(`Selected territory ${startTerritory.id} (Owner: ${startTerritory.ownerId})`);
+            // Don't change selection if we're about to probe a colonizable planet
+            if (!(startTerritory.isColonizable && this.selectedTerritory && 
+                  this.selectedTerritory.ownerId === this.humanPlayer?.id)) {
+                this.selectedTerritory = startTerritory;
+                console.log(`Selected territory ${startTerritory.id} (Owner: ${startTerritory.ownerId})`);
+            } else {
+                console.log(`Preserving selection ${this.selectedTerritory.id} for probe to ${startTerritory.id}`);
+            }
         }
         
         if (startTerritory && startTerritory.ownerId === this.humanPlayer?.id) {
