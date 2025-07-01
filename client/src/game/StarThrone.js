@@ -1094,8 +1094,10 @@ export default class StarThrone {
                 // Manually colonize this territory for the player
                 bestTerritory.ownerId = player.id;
                 bestTerritory.isColonizable = false; // Make it a normal territory
-                bestTerritory.armySize = 50;
+                bestTerritory.armySize = GAME_CONSTANTS.INITIAL_STARTING_ARMY_SIZE;
                 bestTerritory.isThronestar = true; // Mark as throne star
+                
+                console.log(`🏠 Starting territory ${bestTerritory.id} for ${player.name}: ${GAME_CONSTANTS.INITIAL_STARTING_ARMY_SIZE} armies`);
                 
                 // Reveal connections for starting territories
                 bestTerritory.revealConnections();

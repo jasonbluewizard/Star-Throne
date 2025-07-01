@@ -144,6 +144,11 @@ export class InputHandler {
         const worldPos = this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
         const targetTerritory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
         
+        // Debug logging for click detection
+        if (!targetTerritory && wasQuickClick) {
+            console.log('Empty space click detected - should deselect territory');
+        }
+        
         // Handle proportional fleet command
         if (this.isProportionalDrag && this.proportionalDragStart && targetTerritory) {
             this.game.executeFleetCommand(this.proportionalDragStart.territory, targetTerritory, this.fleetPercentage);
