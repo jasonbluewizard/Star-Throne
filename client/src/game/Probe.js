@@ -1,11 +1,12 @@
 export class Probe {
-    constructor(id, fromTerritory, toTerritory, playerId, playerColor, gameSpeed = 1.0, gameMap = null) {
+    constructor(id, fromTerritory, toTerritory, playerId, playerColor, gameSpeed = 1.0, gameMap = null, game = null) {
         this.id = id;
         this.fromTerritory = fromTerritory;
         this.toTerritory = toTerritory;
         this.playerId = playerId;
         this.playerColor = playerColor;
         this.gameMap = gameMap;
+        this.game = game; // Reference to game for discovery bonuses
         
         // Position and movement
         this.x = fromTerritory.x;
@@ -36,8 +37,16 @@ export class Probe {
     update(deltaTime) {
         // Check if probe is in a nebula and adjust speed
         let currentSpeed = this.baseSpeed;
+        
+        // Apply Precursor Drive speed bonus (human player only)
+        if (this.game && this.game.humanPlayer && this.playerId === this.game.humanPlayer.id && 
+            this.game.discoveries && this.game.discoveries.precursorDrive > 0) {
+            const driveBonus = 1 + (this.game.discoveries.precursorDrive * 0.2);
+            currentSpeed *= driveBonus;
+        }
+        
         if (this.gameMap && this.gameMap.isInNebula(this.x, this.y)) {
-            currentSpeed = this.baseSpeed / 3; // Slow to 1/3 speed in nebulas
+            currentSpeed = currentSpeed / 3; // Slow to 1/3 speed in nebulas (after applying drive bonus)
         }
         
         // Move towards target

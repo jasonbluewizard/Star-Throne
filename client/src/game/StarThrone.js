@@ -968,7 +968,7 @@ export default class StarThrone {
         for (let i = startIndex; i < endIndex; i++) {
             const player = this.players[i];
             if (player && !player.isEliminated) {
-                player.update(deltaTime, this.gameMap, this.config.gameSpeed);
+                player.update(deltaTime, this.gameMap, this.config.gameSpeed, this);
             }
         }
         
@@ -1970,7 +1970,7 @@ export default class StarThrone {
             return;
         }
         
-        // Create probe with gameMap reference for nebula detection
+        // Create probe with gameMap and game references for nebula detection and discovery bonuses
         const probe = new Probe(
             this.nextProbeId++,
             fromTerritory,
@@ -1978,7 +1978,8 @@ export default class StarThrone {
             this.humanPlayer.id,
             this.humanPlayer.color,
             this.config.gameSpeed,
-            this.gameMap
+            this.gameMap,
+            this
         );
         
         this.probes.push(probe);
@@ -1997,7 +1998,7 @@ export default class StarThrone {
             return;
         }
         
-        // Create AI probe with gameMap reference for nebula detection
+        // Create AI probe with gameMap and game references for nebula detection
         const probe = new Probe(
             this.nextProbeId++,
             fromTerritory,
@@ -2005,7 +2006,8 @@ export default class StarThrone {
             player.id,
             player.color,
             this.config.gameSpeed,
-            this.gameMap
+            this.gameMap,
+            this
         );
         
         this.probes.push(probe);
@@ -2275,9 +2277,24 @@ export default class StarThrone {
         
         console.log(`Attack: ${attackingArmies} vs ${defendingArmies}`);
         
-        // Simple battle calculation
-        const attackPower = attackingArmies * (0.8 + Math.random() * 0.4); // Random factor
-        const defensePower = defendingArmies * (1.0 + Math.random() * 0.2); // Defender advantage
+        // Battle calculation with discovery bonuses
+        let attackMultiplier = 0.8 + Math.random() * 0.4; // Base random factor
+        let defenseMultiplier = 1.0 + Math.random() * 0.2; // Base defender advantage
+        
+        // Apply Precursor Weapons bonus to attacker (human player only)
+        if (attackingTerritory.ownerId === this.humanPlayer?.id && this.discoveries.precursorWeapons > 0) {
+            attackMultiplier *= (1 + this.discoveries.precursorWeapons * 0.1);
+            console.log(`⚔️ Precursor Weapons bonus applied! Attack power increased by ${this.discoveries.precursorWeapons * 10}%`);
+        }
+        
+        // Apply Precursor Shield bonus to defender (human player only)
+        if (defendingTerritory.ownerId === this.humanPlayer?.id && this.discoveries.precursorShield > 0) {
+            defenseMultiplier *= (1 + this.discoveries.precursorShield * 0.1);
+            console.log(`🛡️ Precursor Shield bonus applied! Defense power increased by ${this.discoveries.precursorShield * 10}%`);
+        }
+        
+        const attackPower = attackingArmies * attackMultiplier;
+        const defensePower = defendingArmies * defenseMultiplier;
         
         if (attackPower > defensePower) {
             // Attack successful
@@ -2376,9 +2393,22 @@ export default class StarThrone {
         
         console.log(`Custom Attack: ${actualAttack} vs ${defendingArmies}`);
         
-        // Simple battle calculation
-        const attackPower = actualAttack * (0.8 + Math.random() * 0.4);
-        const defensePower = defendingArmies * (1.0 + Math.random() * 0.2);
+        // Battle calculation with discovery bonuses
+        let attackMultiplier = 0.8 + Math.random() * 0.4; // Base random factor
+        let defenseMultiplier = 1.0 + Math.random() * 0.2; // Base defender advantage
+        
+        // Apply Precursor Weapons bonus to attacker (human player only)
+        if (attackingTerritory.ownerId === this.humanPlayer?.id && this.discoveries.precursorWeapons > 0) {
+            attackMultiplier *= (1 + this.discoveries.precursorWeapons * 0.1);
+        }
+        
+        // Apply Precursor Shield bonus to defender (human player only)
+        if (defendingTerritory.ownerId === this.humanPlayer?.id && this.discoveries.precursorShield > 0) {
+            defenseMultiplier *= (1 + this.discoveries.precursorShield * 0.1);
+        }
+        
+        const attackPower = actualAttack * attackMultiplier;
+        const defensePower = defendingArmies * defenseMultiplier;
         
         if (attackPower > defensePower) {
             // Attack successful
