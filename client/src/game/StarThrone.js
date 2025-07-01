@@ -96,6 +96,14 @@ export default class StarThrone {
         this.dragEnd = null;
         this.isDraggingForSupplyRoute = false;
         
+        // Parallax starfield system
+        this.starfield = {
+            farStars: [],      // Slowest moving, smallest stars
+            midStars: [],      // Medium speed, medium stars  
+            nearStars: [],     // Fastest moving, larger stars
+            initialized: false
+        };
+        
         this.init();
     }
     
@@ -117,8 +125,58 @@ export default class StarThrone {
         
         this.ui = new GameUI(this.canvas, this.camera);
         
+        // Initialize parallax starfield
+        this.initializeStarfield();
+        
         this.startGame();
         this.gameLoop();
+    }
+    
+    // Initialize parallax starfield layers
+    initializeStarfield() {
+        if (this.starfield.initialized) return;
+        
+        // Expand starfield area beyond visible map for smooth parallax
+        const starfieldWidth = this.gameMap.width * 2;
+        const starfieldHeight = this.gameMap.height * 2;
+        const offsetX = -this.gameMap.width * 0.5;
+        const offsetY = -this.gameMap.height * 0.5;
+        
+        // Far layer: Many small, dim stars that barely move
+        for (let i = 0; i < 300; i++) {
+            this.starfield.farStars.push({
+                x: Math.random() * starfieldWidth + offsetX,
+                y: Math.random() * starfieldHeight + offsetY,
+                size: Math.random() * 1 + 0.5,
+                brightness: Math.random() * 0.3 + 0.1,
+                twinkle: Math.random() * 0.2 + 0.8
+            });
+        }
+        
+        // Mid layer: Medium stars with moderate movement
+        for (let i = 0; i < 150; i++) {
+            this.starfield.midStars.push({
+                x: Math.random() * starfieldWidth + offsetX,
+                y: Math.random() * starfieldHeight + offsetY,
+                size: Math.random() * 1.5 + 1,
+                brightness: Math.random() * 0.4 + 0.2,
+                twinkle: Math.random() * 0.3 + 0.7
+            });
+        }
+        
+        // Near layer: Fewer large stars with most movement
+        for (let i = 0; i < 80; i++) {
+            this.starfield.nearStars.push({
+                x: Math.random() * starfieldWidth + offsetX,
+                y: Math.random() * starfieldHeight + offsetY,
+                size: Math.random() * 2 + 1.5,
+                brightness: Math.random() * 0.5 + 0.3,
+                twinkle: Math.random() * 0.4 + 0.6
+            });
+        }
+        
+        this.starfield.initialized = true;
+        console.log('Parallax starfield initialized with 530 stars across 3 layers');
     }
     
     // Create ship movement animation
@@ -766,6 +824,9 @@ export default class StarThrone {
         // Apply camera transformation
         this.camera.applyTransform(this.ctx);
         
+        // Render parallax starfield behind everything
+        this.renderParallaxStarfield();
+        
         // Render game world with optimizations
         this.renderNebulas();
         this.renderTerritories();
@@ -810,6 +871,75 @@ export default class StarThrone {
         }
         
         this.performanceStats.visibleTerritories = this.visibleTerritories.length;
+    }
+    
+    // Render parallax starfield with multiple depth layers
+    renderParallaxStarfield() {
+        if (!this.starfield.initialized) return;
+        
+        const time = Date.now() * 0.001; // For subtle twinkling
+        const cameraPosX = this.camera.x;
+        const cameraPosY = this.camera.y;
+        
+        this.ctx.save();
+        
+        // Far stars (slowest parallax, barely moves)
+        this.ctx.globalAlpha = 0.4; // Dimmer for background depth
+        this.starfield.farStars.forEach(star => {
+            // Very subtle parallax movement (5% of camera movement)
+            const parallaxX = star.x - (cameraPosX * 0.05);
+            const parallaxY = star.y - (cameraPosY * 0.05);
+            
+            // Skip stars outside visible area for performance
+            if (!this.camera.isPointVisible(parallaxX, parallaxY, 100)) return;
+            
+            // Subtle twinkling effect
+            const twinkle = star.twinkle + Math.sin(time * 0.5 + star.x * 0.01) * 0.1;
+            this.ctx.globalAlpha = star.brightness * twinkle * 0.4;
+            
+            this.ctx.fillStyle = '#ffffff';
+            this.ctx.beginPath();
+            this.ctx.arc(parallaxX, parallaxY, star.size, 0, Math.PI * 2);
+            this.ctx.fill();
+        });
+        
+        // Mid stars (moderate parallax)
+        this.ctx.globalAlpha = 0.6;
+        this.starfield.midStars.forEach(star => {
+            // Moderate parallax movement (15% of camera movement)
+            const parallaxX = star.x - (cameraPosX * 0.15);
+            const parallaxY = star.y - (cameraPosY * 0.15);
+            
+            if (!this.camera.isPointVisible(parallaxX, parallaxY, 100)) return;
+            
+            const twinkle = star.twinkle + Math.sin(time * 0.8 + star.x * 0.02) * 0.15;
+            this.ctx.globalAlpha = star.brightness * twinkle * 0.6;
+            
+            this.ctx.fillStyle = '#ffffff';
+            this.ctx.beginPath();
+            this.ctx.arc(parallaxX, parallaxY, star.size, 0, Math.PI * 2);
+            this.ctx.fill();
+        });
+        
+        // Near stars (most parallax movement)
+        this.ctx.globalAlpha = 0.8;
+        this.starfield.nearStars.forEach(star => {
+            // Stronger parallax movement (30% of camera movement)
+            const parallaxX = star.x - (cameraPosX * 0.3);
+            const parallaxY = star.y - (cameraPosY * 0.3);
+            
+            if (!this.camera.isPointVisible(parallaxX, parallaxY, 100)) return;
+            
+            const twinkle = star.twinkle + Math.sin(time * 1.2 + star.x * 0.03) * 0.2;
+            this.ctx.globalAlpha = star.brightness * twinkle * 0.8;
+            
+            this.ctx.fillStyle = '#ffffff';
+            this.ctx.beginPath();
+            this.ctx.arc(parallaxX, parallaxY, star.size, 0, Math.PI * 2);
+            this.ctx.fill();
+        });
+        
+        this.ctx.restore();
     }
     
     renderNebulas() {
