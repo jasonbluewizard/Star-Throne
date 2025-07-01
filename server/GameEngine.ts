@@ -6,6 +6,11 @@ export class GameEngine {
   private lastUpdate: number;
   private tickRate: number;
   private gameSpeed: number;
+  
+  // Delta tracking for optimized network updates
+  private changedTerritories: Set<number> = new Set();
+  private changedPlayers: Set<string> = new Set();
+  private changedProbes: boolean = false;
 
   constructor(config: { mapSize: number; tickRate?: number; gameSpeed?: number }) {
     this.tickRate = config.tickRate || 20; // 20 updates per second
@@ -247,6 +252,8 @@ export class GameEngine {
   }
 
   private updateProbes(deltaTime: number): void {
+    let probesChanged = false;
+    
     for (let i = this.gameState.probes.length - 1; i >= 0; i--) {
       const probe = this.gameState.probes[i];
       const elapsed = Date.now() - probe.startTime;
@@ -255,7 +262,13 @@ export class GameEngine {
       if (probe.progress >= 1.0) {
         this.completeProbeColonization(probe);
         this.gameState.probes.splice(i, 1);
+        probesChanged = true;
       }
+    }
+    
+    // Track probe changes for delta updates
+    if (probesChanged) {
+      this.changedProbes = true;
     }
   }
 
@@ -264,6 +277,9 @@ export class GameEngine {
     if (!territory || territory.ownerId !== null) return;
 
     this.colonizeTerritory(probe.toTerritoryId, probe.playerId, 1);
+    // Track territory and player changes for delta updates
+    this.changedTerritories.add(probe.toTerritoryId);
+    this.changedPlayers.add(probe.playerId);
     console.log(`Probe colonized territory ${probe.toTerritoryId} for player ${probe.playerId}`);
   }
 
@@ -277,6 +293,9 @@ export class GameEngine {
           const generationChance = speedAdjustedDelta / GAME_CONSTANTS.ARMY_GENERATION_RATE;
           if (Math.random() < generationChance) {
             territory.armySize++;
+            // Track territory change for delta updates
+            this.changedTerritories.add(territory.id);
+            this.changedPlayers.add(territory.ownerId);
           }
         }
       }
@@ -423,18 +442,24 @@ export class GameEngine {
       defendingTerritory.armySize = survivingArmies;
       attackingTerritory.armySize = 1;
 
+      // Track territory changes for delta updates
+      this.changedTerritories.add(attackingTerritory.id);
+      this.changedTerritories.add(defendingTerritory.id);
+
       // Update player territories
       if (previousOwner) {
         const prevPlayer = this.gameState.players[previousOwner];
         if (prevPlayer) {
           const index = prevPlayer.territories.indexOf(defendingTerritory.id);
           if (index > -1) prevPlayer.territories.splice(index, 1);
+          this.changedPlayers.add(previousOwner);
         }
       }
 
       const newOwner = this.gameState.players[attackingTerritory.ownerId!];
       if (newOwner && !newOwner.territories.includes(defendingTerritory.id)) {
         newOwner.territories.push(defendingTerritory.id);
+        this.changedPlayers.add(attackingTerritory.ownerId!);
       }
 
       this.updatePlayerStats();
