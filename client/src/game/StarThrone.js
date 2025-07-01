@@ -1685,6 +1685,24 @@ export default class StarThrone {
         const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
         const startTerritory = this.findTerritoryAt(worldPos.x, worldPos.y);
         
+        // Handle double-click detection for supply routes
+        const now = Date.now();
+        if (this.lastClickTime && now - this.lastClickTime < 300 && e.button === 0) {
+            // Double click detected - try to create supply route
+            if (startTerritory) {
+                this.handleDoubleClick(startTerritory);
+                this.lastClickTime = null; // Reset double-click tracking
+                return; // Don't process as regular click
+            }
+        }
+        this.lastClickTime = now;
+        
+        // Territory selection for left clicks
+        if (e.button === 0 && startTerritory) {
+            this.selectedTerritory = startTerritory;
+            console.log(`Selected territory ${startTerritory.id} (Owner: ${startTerritory.ownerId})`);
+        }
+        
         if (startTerritory && startTerritory.ownerId === this.humanPlayer?.id) {
             this.dragStart = startTerritory;
             
@@ -1719,16 +1737,14 @@ export default class StarThrone {
                 (newMousePos.y - this.dragStartPos.y) ** 2
             );
             
-            if (dragDistance > 8) {
-                // If we have proportional drag start, activate proportional fleet command
-                if (this.proportionalDragStart) {
+            if (dragDistance > 15) { // Increased threshold to prevent accidental activation
+                // Only start proportional drag if dragging for more than 300ms (intentional drag)
+                const dragTime = Date.now() - this.dragStartTime;
+                if (this.proportionalDragStart && dragTime > 300) {
                     this.isProportionalDrag = true;
                     console.log('Started proportional fleet drag');
-                }
-                // If we have a valid drag start territory, this is a supply route drag
-                else if (this.dragStart) {
-                    this.isDraggingForSupplyRoute = true;
                 } else {
+                    // Regular camera drag
                     this.isDragging = true;
                 }
             }
@@ -1868,6 +1884,12 @@ export default class StarThrone {
         }
         
         const fromTerritory = this.selectedTerritory;
+        
+        // Validate warp lane connectivity (except for colonizable planets)
+        if (!targetTerritory.isColonizable && !fromTerritory.neighbors.includes(targetTerritory.id)) {
+            console.log(`Cannot perform action: No warp lane from ${fromTerritory.id} to ${targetTerritory.id}`);
+            return;
+        }
         
         // Determine action based on target
         if (targetTerritory.ownerId === this.humanPlayer?.id && targetTerritory.id !== fromTerritory.id) {
@@ -2294,6 +2316,12 @@ export default class StarThrone {
     // Core fleet command execution with percentage control
     executeFleetCommand(fromTerritory, toTerritory, fleetPercentage) {
         if (!fromTerritory || !toTerritory || fromTerritory.ownerId !== this.humanPlayer?.id) {
+            return;
+        }
+        
+        // Validate warp lane connectivity (except for colonizable planets which can be probed)
+        if (!toTerritory.isColonizable && !fromTerritory.neighbors.includes(toTerritory.id)) {
+            console.log(`Cannot send fleet: No warp lane from ${fromTerritory.id} to ${toTerritory.id}`);
             return;
         }
         
@@ -2821,54 +2849,33 @@ export default class StarThrone {
         this.modifierKeys.alt = e.altKey;
     }
     
-    handleLongPress() {
-        // Long press detected - execute advanced actions
-        if (!this.longPressTarget || !this.selectedTerritory) {
-            console.log('Long press detected but no valid targets');
+    handleDoubleClick(targetTerritory) {
+        // Double-click detected - create supply route between owned territories
+        if (!this.selectedTerritory || !targetTerritory) {
             return;
         }
         
         const fromTerritory = this.selectedTerritory;
-        const toTerritory = this.longPressTarget;
+        const toTerritory = targetTerritory;
         
-        // Check if from territory belongs to human player
-        if (fromTerritory.ownerId !== this.humanPlayer?.id) {
-            console.log('Long press: source territory not owned by player');
+        // Both territories must be owned by human player
+        if (fromTerritory.ownerId !== this.humanPlayer?.id || toTerritory.ownerId !== this.humanPlayer?.id) {
             return;
         }
         
-        if (toTerritory.ownerId === this.humanPlayer.id) {
-            // Friendly territory - create supply route (check if connected by owned territories)
-            const path = this.findPathBetweenTerritories(fromTerritory, toTerritory);
-            if (path && path.length > 0) {
-                this.createSupplyRoute(fromTerritory, toTerritory);
-                console.log('Long press: Supply route created between connected friendly territories');
-            } else {
-                console.log('Long press: Territories not connected by owned star lanes for supply route');
-            }
-        } else if (toTerritory.ownerId !== null) {
-            // Enemy territory - send all available ships (minus 1 to keep territory)
-            const availableArmies = Math.max(0, fromTerritory.armySize - 1);
-            if (availableArmies >= 1 && fromTerritory.isNeighborOf(toTerritory)) {
-                // Transfer all available armies for attack
-                const originalArmies = fromTerritory.armySize;
-                fromTerritory.armySize = 1; // Keep 1 army
-                const attackingArmies = originalArmies - 1;
-                
-                // Execute massive attack
-                this.attackTerritory(fromTerritory, toTerritory);
-                console.log(`Long press: All-out attack with ${attackingArmies} armies!`);
-            } else {
-                console.log('Long press: Not enough armies or not adjacent for attack');
-            }
-        } else if (toTerritory.isColonizable) {
-            // Colonizable planet - launch probe
-            this.launchProbe(fromTerritory, toTerritory);
-            console.log('Long press: Probe launched to colonizable planet');
+        // Must be different territories
+        if (fromTerritory.id === toTerritory.id) {
+            return;
         }
         
-        // Clear the timer
-        this.longPressTimer = null;
+        // Check if connected by owned territories
+        const path = this.findPathBetweenTerritories(fromTerritory, toTerritory);
+        if (path && path.length > 0) {
+            this.createSupplyRoute(fromTerritory, toTerritory);
+            console.log(`Double-click: Supply route created from ${fromTerritory.id} to ${toTerritory.id}`);
+        } else {
+            console.log('Double-click: Territories not connected by owned star lanes for supply route');
+        }
     }
     
     restartGame() {
