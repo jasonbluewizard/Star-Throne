@@ -109,8 +109,7 @@ export class GameUI {
         // Performance panel (togglable with P key)
         this.renderPerformanceInfo(ctx, gameData);
         
-        // Zoom controls
-        this.renderZoomControls(ctx, gameData);
+        // Zoom controls removed - using mousewheel only
         
         // Tooltip for hovered territory
         this.renderTooltip(ctx, gameData);

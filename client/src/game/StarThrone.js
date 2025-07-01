@@ -2173,37 +2173,7 @@ export default class StarThrone {
             return true;
         }
         
-        // Check for zoom controls click
-        const buttonSize = 50;
-        const margin = 20;
-        const spacing = 5;
-        const zoomInX = margin;
-        const zoomInY = this.canvas.height - margin - buttonSize;
-        const zoomOutX = margin;
-        const zoomOutY = this.canvas.height - margin - (buttonSize * 2) - spacing;
-        
-        // Zoom In button
-        if (screenX >= zoomInX && screenX <= zoomInX + buttonSize &&
-            screenY >= zoomInY && screenY <= zoomInY + buttonSize) {
-            this.camera.targetZoom = Math.min(this.camera.maxZoom, this.camera.targetZoom * 1.2);
-            console.log('Zoom In - new zoom:', (this.camera.targetZoom * 100).toFixed(0) + '%');
-            return true;
-        }
-        
-        // Zoom Out button
-        if (screenX >= zoomOutX && screenX <= zoomOutX + buttonSize &&
-            screenY >= zoomOutY && screenY <= zoomOutY + buttonSize) {
-            const newZoom = Math.max(this.camera.minZoom, this.camera.targetZoom / 1.2);
-            this.camera.targetZoom = newZoom;
-            
-            // Recenter the map when zooming out far enough
-            if (newZoom <= 0.3) {
-                this.camera.centerOn(this.gameMap.width / 2, this.gameMap.height / 2);
-            }
-            
-            console.log('Zoom Out - new zoom:', (this.camera.targetZoom * 100).toFixed(0) + '%');
-            return true;
-        }
+        // Zoom controls removed - using mousewheel only
         
         return false; // No UI element was clicked
     }
