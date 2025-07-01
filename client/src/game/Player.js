@@ -266,6 +266,7 @@ export class Player {
         // Debug: Log attacking army strength for throne star attacks
         if (defendingTerritory.isThronestar) {
             console.log(`Throne attack details: Attacker ${attackingTerritory.armySize} armies (${Math.floor(attackingTerritory.armySize * 0.7)} attacking) vs Defender ${defendingTerritory.armySize} armies`);
+            console.log(`Defending player: ${oldOwnerId} (human player is 0)`);
         }
         
         // Use 70% of armies for attack
@@ -361,6 +362,12 @@ export class Player {
             
             defendingTerritory.armySize = survivingDefenders;
             attackingTerritory.armySize = attackingTerritory.armySize - attackingArmies + survivingAttackers;
+            
+            // Debug: Log failed throne attacks
+            if (defendingTerritory.isThronestar) {
+                console.log(`❌ THRONE ATTACK FAILED! ${this.name} failed to capture throne star ${defendingTerritory.id} from ${oldOwnerId}`);
+                console.log(`Attack Power: ${attackPower.toFixed(1)} vs Defense Power: ${defensePower.toFixed(1)}`);
+            }
             
             this.battlesLost++;
             this.armiesLost += (attackingArmies - survivingAttackers);
