@@ -99,20 +99,11 @@ export default class StarThrone {
             initialized: false
         };
         
-        // Discovery system for planet colonization
-        this.discoveries = {
-            // Empire-wide bonuses (levels stack)
-            precursorWeapons: 0,    // +10% attack per level
-            precursorDrive: 0,      // +20% probe/ship speed per level
-            precursorShield: 0,     // +10% defense per level
-            precursorNanotech: 0,   // +10% empire-wide generation per level
-            
-            // Planet-specific bonuses
-            factoryPlanets: new Set(), // Planets with 200% generation
-            
-            // Discovery history for display
-            discoveryLog: []
-        };
+        // Discovery system for planet colonization - per player tracking
+        this.playerDiscoveries = new Map(); // Map of playerId -> discoveries
+        
+        // Global discovery log for all players
+        this.discoveryLog = [];
         
         // Notification system
         this.notifications = [];
@@ -445,6 +436,7 @@ export default class StarThrone {
                 // Planet gets double generation rate
                 this.discoveries.factoryPlanets.add(territory.id);
                 territory.discoveryBonus = 'factory';
+                territory.hasFactory = true; // Add factory icon
                 const factoryMessage = `🏭 Precursor Factory discovered! Planet ${territory.id} has 200% generation rate`;
                 console.log(factoryMessage);
                 if (playerId === this.humanPlayer?.id) {
@@ -911,6 +903,7 @@ export default class StarThrone {
         // Create human player with distinctive bright cyan color
         this.humanPlayer = new Player(0, 'You', '#00ffff', 'human');
         this.players.push(this.humanPlayer);
+        this.initializePlayerDiscoveries(this.humanPlayer.id);
         
         // Create AI players with unique colors and human-like names
         const usedColors = new Set(['#00ffff']); // Reserve human color

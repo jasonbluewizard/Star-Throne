@@ -236,6 +236,11 @@ export class Territory {
             this.renderCrown(ctx);
         }
         
+        // Draw factory icon for Precursor Factory discoveries
+        if (this.hasFactory) {
+            this.renderFactoryIcon(ctx);
+        }
+        
         // Draw army count for neutral territories or "?" for colonizable
         if (this.ownerId === null) {
             ctx.font = 'bold 14px Arial';
@@ -391,6 +396,29 @@ export class Territory {
         ctx.font = `bold ${crownSize}px Arial`;
         ctx.textAlign = 'center';
         ctx.fillText('👑', crownX, crownY);
+        
+        ctx.restore();
+    }
+    
+    renderFactoryIcon(ctx) {
+        // Factory icon positioned to the right of the planet
+        const factoryX = this.x + this.radius + 10;
+        const factoryY = this.y;
+        const factorySize = Math.max(10, this.radius * 0.6);
+        
+        ctx.save();
+        
+        // Factory shadow for visibility
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.font = `bold ${factorySize + 2}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.fillText('🏭', factoryX + 1, factoryY + 1);
+        
+        // Main factory icon - orange/industrial color
+        ctx.fillStyle = '#FF8C00';
+        ctx.font = `bold ${factorySize}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.fillText('🏭', factoryX, factoryY);
         
         ctx.restore();
     }
