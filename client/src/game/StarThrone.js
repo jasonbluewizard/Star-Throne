@@ -1761,12 +1761,14 @@ export default class StarThrone {
     
     renderUI() {
         if (this.ui) {
+            const fsmState = this.inputFSM ? this.inputFSM.getState() : {};
+            
             this.ui.render(this.ctx, {
                 gameState: this.gameState,
                 gameTimer: this.gameTimer,
                 players: this.players,
                 humanPlayer: this.humanPlayer,
-                selectedTerritory: this.selectedTerritory,
+                selectedTerritory: fsmState.selectedTerritory,
                 hoveredTerritory: this.hoveredTerritory,
                 mousePos: this.mousePos,
                 fps: this.fps,
@@ -1786,7 +1788,10 @@ export default class StarThrone {
                 probeCount: this.probes.length,
                 notifications: this.notifications,
                 discoveries: this.discoveries,
-                showBonusPanel: this.showBonusPanel
+                showBonusPanel: this.showBonusPanel,
+                inputState: fsmState,
+                messageText: this.messageText,
+                messageTimer: this.messageTimer
             });
         }
     }
@@ -1924,6 +1929,14 @@ export default class StarThrone {
             }
         }
         else if (e.button === 0 && (wasQuickClick || !this.isDragging)) {
+            // Check UI elements first
+            if (this.handleUIClick(this.mousePos.x, this.mousePos.y)) {
+                return; // UI handled the click
+            }
+            
+            // Skip game logic if not in playing state
+            if (this.gameState !== 'playing') return;
+            
             // Left click - use FSM for input handling
             if (this.inputFSM) {
                 this.inputFSM.handleInput('leftClick', {
@@ -2064,10 +2077,8 @@ export default class StarThrone {
         console.log('Mouse wheel zoom:', Math.round(this.camera.targetZoom * 100) + '%');
     }
     
-    handleTerritorySelection(worldPos) {
-        // Convert to screen coordinates for UI element checks
-        const screenX = this.mousePos.x;
-        const screenY = this.mousePos.y;
+    handleUIClick(screenX, screenY) {
+        // Handle UI element clicks (moved from old handleTerritorySelection)
         
         // Check for "PLAY AGAIN" button when human player is eliminated
         const humanPlayer = this.humanPlayer;
@@ -2080,7 +2091,7 @@ export default class StarThrone {
             if (screenX >= buttonX && screenX <= buttonX + buttonWidth &&
                 screenY >= buttonY && screenY <= buttonY + buttonHeight) {
                 this.restartGame();
-                return;
+                return true;
             }
         }
         
@@ -2091,7 +2102,7 @@ export default class StarThrone {
             if (screenX >= button.x && screenX <= button.x + button.width &&
                 screenY >= button.y && screenY <= button.y + button.height) {
                 this.restartGame();
-                return;
+                return true;
             }
         }
         
@@ -2105,7 +2116,7 @@ export default class StarThrone {
             screenY >= leaderboardY && screenY <= leaderboardY + leaderboardHeight) {
             this.leaderboardMinimized = !this.leaderboardMinimized;
             console.log('Leaderboard toggled:', this.leaderboardMinimized ? 'minimized' : 'maximized');
-            return;
+            return true;
         }
         
         // Check for minimap click - fix coordinate calculation
@@ -2119,7 +2130,7 @@ export default class StarThrone {
             screenY >= minimapClickY && screenY <= minimapClickY + minimapHeight) {
             this.minimapMinimized = !this.minimapMinimized;
             console.log('Minimap toggled:', this.minimapMinimized ? 'minimized' : 'maximized');
-            return;
+            return true;
         }
         
         // Check for zoom controls click
@@ -2136,7 +2147,7 @@ export default class StarThrone {
             screenY >= zoomInY && screenY <= zoomInY + buttonSize) {
             this.camera.targetZoom = Math.min(this.camera.maxZoom, this.camera.targetZoom * 1.2);
             console.log('Zoom In - new zoom:', (this.camera.targetZoom * 100).toFixed(0) + '%');
-            return;
+            return true;
         }
         
         // Zoom Out button
@@ -2151,69 +2162,10 @@ export default class StarThrone {
             }
             
             console.log('Zoom Out - new zoom:', (this.camera.targetZoom * 100).toFixed(0) + '%');
-            return;
+            return true;
         }
         
-        if (this.gameState !== 'playing') return;
-        
-        // Find clicked territory
-        const clickedTerritory = this.findTerritoryAt(worldPos.x, worldPos.y);
-        
-        if (!clickedTerritory) {
-            this.selectedTerritory = null;
-            return;
-        }
-        
-        // Check if we can probe BEFORE changing selection
-        console.log(`Click analysis: clicked=${clickedTerritory?.id}, isColonizable=${clickedTerritory?.isColonizable}, selected=${this.selectedTerritory?.id}, selectedOwner=${this.selectedTerritory?.ownerId}, humanPlayer=${this.humanPlayer?.id}`);
-        
-        // Handle probe launches to colonizable planets
-        if (clickedTerritory.isColonizable && this.selectedTerritory && 
-            this.selectedTerritory.ownerId === this.humanPlayer.id) {
-            
-            console.log(`Attempting to probe: from territory ${this.selectedTerritory.id} (armies: ${this.selectedTerritory.armySize}) to planet ${clickedTerritory.id}`);
-            this.launchProbe(this.selectedTerritory, clickedTerritory);
-            // Keep selection so player can launch multiple probes
-            return;
-        }
-        
-        // If clicking on own territory
-        if (clickedTerritory.ownerId === this.humanPlayer.id) {
-            // If we already have a territory selected and clicking another owned territory
-            if (this.selectedTerritory && 
-                this.selectedTerritory.ownerId === this.humanPlayer.id &&
-                this.selectedTerritory.id !== clickedTerritory.id &&
-                this.selectedTerritory.neighbors.includes(clickedTerritory.id)) {
-                
-                // Transfer half the fleet from selected to clicked territory
-                this.transferFleet(this.selectedTerritory, clickedTerritory);
-                this.selectedTerritory = null;
-                return;
-            }
-            
-            this.selectedTerritory = clickedTerritory;
-            return;
-        }
-        
-        // For all other cases (including colonizable planets when no valid selection)
-        this.selectedTerritory = clickedTerritory;
-        
-        // If we have a selected territory and clicking on a neighbor, attack (but not colonizable planets)
-        if (this.selectedTerritory && 
-            this.selectedTerritory.ownerId === this.humanPlayer.id &&
-            this.selectedTerritory.neighbors.includes(clickedTerritory.id) &&
-            !clickedTerritory.isColonizable) {
-            
-            this.attackTerritory(this.selectedTerritory, clickedTerritory);
-            this.selectedTerritory = null;
-            return;
-        }
-        
-        // Only select the territory if it's not a colonizable planet we're trying to probe
-        if (!(clickedTerritory.isColonizable && this.selectedTerritory && 
-              this.selectedTerritory.ownerId === this.humanPlayer.id)) {
-            this.selectedTerritory = clickedTerritory;
-        }
+        return false; // No UI element was clicked
     }
     
     launchProbe(fromTerritory, toTerritory) {
@@ -2944,10 +2896,13 @@ export default class StarThrone {
         this.modifierKeys.ctrl = e.ctrlKey;
         this.modifierKeys.alt = e.altKey;
         
+        // First check if FSM handles the key
+        if (this.inputFSM && this.inputFSM.handleInput('keyPress', { key: e.key })) {
+            return; // FSM handled the key
+        }
+        
+        // Handle non-FSM keys
         switch (e.key) {
-            case 'Escape':
-                this.selectedTerritory = null;
-                break;
             case 'r':
             case 'R':
                 if (this.gameState === 'ended') {
@@ -2963,15 +2918,16 @@ export default class StarThrone {
                 this.minimapMinimized = !this.minimapMinimized;
                 console.log('Minimap toggled with M key:', this.minimapMinimized ? 'minimized' : 'maximized');
                 break;
-            case 'p':
-            case 'P':
+            case 'q':
+            case 'Q':
                 this.showPerformancePanel = !this.showPerformancePanel;
-                console.log('Performance panel toggled with P key:', this.showPerformancePanel ? 'shown' : 'hidden');
+                console.log('Performance panel toggled with Q key:', this.showPerformancePanel ? 'shown' : 'hidden');
                 break;
             case ' ':
                 // Spacebar - Focus on Selected Territory
-                if (this.selectedTerritory) {
-                    this.camera.focusOnTerritory(this.selectedTerritory);
+                const fsmState = this.inputFSM.getState();
+                if (fsmState.selectedTerritory) {
+                    this.camera.focusOnTerritory(fsmState.selectedTerritory);
                     console.log('Focused camera on selected territory');
                 } else if (this.humanPlayer && this.humanPlayer.territories.length > 0) {
                     // Focus on first owned territory if none selected
