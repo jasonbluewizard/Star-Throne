@@ -261,14 +261,18 @@ class TerritorySelectedState extends BaseState {
     }
     
     handleRightClick(territory, worldPos) {
+        console.log(`TerritorySelected: Right-click on territory ${territory?.id}, isColonizable: ${territory?.isColonizable}`);
+        
         if (!territory) {
             return false; // Camera drag
         }
         
         // Right-click on colonizable planet - launch probe
         if (territory.isColonizable) {
+            console.log(`Attempting probe launch: from ${this.selectedTerritory.id} (${this.selectedTerritory.armySize} armies) to ${territory.id}`);
             if (this.selectedTerritory.armySize >= 10) {
                 this.game.launchProbe(this.selectedTerritory, territory);
+                console.log(`Probe launched successfully via right-click`);
                 // Stay in TerritorySelected to allow multiple probes
                 return true;
             } else {
