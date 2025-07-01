@@ -2072,9 +2072,15 @@ export default class StarThrone {
             !clickedTerritory.isColonizable) {
             
             this.attackTerritory(this.selectedTerritory, clickedTerritory);
+            this.selectedTerritory = null;
+            return;
         }
         
-        this.selectedTerritory = clickedTerritory;
+        // Only select the territory if it's not a colonizable planet we're trying to probe
+        if (!(clickedTerritory.isColonizable && this.selectedTerritory && 
+              this.selectedTerritory.ownerId === this.humanPlayer.id)) {
+            this.selectedTerritory = clickedTerritory;
+        }
     }
     
     launchProbe(fromTerritory, toTerritory) {
