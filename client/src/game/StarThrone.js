@@ -3,7 +3,10 @@ import { Player } from './Player.js';
 import { GameUI } from './GameUI.js';
 import { Camera } from './Camera.js';
 import { Probe } from './Probe.js';
-import { InputStateMachine } from './InputStateMachine.js';
+import { InputHandler } from './InputHandler.js';
+import { Renderer } from './Renderer.js';
+import { CombatSystem } from './CombatSystem.js';
+import { SupplySystem } from './SupplySystem.js';
 import { GAME_CONSTANTS } from '../../../common/gameConstants.ts';
 
 export default class StarThrone {
@@ -36,23 +39,14 @@ export default class StarThrone {
         this.homeSystemFlashStart = null;
         this.homeSystemFlashDuration = 3000; // 3 seconds
         
-        // Input handling
-        this.mousePos = { x: 0, y: 0 };
-        this.selectedTerritory = null;
-        this.hoveredTerritory = null;
-        this.isDragging = false;
-        this.lastMousePos = { x: 0, y: 0 };
-        this.cursorMode = 'default'; // 'default', 'attack', 'transfer', 'probe'
+        // Modular systems (initialized in init())
+        this.inputHandler = null;
+        this.renderer = null;
+        this.combatSystem = null;
+        this.supplySystem = null;
         
-        // Fleet command system
-        this.isProportionalDrag = false;
-        this.proportionalDragStart = null;
-        this.fleetPercentage = 0.5; // Default 50%
-        this.modifierKeys = {
-            shift: false,
-            ctrl: false,
-            alt: false
-        };
+        // Legacy properties for backward compatibility
+        this.hoveredTerritory = null;
         
         // Performance
         this.lastFrameTime = 0;
@@ -205,11 +199,11 @@ export default class StarThrone {
         
         this.ui = new GameUI(this.canvas, this.camera);
         
-        // Initialize FSM for input handling
-        this.inputFSM = new InputStateMachine(this);
-        
-        // Initialize parallax starfield
-        this.initializeStarfield();
+        // Initialize modular systems
+        this.inputHandler = new InputHandler(this);
+        this.renderer = new Renderer(this.canvas, this.camera);
+        this.combatSystem = new CombatSystem(this);
+        this.supplySystem = new SupplySystem(this);
         
         this.startGame();
         this.gameLoop();
