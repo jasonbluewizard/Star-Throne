@@ -530,8 +530,19 @@ export class GameUI {
         // Only show human player's discoveries
         if (!gameData.playerDiscoveries || !gameData.humanPlayer) return;
         
+        // Debug the discovery system
+        console.log('DISCOVERY PANEL DEBUG:');
+        console.log('Human player ID:', gameData.humanPlayer.id);
+        console.log('Player discoveries map size:', gameData.playerDiscoveries.size);
+        console.log('All player IDs in discoveries:', [...gameData.playerDiscoveries.keys()]);
+        
         const discoveries = gameData.playerDiscoveries.get(gameData.humanPlayer.id);
-        if (!discoveries) return;
+        console.log('Human player discoveries object:', discoveries);
+        
+        if (!discoveries) {
+            console.log('NO DISCOVERIES FOUND FOR HUMAN PLAYER');
+            return;
+        }
         
         let discoveryCount = 0;
         

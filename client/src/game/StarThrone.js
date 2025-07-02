@@ -754,8 +754,16 @@ export default class StarThrone {
         
         // Trigger discovery event before colonization
         const discovery = this.selectRandomDiscovery();
+        
+        // Debug: Log before processing
+        console.log(`Processing discovery for player ${player.id} (${player.name}):`, discovery);
+        console.log(`Player discoveries before:`, this.playerDiscoveries.get(player.id));
+        
         const discoveryResult = GameUtils.processDiscovery(discovery, player.id, planet.id, this.playerDiscoveries, this);
         const colonizationSuccessful = discoveryResult.success;
+        
+        // Debug: Log after processing
+        console.log(`Player discoveries after:`, this.playerDiscoveries.get(player.id));
         
         // Always log the discovery for UI display (both success and failure)
         this.logDiscoveryForUI(planet, player.id, discovery);
