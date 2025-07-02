@@ -16,6 +16,7 @@ import { DiscoverySystem } from './DiscoverySystem.js';
 import { AnimationSystem } from './AnimationSystem.js';
 import { UIManager } from './UIManager.js';
 import { AIManager } from './AIManager.js';
+import TerritoryRenderer from './TerritoryRenderer.js';
 
 export default class StarThrone {
     constructor(config = {}) {
@@ -391,6 +392,7 @@ export default class StarThrone {
         this.animationSystem = new AnimationSystem(this);
         this.uiManager = new UIManager(this);
         this.aiManager = new AIManager(this);
+        this.territoryRenderer = new TerritoryRenderer(this);
         
         // Auto-detect optimal performance profile
         this.performanceManager.detectOptimalProfile();
@@ -1557,7 +1559,9 @@ export default class StarThrone {
         const lodLevel = this.getLODLevel();
         
         this.renderNebulas();
-        this.renderTerritories();
+        
+        // Delegate territory rendering to the new module
+        this.territoryRenderer.renderTerritories();
         
         // Render connections based on LOD level
         if (lodLevel >= 2) {
