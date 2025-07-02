@@ -488,6 +488,11 @@ Changelog:
   * GameUtils.js was trying to access Set-based properties (factoryPlanets, mineralPlanets, voidStormPlanets)
   * Updated GameUtils.processDiscovery to use correct property names matching initialized discovery object structure
   * Empire Discoveries panel now properly displays all human player discoveries and bonuses
+- January 2, 2025. Discovery system ID mismatch fix:
+  * Fixed critical bug where discovery ID 'mineral_deposits' didn't match GameUtils case 'rich_minerals'
+  * All discovery types now properly increment in Empire Discoveries panel
+  * Confirmed proper functionality: precursor technologies, friendly aliens, factory discoveries, mineral deposits
+  * Discovery system fully operational with accurate tracking of empire bonuses and planet-specific discoveries
 - January 1, 2025. Strategic camera system implementation (Supreme Commander-style):
   * Enhanced strategic zoom range: extreme zoom-out (0.05x) to tactical close-up (8.0x) for galaxy-wide view
   * Implemented inertial panning with smooth momentum and friction for natural camera movement
