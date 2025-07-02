@@ -1034,14 +1034,13 @@ export default class StarThrone {
         if (this.discoverySystem) {
             this.discoverySystem.updateFloatingDiscoveries();
         }
-        // Skip complex animation updates for now to prevent errors
-        // if (this.animationSystem) {
-        //     try {
-        //         this.animationSystem.update(deltaTime);
-        //     } catch (error) {
-        //         console.error('Error updating animations:', error);
-        //     }
-        // }
+        if (this.animationSystem) {
+            try {
+                this.animationSystem.update(deltaTime);
+            } catch (error) {
+                console.error('Error updating animations:', error);
+            }
+        }
         if (this.memoryManager) {
             this.memoryManager.update();
         }
@@ -1141,53 +1140,135 @@ export default class StarThrone {
         }
     }
     
-    render() {
-        try {
-            if (!this.ctx || !this.canvas) return;
-            
-            // Clear canvas
-            this.ctx.fillStyle = '#001122';
-            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-            
-            // Skip complex rendering if camera or gameMap not ready
-            if (!this.camera || !this.gameMap) return;
-            
-            this.ctx.save();
-            this.camera.applyTransform(this.ctx);
-            
-            // Simple territory rendering
-            if (this.gameMap.territories) {
-                const territories = Object.values(this.gameMap.territories);
-                for (const territory of territories) {
-                    if (territory && territory.x !== undefined && territory.y !== undefined) {
-                        // Basic territory circle
-                        const owner = this.players.find(p => p.id === territory.ownerId);
-                        this.ctx.fillStyle = owner ? owner.color : '#444444';
-                        this.ctx.beginPath();
-                        this.ctx.arc(territory.x, territory.y, territory.radius || 15, 0, Math.PI * 2);
-                        this.ctx.fill();
-                        
-                        // Army count
-                        this.ctx.fillStyle = '#ffffff';
-                        this.ctx.font = '12px Arial';
-                        this.ctx.textAlign = 'center';
-                        this.ctx.fillText(territory.armyCount || '1', territory.x, territory.y + 4);
-                    }
+    findTerritoryAt(x, y) {
+        if (!this.gameMap || !this.gameMap.territories) return null;
+        
+        const territories = Object.values(this.gameMap.territories);
+        for (const territory of territories) {
+            if (territory && territory.x !== undefined && territory.y !== undefined) {
+                const dx = x - territory.x;
+                const dy = y - territory.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance <= (territory.radius || 15)) {
+                    return territory;
                 }
             }
-            
-            this.ctx.restore();
-            
-            // Basic UI
-            if (this.ui && this.players) {
-                this.ctx.fillStyle = '#ffffff';
-                this.ctx.font = '16px Arial';
-                this.ctx.fillText(`Players: ${this.players.length}`, 10, 30);
-                this.ctx.fillText(`State: ${this.gameState}`, 10, 50);
+        }
+        return null;
+    }
+    
+    render() {
+        if (!this.ctx || !this.canvas) {
+            console.error('No canvas context available for rendering');
+            return;
+        }
+        
+        const renderStart = performance.now();
+        
+        // Clear canvas with space background
+        this.ctx.fillStyle = '#001122';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Save context for camera transform
+        this.ctx.save();
+        
+        // Apply camera transformation
+        if (this.camera) {
+            this.camera.applyTransform(this.ctx);
+        }
+        
+        // Use the advanced territory renderer for high-quality visuals
+        if (this.territoryRenderer && this.gameMap) {
+            try {
+                this.territoryRenderer.render(this.ctx);
+            } catch (error) {
+                console.error('Territory renderer error:', error);
+                // Fallback to basic rendering
+                this.renderBasicTerritories();
             }
-            
-        } catch (error) {
-            console.error('Render error:', error);
+        } else {
+            this.renderBasicTerritories();
+        }
+        
+        // Render probes with animation system
+        if (this.animationSystem && this.probes) {
+            try {
+                this.animationSystem.renderProbes(this.ctx, this.probes);
+            } catch (error) {
+                console.error('Animation system error:', error);
+            }
+        }
+        
+        // Render ship animations
+        if (this.animationSystem) {
+            try {
+                this.animationSystem.renderShipAnimations(this.ctx);
+            } catch (error) {
+                console.error('Ship animation error:', error);
+            }
+        }
+        
+        // Restore context
+        this.ctx.restore();
+        
+        // Use advanced UI manager for polished interface
+        if (this.uiManager) {
+            try {
+                const selectedTerritory = this.inputHandler ? this.inputHandler.getInputState().selectedTerritory : null;
+                this.uiManager.render(this.ctx, {
+                    gameState: this.gameState,
+                    gameTimer: this.gameTimer,
+                    players: this.players,
+                    humanPlayer: this.humanPlayer,
+                    selectedTerritory: selectedTerritory,
+                    hoveredTerritory: this.hoveredTerritory,
+                    notifications: this.notifications || [],
+                    messageText: this.messageText || '',
+                    messageTimer: this.messageTimer || 0,
+                    camera: this.camera,
+                    playerDiscoveries: this.playerDiscoveries
+                });
+            } catch (error) {
+                console.error('UI manager error:', error);
+                // Fallback basic UI
+                this.renderBasicUI();
+            }
+        } else {
+            this.renderBasicUI();
+        }
+        
+        // Track performance
+        if (this.performanceStats) {
+            this.performanceStats.renderTime = performance.now() - renderStart;
+        }
+    }
+    
+    renderBasicTerritories() {
+        if (!this.gameMap || !this.gameMap.territories) return;
+        
+        const territories = Object.values(this.gameMap.territories);
+        for (const territory of territories) {
+            if (territory && territory.x !== undefined && territory.y !== undefined) {
+                const owner = this.players.find(p => p.id === territory.ownerId);
+                this.ctx.fillStyle = owner ? owner.color : '#444444';
+                this.ctx.beginPath();
+                this.ctx.arc(territory.x, territory.y, territory.radius || 15, 0, Math.PI * 2);
+                this.ctx.fill();
+                
+                this.ctx.fillStyle = '#ffffff';
+                this.ctx.font = '12px Arial';
+                this.ctx.textAlign = 'center';
+                this.ctx.fillText(territory.armyCount || '1', territory.x, territory.y + 4);
+            }
+        }
+    }
+    
+    renderBasicUI() {
+        if (this.players) {
+            this.ctx.fillStyle = '#ffffff';
+            this.ctx.font = '16px Arial';
+            this.ctx.fillText(`Players: ${this.players.length}`, 10, 30);
+            this.ctx.fillText(`State: ${this.gameState}`, 10, 50);
         }
     }
     
