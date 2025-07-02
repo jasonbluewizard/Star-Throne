@@ -19,7 +19,7 @@ export const GAME_CONSTANTS = {
 
     // Territory & Map Configuration
     TERRITORY_RADIUS: 25,
-    CONNECTION_DISTANCE: 100, // Reduced to make warp lanes shorter and more reasonable
+    CONNECTION_DISTANCE: 60, // Very short range connections for tactical gameplay
     ARMY_GENERATION_RATE: 3000, // milliseconds per army
 
     // Probe System
