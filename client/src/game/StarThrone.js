@@ -12,6 +12,9 @@ import { GAME_CONSTANTS } from '../../../common/gameConstants';
 import { gameEvents, GAME_EVENTS, EVENT_PRIORITY, EventHelpers } from './EventSystem.js';
 import { PerformanceManager } from './PerformanceManager.js';
 import { PerformanceOverlay } from './PerformanceOverlay.js';
+import { DiscoverySystem } from './DiscoverySystem.js';
+import { AnimationSystem } from './AnimationSystem.js';
+import { UIManager } from './UIManager.js';
 
 export default class StarThrone {
     constructor(config = {}) {
@@ -49,6 +52,9 @@ export default class StarThrone {
         this.combatSystem = null;
         this.supplySystem = null;
         this.performanceManager = null;
+        this.discoverySystem = null;
+        this.animationSystem = null;
+        this.uiManager = null;
         
         // Legacy properties for backward compatibility
         this.hoveredTerritory = null;
@@ -380,6 +386,9 @@ export default class StarThrone {
         this.supplySystem = new SupplySystem(this);
         this.performanceManager = new PerformanceManager(this);
         this.performanceOverlay = new PerformanceOverlay(this.canvas, this.performanceManager);
+        this.discoverySystem = new DiscoverySystem(this);
+        this.animationSystem = new AnimationSystem(this);
+        this.uiManager = new UIManager(this);
         
         // Auto-detect optimal performance profile
         this.performanceManager.detectOptimalProfile();
