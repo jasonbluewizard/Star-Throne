@@ -12,11 +12,11 @@ export class TerritoryRenderer {
     renderTerritories(ctx, camera, gameMap) {
         if (!gameMap || !gameMap.territories) return;
 
-        // Update visible territories every 100ms for performance
-        this.visibilityUpdateCounter++;
-        if (this.visibilityUpdateCounter >= 6) { // ~100ms at 60fps
+        // Update visible territories with throttling for performance
+        const now = Date.now();
+        if (now - this.lastVisibilityUpdate >= GAME_CONSTANTS.VISIBLE_TERRITORIES_UPDATE_INTERVAL_MS) {
             this.updateVisibleTerritories(camera, gameMap);
-            this.visibilityUpdateCounter = 0;
+            this.lastVisibilityUpdate = now;
         }
 
         // Render only visible territories
@@ -35,15 +35,17 @@ export class TerritoryRenderer {
     updateVisibleTerritories(camera, gameMap) {
         this.visibleTerritories.clear();
         
-        const padding = 100; // Extra padding for smooth scrolling
-        const viewLeft = camera.x - (camera.canvas.width / (2 * camera.zoom)) - padding;
-        const viewRight = camera.x + (camera.canvas.width / (2 * camera.zoom)) + padding;
-        const viewTop = camera.y - (camera.canvas.height / (2 * camera.zoom)) - padding;
-        const viewBottom = camera.y + (camera.canvas.height / (2 * camera.zoom)) + padding;
-
-        for (const territory of gameMap.territories) {
-            if (territory.x >= viewLeft && territory.x <= viewRight &&
-                territory.y >= viewTop && territory.y <= viewBottom) {
+        const bounds = camera.getViewBounds();
+        const margin = GAME_CONSTANTS.TERRITORY_VISIBILITY_PADDING;
+        
+        const territories = Object.values(gameMap.territories);
+        
+        for (let i = 0; i < territories.length; i++) {
+            const territory = territories[i];
+            if (territory.x + territory.radius >= bounds.left - margin &&
+                territory.x - territory.radius <= bounds.right + margin &&
+                territory.y + territory.radius >= bounds.top - margin &&
+                territory.y - territory.radius <= bounds.bottom + margin) {
                 this.visibleTerritories.add(territory.id);
             }
         }
@@ -78,7 +80,7 @@ export class TerritoryRenderer {
 
         // Combat flash effect
         if (territory.combatFlashTime > 0) {
-            this.renderCombatFlash(ctx, screenPos, radius);
+            this.renderCombatFlash(ctx, screenPos, radius, territory);
         }
 
         // Probe flash effect
@@ -252,7 +254,7 @@ export class TerritoryRenderer {
     }
 
     // Render combat flash effect
-    renderCombatFlash(ctx, screenPos, radius) {
+    renderCombatFlash(ctx, screenPos, radius, territory) {
         const flashIntensity = territory.combatFlashTime / territory.combatFlashDuration;
         const flashRadius = radius * (1 + flashIntensity * 0.5);
         
@@ -369,7 +371,7 @@ export class TerritoryRenderer {
     getStats() {
         return {
             visibleTerritories: this.visibleTerritories.size,
-            totalTerritories: this.game.gameMap ? this.game.gameMap.territories.length : 0,
+            totalTerritories: this.game.gameMap ? Object.keys(this.game.gameMap.territories).length : 0,
             visibilityUpdateCounter: this.visibilityUpdateCounter
         };
     }

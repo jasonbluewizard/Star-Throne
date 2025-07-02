@@ -1537,8 +1537,7 @@ export default class StarThrone {
         
         const renderStart = performance.now();
         
-        // Update visible territories for culling
-        this.updateVisibleTerritories();
+        // Territory visibility handled by TerritoryRenderer
         
         // Clear canvas with space background
         this.ctx.fillStyle = '#001122';
@@ -1609,29 +1608,7 @@ export default class StarThrone {
         return 3; // Tactical view
     }
     
-    updateVisibleTerritories() {
-        // Optimized visibility culling with cached bounds
-        if (Date.now() - this.lastVisibilityUpdate < GAME_CONSTANTS.VISIBLE_TERRITORIES_UPDATE_INTERVAL_MS) return;
-        this.lastVisibilityUpdate = Date.now();
-        
-        const bounds = this.camera.getViewBounds();
-        const margin = GAME_CONSTANTS.TERRITORY_VISIBILITY_PADDING;
-        
-        this.visibleTerritories = [];
-        const territories = Object.values(this.gameMap.territories);
-        
-        for (let i = 0; i < territories.length; i++) {
-            const territory = territories[i];
-            if (territory.x + territory.radius >= bounds.left - margin &&
-                territory.x - territory.radius <= bounds.right + margin &&
-                territory.y + territory.radius >= bounds.top - margin &&
-                territory.y - territory.radius <= bounds.bottom + margin) {
-                this.visibleTerritories.push(territory);
-            }
-        }
-        
-        this.performanceStats.visibleTerritories = this.visibleTerritories.length;
-    }
+    // Visibility tracking moved to TerritoryRenderer module
     
     // Render parallax starfield with multiple depth layers
     renderParallaxStarfield() {
@@ -2186,8 +2163,7 @@ export default class StarThrone {
         this.ctx.save();
         this.camera.applyTransform(this.ctx);
         
-        // Update performance tracking
-        this.updateVisibleTerritories();
+        // Territory visibility handled by TerritoryRenderer
         
         // Render connections between territories
         this.renderConnections();
