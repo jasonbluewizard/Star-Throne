@@ -10,6 +10,8 @@ import { SupplySystem } from './SupplySystem.js';
 import { GameUtils } from './utils.js';
 import { GAME_CONSTANTS } from '../../../common/gameConstants';
 import { gameEvents, GAME_EVENTS, EVENT_PRIORITY, EventHelpers } from './EventSystem.js';
+import { PerformanceManager } from './PerformanceManager.js';
+import { PerformanceOverlay } from './PerformanceOverlay.js';
 
 export default class StarThrone {
     constructor(config = {}) {
@@ -46,6 +48,7 @@ export default class StarThrone {
         this.renderer = null;
         this.combatSystem = null;
         this.supplySystem = null;
+        this.performanceManager = null;
         
         // Legacy properties for backward compatibility
         this.hoveredTerritory = null;
@@ -345,6 +348,11 @@ export default class StarThrone {
         this.renderer = new Renderer(this.canvas, this.camera);
         this.combatSystem = new CombatSystem(this);
         this.supplySystem = new SupplySystem(this);
+        this.performanceManager = new PerformanceManager(this);
+        this.performanceOverlay = new PerformanceOverlay(this.canvas, this.performanceManager);
+        
+        // Auto-detect optimal performance profile
+        this.performanceManager.detectOptimalProfile();
         
         this.gameStartTime = Date.now(); // Track when game actually starts
         this.startGame();
@@ -1355,6 +1363,11 @@ export default class StarThrone {
         // Process event queue for event-driven architecture
         if (this.eventProcessingEnabled) {
             gameEvents.processQueue(5); // Process up to 5 events per frame
+        }
+        
+        // Update performance management
+        if (this.performanceManager) {
+            this.performanceManager.update(deltaTime);
         }
         
         // Throttled heavy operations for better performance
