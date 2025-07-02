@@ -17,6 +17,9 @@ import { AnimationSystem } from './AnimationSystem.js';
 import { UIManager } from './UIManager.js';
 import { AudioSystem } from './AudioSystem.js';
 import { AIManager } from './AIManager.js';
+import { TerritoryRenderer } from './TerritoryRenderer.js';
+import { MemoryManager } from './MemoryManager.js';
+import { DistanceCache } from './DistanceCache.js';
 
 export default class StarThrone {
     constructor(config = {}) {
@@ -59,6 +62,9 @@ export default class StarThrone {
         this.uiManager = null;
         this.audioSystem = null;
         this.aiManager = null;
+        this.territoryRenderer = null;
+        this.memoryManager = null;
+        this.distanceCache = null;
         
         // Legacy properties for backward compatibility
         this.hoveredTerritory = null;
@@ -395,6 +401,9 @@ export default class StarThrone {
         this.uiManager = new UIManager(this);
         this.audioSystem = new AudioSystem(this);
         this.aiManager = new AIManager(this);
+        this.territoryRenderer = new TerritoryRenderer(this);
+        this.memoryManager = new MemoryManager(this);
+        this.distanceCache = new DistanceCache(this);
         
         // Auto-detect optimal performance profile
         this.performanceManager.detectOptimalProfile();
@@ -1152,6 +1161,8 @@ export default class StarThrone {
         this.animationSystem.initializeStarfield();
         this.animationSystem.preRenderStaticBackground();
         this.uiManager.loadBackgroundImage();
+        this.distanceCache.buildDistanceMatrix();
+        this.aiManager.initializeAIPersonalities();
         
         // Start home system flashing for player identification
         this.homeSystemFlashStart = Date.now();
@@ -1452,6 +1463,12 @@ export default class StarThrone {
         }
         if (this.animationSystem) {
             this.animationSystem.update(deltaTime);
+        }
+        if (this.memoryManager) {
+            this.memoryManager.update();
+        }
+        if (this.aiManager) {
+            this.aiManager.incrementFrame();
         }
         
         // Process event queue for event-driven architecture
