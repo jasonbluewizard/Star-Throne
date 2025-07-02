@@ -261,59 +261,7 @@ export default class StarThrone {
         }
     }
 
-    // Add notification to display queue
-    addNotification(text, color = '#44ff44', duration = 4000) {
-        this.notifications.push({
-            text: text,
-            color: color,
-            createdAt: Date.now(),
-            duration: duration,
-            opacity: 1.0
-        });
-    }
-    
-    // Update and clean up notifications
-    updateNotifications() {
-        const now = Date.now();
-        this.notifications = this.notifications.filter(notification => {
-            const age = now - notification.createdAt;
-            if (age > notification.duration) {
-                return false; // Remove expired notifications
-            }
-            
-            // Fade out in the last 500ms
-            if (age > notification.duration - 500) {
-                notification.opacity = (notification.duration - age) / 500;
-            }
-            
-            return true;
-        });
-    }
-    
-    // Message display system for FSM feedback
-    showMessage(text, duration = 3000) {
-        this.messageText = text;
-        this.messageTimer = duration;
-        console.log(`Message: ${text}`);
-    }
-    
-    hideMessage() {
-        this.messageText = '';
-        this.messageTimer = 0;
-    }
-    
-    showError(text) {
-        this.showMessage(`❌ ${text}`, 2000);
-    }
-    
-    updateMessage(deltaTime) {
-        if (this.messageTimer > 0) {
-            this.messageTimer -= deltaTime;
-            if (this.messageTimer <= 0) {
-                this.hideMessage();
-            }
-        }
-    }
+    // Notification and message systems moved to UIManager
     
     init() {
         this.setupCanvas();
@@ -358,87 +306,6 @@ export default class StarThrone {
     }
     
     // Discovery system moved to DiscoverySystem module
-            {
-                id: 'precursor_weapons',
-                name: 'Precursor Weapons Cache',
-                description: 'Ancient weapon technology discovered!',
-                probability: 0.08,
-                type: 'empire_bonus',
-                effect: 'attack_bonus',
-                bonus: 10 // +10% attack
-            },
-            {
-                id: 'precursor_drive',
-                name: 'Precursor Drive System',
-                description: 'Advanced propulsion technology found!',
-                probability: 0.08,
-                type: 'empire_bonus',
-                effect: 'speed_bonus',
-                bonus: 20 // +20% speed
-            },
-            {
-                id: 'precursor_shield',
-                name: 'Precursor Shield Matrix',
-                description: 'Defensive technology enhances your empire!',
-                probability: 0.08,
-                type: 'empire_bonus',
-                effect: 'defense_bonus',
-                bonus: 10 // +10% defense
-            },
-            {
-                id: 'precursor_factory',
-                name: 'Precursor Factory Complex',
-                description: 'Ancient manufacturing facility still operational!',
-                probability: 0.06,
-                type: 'planet_bonus',
-                effect: 'factory_planet',
-                bonus: 100 // +100% generation (200% total)
-            },
-            {
-                id: 'precursor_nanotech',
-                name: 'Precursor Nanotechnology',
-                description: 'Self-replicating technology spreads across your empire!',
-                probability: 0.05,
-                type: 'empire_bonus',
-                effect: 'generation_bonus',
-                bonus: 10 // +10% empire-wide generation
-            },
-            {
-                id: 'mineral_deposits',
-                name: 'Rich Mineral Deposits',
-                description: 'Valuable resources boost this planet\'s output!',
-                probability: 0.10,
-                type: 'planet_bonus',
-                effect: 'mineral_planet',
-                bonus: 50 // +50% generation
-            },
-            {
-                id: 'ancient_ruins',
-                name: 'Ancient Ruins',
-                description: 'Mysterious structures provide no immediate benefit.',
-                probability: 0.08,
-                type: 'neutral',
-                effect: 'cosmetic'
-            },
-            {
-                id: 'void_storm',
-                name: 'Void Storm Remnants',
-                description: 'Dangerous energy storms reduce planet effectiveness.',
-                probability: 0.06,
-                type: 'negative',
-                effect: 'reduced_generation',
-                bonus: -25 // -25% generation
-            },
-            {
-                id: 'no_discovery',
-                name: 'Standard Planet',
-                description: 'A typical world with no special features.',
-                probability: 0.14,
-                type: 'neutral',
-                effect: 'none'
-            }
-        ];
-    }
     
     // Initialize parallax starfield layers
     initializeStarfield() {
