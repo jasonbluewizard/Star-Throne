@@ -11,22 +11,12 @@ export class GameUtils {
      * Centralized discovery logic used by both client and server
      */
     static processDiscovery(discoveryType, playerId, territoryId, playerDiscoveries, game) {
-        if (!playerDiscoveries.has(playerId)) {
-            playerDiscoveries.set(playerId, {
-                precursorWeapons: 0,
-                precursorDrive: 0,
-                precursorShield: 0,
-                precursorNanotech: 0,
-                factoryPlanets: new Set(),
-                friendlyAliens: 0,
-                richMinerals: 0,
-                voidStorms: 0,
-                ancientRuins: 0,
-                hostileAliens: 0
-            });
+        // Get existing discoveries (should already be initialized)
+        let discoveries = playerDiscoveries.get(playerId);
+        if (!discoveries) {
+            console.error(`Discoveries not initialized for player ${playerId}`);
+            return { success: false, effectText: 'Discovery system error', icon: '❌' };
         }
-
-        const discoveries = playerDiscoveries.get(playerId);
         let effectText = '';
         let icon = '';
 
