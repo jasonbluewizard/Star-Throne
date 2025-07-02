@@ -535,13 +535,6 @@ export class GameUI {
         const discoveries = gameData.playerDiscoveries.get(gameData.humanPlayer.id);
         if (!discoveries) return;
         
-        // Get recent discoveries (last 8 seconds for longer visibility)
-        const discoveryLog = gameData.discoveryLog || [];
-        const now = Date.now();
-        const recentDiscoveries = discoveryLog.filter(entry => 
-            entry.playerId === gameData.humanPlayer.id && (now - entry.timestamp) < 8000
-        ).slice(-3); // Show last 3 discoveries
-        
         let discoveryCount = 0;
         
         // Count active discoveries (with safety checks)
@@ -551,17 +544,16 @@ export class GameUI {
         if (discoveries && discoveries.precursorNanotech > 0) discoveryCount++;
         if (discoveries && discoveries.factoryPlanets && discoveries.factoryPlanets.size > 0) discoveryCount++;
         
-        // Show panel only if there are human player discoveries or recent discoveries
-        if (discoveryCount === 0 && recentDiscoveries.length === 0) return;
+        // Show panel only if there are permanent empire discoveries
+        if (discoveryCount === 0) return;
         
         const x = 20;
         const width = 280;
         const lineHeight = 20;
         const padding = 10;
-        const recentDiscoveryHeight = recentDiscoveries.length * 22; // 22px per recent discovery
         const discoveryHeight = discoveryCount * lineHeight;
         const titleHeight = 25;
-        const height = Math.max(80, titleHeight + recentDiscoveryHeight + discoveryHeight + padding * 2);
+        const height = Math.max(80, titleHeight + discoveryHeight + padding * 2);
         const y = this.canvas.height - height - 20; // Bottom left positioning
         
         // Background with transparency
@@ -578,42 +570,9 @@ export class GameUI {
         ctx.textAlign = 'left';
         this.renderTextWithShadow(ctx, '🔬 Empire Discoveries', x + padding, y + 20, '#4CAF50');
         
-        let currentY = y + 45; // Increased spacing from 30 to 45
+        let currentY = y + 40; // Start showing permanent bonuses
         
-        // Show recent discoveries at the top with icons
-        if (recentDiscoveries.length > 0) {
-            ctx.font = 'bold 11px Arial';
-            for (const discovery of recentDiscoveries) {
-                const age = (now - discovery.timestamp) / 1000;
-                const opacity = Math.max(0.3, 1 - age / 8); // Fade over 8 seconds
-                
-                const icon = this.getDiscoveryIcon(discovery.discovery.effect);
-                const color = this.getDiscoveryColor(discovery.discovery.effect);
-                
-                // Apply opacity to color
-                const rgb = this.hexToRgb(color);
-                const fadeColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${opacity})`;
-                
-                const text = `${icon} Planet ${discovery.territoryId}: ${discovery.discovery.name}`;
-                this.renderTextWithShadow(ctx, text, x + padding, currentY, fadeColor);
-                currentY += 22;
-            }
-            
-            // Add separator line
-            if (recentDiscoveries.length > 0) {
-                ctx.strokeStyle = '#4CAF50';
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.moveTo(x + padding, currentY);
-                ctx.lineTo(x + width - padding, currentY);
-                ctx.stroke();
-                currentY += 10;
-            }
-        }
-        
-        // Remove recent probe results section - only show at top center
-        
-        // Show empire-wide bonuses
+        // Show empire-wide bonuses only (no temporary notifications)
         ctx.font = '12px Arial';
         
         // Show empire-wide bonuses (with safety checks)
