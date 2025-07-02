@@ -60,10 +60,12 @@ const TitleScreen: React.FC<TitleScreenProps> = ({ onEnterGame }) => {
 
         {/* Wordmark - falls down from above */}
         <div 
-          className="absolute z-20 transition-all duration-2000 ease-out"
+          className="absolute z-20"
           style={{
             animation: 'fallFromAbove 2.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.8s forwards, gentleDrift 6s ease-in-out 4s infinite',
             transformStyle: 'preserve-3d',
+            opacity: 0,
+            transform: 'translateY(-200px) translateZ(100px) scale(8)',
           }}
         >
           <img

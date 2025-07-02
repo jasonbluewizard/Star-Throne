@@ -74,12 +74,12 @@ canvas {
   }
   70% {
     opacity: 0.9;
-    transform: translateY(-110px) translateZ(10px) scale(1.2);
+    transform: translateY(-60px) translateZ(10px) scale(1.2);
     filter: blur(2px);
   }
   100% {
     opacity: 1;
-    transform: translateY(-120px) translateZ(0) scale(1);
+    transform: translateY(-60px) translateZ(0) scale(1);
     filter: blur(0px);
   }
 }
@@ -89,30 +89,30 @@ canvas {
     transform: translateY(0px) rotate(0deg);
   }
   25% {
-    transform: translateY(-8px) rotate(0.5deg);
+    transform: translateY(-2px) rotate(0.1deg);
   }
   50% {
-    transform: translateY(-4px) rotate(0deg);
+    transform: translateY(-1px) rotate(0deg);
   }
   75% {
-    transform: translateY(-12px) rotate(-0.5deg);
+    transform: translateY(-3px) rotate(-0.1deg);
   }
 }
 
 @keyframes gentleDrift {
   0%, 100% {
-    transform: translateY(-120px) translateX(0px) translateZ(0) scale(1) rotate(0deg);
+    transform: translateY(-60px) translateX(0px) translateZ(0) scale(1) rotate(0deg);
   }
   20% {
-    transform: translateY(-125px) translateX(-3px) translateZ(0) scale(1) rotate(0.3deg);
+    transform: translateY(-62px) translateX(-1px) translateZ(0) scale(1) rotate(0.1deg);
   }
   40% {
-    transform: translateY(-115px) translateX(2px) translateZ(0) scale(1) rotate(-0.2deg);
+    transform: translateY(-58px) translateX(1px) translateZ(0) scale(1) rotate(-0.05deg);
   }
   60% {
-    transform: translateY(-128px) translateX(-1px) translateZ(0) scale(1) rotate(0.1deg);
+    transform: translateY(-63px) translateX(-0.5px) translateZ(0) scale(1) rotate(0.05deg);
   }
   80% {
-    transform: translateY(-118px) translateX(4px) translateZ(0) scale(1) rotate(-0.3deg);
+    transform: translateY(-57px) translateX(1.5px) translateZ(0) scale(1) rotate(-0.1deg);
   }
 }
