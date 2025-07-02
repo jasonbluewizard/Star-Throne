@@ -38,24 +38,35 @@ const TitleScreen: React.FC<TitleScreenProps> = ({ onEnterGame }) => {
 
       {/* Main content container */}
       <div className="relative z-10 flex flex-col items-center justify-center min-h-screen">
-        {/* Badge - appears first, stays centered */}
-        <div className="relative z-10 mb-8 animate-bounce">
+        {/* Badge - zooms up from the void */}
+        <div 
+          className="relative z-10 mb-8 transition-all duration-2000 ease-out"
+          style={{
+            animation: 'zoomFromVoid 2.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards, gentleFloat 4s ease-in-out 3s infinite',
+          }}
+        >
           <img
             src="/star-throne-badge.png"
             alt="Star Throne Badge"
-            className="w-80 h-80 object-contain drop-shadow-2xl transition-transform duration-1000 ease-out animate-pulse"
+            className="w-80 h-80 object-contain drop-shadow-2xl"
             style={{
               filter: 'drop-shadow(0 0 30px rgba(59, 130, 246, 0.5))',
             }}
           />
         </div>
 
-        {/* Wordmark - zooms in dramatically over badge */}
-        <div className="absolute z-20 -translate-y-32 animate-pulse">
+        {/* Wordmark - falls down from above */}
+        <div 
+          className="absolute z-20 transition-all duration-2000 ease-out"
+          style={{
+            animation: 'fallFromAbove 2.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.8s forwards, gentleDrift 6s ease-in-out 4s infinite',
+            transform: 'translateY(-120px)',
+          }}
+        >
           <img
             src="/star-throne-wordmark.png"
             alt="Star Throne"
-            className="w-96 h-auto object-contain drop-shadow-2xl transition-all duration-2000 ease-out"
+            className="w-96 h-auto object-contain drop-shadow-2xl"
             style={{
               filter: 'drop-shadow(0 0 20px rgba(255, 255, 255, 0.8))',
             }}

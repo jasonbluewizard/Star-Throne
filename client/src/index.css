@@ -41,3 +41,73 @@ canvas {
   height: 100% !important;
   touch-action: none;
 }
+
+/* Star Throne Title Screen Animations */
+@keyframes zoomFromVoid {
+  0% {
+    opacity: 0;
+    transform: scale(0.1) translateZ(0);
+    filter: blur(10px);
+  }
+  60% {
+    opacity: 0.8;
+    transform: scale(1.1) translateZ(0);
+    filter: blur(2px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateZ(0);
+    filter: blur(0px);
+  }
+}
+
+@keyframes fallFromAbove {
+  0% {
+    opacity: 0;
+    transform: translateY(-500px) translateZ(0);
+    filter: blur(8px);
+  }
+  70% {
+    opacity: 0.9;
+    transform: translateY(-110px) translateZ(0);
+    filter: blur(1px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(-120px) translateZ(0);
+    filter: blur(0px);
+  }
+}
+
+@keyframes gentleFloat {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-8px) rotate(0.5deg);
+  }
+  50% {
+    transform: translateY(-4px) rotate(0deg);
+  }
+  75% {
+    transform: translateY(-12px) rotate(-0.5deg);
+  }
+}
+
+@keyframes gentleDrift {
+  0%, 100% {
+    transform: translateY(-120px) translateX(0px) rotate(0deg);
+  }
+  20% {
+    transform: translateY(-125px) translateX(-3px) rotate(0.3deg);
+  }
+  40% {
+    transform: translateY(-115px) translateX(2px) rotate(-0.2deg);
+  }
+  60% {
+    transform: translateY(-128px) translateX(-1px) rotate(0.1deg);
+  }
+  80% {
+    transform: translateY(-118px) translateX(4px) rotate(-0.3deg);
+  }
+}
