@@ -162,15 +162,19 @@ export class Player {
     }
     
     executeDefensiveStrategy(attackableTerritories, gameMap) {
+        if (!attackableTerritories || attackableTerritories.length === 0) return;
+        
         // Reinforce weak territories and attack only weak enemies
         for (const territory of attackableTerritories) {
+            if (!territory) continue;
+            
             const targets = this.findAttackTargets(territory, gameMap)
-                .filter(target => target.ownerId !== null && target.ownerId !== this.id)
+                .filter(target => target && target.ownerId !== null && target.ownerId !== this.id)
                 .sort((a, b) => a.armySize - b.armySize);
             
             if (targets.length > 0) {
                 const target = targets[0];
-                if (territory.armySize > target.armySize * 1.5) {
+                if (target && territory.armySize > target.armySize * 1.5) {
                     this.executeAttack(territory, target, gameMap);
                     return;
                 }
@@ -196,14 +200,20 @@ export class Player {
     }
     
     executeOpportunisticStrategy(attackableTerritories, gameMap) {
+        if (!attackableTerritories || attackableTerritories.length === 0) return;
+        
         // Attack best opportunities (weak targets with good strategic value)
         const allTargets = [];
         
         for (const territory of attackableTerritories) {
+            if (!territory) continue;
+            
             const targets = this.findAttackTargets(territory, gameMap)
-                .filter(target => target.ownerId !== this.id);
+                .filter(target => target && target.ownerId !== this.id);
             
             targets.forEach(target => {
+                if (!target) return;
+                
                 const winChance = this.calculateWinChance(territory, target);
                 if (winChance > 0.6) {
                     allTargets.push({
@@ -220,14 +230,20 @@ export class Player {
             // Sort by combined win chance and strategic value
             allTargets.sort((a, b) => (b.winChance * b.strategicValue) - (a.winChance * a.strategicValue));
             const bestTarget = allTargets[0];
-            this.executeAttack(bestTarget.from, bestTarget.to, gameMap);
+            if (bestTarget && bestTarget.from && bestTarget.to) {
+                this.executeAttack(bestTarget.from, bestTarget.to, gameMap);
+            }
         }
     }
     
     findAttackTargets(territory, gameMap) {
+        if (!territory || !territory.neighbors || !gameMap || !gameMap.territories) {
+            return [];
+        }
+        
         return territory.neighbors
             .map(id => gameMap.territories[id])
-            .filter(neighbor => neighbor !== null && !neighbor.isColonizable);
+            .filter(neighbor => neighbor && neighbor !== null && neighbor !== undefined && !neighbor.isColonizable);
     }
     
     calculateWinChance(attackingTerritory, defendingTerritory) {
