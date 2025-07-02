@@ -37,7 +37,10 @@ const TitleScreen: React.FC<TitleScreenProps> = ({ onEnterGame }) => {
       </div>
 
       {/* Main content container */}
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen">
+      <div 
+        className="relative z-10 flex flex-col items-center justify-center min-h-screen"
+        style={{ perspective: '1000px' }}
+      >
         {/* Badge - zooms up from the void */}
         <div 
           className="relative z-10 mb-8 transition-all duration-2000 ease-out"
@@ -60,7 +63,7 @@ const TitleScreen: React.FC<TitleScreenProps> = ({ onEnterGame }) => {
           className="absolute z-20 transition-all duration-2000 ease-out"
           style={{
             animation: 'fallFromAbove 2.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.8s forwards, gentleDrift 6s ease-in-out 4s infinite',
-            transform: 'translateY(-120px)',
+            transformStyle: 'preserve-3d',
           }}
         >
           <img

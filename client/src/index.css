@@ -63,18 +63,23 @@ canvas {
 
 @keyframes fallFromAbove {
   0% {
-    opacity: 0;
-    transform: translateY(-500px) translateZ(0);
+    opacity: 0.3;
+    transform: translateY(-200px) translateZ(100px) scale(8);
+    filter: blur(15px);
+  }
+  30% {
+    opacity: 0.6;
+    transform: translateY(-50px) translateZ(50px) scale(4);
     filter: blur(8px);
   }
   70% {
     opacity: 0.9;
-    transform: translateY(-110px) translateZ(0);
-    filter: blur(1px);
+    transform: translateY(-110px) translateZ(10px) scale(1.2);
+    filter: blur(2px);
   }
   100% {
     opacity: 1;
-    transform: translateY(-120px) translateZ(0);
+    transform: translateY(-120px) translateZ(0) scale(1);
     filter: blur(0px);
   }
 }
@@ -96,18 +101,18 @@ canvas {
 
 @keyframes gentleDrift {
   0%, 100% {
-    transform: translateY(-120px) translateX(0px) rotate(0deg);
+    transform: translateY(-120px) translateX(0px) translateZ(0) scale(1) rotate(0deg);
   }
   20% {
-    transform: translateY(-125px) translateX(-3px) rotate(0.3deg);
+    transform: translateY(-125px) translateX(-3px) translateZ(0) scale(1) rotate(0.3deg);
   }
   40% {
-    transform: translateY(-115px) translateX(2px) rotate(-0.2deg);
+    transform: translateY(-115px) translateX(2px) translateZ(0) scale(1) rotate(-0.2deg);
   }
   60% {
-    transform: translateY(-128px) translateX(-1px) rotate(0.1deg);
+    transform: translateY(-128px) translateX(-1px) translateZ(0) scale(1) rotate(0.1deg);
   }
   80% {
-    transform: translateY(-118px) translateX(4px) rotate(-0.3deg);
+    transform: translateY(-118px) translateX(4px) translateZ(0) scale(1) rotate(-0.3deg);
   }
 }
