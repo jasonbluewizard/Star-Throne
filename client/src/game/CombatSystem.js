@@ -5,6 +5,7 @@
  */
 
 import { GameUtils } from './utils.js';
+import { gameEvents, GAME_EVENTS, EVENT_PRIORITY, EventHelpers } from './EventSystem.js';
 
 export class CombatSystem {
     constructor(game) {
@@ -71,10 +72,23 @@ export class CombatSystem {
             defendingTerritory.ownerId = attackingTerritory.ownerId;
             defendingTerritory.armySize = survivingAttackers;
             
+            // Emit territory captured event
+            EventHelpers.territoryEvent(GAME_EVENTS.TERRITORY_CAPTURED, defendingTerritory, attacker, {
+                previousOwner: oldOwner.id,
+                attackingTerritoryId: attackingTerritory.id,
+                survivingArmies: survivingAttackers
+            });
+            
             // Handle throne star capture
             if (isThroneCapture) {
                 result.throneCapture = true;
                 result.gameEnded = this.handleThroneStarCapture(attacker, oldOwner, defendingTerritory);
+                
+                // Emit throne capture event
+                EventHelpers.combatEvent(GAME_EVENTS.THRONE_CAPTURED, attacker, oldOwner, {
+                    throneTerritory: defendingTerritory.id,
+                    gameEnded: result.gameEnded
+                });
             }
             
             // Add floating combat text
@@ -87,6 +101,13 @@ export class CombatSystem {
         } else {
             // Attack failed
             defendingTerritory.armySize = Math.max(1, defendingTerritory.armySize - combatResult.defenderLosses);
+            
+            // Emit territory defended event
+            EventHelpers.territoryEvent(GAME_EVENTS.TERRITORY_DEFENDED, defendingTerritory, defender, {
+                attackerId: attacker.id,
+                attackingTerritoryId: attackingTerritory.id,
+                defenderLosses: combatResult.defenderLosses
+            });
             
             // Add floating combat text
             defendingTerritory.floatingText = {
