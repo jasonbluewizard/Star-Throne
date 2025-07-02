@@ -184,9 +184,9 @@ export class AnimationSystem {
         
         // Create three layers of stars with different parallax speeds
         this.starfieldLayers = [
-            this.createStarLayer(300, 1, 5, 0.05, mapWidth, mapHeight), // Far layer: small, dim, slow
-            this.createStarLayer(150, 2, 15, 0.15, mapWidth, mapHeight), // Mid layer: medium, moderate
-            this.createStarLayer(80, 3, 25, 0.30, mapWidth, mapHeight)   // Near layer: large, bright, fast
+            this.createStarLayer(300, 0.5, 2, 0.05, mapWidth, mapHeight), // Far layer: tiny, dim, slow
+            this.createStarLayer(150, 1, 4, 0.15, mapWidth, mapHeight), // Mid layer: small, moderate
+            this.createStarLayer(80, 1.5, 6, 0.30, mapWidth, mapHeight)   // Near layer: medium, bright, fast
         ];
         
         console.log('Parallax starfield initialized with 530 stars across 3 layers');
