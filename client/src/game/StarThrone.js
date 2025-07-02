@@ -2215,8 +2215,8 @@ export default class StarThrone {
         
         this.ctx.restore();
         
-        // Render floating discovery texts over planets
-        this.renderFloatingDiscoveryTexts();
+        // Floating discovery texts disabled - using top-center UI notifications instead
+        // this.renderFloatingDiscoveryTexts();
         
         // Render UI overlay
         this.renderUI();

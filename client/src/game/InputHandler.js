@@ -190,12 +190,22 @@ export class InputHandler {
             }
         }
         else if (e.button === 2 && wasQuickClick) {
-            // Right click - use FSM for input handling
-            this.inputFSM.handleInput('rightClick', {
-                territory: targetTerritory,
-                worldPos: worldPos,
-                screenPos: this.mousePos
-            });
+            // Right click deselection support: empty space right-click should deselect
+            if (!targetTerritory && this.game.selectedTerritory) {
+                console.log('Empty space right-click detected - deselecting territory via FSM');
+                this.inputFSM.handleInput('leftClick', {
+                    territory: null,
+                    worldPos: worldPos,
+                    screenPos: this.mousePos
+                });
+            } else {
+                // Right click - use FSM for input handling
+                this.inputFSM.handleInput('rightClick', {
+                    territory: targetTerritory,
+                    worldPos: worldPos,
+                    screenPos: this.mousePos
+                });
+            }
         }
         
         this.resetDragState();
