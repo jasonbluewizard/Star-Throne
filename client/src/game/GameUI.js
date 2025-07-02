@@ -104,11 +104,7 @@ export class GameUI {
         }
         
         // Discovery panel showing empire bonuses
-        try {
-            this.renderDiscoveryPanel(ctx, gameData);
-        } catch (error) {
-            console.error('Error in renderDiscoveryPanel:', error);
-        }
+        this.renderDiscoveryPanel(ctx, gameData);
         
         // Performance panel (togglable with P key)
         this.renderPerformanceInfo(ctx, gameData);

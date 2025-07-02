@@ -17,6 +17,10 @@ export class GameUtils {
             console.error(`Discoveries not initialized for player ${playerId}`);
             return { success: false, effectText: 'Discovery system error', icon: '❌' };
         }
+        
+        console.log(`Processing discovery: ${discoveryType} for player ${playerId}`);
+        console.log(`Before:`, discoveries);
+        
         let effectText = '';
         let icon = '';
 
@@ -95,6 +99,7 @@ export class GameUtils {
                 break;
         }
 
+        console.log(`After processing ${discoveryType}:`, discoveries);
         return { success: true, effectText, icon, discoveries };
     }
 
