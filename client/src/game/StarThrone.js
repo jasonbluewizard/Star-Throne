@@ -1306,21 +1306,26 @@ export default class StarThrone {
     }
     
     gameLoop(currentTime = 0) {
-        const frameStart = performance.now();
-        const deltaTime = currentTime - this.lastFrameTime;
-        this.lastFrameTime = currentTime;
-        
-        // Update FPS counter
-        this.updateFPS(currentTime);
-        
-        if (this.gameState === 'playing') {
-            this.update(deltaTime);
+        try {
+            const frameStart = performance.now();
+            const deltaTime = currentTime - this.lastFrameTime;
+            this.lastFrameTime = currentTime;
+            
+            // Update FPS counter
+            this.updateFPS(currentTime);
+            
+            if (this.gameState === 'playing') {
+                this.update(deltaTime);
+            }
+            
+            this.render();
+            
+            // Track overall frame performance
+            this.performanceStats.frameTime = performance.now() - frameStart;
+        } catch (error) {
+            console.error('Game loop error:', error);
+            // Continue running to prevent complete game halt
         }
-        
-        this.render();
-        
-        // Track overall frame performance
-        this.performanceStats.frameTime = performance.now() - frameStart;
         
         requestAnimationFrame((time) => this.gameLoop(time));
     }
@@ -1353,16 +1358,26 @@ export default class StarThrone {
         const endIndex = Math.min(startIndex + playersPerFrame, this.players.length);
         
         for (let i = startIndex; i < endIndex; i++) {
-            const player = this.players[i];
-            if (player && !player.isEliminated) {
-                player.update(deltaTime, this.gameMap, this.config.gameSpeed, this);
+            if (i >= 0 && i < this.players.length) {
+                const player = this.players[i];
+                if (player && !player.isEliminated) {
+                    try {
+                        player.update(deltaTime, this.gameMap, this.config.gameSpeed, this);
+                    } catch (error) {
+                        console.error(`Error updating player ${i}:`, error);
+                    }
+                }
             }
         }
         
         // Update ship animations and probes with normal delta time (speed applied internally)
-        this.updateShipAnimations(deltaTime);
-        this.updateProbes(deltaTime);
-        this.updateFloatingDiscoveryTexts(deltaTime);
+        try {
+            this.updateShipAnimations(deltaTime);
+            this.updateProbes(deltaTime);
+            this.updateFloatingDiscoveryTexts(deltaTime);
+        } catch (error) {
+            console.error('Error updating animations:', error);
+        }
         
         // Update notifications and messages
         this.updateNotifications();
