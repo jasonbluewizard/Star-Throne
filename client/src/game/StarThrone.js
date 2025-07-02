@@ -139,8 +139,38 @@ export default class StarThrone {
         this.messageText = '';
         this.messageTimer = 0;
         
+        // Performance optimization: Throttled logging system
+        this.debugMode = false; // Set to true for development, false for production
+        this.logThrottles = new Map(); // Track throttled log messages
+        this.lastLogTimes = new Map(); // Track last log timestamp per message type
+        
         this.init();
         this.loadBackgroundImage();
+    }
+    
+    /**
+     * Performance-optimized logging with throttling
+     * @param {string} message - Log message
+     * @param {string} type - Log type (info, warn, error)
+     * @param {number} throttleMs - Minimum time between identical messages
+     */
+    log(message, type = 'info', throttleMs = 1000) {
+        if (!this.debugMode && type === 'info') return; // Skip info logs in production
+        
+        const key = `${type}:${message}`;
+        const now = Date.now();
+        const lastTime = this.lastLogTimes.get(key) || 0;
+        
+        if (now - lastTime >= throttleMs) {
+            this.lastLogTimes.set(key, now);
+            if (type === 'error') {
+                console.error(message);
+            } else if (type === 'warn') {
+                console.warn(message);
+            } else {
+                console.log(message);
+            }
+        }
     }
     
     loadBackgroundImage() {
@@ -1356,22 +1386,32 @@ export default class StarThrone {
             return;
         }
         
-        // Adaptive AI updates based on performance profile
-        const aiProcessingBatch = this.performanceManager ? this.performanceManager.currentProfile.aiProcessingBatch : 25;
-        const batchDivisor = Math.max(1, Math.ceil(this.players.length / aiProcessingBatch));
-        const playersPerFrame = Math.max(1, Math.ceil(this.players.length / batchDivisor));
-        const startIndex = (this.frameCount % batchDivisor) * playersPerFrame;
-        const endIndex = Math.min(startIndex + playersPerFrame, this.players.length);
+        // High-performance AI processing: Staggered updates across 4 frames
+        // Process only 1/4 of AI players per frame for 4x performance improvement
+        const aiPlayers = this.players.filter(p => p.type !== 'human' && !p.isEliminated);
+        const playersPerFrame = Math.ceil(aiPlayers.length / 4);
+        const frameOffset = this.frameCount % 4;
+        const startIndex = frameOffset * playersPerFrame;
+        const endIndex = Math.min(startIndex + playersPerFrame, aiPlayers.length);
         
+        // Always update human player every frame for responsiveness
+        const humanPlayer = this.players.find(p => p.type === 'human');
+        if (humanPlayer && !humanPlayer.isEliminated) {
+            try {
+                humanPlayer.update(deltaTime, this.gameMap, this.config.gameSpeed, this);
+            } catch (error) {
+                console.error(`Error updating human player:`, error);
+            }
+        }
+        
+        // Update subset of AI players this frame
         for (let i = startIndex; i < endIndex; i++) {
-            if (i >= 0 && i < this.players.length) {
-                const player = this.players[i];
-                if (player && !player.isEliminated) {
-                    try {
-                        player.update(deltaTime, this.gameMap, this.config.gameSpeed, this);
-                    } catch (error) {
-                        console.error(`Error updating player ${i}:`, error);
-                    }
+            if (i < aiPlayers.length) {
+                const player = aiPlayers[i];
+                try {
+                    player.update(deltaTime, this.gameMap, this.config.gameSpeed, this);
+                } catch (error) {
+                    console.error(`Error updating AI player ${player.name}:`, error);
                 }
             }
         }

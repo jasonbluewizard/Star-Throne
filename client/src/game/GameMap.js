@@ -8,6 +8,11 @@ export class GameMap {
         this.nebulas = []; // Purple nebula clouds
         this.gridSize = 150; // Increased space between territory centers for less crowding
         
+        // Spatial indexing for O(1) territory lookups instead of O(n)
+        this.spatialGridSize = 100; // Grid cell size in pixels
+        this.spatialGrid = new Map(); // Map of "x,y" -> Territory[]
+        this.spatialIndexEnabled = true;
+        
         // Advanced configuration options
         this.layout = config.layout || 'organic'; // Layout type: organic, clusters, spiral, core, ring, binary
         this.connectionDistance = config.connectionRange || 60; // Max distance for territory connections - prevent long-distance warp lanes
@@ -1108,6 +1113,67 @@ export class GameMap {
         }
         return false;
     }
-
-
+    
+    /**
+     * Add territory to spatial index for O(1) lookups
+     */
+    addToSpatialIndex(territory) {
+        if (!this.spatialIndexEnabled) return;
+        
+        const gridX = Math.floor(territory.x / this.spatialGridSize);
+        const gridY = Math.floor(territory.y / this.spatialGridSize);
+        const key = `${gridX},${gridY}`;
+        
+        if (!this.spatialGrid.has(key)) {
+            this.spatialGrid.set(key, []);
+        }
+        this.spatialGrid.get(key).push(territory);
+    }
+    
+    /**
+     * Find territory at coordinates using spatial indexing (O(1) vs O(n))
+     */
+    findTerritoryAt(x, y) {
+        if (!this.spatialIndexEnabled) {
+            // Fallback to linear search
+            return Object.values(this.territories).find(territory => {
+                const distance = Math.sqrt((x - territory.x) ** 2 + (y - territory.y) ** 2);
+                return distance <= territory.radius;
+            });
+        }
+        
+        // Spatial index lookup - check only nearby cells
+        const gridX = Math.floor(x / this.spatialGridSize);
+        const gridY = Math.floor(y / this.spatialGridSize);
+        
+        // Check current cell and adjacent cells (3x3 grid)
+        for (let dx = -1; dx <= 1; dx++) {
+            for (let dy = -1; dy <= 1; dy++) {
+                const key = `${gridX + dx},${gridY + dy}`;
+                const cellTerritories = this.spatialGrid.get(key);
+                
+                if (cellTerritories) {
+                    for (const territory of cellTerritories) {
+                        const distance = Math.sqrt((x - territory.x) ** 2 + (y - territory.y) ** 2);
+                        if (distance <= territory.radius) {
+                            return territory;
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+    
+    /**
+     * Build spatial index for all territories
+     */
+    buildSpatialIndex() {
+        if (!this.spatialIndexEnabled) return;
+        
+        this.spatialGrid.clear();
+        Object.values(this.territories).forEach(territory => {
+            this.addToSpatialIndex(territory);
+        });
+    }
 }
