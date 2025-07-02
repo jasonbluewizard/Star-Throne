@@ -535,14 +535,17 @@ export class GameUI {
         
         let discoveryCount = 0;
         
-        // Count active discoveries (with safety checks)
-        if (discoveries && discoveries.precursorWeapons > 0) discoveryCount++;
-        if (discoveries && discoveries.precursorDrive > 0) discoveryCount++;
-        if (discoveries && discoveries.precursorShield > 0) discoveryCount++;
-        if (discoveries && discoveries.precursorNanotech > 0) discoveryCount++;
-        if (discoveries && discoveries.factoryPlanets && discoveries.factoryPlanets.size > 0) discoveryCount++;
-        if (discoveries && discoveries.friendlyAliens > 0) discoveryCount++;
-        if (discoveries && discoveries.richMinerals > 0) discoveryCount++;
+        // Count active discoveries (with safety checks) - DEBUG
+        console.log('Checking discoveries for panel:', discoveries);
+        let discoveryCount = 0;
+        if (discoveries && discoveries.precursorWeapons > 0) { discoveryCount++; console.log('precursorWeapons:', discoveries.precursorWeapons); }
+        if (discoveries && discoveries.precursorDrive > 0) { discoveryCount++; console.log('precursorDrive:', discoveries.precursorDrive); }
+        if (discoveries && discoveries.precursorShield > 0) { discoveryCount++; console.log('precursorShield:', discoveries.precursorShield); }
+        if (discoveries && discoveries.precursorNanotech > 0) { discoveryCount++; console.log('precursorNanotech:', discoveries.precursorNanotech); }
+        if (discoveries && discoveries.factoryPlanets && discoveries.factoryPlanets.size > 0) { discoveryCount++; console.log('factoryPlanets:', discoveries.factoryPlanets.size); }
+        if (discoveries && discoveries.friendlyAliens > 0) { discoveryCount++; console.log('friendlyAliens:', discoveries.friendlyAliens); }
+        if (discoveries && discoveries.richMinerals > 0) { discoveryCount++; console.log('richMinerals:', discoveries.richMinerals); }
+        console.log('Total discovery count:', discoveryCount);
         
         // Always show panel if player has any discoveries
         if (discoveryCount === 0) {
