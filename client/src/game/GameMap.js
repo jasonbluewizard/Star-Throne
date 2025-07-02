@@ -814,6 +814,50 @@ export class GameMap {
         }
     }
     
+    // Check if a line between two territories passes through any other territory
+    linePassesThroughTerritory(from, to, allTerritories) {
+        for (const territory of allTerritories) {
+            if (territory.id === from.id || territory.id === to.id) continue;
+            
+            // Calculate distance from territory center to line segment
+            const A = from.x;
+            const B = from.y;
+            const C = to.x;
+            const D = to.y;
+            const E = territory.x;
+            const F = territory.y;
+            
+            // Vector from from to to
+            const dx = C - A;
+            const dy = D - B;
+            
+            // Vector from from to territory
+            const ex = E - A;
+            const ey = F - B;
+            
+            // Project territory onto line
+            const dot = ex * dx + ey * dy;
+            const lenSquared = dx * dx + dy * dy;
+            
+            if (lenSquared === 0) continue; // Line has no length
+            
+            const t = Math.max(0, Math.min(1, dot / lenSquared));
+            
+            // Closest point on line segment
+            const closestX = A + t * dx;
+            const closestY = B + t * dy;
+            
+            // Distance from territory to closest point on line
+            const distToLine = Math.sqrt((E - closestX) ** 2 + (F - closestY) ** 2);
+            
+            // If line passes too close to territory (within its radius + margin)
+            if (distToLine < territory.radius + 15) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     connectTerritories() {
         const territoryList = Object.values(this.territories);
         
@@ -829,7 +873,7 @@ export class GameMap {
                 const other = territoryList[j];
                 const distance = territory.getDistanceTo(other);
                 
-                if (distance <= this.connectionDistance) {
+                if (distance <= this.connectionDistance && !this.linePassesThroughTerritory(territory, other, territoryList)) {
                     nearbyTerritories.push({ territory: other, distance });
                 }
             }
