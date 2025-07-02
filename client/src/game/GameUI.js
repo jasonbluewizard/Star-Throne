@@ -531,31 +531,21 @@ export class GameUI {
     }
     
     renderDiscoveryPanel(ctx, gameData) {
-        console.log('renderDiscoveryPanel called');
         // Only show human player's discoveries
-        if (!gameData.playerDiscoveries || !gameData.humanPlayer) {
-            console.log('Missing playerDiscoveries or humanPlayer');
-            return;
-        }
+        if (!gameData.playerDiscoveries || !gameData.humanPlayer) return;
         
         const discoveries = gameData.playerDiscoveries.get(gameData.humanPlayer.id);
-        console.log('Got discoveries for human player:', discoveries);
-        if (!discoveries) {
-            console.log('No discoveries found, returning');
-            return;
-        }
+        if (!discoveries) return;
         
-        // Count active discoveries (with safety checks) - DEBUG
-        console.log('Checking discoveries for panel:', discoveries);
+        // Count active discoveries (with safety checks)
         let discoveryCount = 0;
-        if (discoveries && discoveries.precursorWeapons > 0) { discoveryCount++; console.log('precursorWeapons:', discoveries.precursorWeapons); }
-        if (discoveries && discoveries.precursorDrive > 0) { discoveryCount++; console.log('precursorDrive:', discoveries.precursorDrive); }
-        if (discoveries && discoveries.precursorShield > 0) { discoveryCount++; console.log('precursorShield:', discoveries.precursorShield); }
-        if (discoveries && discoveries.precursorNanotech > 0) { discoveryCount++; console.log('precursorNanotech:', discoveries.precursorNanotech); }
-        if (discoveries && discoveries.ancientRuins > 0) { discoveryCount++; console.log('ancientRuins:', discoveries.ancientRuins); }
-        if (discoveries && discoveries.friendlyAliens > 0) { discoveryCount++; console.log('friendlyAliens:', discoveries.friendlyAliens); }
-        if (discoveries && discoveries.richMinerals > 0) { discoveryCount++; console.log('richMinerals:', discoveries.richMinerals); }
-        console.log('Total discovery count:', discoveryCount);
+        if (discoveries && discoveries.precursorWeapons > 0) discoveryCount++;
+        if (discoveries && discoveries.precursorDrive > 0) discoveryCount++;
+        if (discoveries && discoveries.precursorShield > 0) discoveryCount++;
+        if (discoveries && discoveries.precursorNanotech > 0) discoveryCount++;
+        if (discoveries && discoveries.ancientRuins > 0) discoveryCount++;
+        if (discoveries && discoveries.friendlyAliens > 0) discoveryCount++;
+        if (discoveries && discoveries.richMinerals > 0) discoveryCount++;
         
         // Always show panel if player has any discoveries
         if (discoveryCount === 0) {
