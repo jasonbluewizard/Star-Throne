@@ -1,0 +1,165 @@
+Great. I’ll prepare a Git-style diff and a step-by-step integration guide to safely complete the modularization of StarThrone.js using DiscoverySystem, AnimationSystem, and UIManager.
+
+This will include:
+
+* Activating module method calls within the game loop
+* Validating output of each module in isolation
+* Removing redundant code from StarThrone.js once confirmed functional
+* Providing rollback checkpoints and Vite dev-test instructions
+
+I’ll let you know once everything is ready for your review.
+
+
+# Modularization Plan for StarThrone.js
+
+**Overview:** The existing `StarThrone.js` (\~3,114 lines) is being refactored by extracting key subsystems into `DiscoverySystem.js`, `AnimationSystem.js`, and `UIManager.js`.  These modules are already implemented and imported, and their initialization calls are in place.  We must now wire up the new modules in the main game loop and render pipeline, then safely remove the legacy code.  The process must be incremental and fully tested: each change should be small, tested, and reversible.  The goal is to replace old methods with module calls without disrupting gameplay or performance, following a rollback-backed plan.
+
+## Step-by-Step Integration Instructions
+
+1. **Backup Current State:** Copy `StarThrone.js` to `StarThrone_backup.js` (or use version control). Document the working commit so you can revert if needed.
+
+2. **Unit-Test Each Module:** Before integration, independently test each new module (DiscoverySystem, AnimationSystem, UIManager) to ensure it works in isolation. This matches best practice advice to write tests *before* and *after* refactoring.
+
+3. **Activate Module Calls:** Insert calls to the new modules at the proper points in the update loop and render pipeline.  For example, in the main `update(deltaTime)` method, replace legacy calls with module calls:
+
+   ```diff
+   --- StarThrone.js
+   +++ StarThrone.js
+   @@ -1250,9 +1250,14 @@ class StarThrone {
+        update(deltaTime) {
+            // Existing game loop logic...
+
+   -        // Legacy discovery updates
+   -        this.updateFloatingDiscoveries(deltaTime);
+   -        // Legacy animation updates
+   -        this.updateShipAnimations(deltaTime);
+   -        // Legacy UI updates
+   -        this.updateNotifications(deltaTime);
+   +        // Activate new DiscoverySystem update
+   +        DiscoverySystem.updateFloatingDiscoveries(deltaTime);
+   +        // Activate new AnimationSystem update
+   +        AnimationSystem.updateShipAnimations(deltaTime);
+   +        // Activate new UIManager updates (notifications, messages)
+   +        UIManager.update(deltaTime);
+
+            // Other game updates...
+        }
+   @@ -2100,11 +2105,17 @@ class StarThrone {
+            // Existing rendering pipeline...
+
+   -        // Legacy render calls
+   -        this.renderEmpireDiscoveries(ctx);
+   -        this.renderShipAnimations(ctx);
+   -        this.renderNotifications(ctx);
+   -        this.renderMessage(ctx);
+   -        this.renderBackgroundImage(ctx, camera);
+   +        // Activate new DiscoverySystem rendering
+   +        DiscoverySystem.renderFloatingDiscoveries(ctx, camera);
+   +        // Activate new AnimationSystem rendering
+   +        AnimationSystem.renderShipAnimations(ctx, camera);
+   +        // Activate new UIManager rendering
+   +        UIManager.renderNotifications(ctx);
+   +        UIManager.renderMessage(ctx);
+   +        UIManager.renderBackgroundImage(ctx, camera);
+   +
+   +        // Continue with other rendering tasks...
+
+            // Additional rendering...
+        }
+   ```
+
+   These diffs illustrate adding the new module calls (`DiscoverySystem.renderFloatingDiscoveries`, etc.) in place of legacy calls.  (Naming may vary; adjust to actual method names.)  In each section of the loop and render, ensure the new calls match the module interfaces.  For example, replace any legacy background render calls with `UIManager.renderBackgroundImage`.
+
+4. **Validate Integration:** Launch the game and verify that everything still works.  Because Vite HMR is enabled, changes will hot-reload.  Perform sanity tests and check the browser console for errors.  Confirm that:
+
+   * Gameplay features (AI, combat, discovery, etc.) are unchanged.
+   * Performance is acceptable (compare frame rates).
+   * No new console errors (especially module load errors).
+   * UI elements (notifications, messages, background) appear correctly via `UIManager` calls.
+     This corresponds to “Integration Test” in the safe process.
+
+5. **Remove Legacy Code Gradually:** Once the new calls are working, begin removing the old code **one method at a time**.  For each extracted method or block:
+
+   * Delete its definition and any direct calls in `StarThrone.js`.
+   * Immediately test the game again before proceeding.
+     Follow the detailed plan in the reference document, which lists methods to remove (e.g. discovery, animation, UI code).  For instance, after replacing discovery logic, you can remove legacy functions like `getDiscoveryTypes`, `processDiscovery`, `renderEmpireDiscoveries`, and related state initialization.
+
+   Example diff removing legacy methods:
+
+   ```diff
+   --- StarThrone.js
+   +++ StarThrone.js
+   @@ -170,18 +170,6 @@ class StarThrone {
+            // Removed legacy methods in favor of modular classes:
+   -        function loadBackgroundImage() { /* ... */ }
+   -        function renderBackgroundImage(ctx, camera) { /* ... */ }
+   -        function addNotification(text, color, duration) { /* ... */ }
+   -        function updateNotifications(deltaTime) { /* ... */ }
+   -        function showMessage(text, duration) { /* ... */ }
+   -        function hideMessage() { /* ... */ }
+   -        function showError(text) { /* ... */ }
+   -        function updateMessage(deltaTime) { /* ... */ }
+   -        function getDiscoveryTypes() { /* ... */ }
+   -        function processDiscovery(territory, player) { /* ... */ }
+   -        function renderEmpireDiscoveries(ctx) { /* ... */ }
+   -        function initializeStarfield() { /* ... */ }
+   -        function preRenderStaticBackground() { /* ... */ }
+   -        function renderStarfieldStatic() { /* ... */ }
+   +        // (These methods are now handled by UIManager, DiscoverySystem, and AnimationSystem)
+
+            // Remaining methods...
+        }
+   ```
+
+   This diff shows legacy methods being removed entirely.  In practice, you would remove one or two related methods at a time (e.g. all UI handlers, then all discovery functions, etc.), testing after each removal.  The reference recommends logging each removal step.
+
+6. **Module Call Coverage & Testing:** Ensure each new module method is exercised by the game.  For example, verify that:
+
+   * `DiscoverySystem.processDiscovery(...)`, `getCombatBonuses()`, `getArmyGenerationBonus()` are invoked in the appropriate game logic (combat resolution, colony discovery, etc.).
+   * `AnimationSystem.updateShipAnimations()`, `renderShipAnimations()` are called each frame, and that starfield initialization/rendering logic is now in `AnimationSystem` (e.g. via `initializeStarfield`, `preRenderStaticBackground`).
+   * `UIManager.addNotification(...)`, `renderNotifications(...)`, `renderMessage(...)` are triggered by game events (e.g. pop-up messages, errors) and rendered each frame.
+
+   Write or update unit tests for these calls if possible. Good test coverage is crucial so that “tests confirm the refactored code still works”.
+
+7. **Final Validation:** After all targeted methods are removed, perform a full regression test pass. Ensure **all** game features work and that no legacy code remains in `StarThrone.js` for the extracted domains.  The codebase should now be leaner (\~1,500 lines as a goal) and rely on modules for the removed functionality.
+
+## Mapping of Removed Methods
+
+The following legacy methods in `StarThrone.js` are being replaced by module calls:
+
+* **DiscoverySystem** (manages probe discovery mechanics and bonuses):
+
+  * *Replaced:* Legacy methods like `getDiscoveryTypes()`, `processDiscovery(territory, player)`, `renderEmpireDiscoveries(ctx)`, plus any floating discovery update/render calls.
+  * *Module Calls:* `DiscoverySystem.processDiscovery(...)`, `DiscoverySystem.getCombatBonuses()`, `DiscoverySystem.getArmyGenerationBonus()`, `DiscoverySystem.updateFloatingDiscoveries(deltaTime)`, `DiscoverySystem.renderFloatingDiscoveries(ctx, camera)`.
+
+* **AnimationSystem** (handles ship animations, starfield, object pooling):
+
+  * *Replaced:* Legacy functions `initializeStarfield()`, `createStarLayer()`, `preRenderStaticBackground()`, `renderStarfieldStatic()`, ship animation update/render logic, and object pooling for animations.
+  * *Module Calls:* `AnimationSystem.initializeStarfield()`, `AnimationSystem.updateShipAnimations(deltaTime)`, `AnimationSystem.renderShipAnimations(ctx, camera)`, `AnimationSystem.createBasicShipAnimation(...)`, etc.
+
+* **UIManager** (handles notifications, messages, background):
+
+  * *Replaced:* Legacy UI methods `loadBackgroundImage()`, `renderBackgroundImage(ctx, camera)`, `addNotification()`, `updateNotifications()`, `showMessage()`, `hideMessage()`, `showError()`, `updateMessage()`, and any notification/message rendering in `render`.
+  * *Module Calls:* `UIManager.loadBackgroundImage()`, `UIManager.renderBackgroundImage(ctx, camera)`, `UIManager.addNotification(text, color, duration)`, `UIManager.update(deltaTime)`, `UIManager.renderNotifications(ctx)`, `UIManager.renderMessage(ctx)`.
+
+This mapping follows the detailed plan in the reference document.  In each case, the legacy code is **dead** after integration and can be safely removed.
+
+## Rollback Checkpoints and Test Checklist
+
+* **Backup:** Always keep `StarThrone_backup.js` or a Git commit checkpoint before removal steps.
+* **Incremental Testing:** After adding module calls (Step 3) and after each removal (Step 5), run the game and automated tests. Confirm no new errors and that key features (combat, AI, rendering, UI) work as expected.
+* **Rollback:** If any issue is detected, stop immediately and revert to the backup.  Identify the problematic extraction (e.g. a call or code that was removed too early), fix it (perhaps by adjusting the module), and then re-apply the change.  The strategy is: *“Never sacrifice working functionality for code organization”*.
+
+**Test Validation Checklist:** For each module and removed feature, ensure tests cover:
+
+* **DiscoverySystem:** Probe colonization and empire bonus logic should use `DiscoverySystem.*` methods. E.g. test that `processDiscovery(...)` returns correct results and that `getCombatBonuses()` affects combat damage.
+* **AnimationSystem:** Ship movement and attack animations should appear via `AnimationSystem` calls. The static starfield background must still render correctly (via `AnimationSystem`).
+* **UIManager:** All in-game messages, notifications, and background images must display correctly. Test adding notifications (`UIManager.addNotification`) and that they appear (`renderNotifications`).
+
+As industry guidance notes, refactoring in small, test-validated steps is safest, and dead (unused) code should be removed once replaced.
+
+## References
+
+* Modularization and refactoring best practices: grouping related code into modules improves maintainability.
+* Incremental, tested refactoring: make one small change at a time, test, and iterate.
+* Safe extraction methodology and removal plan (lines from the project’s own analysis document).

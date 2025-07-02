@@ -1586,17 +1586,11 @@ export default class StarThrone {
         
         // Ship animations and probes for tactical view
         if (lodLevel >= 2) {
-            // Use AnimationSystem for ship animations
-            if (this.animationSystem) {
-                this.animationSystem.renderShipAnimations(this.ctx, this.camera);
-            }
+            this.renderShipAnimations();
             this.renderProbes();
         }
         
-        // Use DiscoverySystem for floating discovery texts
-        if (this.discoverySystem) {
-            this.discoverySystem.renderFloatingDiscoveries(this.ctx, this.camera);
-        }
+        this.renderFloatingDiscoveryTexts();
         this.renderArmies();
         this.renderFloatingTexts();
         
