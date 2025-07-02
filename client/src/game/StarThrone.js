@@ -122,7 +122,6 @@ export default class StarThrone {
         
         // Initialize event system for decoupled component communication
         this.eventProcessingEnabled = true;
-        this.setupEventListeners();
         
         // Global discovery log for all players
         this.discoveryLog = [];
@@ -1016,6 +1015,12 @@ export default class StarThrone {
     }
     
     setupEventListeners() {
+        // Safety check to ensure canvas exists
+        if (!this.canvas) {
+            console.error('Canvas not available for event listeners');
+            return;
+        }
+        
         // Mouse events now handled by InputHandler.js - removed to prevent conflicts
         // Wheel events handled by InputHandler
         
