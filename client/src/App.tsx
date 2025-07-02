@@ -21,12 +21,21 @@ function App() {
   const initSinglePlayerGame = async (data: GameData) => {
     try {
       const { default: StarThrone } = await import('./game/StarThrone.js');
-      gameRef.current = new StarThrone(data);
+      
+      // Add mode flag to prevent WebSocket connection attempts
+      const gameConfig = {
+        ...data,
+        mode: 'single-player',
+        disableWebSocket: true
+      };
+      
+      gameRef.current = new StarThrone(gameConfig);
       // Make game globally accessible for mobile zoom buttons
       (window as any).game = gameRef.current;
-      console.log('Single-player Star Throne game initialized with config:', data);
+      console.log('Single-player Star Throne game initialized with config:', gameConfig);
     } catch (error) {
       console.error('Failed to initialize single-player game:', error);
+      console.error('Error details:', error.message, error.stack);
     }
   };
 

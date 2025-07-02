@@ -121,6 +121,7 @@ export default class StarThrone {
         this.playerDiscoveries = new Map(); // Map of playerId -> discoveries
         
         // Initialize event system for decoupled component communication
+        this.eventProcessingEnabled = true;
         this.setupEventListeners();
         
         // Global discovery log for all players
