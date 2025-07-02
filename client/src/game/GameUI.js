@@ -541,9 +541,15 @@ export class GameUI {
         if (discoveries && discoveries.precursorShield > 0) discoveryCount++;
         if (discoveries && discoveries.precursorNanotech > 0) discoveryCount++;
         if (discoveries && discoveries.factoryPlanets && discoveries.factoryPlanets.size > 0) discoveryCount++;
+        if (discoveries && discoveries.friendlyAliens > 0) discoveryCount++;
+        if (discoveries && discoveries.richMinerals > 0) discoveryCount++;
         
-        // Show panel only if there are permanent empire discoveries
-        if (discoveryCount === 0) return;
+        // Always show panel if player has any discoveries
+        if (discoveryCount === 0) {
+            // Show empty panel if human player has made any probe attempts
+            const humanPlayer = gameData.humanPlayer;
+            if (!humanPlayer || humanPlayer.territories.length === 0) return;
+        }
         
         const x = 20;
         const width = 280;
@@ -596,6 +602,16 @@ export class GameUI {
         
         if (discoveries && discoveries.factoryPlanets && discoveries.factoryPlanets.size > 0) {
             this.renderTextWithShadow(ctx, `🏭 Factory Worlds: ${discoveries.factoryPlanets.size} (+100% each)`, x + padding, currentY, '#FECA57');
+            currentY += lineHeight;
+        }
+        
+        if (discoveries && discoveries.friendlyAliens > 0) {
+            this.renderTextWithShadow(ctx, `👽 Friendly Aliens: +${discoveries.friendlyAliens * 50} Fleet Strength`, x + padding, currentY, '#9B59B6');
+            currentY += lineHeight;
+        }
+        
+        if (discoveries && discoveries.richMinerals > 0) {
+            this.renderTextWithShadow(ctx, `💎 Rich Minerals: ${discoveries.richMinerals} Worlds (+50% each)`, x + padding, currentY, '#F39C12');
             currentY += lineHeight;
         }
         

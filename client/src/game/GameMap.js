@@ -637,7 +637,7 @@ export class GameMap {
                 const other = territoryList[j];
                 const distance = territory.getDistanceTo(other);
                 
-                if (distance > 80 && distance <= 200) { // Bridge connections
+                if (distance > 80 && distance <= this.connectionDistance) { // Bridge connections
                     bridgeTargets.push({ territory: other, distance });
                 }
             }
