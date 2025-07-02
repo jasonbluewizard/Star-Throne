@@ -18,75 +18,47 @@ const TitleScreen: React.FC<TitleScreenProps> = ({ onEnterGame }) => {
 
   return (
     <div className="fixed inset-0 bg-black flex items-center justify-center overflow-hidden">
-      {/* Star tunnel background */}
+      {/* Simple streaming starfield */}
       <div className="absolute inset-0 overflow-hidden">
-        {[...Array(120)].map((_, i) => {
-          const speed = Math.random() * 3 + 2; // 2-5 second duration
-          const size = Math.random() * 1.5 + 0.5; // 0.5-2px
-          const delay = Math.random() * 5; // 0-5s delay
-          
-          // Create radial positions around center
-          const angle = (Math.random() * Math.PI * 2);
-          const startRadius = Math.random() * 20 + 5; // 5-25% from center
-          const startX = 50 + Math.cos(angle) * startRadius;
-          const startY = 50 + Math.sin(angle) * startRadius;
-          
-          // Calculate end position (far off screen in same direction)
-          const endRadius = 200; // Much farther out
-          const endX = 50 + Math.cos(angle) * endRadius;
-          const endY = 50 + Math.sin(angle) * endRadius;
+        {[...Array(100)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute rounded-full bg-white animate-pulse"
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              width: `${Math.random() * 3 + 1}px`,
+              height: `${Math.random() * 3 + 1}px`,
+              animationDelay: `${Math.random() * 3}s`,
+              animationDuration: `${Math.random() * 2 + 2}s`,
+              opacity: Math.random() * 0.8 + 0.2,
+            }}
+          />
+        ))}
+        
+        {/* Moving stars for tunnel effect */}
+        {[...Array(50)].map((_, i) => {
+          const isHorizontal = i % 2 === 0;
+          const speed = Math.random() * 5 + 3;
           
           return (
             <div
-              key={i}
+              key={`moving-${i}`}
               className="absolute rounded-full bg-white"
               style={{
-                left: `${startX}%`,
-                top: `${startY}%`,
-                width: `${size}px`,
-                height: `${size}px`,
-                animation: `starTunnelSimple-${i} ${speed}s linear ${delay}s infinite, starTwinkle ${Math.random() * 3 + 2}s ease-in-out infinite`,
-                opacity: Math.random() * 0.7 + 0.3,
-                transform: 'translate(-50%, -50%)',
+                width: `${Math.random() * 2 + 1}px`,
+                height: `${Math.random() * 2 + 1}px`,
+                left: isHorizontal ? '-10px' : `${Math.random() * 100}%`,
+                top: isHorizontal ? `${Math.random() * 100}%` : '-10px',
+                animation: isHorizontal 
+                  ? `moveHorizontal ${speed}s linear infinite`
+                  : `moveVertical ${speed}s linear infinite`,
+                opacity: 0.6,
+                animationDelay: `${Math.random() * 5}s`,
               }}
             />
           );
         })}
-        
-        <style>{`
-          ${[...Array(120)].map((_, i) => {
-            const angle = (Math.random() * Math.PI * 2);
-            const startRadius = Math.random() * 20 + 5;
-            const startX = 50 + Math.cos(angle) * startRadius;
-            const startY = 50 + Math.sin(angle) * startRadius;
-            const endRadius = 200;
-            const endX = 50 + Math.cos(angle) * endRadius;
-            const endY = 50 + Math.sin(angle) * endRadius;
-            
-            return `
-              @keyframes starTunnelSimple-${i} {
-                0% {
-                  left: ${startX}%;
-                  top: ${startY}%;
-                  transform: translate(-50%, -50%) scale(0.1);
-                  opacity: 0;
-                }
-                5% {
-                  opacity: 1;
-                }
-                95% {
-                  opacity: 1;
-                }
-                100% {
-                  left: ${endX}%;
-                  top: ${endY}%;
-                  transform: translate(-50%, -50%) scale(3);
-                  opacity: 0;
-                }
-              }
-            `;
-          }).join('')}
-        `}</style>
       </div>
 
       {/* Main content container */}
