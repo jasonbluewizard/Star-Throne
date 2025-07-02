@@ -59,6 +59,89 @@ export default class Controls {
   }
 
   /**
+   * Execute reinforcement command when right-clicking on friendly territory
+   * Sends 10% of ships (rounded up) from selected territory to target
+   */
+  executeReinforcement(fromTerritory, toTerritory) {
+    // Validation checks
+    if (!this.canReinforce(fromTerritory, toTerritory)) {
+      return false;
+    }
+
+    // Calculate reinforcement fleet size (10% rounded up)
+    const totalShips = fromTerritory.armySize;
+    const reinforcementFleet = Math.max(1, Math.ceil(totalShips * this.defaultAttackPercentage));
+    
+    // Ensure we don't send all ships (leave at least 1)
+    const maxReinforcementFleet = Math.max(0, totalShips - 1);
+    const finalReinforcementFleet = Math.min(reinforcementFleet, maxReinforcementFleet);
+    
+    if (finalReinforcementFleet <= 0) {
+      console.log(`Reinforcement blocked: ${fromTerritory.id} needs to keep at least 1 ship`);
+      return false;
+    }
+
+    console.log(`Reinforcement initiated: ${fromTerritory.id} sending ${finalReinforcementFleet} ships (${Math.round(this.defaultAttackPercentage * 100)}%) to ${toTerritory.id}`);
+
+    // Visual feedback - flash the source territory
+    this.addReinforcementFlash(fromTerritory, finalReinforcementFleet);
+
+    // Create ship animation along warp lane
+    this.createReinforcementAnimation(fromTerritory, toTerritory, finalReinforcementFleet);
+
+    // Deduct ships immediately from source
+    fromTerritory.armySize -= finalReinforcementFleet;
+
+    // Schedule the actual reinforcement after animation completes
+    setTimeout(() => {
+      this.resolveReinforcement(fromTerritory, toTerritory, finalReinforcementFleet);
+    }, this.getAnimationDuration(fromTerritory, toTerritory));
+
+    return true;
+  }
+
+  /**
+   * Check if reinforcement is valid
+   */
+  canReinforce(fromTerritory, toTerritory) {
+    if (!fromTerritory || !toTerritory) {
+      console.log('Reinforcement blocked: Missing territory');
+      return false;
+    }
+
+    // Must own both territories
+    if (fromTerritory.ownerId !== this.game.humanPlayer?.id) {
+      console.log('Reinforcement blocked: Don\'t own source territory');
+      return false;
+    }
+
+    if (toTerritory.ownerId !== this.game.humanPlayer?.id) {
+      console.log('Reinforcement blocked: Don\'t own target territory');
+      return false;
+    }
+
+    // Cannot reinforce self
+    if (fromTerritory.id === toTerritory.id) {
+      console.log('Reinforcement blocked: Cannot reinforce same territory');
+      return false;
+    }
+
+    // Must have enough ships to reinforce
+    if (fromTerritory.armySize <= 1) {
+      console.log('Reinforcement blocked: Need more than 1 ship to reinforce');
+      return false;
+    }
+
+    // Must be connected via warp lanes
+    if (!this.areConnected(fromTerritory, toTerritory)) {
+      console.log('Reinforcement blocked: Territories not connected');
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
    * Check if attack is valid
    */
   canAttack(fromTerritory, toTerritory) {
@@ -149,6 +232,84 @@ export default class Controls {
     );
 
     console.log(`Attack animation created: ${fleetSize} ships from ${fromTerritory.id} to ${toTerritory.id}`);
+  }
+
+  /**
+   * Add visual flash effect to reinforcing territory
+   */
+  addReinforcementFlash(territory, fleetSize) {
+    // Set flash properties
+    territory.reinforcementFlash = 800; // Flash duration in ms
+    territory.flashColor = '#44ff44'; // Green reinforcement color
+
+    // Add floating text showing ships being sent
+    if (this.game.floatingTexts) {
+      this.game.floatingTexts.push({
+        x: territory.x + Math.random() * 40 - 20,
+        y: territory.y - 25,
+        text: `-${fleetSize}`,
+        color: '#44ff44',
+        timer: 2000,
+        duration: 2000,
+        opacity: 1
+      });
+    }
+
+    console.log(`Reinforcement flash added to territory ${territory.id}: sending ${fleetSize} ships`);
+  }
+
+  /**
+   * Create ship animation for reinforcements along warp lane
+   */
+  createReinforcementAnimation(fromTerritory, toTerritory, fleetSize) {
+    if (!this.game.animationSystem) {
+      console.log('Warning: No animation system available');
+      return;
+    }
+
+    // Create ship animation with green color for reinforcements
+    this.game.animationSystem.createShipAnimation(
+      fromTerritory, 
+      toTerritory, 
+      fleetSize, 
+      '#44ff44' // Green color for reinforcements
+    );
+
+    console.log(`Reinforcement animation created: ${fleetSize} ships from ${fromTerritory.id} to ${toTerritory.id}`);
+  }
+
+  /**
+   * Resolve reinforcement after animation completes
+   */
+  resolveReinforcement(fromTerritory, toTerritory, reinforcementFleet) {
+    // Simply add ships to target territory
+    toTerritory.armySize += reinforcementFleet;
+    
+    console.log(`Reinforcement resolved: ${reinforcementFleet} ships added to territory ${toTerritory.id}, total now: ${toTerritory.armySize}`);
+    
+    // Add visual feedback
+    this.addReinforcementArrivedFlash(toTerritory, reinforcementFleet);
+  }
+
+  /**
+   * Add flash effect when reinforcements arrive
+   */
+  addReinforcementArrivedFlash(territory, fleetSize) {
+    territory.reinforcementArrivedFlash = 600; // Flash duration
+    territory.flashColor = '#88ff88'; // Light green arrival flash
+    
+    // Add floating text showing ships received
+    if (this.game.floatingTexts) {
+      this.game.floatingTexts.push({
+        x: territory.x + Math.random() * 40 - 20,
+        y: territory.y - 25,
+        text: `+${fleetSize}`,
+        color: '#44ff44',
+        timer: 2000,
+        duration: 2000,
+        opacity: 1
+      });
+    }
   }
 
   /**
@@ -256,13 +417,19 @@ export default class Controls {
    */
   update(deltaTime) {
     // Update territory flash effects
-    if (this.game.territories) {
-      for (const territory of this.game.territories) {
+    if (this.game.gameMap && this.game.gameMap.territories) {
+      for (const territory of this.game.gameMap.territories) {
         if (territory.attackFlash > 0) {
           territory.attackFlash -= deltaTime;
         }
         if (territory.combatFlash > 0) {
           territory.combatFlash -= deltaTime;
+        }
+        if (territory.reinforcementFlash > 0) {
+          territory.reinforcementFlash -= deltaTime;
+        }
+        if (territory.reinforcementArrivedFlash > 0) {
+          territory.reinforcementArrivedFlash -= deltaTime;
         }
       }
     }

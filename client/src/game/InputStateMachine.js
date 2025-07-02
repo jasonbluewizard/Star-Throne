@@ -254,10 +254,10 @@ class TerritorySelectedState extends BaseState {
             }
         }
         
-        // Clicking enemy/neutral territory - attack
+        // Clicking enemy/neutral territory - just select it for inspection (no attack on left-click)
         if (!territory.isColonizable) {
-            this.game.attackTerritory(this.selectedTerritory, territory);
-            // Keep territory selected for multiple attacks
+            this.fsm.selectedTerritory = territory;
+            this.fsm.transitionTo('EnemySelected', { selectedTerritory: territory });
             return true;
         }
         
@@ -284,6 +284,22 @@ class TerritorySelectedState extends BaseState {
                 return true;
             } else {
                 this.game.showError("Need at least 10 fleet strength to launch probe");
+                return true;
+            }
+        }
+        
+        // Right-click on friendly territory - transfer reinforcements
+        if (this.isOwnedByPlayer(territory) && territory.id !== this.selectedTerritory.id) {
+            console.log(`Attempting reinforcement: from ${this.selectedTerritory.id} to ${territory.id}`);
+            if (this.game.controls && this.game.controls.executeReinforcement) {
+                const reinforcementSuccess = this.game.controls.executeReinforcement(this.selectedTerritory, territory);
+                if (reinforcementSuccess) {
+                    console.log(`Reinforcement sent successfully via right-click`);
+                    return true;
+                }
+            } else {
+                // Fallback to old transfer system
+                this.game.transferFleet(this.selectedTerritory, territory);
                 return true;
             }
         }
