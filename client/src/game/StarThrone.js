@@ -832,6 +832,12 @@ export default class StarThrone {
         
         if (!planet || !player) return;
         
+        // Check if planet is already colonized by another player
+        if (planet.ownerId !== null && planet.ownerId !== player.id) {
+            console.log(`Probe from ${player.name} destroyed! Planet ${planet.id} already colonized by another player.`);
+            return;
+        }
+        
         console.log(`Probe colonizing planet ${planet.id} for player ${player.name}`);
         
         // Trigger discovery event before colonization

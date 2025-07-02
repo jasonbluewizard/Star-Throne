@@ -200,9 +200,11 @@ export class GameEngine {
 
     private completeProbeColonization(probe: ProbeState): void {
         const territory = this.gameState.territories[probe.toTerritoryId];
-        if (territory && territory.isColonizable) {
+        if (territory && territory.isColonizable && territory.ownerId === null) {
             this.colonizeTerritory(probe.toTerritoryId, probe.playerId, GAME_CONSTANTS.INITIAL_COLONIZED_ARMY_SIZE);
             console.log(`Server: Probe colonized territory ${probe.toTerritoryId} for player ${probe.playerId}`);
+        } else if (territory && territory.ownerId !== null) {
+            console.log(`Server: Probe from player ${probe.playerId} destroyed! Territory ${probe.toTerritoryId} already owned by ${territory.ownerId}`);
         }
     }
 
