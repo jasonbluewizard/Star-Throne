@@ -301,6 +301,13 @@ export class PerformanceManager {
     }
     
     /**
+     * Get current memory usage in MB
+     */
+    getMemoryUsageMB() {
+        return this.memoryStats.totalAllocated / (1024 * 1024);
+    }
+    
+    /**
      * Get performance statistics for debugging
      */
     getPerformanceStats() {
