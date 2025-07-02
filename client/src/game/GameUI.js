@@ -104,7 +104,11 @@ export class GameUI {
         }
         
         // Discovery panel showing empire bonuses
-        this.renderDiscoveryPanel(ctx, gameData);
+        try {
+            this.renderDiscoveryPanel(ctx, gameData);
+        } catch (error) {
+            console.error('Error in renderDiscoveryPanel:', error);
+        }
         
         // Performance panel (togglable with P key)
         this.renderPerformanceInfo(ctx, gameData);
@@ -527,13 +531,19 @@ export class GameUI {
     }
     
     renderDiscoveryPanel(ctx, gameData) {
+        console.log('renderDiscoveryPanel called');
         // Only show human player's discoveries
-        if (!gameData.playerDiscoveries || !gameData.humanPlayer) return;
+        if (!gameData.playerDiscoveries || !gameData.humanPlayer) {
+            console.log('Missing playerDiscoveries or humanPlayer');
+            return;
+        }
         
         const discoveries = gameData.playerDiscoveries.get(gameData.humanPlayer.id);
-        if (!discoveries) return;
-        
-        let discoveryCount = 0;
+        console.log('Got discoveries for human player:', discoveries);
+        if (!discoveries) {
+            console.log('No discoveries found, returning');
+            return;
+        }
         
         // Count active discoveries (with safety checks) - DEBUG
         console.log('Checking discoveries for panel:', discoveries);
@@ -542,7 +552,7 @@ export class GameUI {
         if (discoveries && discoveries.precursorDrive > 0) { discoveryCount++; console.log('precursorDrive:', discoveries.precursorDrive); }
         if (discoveries && discoveries.precursorShield > 0) { discoveryCount++; console.log('precursorShield:', discoveries.precursorShield); }
         if (discoveries && discoveries.precursorNanotech > 0) { discoveryCount++; console.log('precursorNanotech:', discoveries.precursorNanotech); }
-        if (discoveries && discoveries.factoryPlanets && discoveries.factoryPlanets.size > 0) { discoveryCount++; console.log('factoryPlanets:', discoveries.factoryPlanets.size); }
+        if (discoveries && discoveries.ancientRuins > 0) { discoveryCount++; console.log('ancientRuins:', discoveries.ancientRuins); }
         if (discoveries && discoveries.friendlyAliens > 0) { discoveryCount++; console.log('friendlyAliens:', discoveries.friendlyAliens); }
         if (discoveries && discoveries.richMinerals > 0) { discoveryCount++; console.log('richMinerals:', discoveries.richMinerals); }
         console.log('Total discovery count:', discoveryCount);
