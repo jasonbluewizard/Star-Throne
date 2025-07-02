@@ -189,63 +189,7 @@ export default class StarThrone {
         }
     }
     
-    loadBackgroundImage() {
-        // Load the background galaxy image
-        this.backgroundImage = new Image();
-        this.backgroundImage.onload = () => {
-            this.backgroundLoaded = true;
-            console.log('Background galaxy image loaded');
-        };
-        this.backgroundImage.onerror = () => {
-            console.log('Background image failed to load, using default starfield');
-            this.backgroundLoaded = false;
-        };
-        // Set the image path
-        this.backgroundImage.src = '/galaxy-background.jpg';
-    }
-    
-    renderBackgroundImage() {
-        if (!this.backgroundImage || !this.backgroundLoaded) return;
-        
-        this.ctx.save();
-        
-        // Calculate parallax offset (background moves slower than camera)
-        const parallaxFactor = 0.2; // Background moves at 20% of camera speed
-        const offsetX = -this.camera.x * parallaxFactor;
-        const offsetY = -this.camera.y * parallaxFactor;
-        
-        // Calculate scale to ensure image covers the entire viewport
-        const imageAspect = this.backgroundImage.width / this.backgroundImage.height;
-        const canvasAspect = this.canvas.width / this.canvas.height;
-        
-        let drawWidth, drawHeight;
-        if (imageAspect > canvasAspect) {
-            // Image is wider - fit to height
-            drawHeight = this.canvas.height * 1.5; // Scale up for parallax coverage
-            drawWidth = drawHeight * imageAspect;
-        } else {
-            // Image is taller - fit to width
-            drawWidth = this.canvas.width * 1.5; // Scale up for parallax coverage
-            drawHeight = drawWidth / imageAspect;
-        }
-        
-        // Center the image with parallax offset
-        const drawX = (this.canvas.width - drawWidth) / 2 + offsetX;
-        const drawY = (this.canvas.height - drawHeight) / 2 + offsetY;
-        
-        // Draw the background image with very low opacity
-        this.ctx.globalAlpha = 0.15; // Even more transparent for very subtle background effect
-        this.ctx.drawImage(this.backgroundImage, drawX, drawY, drawWidth, drawHeight);
-        
-        // Add dark overlay to further dim the background
-        this.ctx.globalAlpha = 0.6;
-        this.ctx.fillStyle = '#000000';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        this.ctx.globalAlpha = 1.0;
-        
-        this.ctx.restore();
-    }
+    // Background rendering moved to UIManager
     
     /**
      * Setup event listeners for event-driven architecture
@@ -413,26 +357,7 @@ export default class StarThrone {
         this.gameLoop();
     }
     
-    // Define discovery types and their probabilities
-    getDiscoveryTypes() {
-        return [
-            {
-                id: 'hostile_aliens',
-                name: 'Hostile Aliens',
-                description: 'Hostile alien life destroys your probe!',
-                probability: 0.15,
-                type: 'negative',
-                effect: 'probe_lost'
-            },
-            {
-                id: 'friendly_aliens',
-                name: 'Friendly Aliens',
-                description: 'Friendly aliens join your empire!',
-                probability: 0.12,
-                type: 'positive',
-                effect: 'extra_fleet',
-                bonus: 50
-            },
+    // Discovery system moved to DiscoverySystem module
             {
                 id: 'precursor_weapons',
                 name: 'Precursor Weapons Cache',
