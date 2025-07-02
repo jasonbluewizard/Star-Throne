@@ -104,7 +104,7 @@ export default class Controls {
    * Check if territories are connected via warp lanes
    */
   areConnected(territory1, territory2) {
-    return territory1.connections && territory1.connections.includes(territory2.id);
+    return territory1.neighbors && territory1.neighbors.includes(territory2.id);
   }
 
   /**
