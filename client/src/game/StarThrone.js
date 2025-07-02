@@ -1034,14 +1034,13 @@ export default class StarThrone {
         if (this.discoverySystem) {
             this.discoverySystem.updateFloatingDiscoveries();
         }
-        // Disabled modular animation system to prevent errors
-        // if (this.animationSystem) {
-        //     try {
-        //         this.animationSystem.update(deltaTime);
-        //     } catch (error) {
-        //         console.error('Error updating animations:', error);
-        //     }
-        // }
+        if (this.animationSystem) {
+            try {
+                this.animationSystem.update(deltaTime);
+            } catch (error) {
+                console.error('Error updating animations:', error);
+            }
+        }
         if (this.memoryManager) {
             this.memoryManager.update();
         }
@@ -1141,319 +1140,6 @@ export default class StarThrone {
         }
     }
     
-    renderStarfield() {
-        if (!this.stars) {
-            this.generateStarfield();
-        }
-        
-        for (const star of this.stars) {
-            const screenX = star.x - this.camera.x * star.parallax + this.canvas.width / 2;
-            const screenY = star.y - this.camera.y * star.parallax + this.canvas.height / 2;
-            
-            if (screenX >= -10 && screenX <= this.canvas.width + 10 && 
-                screenY >= -10 && screenY <= this.canvas.height + 10) {
-                
-                this.ctx.fillStyle = star.color;
-                this.ctx.globalAlpha = star.opacity * (0.5 + 0.5 * Math.sin(Date.now() * star.twinkle));
-                this.ctx.fillRect(screenX, screenY, star.size, star.size);
-                this.ctx.globalAlpha = 1;
-            }
-        }
-    }
-    
-    generateStarfield() {
-        this.stars = [];
-        
-        for (let i = 0; i < 500; i++) {
-            const layer = i < 300 ? 'far' : (i < 450 ? 'mid' : 'near');
-            
-            this.stars.push({
-                x: Math.random() * this.canvas.width * 2,
-                y: Math.random() * this.canvas.height * 2,
-                size: layer === 'far' ? 1 : (layer === 'mid' ? 1.5 : 2),
-                color: layer === 'far' ? '#ffffff' : (layer === 'mid' ? '#ddddff' : '#ffffdd'),
-                opacity: layer === 'far' ? 0.6 : (layer === 'mid' ? 0.8 : 1.0),
-                parallax: layer === 'far' ? 0.05 : (layer === 'mid' ? 0.15 : 0.3),
-                twinkle: 0.001 + Math.random() * 0.002
-            });
-        }
-    }
-    
-    renderConnections() {
-        if (!this.gameMap || !this.gameMap.territories) return;
-        
-        const territories = Object.values(this.gameMap.territories);
-        const drawnConnections = new Set();
-        
-        for (const territory of territories) {
-            if (territory.ownerId && territory.neighbors) {
-                const owner = this.players.find(p => p.id === territory.ownerId);
-                if (owner) {
-                    for (const neighborId of territory.neighbors) {
-                        const neighbor = this.gameMap.territories[neighborId];
-                        if (neighbor && neighbor.ownerId === territory.ownerId) {
-                            const connectionKey = `${Math.min(territory.id, neighborId)}-${Math.max(territory.id, neighborId)}`;
-                            if (!drawnConnections.has(connectionKey)) {
-                                drawnConnections.add(connectionKey);
-                                
-                                this.ctx.strokeStyle = owner.color;
-                                this.ctx.lineWidth = 2;
-                                this.ctx.globalAlpha = 0.6;
-                                this.ctx.beginPath();
-                                this.ctx.moveTo(territory.x, territory.y);
-                                this.ctx.lineTo(neighbor.x, neighbor.y);
-                                this.ctx.stroke();
-                                this.ctx.globalAlpha = 1;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    
-    renderShipAnimations() {
-        if (this.shipAnimations) {
-            for (let i = this.shipAnimations.length - 1; i >= 0; i--) {
-                const anim = this.shipAnimations[i];
-                if (anim.progress < anim.duration) {
-                    const progress = anim.progress / anim.duration;
-                    const x = anim.from.x + (anim.to.x - anim.from.x) * progress;
-                    const y = anim.from.y + (anim.to.y - anim.from.y) * progress;
-                    
-                    this.ctx.fillStyle = anim.color;
-                    this.ctx.beginPath();
-                    this.ctx.arc(x, y, 3, 0, Math.PI * 2);
-                    this.ctx.fill();
-                } else {
-                    this.shipAnimations.splice(i, 1);
-                }
-            }
-        }
-    }
-    
-    renderSupplyRoutes() {
-        if (this.supplyRoutes) {
-            for (const route of this.supplyRoutes) {
-                if (route.active) {
-                    const fromTerritory = this.gameMap.territories[route.from];
-                    const toTerritory = this.gameMap.territories[route.to];
-                    
-                    if (fromTerritory && toTerritory) {
-                        this.ctx.strokeStyle = '#00ffff';
-                        this.ctx.lineWidth = 2;
-                        this.ctx.setLineDash([5, 5]);
-                        this.ctx.globalAlpha = 0.7;
-                        this.ctx.beginPath();
-                        this.ctx.moveTo(fromTerritory.x, fromTerritory.y);
-                        this.ctx.lineTo(toTerritory.x, toTerritory.y);
-                        this.ctx.stroke();
-                        this.ctx.setLineDash([]);
-                        this.ctx.globalAlpha = 1;
-                    }
-                }
-            }
-        }
-    }
-    
-    renderGameUI() {
-        // Player count and game state
-        this.ctx.fillStyle = '#ffffff';
-        this.ctx.font = '16px Arial';
-        this.ctx.fillText(`Players: ${this.players.length}`, 10, 30);
-        this.ctx.fillText(`State: ${this.gameState}`, 10, 50);
-        
-        // Zoom level indicator
-        if (this.camera) {
-            this.ctx.fillText(`Zoom: ${Math.round(this.camera.zoom * 100)}%`, 10, 70);
-        }
-        
-        // Enhanced leaderboard
-        if (this.players && this.players.length > 0) {
-            this.renderEnhancedLeaderboard();
-        }
-        
-        // Discovery panel for human player
-        if (this.humanPlayer && this.playerDiscoveries) {
-            this.renderEnhancedDiscoveryPanel();
-        }
-        
-        // Selected territory info
-        if (this.selectedTerritory) {
-            this.renderTerritoryInfo();
-        }
-    }
-    
-    renderEnhancedLeaderboard() {
-        const sortedPlayers = [...this.players]
-            .filter(p => !p.isEliminated)
-            .sort((a, b) => b.territoriesOwned - a.territoriesOwned)
-            .slice(0, 10);
-        
-        const panelWidth = 250;
-        const panelHeight = 40 + sortedPlayers.length * 22;
-        const x = this.canvas.width - panelWidth - 10;
-        const y = 10;
-        
-        // Background with transparency
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-        this.ctx.fillRect(x, y, panelWidth, panelHeight);
-        
-        // Border
-        this.ctx.strokeStyle = '#ffffff';
-        this.ctx.lineWidth = 1;
-        this.ctx.strokeRect(x, y, panelWidth, panelHeight);
-        
-        // Header
-        this.ctx.fillStyle = '#00ffff';
-        this.ctx.font = 'bold 16px Arial';
-        this.ctx.fillText('🏆 Galactic Leaderboard', x + 10, y + 20);
-        
-        // Player entries
-        this.ctx.font = '14px Arial';
-        for (let i = 0; i < sortedPlayers.length; i++) {
-            const player = sortedPlayers[i];
-            const entryY = y + 40 + i * 22;
-            
-            // Player color indicator
-            this.ctx.fillStyle = player.color;
-            this.ctx.fillRect(x + 10, entryY - 12, 15, 15);
-            
-            // Player info
-            this.ctx.fillStyle = player.type === 'human' ? '#00ffff' : '#ffffff';
-            const rankText = `${i + 1}.`;
-            const nameText = player.type === 'human' ? `${player.name} (You)` : player.name;
-            const scoreText = `${player.territoriesOwned} territories`;
-            
-            this.ctx.fillText(rankText, x + 30, entryY);
-            this.ctx.fillText(nameText, x + 50, entryY);
-            this.ctx.fillText(scoreText, x + 180, entryY);
-        }
-    }
-    
-    renderEnhancedDiscoveryPanel() {
-        const discoveries = this.playerDiscoveries.get(this.humanPlayer.id);
-        if (!discoveries) return;
-        
-        const panelWidth = 350;
-        const panelHeight = 180;
-        const x = 10;
-        const y = this.canvas.height - panelHeight - 10;
-        
-        // Background
-        this.ctx.fillStyle = 'rgba(0, 0, 30, 0.9)';
-        this.ctx.fillRect(x, y, panelWidth, panelHeight);
-        
-        // Border with glow effect
-        this.ctx.strokeStyle = '#00ffff';
-        this.ctx.lineWidth = 2;
-        this.ctx.shadowColor = '#00ffff';
-        this.ctx.shadowBlur = 5;
-        this.ctx.strokeRect(x, y, panelWidth, panelHeight);
-        this.ctx.shadowBlur = 0;
-        
-        // Header
-        this.ctx.fillStyle = '#00ffff';
-        this.ctx.font = 'bold 16px Arial';
-        this.ctx.fillText('🔬 Empire Technologies', x + 15, y + 25);
-        
-        // Discovery entries
-        this.ctx.font = '14px Arial';
-        let entryY = y + 50;
-        const lineHeight = 20;
-        
-        if (discoveries.precursorWeapons > 0) {
-            this.ctx.fillStyle = '#ff6666';
-            this.ctx.fillText(`⚔️ Advanced Weapons: +${discoveries.precursorWeapons * 10}% attack damage`, x + 15, entryY);
-            entryY += lineHeight;
-        }
-        
-        if (discoveries.precursorShield > 0) {
-            this.ctx.fillStyle = '#6666ff';
-            this.ctx.fillText(`🛡️ Energy Shields: +${discoveries.precursorShield * 10}% defense`, x + 15, entryY);
-            entryY += lineHeight;
-        }
-        
-        if (discoveries.precursorDrive > 0) {
-            this.ctx.fillStyle = '#66ff66';
-            this.ctx.fillText(`🚀 Hyperdrive: +${discoveries.precursorDrive * 20}% fleet speed`, x + 15, entryY);
-            entryY += lineHeight;
-        }
-        
-        if (discoveries.precursorNanotech > 0) {
-            this.ctx.fillStyle = '#ffff66';
-            this.ctx.fillText(`⚙️ Nanotechnology: +${discoveries.precursorNanotech * 10}% production`, x + 15, entryY);
-            entryY += lineHeight;
-        }
-        
-        // Special discoveries
-        if (discoveries.factoryPlanets > 0) {
-            this.ctx.fillStyle = '#ff9966';
-            this.ctx.fillText(`🏭 Factory Worlds: ${discoveries.factoryPlanets} high-production systems`, x + 15, entryY);
-            entryY += lineHeight;
-        }
-        
-        if (discoveries.friendlyAliens > 0) {
-            this.ctx.fillStyle = '#99ff99';
-            this.ctx.fillText(`👽 Allied Species: ${discoveries.friendlyAliens} cooperative civilizations`, x + 15, entryY);
-            entryY += lineHeight;
-        }
-    }
-    
-    renderTerritoryInfo() {
-        const territory = this.selectedTerritory;
-        const owner = this.players.find(p => p.id === territory.ownerId);
-        
-        const panelWidth = 280;
-        const panelHeight = 120;
-        const x = this.canvas.width / 2 - panelWidth / 2;
-        const y = 10;
-        
-        // Background
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
-        this.ctx.fillRect(x, y, panelWidth, panelHeight);
-        
-        // Border
-        this.ctx.strokeStyle = owner ? owner.color : '#ffffff';
-        this.ctx.lineWidth = 2;
-        this.ctx.strokeRect(x, y, panelWidth, panelHeight);
-        
-        // Territory info
-        this.ctx.fillStyle = '#ffffff';
-        this.ctx.font = 'bold 16px Arial';
-        this.ctx.fillText(`Territory ${territory.id}`, x + 15, y + 25);
-        
-        this.ctx.font = '14px Arial';
-        let infoY = y + 45;
-        
-        if (owner) {
-            this.ctx.fillStyle = owner.color;
-            this.ctx.fillText(`Owner: ${owner.name}`, x + 15, infoY);
-            infoY += 18;
-            
-            this.ctx.fillStyle = '#ffffff';
-            this.ctx.fillText(`Fleet Strength: ${territory.armyCount}`, x + 15, infoY);
-            infoY += 18;
-            
-            if (territory.isThronestar) {
-                this.ctx.fillStyle = '#FFD700';
-                this.ctx.fillText(`👑 THRONE STAR - Capital System`, x + 15, infoY);
-            }
-        } else {
-            this.ctx.fillStyle = '#999999';
-            this.ctx.fillText(`Status: Neutral Territory`, x + 15, infoY);
-            infoY += 18;
-            
-            if (territory.isColonizable) {
-                this.ctx.fillStyle = '#ffff00';
-                this.ctx.fillText(`🔍 Unexplored - Send probe to colonize`, x + 15, infoY);
-            } else {
-                this.ctx.fillStyle = '#ffffff';
-                this.ctx.fillText(`Defense Forces: ${territory.armyCount}`, x + 15, infoY);
-            }
-        }
-    }
-    
     render() {
         if (!this.ctx || !this.canvas) {
             console.error('No canvas context available for rendering');
@@ -1475,12 +1161,9 @@ export default class StarThrone {
         // Apply camera transformation
         this.camera.applyTransform(this.ctx);
         
-        // Enhanced rendering with full visual quality
+        // Basic rendering to get the game visible again
         try {
-            // Render starfield background
-            this.renderStarfield();
-            
-            // Render nebulas
+            // Render nebulas if available
             if (this.gameMap && this.gameMap.nebulas) {
                 for (const nebula of this.gameMap.nebulas) {
                     const gradient = this.ctx.createRadialGradient(
@@ -1497,24 +1180,17 @@ export default class StarThrone {
                 }
             }
             
-            // Render star lane connections first
-            this.renderConnections();
-            
-            // Render territories with full visual effects
+            // Render territories
             if (this.gameMap && this.gameMap.territories) {
                 const territories = Object.values(this.gameMap.territories);
                 for (const territory of territories) {
                     if (territory.render) {
-                        territory.render(this.ctx, this.players, this.selectedTerritory, {
-                            humanPlayer: this.humanPlayer,
-                            homeSystemFlashStart: this.homeSystemFlashStart,
-                            homeSystemFlashDuration: this.homeSystemFlashDuration
-                        }, this.hoveredTerritory);
+                        territory.render(this.ctx, this.players, this.selectedTerritory, {});
                     }
                 }
             }
             
-            // Render probes with trails
+            // Render probes
             if (this.probes) {
                 for (const probe of this.probes) {
                     if (probe.render) {
@@ -1523,12 +1199,6 @@ export default class StarThrone {
                 }
             }
             
-            // Render ship animations
-            this.renderShipAnimations();
-            
-            // Render supply routes
-            this.renderSupplyRoutes();
-            
         } catch (error) {
             console.error('Render error:', error);
         }
@@ -1536,9 +1206,22 @@ export default class StarThrone {
         // Restore context
         this.ctx.restore();
         
-        // Render enhanced UI elements with discovery panel
+        // Render basic UI elements
         try {
-            this.renderGameUI();
+            if (this.ui) {
+                const selectedTerritory = this.inputHandler ? this.inputHandler.getInputState().selectedTerritory : null;
+                this.ui.render(this.ctx, {
+                    gameState: this.gameState,
+                    gameTimer: this.gameTimer,
+                    players: this.players,
+                    humanPlayer: this.humanPlayer,
+                    selectedTerritory: selectedTerritory,
+                    hoveredTerritory: this.hoveredTerritory,
+                    notifications: this.notifications || [],
+                    messageText: this.messageText || '',
+                    messageTimer: this.messageTimer || 0
+                });
+            }
         } catch (error) {
             console.error('UI render error:', error);
         }
