@@ -16,6 +16,7 @@ import { DiscoverySystem } from './DiscoverySystem.js';
 import { AnimationSystem } from './AnimationSystem.js';
 import { UIManager } from './UIManager.js';
 import { AIManager } from './AIManager.js';
+import { TerritoryRenderer } from './TerritoryRenderer.js';
 
 export default class StarThrone {
     constructor(config = {}) {
@@ -391,6 +392,7 @@ export default class StarThrone {
         this.animationSystem = new AnimationSystem(this);
         this.uiManager = new UIManager(this);
         this.aiManager = new AIManager(this);
+        this.territoryRenderer = new TerritoryRenderer(this);
         
         // Auto-detect optimal performance profile
         this.performanceManager.detectOptimalProfile();
@@ -1557,12 +1559,7 @@ export default class StarThrone {
         const lodLevel = this.getLODLevel();
         
         this.renderNebulas();
-        this.renderTerritories();
-        
-        // Render connections based on LOD level
-        if (lodLevel >= 2) {
-            this.renderConnections();
-        }
+        this.territoryRenderer.renderTerritories(this.ctx, this.camera, this.gameMap);
         
         // Render supply routes for operational and tactical view
         if (lodLevel >= 2) {
@@ -1731,22 +1728,7 @@ export default class StarThrone {
         this.ctx.restore();
     }
     
-    renderTerritories() {
-        this.updateVisibleTerritories();
-        
-        // Get current selected territory from input handler
-        const inputState = this.inputHandler ? this.inputHandler.getInputState() : {};
-        const selectedTerritory = inputState.selectedTerritory;
-        
-        // Render only visible territories
-        this.visibleTerritories.forEach(territory => {
-            territory.render(this.ctx, this.players, selectedTerritory, {
-                humanPlayer: this.humanPlayer,
-                homeSystemFlashStart: this.homeSystemFlashStart,
-                homeSystemFlashDuration: this.homeSystemFlashDuration
-            }, this.hoveredTerritory);
-        });
-    }
+
     
     renderConnections() {
         this.ctx.lineWidth = 4;
@@ -2214,7 +2196,7 @@ export default class StarThrone {
         this.renderSupplyRoutes();
         
         // Render territories with fleet counts
-        this.renderTerritories();
+        this.territoryRenderer.renderTerritories(this.ctx, this.camera, this.gameMap);
         
         // Render probes
         this.renderProbes();
