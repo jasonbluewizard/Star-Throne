@@ -16,7 +16,6 @@ import { DiscoverySystem } from './DiscoverySystem.js';
 import { AnimationSystem } from './AnimationSystem.js';
 import { UIManager } from './UIManager.js';
 import { AIManager } from './AIManager.js';
-import { TerritoryRenderer } from './TerritoryRenderer.js';
 
 export default class StarThrone {
     constructor(config = {}) {
@@ -392,7 +391,6 @@ export default class StarThrone {
         this.animationSystem = new AnimationSystem(this);
         this.uiManager = new UIManager(this);
         this.aiManager = new AIManager(this);
-        this.territoryRenderer = new TerritoryRenderer(this);
         
         // Auto-detect optimal performance profile
         this.performanceManager.detectOptimalProfile();
@@ -1537,7 +1535,8 @@ export default class StarThrone {
         
         const renderStart = performance.now();
         
-        // Territory visibility handled by TerritoryRenderer
+        // Update visible territories for culling
+        this.updateVisibleTerritories();
         
         // Clear canvas with space background
         this.ctx.fillStyle = '#001122';
@@ -1558,7 +1557,12 @@ export default class StarThrone {
         const lodLevel = this.getLODLevel();
         
         this.renderNebulas();
-        this.territoryRenderer.renderTerritories(this.ctx, this.camera, this.gameMap);
+        this.renderTerritories();
+        
+        // Render connections based on LOD level
+        if (lodLevel >= 2) {
+            this.renderConnections();
+        }
         
         // Render supply routes for operational and tactical view
         if (lodLevel >= 2) {
@@ -1608,7 +1612,29 @@ export default class StarThrone {
         return 3; // Tactical view
     }
     
-    // Visibility tracking moved to TerritoryRenderer module
+    updateVisibleTerritories() {
+        // Optimized visibility culling with cached bounds
+        if (Date.now() - this.lastVisibilityUpdate < GAME_CONSTANTS.VISIBLE_TERRITORIES_UPDATE_INTERVAL_MS) return;
+        this.lastVisibilityUpdate = Date.now();
+        
+        const bounds = this.camera.getViewBounds();
+        const margin = GAME_CONSTANTS.TERRITORY_VISIBILITY_PADDING;
+        
+        this.visibleTerritories = [];
+        const territories = Object.values(this.gameMap.territories);
+        
+        for (let i = 0; i < territories.length; i++) {
+            const territory = territories[i];
+            if (territory.x + territory.radius >= bounds.left - margin &&
+                territory.x - territory.radius <= bounds.right + margin &&
+                territory.y + territory.radius >= bounds.top - margin &&
+                territory.y - territory.radius <= bounds.bottom + margin) {
+                this.visibleTerritories.push(territory);
+            }
+        }
+        
+        this.performanceStats.visibleTerritories = this.visibleTerritories.length;
+    }
     
     // Render parallax starfield with multiple depth layers
     renderParallaxStarfield() {
@@ -1705,9 +1731,67 @@ export default class StarThrone {
         this.ctx.restore();
     }
     
-
+    renderTerritories() {
+        this.updateVisibleTerritories();
+        
+        // Get current selected territory from input handler
+        const inputState = this.inputHandler ? this.inputHandler.getInputState() : {};
+        const selectedTerritory = inputState.selectedTerritory;
+        
+        // Render only visible territories
+        this.visibleTerritories.forEach(territory => {
+            territory.render(this.ctx, this.players, selectedTerritory, {
+                humanPlayer: this.humanPlayer,
+                homeSystemFlashStart: this.homeSystemFlashStart,
+                homeSystemFlashDuration: this.homeSystemFlashDuration
+            }, this.hoveredTerritory);
+        });
+    }
     
-    // Connection rendering moved to TerritoryRenderer module
+    renderConnections() {
+        this.ctx.lineWidth = 4;
+        this.ctx.globalAlpha = 0.7;
+        
+        // Cache connections to avoid duplicate rendering
+        const drawnConnections = new Set();
+        
+        this.visibleTerritories.forEach(territory => {
+            territory.neighbors.forEach(neighborId => {
+                const neighbor = this.gameMap.territories[neighborId];
+                if (!neighbor) return;
+                
+                // Create unique connection ID (smaller ID first)
+                const connectionId = territory.id < neighborId 
+                    ? `${territory.id}-${neighborId}` 
+                    : `${neighborId}-${territory.id}`;
+                
+                if (drawnConnections.has(connectionId)) return;
+                drawnConnections.add(connectionId);
+                
+                // Skip connections to/from colonizable planets
+                if (territory.isColonizable || neighbor.isColonizable) {
+                    return;
+                }
+                
+                // Set color based on ownership
+                if (territory.ownerId !== null && 
+                    neighbor.ownerId !== null && 
+                    territory.ownerId === neighbor.ownerId) {
+                    const owner = this.players[territory.ownerId];
+                    this.ctx.strokeStyle = owner ? owner.color : '#666677';
+                } else {
+                    this.ctx.strokeStyle = '#666677';
+                }
+                
+                this.ctx.beginPath();
+                this.ctx.moveTo(territory.x, territory.y);
+                this.ctx.lineTo(neighbor.x, neighbor.y);
+                this.ctx.stroke();
+            });
+        });
+        
+        this.ctx.globalAlpha = 1;
+    }
     
     renderSupplyRoutes() {
         // Render active supply routes with animated arrows
@@ -2120,15 +2204,17 @@ export default class StarThrone {
         this.ctx.save();
         this.camera.applyTransform(this.ctx);
         
-        // Territory visibility handled by TerritoryRenderer
+        // Update performance tracking
+        this.updateVisibleTerritories();
         
-        // Connections are rendered by TerritoryRenderer
+        // Render connections between territories
+        this.renderConnections();
         
         // Render supply routes
         this.renderSupplyRoutes();
         
         // Render territories with fleet counts
-        this.territoryRenderer.renderTerritories(this.ctx, this.camera, this.gameMap);
+        this.renderTerritories();
         
         // Render probes
         this.renderProbes();
