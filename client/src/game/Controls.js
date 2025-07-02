@@ -418,7 +418,8 @@ export default class Controls {
   update(deltaTime) {
     // Update territory flash effects
     if (this.game.gameMap && this.game.gameMap.territories) {
-      for (const territory of this.game.gameMap.territories) {
+      // territories is an object, not an array - iterate over values
+      for (const territory of Object.values(this.game.gameMap.territories)) {
         if (territory.attackFlash > 0) {
           territory.attackFlash -= deltaTime;
         }
