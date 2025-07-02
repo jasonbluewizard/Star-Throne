@@ -103,9 +103,6 @@ export class GameUI {
             this.renderMinimap(ctx, gameData);
         }
         
-        // Temporary probe notification above discovery panel
-        this.renderProbeNotification(ctx, gameData);
-        
         // Discovery panel showing empire bonuses
         this.renderDiscoveryPanel(ctx, gameData);
         
