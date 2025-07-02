@@ -1339,9 +1339,11 @@ export default class StarThrone {
             return;
         }
         
-        // Optimized AI updates with staggered processing
-        const playersPerFrame = Math.max(1, Math.ceil(this.players.length / 4)); // Update 1/4 of players per frame
-        const startIndex = (this.frameCount % 4) * playersPerFrame;
+        // Adaptive AI updates based on performance profile
+        const aiProcessingBatch = this.performanceManager ? this.performanceManager.currentProfile.aiProcessingBatch : 25;
+        const batchDivisor = Math.max(1, Math.ceil(this.players.length / aiProcessingBatch));
+        const playersPerFrame = Math.max(1, Math.ceil(this.players.length / batchDivisor));
+        const startIndex = (this.frameCount % batchDivisor) * playersPerFrame;
         const endIndex = Math.min(startIndex + playersPerFrame, this.players.length);
         
         for (let i = startIndex; i < endIndex; i++) {
@@ -1365,9 +1367,15 @@ export default class StarThrone {
             gameEvents.processQueue(5); // Process up to 5 events per frame
         }
         
-        // Update performance management
+        // Update performance management and track frame metrics
         if (this.performanceManager) {
+            this.performanceManager.frameMetrics.updateTime = performance.now() - updateStart;
             this.performanceManager.update(deltaTime);
+            
+            // Trigger memory cleanup if memory usage is high
+            if (this.performanceManager.getMemoryUsageMB() > 250) {
+                this.performanceManager.triggerMemoryCleanup();
+            }
         }
         
         // Throttled heavy operations for better performance
@@ -1460,16 +1468,32 @@ export default class StarThrone {
         // Render parallax starfield behind everything
         this.renderParallaxStarfield();
         
-        // Render game world with optimizations
+        // Render game world with Level of Detail (LOD) optimizations
+        const lodLevel = this.getLODLevel();
+        
         this.renderNebulas();
         this.renderTerritories();
-        this.renderConnections();
-        this.renderSupplyRoutes();
+        
+        // Render connections based on LOD level
+        if (lodLevel >= 2) {
+            this.renderConnections();
+        }
+        
+        // Render supply routes for operational and tactical view
+        if (lodLevel >= 2) {
+            this.renderSupplyRoutes();
+        }
+        
         this.renderDragPreview();
         this.renderProportionalDragUI();
         this.renderTransferPreview();
-        this.renderShipAnimations();
-        this.renderProbes();
+        
+        // Ship animations and probes for tactical view
+        if (lodLevel >= 2) {
+            this.renderShipAnimations();
+            this.renderProbes();
+        }
+        
         this.renderFloatingDiscoveryTexts();
         this.renderArmies();
         this.renderFloatingTexts();
@@ -1482,6 +1506,19 @@ export default class StarThrone {
         
         // Track performance
         this.performanceStats.renderTime = performance.now() - renderStart;
+    }
+    
+    /**
+     * Get Level of Detail based on camera zoom level
+     * Level 1: Strategic view (very zoomed out) - minimal detail
+     * Level 2: Operational view (medium zoom) - moderate detail  
+     * Level 3: Tactical view (zoomed in) - full detail
+     */
+    getLODLevel() {
+        const zoom = this.camera.zoom;
+        if (zoom <= 0.15) return 1; // Strategic view
+        if (zoom <= 0.8) return 2;  // Operational view
+        return 3; // Tactical view
     }
     
     updateVisibleTerritories() {
@@ -2102,7 +2139,16 @@ export default class StarThrone {
         // Render UI overlay
         this.renderUI();
         
+        // Update and render performance overlay
+        if (this.performanceOverlay) {
+            this.performanceOverlay.update();
+            this.performanceOverlay.render();
+        }
+        
         // Update performance stats
+        if (this.performanceManager) {
+            this.performanceManager.frameMetrics.renderTime = performance.now() - startTime;
+        }
         this.performanceStats.renderTime = performance.now() - startTime;
     }
     
