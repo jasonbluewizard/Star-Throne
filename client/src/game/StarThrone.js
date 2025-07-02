@@ -1142,11 +1142,10 @@ export default class StarThrone {
         
         this.gameState = 'playing';
         
-        // Initialize parallax starfield after map is generated
-        this.initializeStarfield();
-        
-        // Pre-render static background for performance optimization
-        this.preRenderStaticBackground();
+        // Initialize modular systems after map generation
+        this.animationSystem.initializeStarfield();
+        this.animationSystem.preRenderStaticBackground();
+        this.uiManager.loadBackgroundImage();
         
         // Start home system flashing for player identification
         this.homeSystemFlashStart = Date.now();
@@ -1438,9 +1437,16 @@ export default class StarThrone {
             console.error('Error updating animations:', error);
         }
         
-        // Update notifications and messages
-        this.updateNotifications();
-        this.updateMessage(deltaTime);
+        // Update modular UI systems
+        if (this.uiManager) {
+            this.uiManager.update(deltaTime);
+        }
+        if (this.discoverySystem) {
+            this.discoverySystem.updateFloatingDiscoveries();
+        }
+        if (this.animationSystem) {
+            this.animationSystem.update(deltaTime);
+        }
         
         // Process event queue for event-driven architecture
         if (this.eventProcessingEnabled) {
