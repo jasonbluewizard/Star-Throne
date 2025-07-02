@@ -214,7 +214,7 @@ export class AnimationSystem {
         };
     }
 
-    // Pre-render static background (starfield + nebulas) for performance
+    // Pre-render static background (nebulas only) for performance
     preRenderStaticBackground() {
         if (!this.game.gameMap || !this.game.gameMap.nebulas) return;
         
@@ -223,8 +223,7 @@ export class AnimationSystem {
         canvas.height = this.game.canvas.height;
         const ctx = canvas.getContext('2d');
         
-        // Render starfield
-        this.renderStarfieldStatic(ctx);
+        // Note: Starfield is now rendered dynamically for proper parallax
         
         // Render nebulas
         for (const nebula of this.game.gameMap.nebulas) {
@@ -251,7 +250,7 @@ export class AnimationSystem {
         }
         
         this.backgroundStars = canvas;
-        console.log('Static background pre-rendered for performance optimization');
+        console.log('Static background pre-rendered for performance optimization (nebulas only)');
     }
 
     // Render starfield to static canvas
@@ -284,10 +283,48 @@ export class AnimationSystem {
         }
     }
 
-    // Render pre-rendered background
+    // Render dynamic parallax starfield and static nebulas
     renderStaticBackground(ctx) {
+        // First render dynamic parallax starfield
+        this.renderParallaxStarfield(ctx);
+        
+        // Then render static pre-rendered nebulas on top
         if (this.backgroundStars) {
             ctx.drawImage(this.backgroundStars, 0, 0);
+        }
+    }
+    
+    // Render parallax starfield with camera movement
+    renderParallaxStarfield(ctx) {
+        if (!this.starfieldLayers || this.starfieldLayers.length === 0) return;
+        
+        const now = Date.now();
+        
+        for (const layer of this.starfieldLayers) {
+            for (const star of layer.stars) {
+                // Calculate parallax offset based on camera position
+                const parallaxX = star.x - (this.game.camera.x * layer.parallaxSpeed);
+                const parallaxY = star.y - (this.game.camera.y * layer.parallaxSpeed);
+                
+                // Convert to screen coordinates (but don't apply camera transform since we're in screen space)
+                const screenX = parallaxX + ctx.canvas.width / 2;
+                const screenY = parallaxY + ctx.canvas.height / 2;
+                
+                // Skip stars outside viewport with padding
+                if (screenX < -50 || screenX > ctx.canvas.width + 50 ||
+                    screenY < -50 || screenY > ctx.canvas.height + 50) {
+                    continue;
+                }
+                
+                // Twinkling effect
+                const twinkle = 0.7 + 0.3 * Math.sin(now * 0.001 * star.twinkleSpeed + star.twinklePhase);
+                const alpha = star.brightness * twinkle;
+                
+                ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                ctx.beginPath();
+                ctx.arc(screenX, screenY, star.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
         }
     }
 
