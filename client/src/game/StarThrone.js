@@ -17,7 +17,6 @@ import { AnimationSystem } from './AnimationSystem.js';
 import { UIManager } from './UIManager.js';
 import { AIManager } from './AIManager.js';
 import TerritoryRenderer from './TerritoryRenderer.js';
-import SupplyRouteRenderer from './SupplyRouteRenderer.js';
 
 export default class StarThrone {
     constructor(config = {}) {
@@ -394,7 +393,6 @@ export default class StarThrone {
         this.uiManager = new UIManager(this);
         this.aiManager = new AIManager(this);
         this.territoryRenderer = new TerritoryRenderer(this);
-        this.supplyRouteRenderer = new SupplyRouteRenderer(this);
         
         // Auto-detect optimal performance profile
         this.performanceManager.detectOptimalProfile();
@@ -1565,8 +1563,14 @@ export default class StarThrone {
         // Delegate territory and connection rendering to the new module
         this.territoryRenderer.renderTerritoriesAndConnections(lodLevel);
         
-        // Delegate supply route and UI rendering to the new module
-        this.supplyRouteRenderer.renderAll(lodLevel);
+        // Render supply routes for operational and tactical view
+        if (lodLevel >= 2) {
+            this.renderSupplyRoutes();
+        }
+        
+        this.renderDragPreview();
+        this.renderProportionalDragUI();
+        this.renderTransferPreview();
         
         // Ship animations and probes for tactical view
         if (lodLevel >= 2) {
@@ -1730,7 +1734,53 @@ export default class StarThrone {
     
 
     
-
+    renderSupplyRoutes() {
+        // Render active supply routes with animated arrows
+        this.supplyRoutes.forEach((route, fromId) => {
+            const fromTerritory = this.gameMap.territories[fromId];
+            const toTerritory = this.gameMap.territories[route.targetId];
+            
+            if (fromTerritory && toTerritory && route.path && route.path.length > 1) {
+                this.ctx.save();
+                
+                // Draw route path with animated dashes - color based on activity
+                const routeActive = fromTerritory.armySize > 10; // Route is active if source has armies
+                if (routeActive) {
+                    this.ctx.strokeStyle = '#00ffff'; // Bright cyan for active routes
+                    this.ctx.globalAlpha = 0.9;
+                } else {
+                    this.ctx.strokeStyle = '#006666'; // Dimmed cyan for inactive routes
+                    this.ctx.globalAlpha = 0.5;
+                }
+                this.ctx.lineWidth = 3;
+                
+                // Calculate direction-based animation offset
+                const fromPos = route.path[0];
+                const toPos = route.path[route.path.length - 1];
+                const direction = Math.atan2(toPos.y - fromPos.y, toPos.x - fromPos.x);
+                
+                // Animate dashes flowing in the direction of ship movement
+                const animationOffset = (Date.now() * 0.02) % 20;
+                this.ctx.setLineDash([8, 12]);
+                this.ctx.lineDashOffset = -animationOffset;
+                
+                // Draw path segments
+                for (let i = 0; i < route.path.length - 1; i++) {
+                    const current = route.path[i];
+                    const next = route.path[i + 1];
+                    
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(current.x, current.y);
+                    this.ctx.lineTo(next.x, next.y);
+                    this.ctx.stroke();
+                }
+                
+                // Remove arrow graphics - just show the animated path
+                
+                this.ctx.restore();
+            }
+        });
+    }
     
     getTransferPercentage(event) {
         // Default to 50% transfer
@@ -1742,9 +1792,117 @@ export default class StarThrone {
         return 0.5; // Default 50%
     }
     
-
+    renderDragPreview() {
+        // Show drag preview when creating supply route
+        if (this.isDraggingForSupplyRoute && this.dragStart) {
+            const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+            const targetTerritory = this.findTerritoryAt(worldPos.x, worldPos.y);
+            
+            this.ctx.save();
+            
+            // Color-coded preview based on target validity
+            if (targetTerritory && targetTerritory.ownerId === this.humanPlayer?.id && 
+                targetTerritory.id !== this.dragStart.id) {
+                this.ctx.strokeStyle = '#00ff00'; // Green for valid supply route target
+                this.ctx.lineWidth = 3;
+            } else {
+                this.ctx.strokeStyle = '#ffff00'; // Yellow for neutral/unknown target
+                this.ctx.lineWidth = 2;
+            }
+            
+            this.ctx.globalAlpha = 0.8;
+            this.ctx.setLineDash([5, 5]);
+            
+            this.ctx.beginPath();
+            this.ctx.moveTo(this.dragStart.x, this.dragStart.y);
+            this.ctx.lineTo(worldPos.x, worldPos.y);
+            this.ctx.stroke();
+            
+            this.ctx.restore();
+        }
+    }
     
-
+    renderProportionalDragUI() {
+        if (!this.isProportionalDrag || !this.proportionalDragStart) return;
+        
+        this.ctx.save();
+        
+        const territory = this.proportionalDragStart.territory;
+        const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+        const targetTerritory = this.findTerritoryAt(worldPos.x, worldPos.y);
+        
+        // Draw radial percentage indicator around source territory
+        const radius = territory.radius + 15;
+        const percentage = this.fleetPercentage;
+        
+        // Background circle
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        this.ctx.lineWidth = 8;
+        this.ctx.beginPath();
+        this.ctx.arc(territory.x, territory.y, radius, 0, Math.PI * 2);
+        this.ctx.stroke();
+        
+        // Percentage arc
+        const startAngle = -Math.PI / 2;
+        const endAngle = startAngle + (percentage * Math.PI * 2);
+        
+        // Color based on percentage
+        let color = '#44ff44'; // Green for low
+        if (percentage > 0.7) color = '#ff4444'; // Red for high
+        else if (percentage > 0.4) color = '#ffaa00'; // Orange for medium
+        
+        this.ctx.strokeStyle = color;
+        this.ctx.lineWidth = 6;
+        this.ctx.beginPath();
+        this.ctx.arc(territory.x, territory.y, radius, startAngle, endAngle);
+        this.ctx.stroke();
+        
+        // Calculate ships to send
+        const availableShips = Math.max(0, territory.armySize - 1);
+        const shipsToSend = Math.max(1, Math.floor(availableShips * percentage));
+        const remaining = territory.armySize - shipsToSend;
+        
+        // Display text
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.font = 'bold 12px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.strokeStyle = '#000000';
+        this.ctx.lineWidth = 2;
+        
+        // Sending text
+        const sendText = `Send: ${shipsToSend}`;
+        this.ctx.strokeText(sendText, territory.x, territory.y - 8);
+        this.ctx.fillText(sendText, territory.x, territory.y - 8);
+        
+        // Remaining text
+        const remainText = `Keep: ${remaining}`;
+        this.ctx.strokeText(remainText, territory.x, territory.y + 8);
+        this.ctx.fillText(remainText, territory.x, territory.y + 8);
+        
+        // Draw drag line to target
+        if (targetTerritory) {
+            // Color based on action type
+            let lineColor = '#666666';
+            if (targetTerritory.ownerId === this.humanPlayer?.id) {
+                lineColor = '#44ff44'; // Green for transfer
+            } else if (targetTerritory.isColonizable) {
+                lineColor = '#ffff00'; // Yellow for probe
+            } else {
+                lineColor = '#ff4444'; // Red for attack
+            }
+            
+            this.ctx.strokeStyle = lineColor;
+            this.ctx.lineWidth = 3;
+            this.ctx.setLineDash([8, 4]);
+            this.ctx.beginPath();
+            this.ctx.moveTo(territory.x, territory.y);
+            this.ctx.lineTo(worldPos.x, worldPos.y);
+            this.ctx.stroke();
+            this.ctx.setLineDash([]);
+        }
+        
+        this.ctx.restore();
+    }
     
     renderTransferPreview() {
         // Show fleet allocation preview when hovering over targets during selection
