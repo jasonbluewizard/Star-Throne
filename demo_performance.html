@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Star Throne Performance Demo</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #000;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+        }
+        .demo-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #00ff00;
+            border-radius: 5px;
+            background: rgba(0, 255, 0, 0.1);
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+        .feature-list li {
+            margin: 10px 0;
+            padding: 5px;
+            background: rgba(0, 255, 0, 0.05);
+        }
+        .key-command {
+            background: #333;
+            padding: 3px 6px;
+            border-radius: 3px;
+            color: #ffff00;
+        }
+        .performance-profile {
+            background: rgba(255, 255, 0, 0.1);
+            padding: 10px;
+            margin: 10px 0;
+            border-left: 3px solid #ffff00;
+        }
+    </style>
+</head>
+<body>
+    <h1>🚀 Star Throne Performance Optimization Demo</h1>
+    
+    <div class="demo-section">
+        <h2>Performance Overlay (Real-time Monitoring)</h2>
+        <p>Press <span class="key-command">Ctrl+P</span> in the game to toggle the performance overlay</p>
+        <ul class="feature-list">
+            <li>✓ Live FPS tracking with color-coded performance levels</li>
+            <li>✓ Memory usage monitoring (current and peak)</li>
+            <li>✓ Frame time analysis for optimization</li>
+            <li>✓ Garbage collection counter</li>
+            <li>✓ Object pool statistics</li>
+            <li>✓ Current performance profile display</li>
+        </ul>
+    </div>
+
+    <div class="demo-section">
+        <h2>Adaptive Performance Profiles</h2>
+        <p>System automatically detects device capabilities and adjusts settings:</p>
+        
+        <div class="performance-profile">
+            <strong>CHROMEBOOK Profile:</strong><br>
+            • 30 FPS target, reduced AI processing (50 players/batch)<br>
+            • Simplified particle effects, basic quality shadows<br>
+            • Optimized for low-power devices
+        </div>
+        
+        <div class="performance-profile">
+            <strong>BALANCED Profile:</strong><br>
+            • 45 FPS target, moderate AI processing (25 players/batch)<br>
+            • Standard particle effects, medium quality shadows<br>
+            • Good performance on most devices
+        </div>
+        
+        <div class="performance-profile">
+            <strong>HIGH_PERFORMANCE Profile:</strong><br>
+            • 60 FPS target, full AI processing (15 players/batch)<br>
+            • Rich particle effects, high quality shadows<br>
+            • Maximum visual fidelity for powerful devices
+        </div>
+    </div>
+
+    <div class="demo-section">
+        <h2>Level of Detail (LOD) Rendering</h2>
+        <p>Rendering complexity adapts to zoom level:</p>
+        <ul class="feature-list">
+            <li><strong>Strategic View (zoom ≤ 0.15):</strong> Minimal details, territories only</li>
+            <li><strong>Operational View (0.15 < zoom ≤ 0.8):</strong> Connections and supply routes visible</li>
+            <li><strong>Tactical View (zoom > 0.8):</strong> Full detail with animations and effects</li>
+        </ul>
+    </div>
+
+    <div class="demo-section">
+        <h2>Memory Management</h2>
+        <ul class="feature-list">
+            <li>✓ Object pooling for ship animations and particles</li>
+            <li>✓ Automatic garbage collection when memory > 250MB</li>
+            <li>✓ Viewport culling - only render visible objects</li>
+            <li>✓ Optimized AI processing with staggered updates</li>
+        </ul>
+    </div>
+
+    <div class="demo-section">
+        <h2>Testing Instructions</h2>
+        <ol style="color: #ffff00;">
+            <li>Start a single-player game from the main menu</li>
+            <li>Press <span class="key-command">Ctrl+P</span> to show the performance overlay</li>
+            <li>Zoom in/out to see LOD changes (fewer objects rendered when zoomed out)</li>
+            <li>Watch FPS and memory usage in real-time</li>
+            <li>Notice smoother performance on lower-end devices</li>
+        </ol>
+    </div>
+
+    <div class="demo-section">
+        <h2>Performance Metrics</h2>
+        <p>The overlay shows:</p>
+        <ul class="feature-list">
+            <li><span style="color: #00ff00;">Green FPS (50+):</span> Excellent performance</li>
+            <li><span style="color: #ffff00;">Yellow FPS (30-50):</span> Good performance</li>
+            <li><span style="color: #ff8800;">Orange FPS (20-30):</span> Acceptable performance</li>
+            <li><span style="color: #ff0000;">Red FPS (<20):</span> Performance issues</li>
+        </ul>
+    </div>
+
+    <script>
+        // Auto-redirect to game after 10 seconds
+        setTimeout(() => {
+            window.location.href = '/?auto=single';
+        }, 10000);
+        
+        // Countdown timer
+        let countdown = 10;
+        const timer = setInterval(() => {
+            countdown--;
+            document.title = `Star Throne Demo (${countdown}s)`;
+            if (countdown <= 0) {
+                clearInterval(timer);
+            }
+        }, 1000);
+    </script>
+</body>
+</html>
