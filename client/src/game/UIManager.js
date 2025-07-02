@@ -25,7 +25,7 @@ export class UIManager {
             console.log('Background galaxy image failed to load');
             this.backgroundImageLoaded = false;
         };
-        this.backgroundImage.src = '/star-throne-background.jpg';
+        this.backgroundImage.src = '/galaxy-background.jpg';
     }
 
     // Render background image with parallax effect
