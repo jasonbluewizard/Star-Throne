@@ -46,7 +46,7 @@ export class GameUtils {
                 break;
 
             case 'precursor_factory':
-                discoveries.factoryPlanets.add(territoryId);
+                discoveries.richMinerals++; // Track factory count since factoryPlanets doesn't exist
                 effectText = `🏭 Precursor Factory discovered! Planet ${territoryId} has 200% generation rate`;
                 icon = '🏭';
                 break;
