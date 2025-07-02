@@ -214,6 +214,8 @@ export class CombatSystem {
         // Check if this was a human player
         if (oldOwner.type === 'human') {
             console.log(`Human player ${oldOwner.name} eliminated! Game ending...`);
+            // Set the attacker as winner when human player's throne is captured
+            this.game.endGame(attacker);
             return true; // Game should end
         }
         

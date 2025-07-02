@@ -1464,11 +1464,21 @@ export default class StarThrone {
         
         if (winner) {
             console.log(`Game Over! Winner: ${winner.name}`);
+            this.showMessage(`Victory! ${winner.name} has conquered the galaxy!`, 10000);
         } else {
             console.log('Game Over! It\'s a draw.');
+            this.showMessage('Game Over! Your empire has fallen.', 10000);
         }
         
-        // TODO: Show game over screen with final leaderboard
+        // Stop game loop
+        if (this.gameLoopRunning) {
+            this.gameLoopRunning = false;
+        }
+        
+        // Show game over message for human player defeat
+        if (this.humanPlayer && this.humanPlayer.isEliminated) {
+            this.showMessage(`Your throne star has been captured! Your empire has fallen to ${winner?.name || 'your enemies'}.`, 15000);
+        }
     }
     
     render() {
