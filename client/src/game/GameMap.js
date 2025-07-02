@@ -637,7 +637,7 @@ export class GameMap {
                 const other = territoryList[j];
                 const distance = territory.getDistanceTo(other);
                 
-                if (distance > 80 && distance <= this.connectionDistance) { // Bridge connections
+                if (distance > this.connectionDistance * 0.8 && distance <= this.connectionDistance * 1.5) { // Bridge connections
                     bridgeTargets.push({ territory: other, distance });
                 }
             }
@@ -699,7 +699,7 @@ export class GameMap {
                 if (territory.id === other.id) continue;
                 const distance = territory.getDistanceTo(other);
                 
-                if (distance <= 120) {
+                if (distance <= this.connectionDistance) {
                     coreNeighbors.push({ territory: other, distance });
                 }
             }
