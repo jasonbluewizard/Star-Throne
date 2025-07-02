@@ -1034,14 +1034,13 @@ export default class StarThrone {
         if (this.discoverySystem) {
             this.discoverySystem.updateFloatingDiscoveries();
         }
-        // Skip complex animation updates for now to prevent errors
-        // if (this.animationSystem) {
-        //     try {
-        //         this.animationSystem.update(deltaTime);
-        //     } catch (error) {
-        //         console.error('Error updating animations:', error);
-        //     }
-        // }
+        if (this.animationSystem) {
+            try {
+                this.animationSystem.update(deltaTime);
+            } catch (error) {
+                console.error('Error updating animations:', error);
+            }
+        }
         if (this.memoryManager) {
             this.memoryManager.update();
         }
@@ -1142,53 +1141,93 @@ export default class StarThrone {
     }
     
     render() {
+        if (!this.ctx || !this.canvas) {
+            console.error('No canvas context available for rendering');
+            return;
+        }
+        
+        const renderStart = performance.now();
+        
+        // Update visible territories for culling
+        this.updateVisibleTerritories();
+        
+        // Clear canvas with space background
+        this.ctx.fillStyle = '#001122';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Save context for camera transform
+        this.ctx.save();
+        
+        // Apply camera transformation
+        this.camera.applyTransform(this.ctx);
+        
+        // Basic rendering to get the game visible again
         try {
-            if (!this.ctx || !this.canvas) return;
+            // Render nebulas if available
+            if (this.gameMap && this.gameMap.nebulas) {
+                for (const nebula of this.gameMap.nebulas) {
+                    const gradient = this.ctx.createRadialGradient(
+                        nebula.x, nebula.y, 0,
+                        nebula.x, nebula.y, nebula.radius
+                    );
+                    gradient.addColorStop(0, 'rgba(147, 112, 219, 0.3)');
+                    gradient.addColorStop(1, 'rgba(147, 112, 219, 0)');
+                    
+                    this.ctx.fillStyle = gradient;
+                    this.ctx.beginPath();
+                    this.ctx.arc(nebula.x, nebula.y, nebula.radius, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+            }
             
-            // Clear canvas
-            this.ctx.fillStyle = '#001122';
-            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-            
-            // Skip complex rendering if camera or gameMap not ready
-            if (!this.camera || !this.gameMap) return;
-            
-            this.ctx.save();
-            this.camera.applyTransform(this.ctx);
-            
-            // Simple territory rendering
-            if (this.gameMap.territories) {
+            // Render territories
+            if (this.gameMap && this.gameMap.territories) {
                 const territories = Object.values(this.gameMap.territories);
                 for (const territory of territories) {
-                    if (territory && territory.x !== undefined && territory.y !== undefined) {
-                        // Basic territory circle
-                        const owner = this.players.find(p => p.id === territory.ownerId);
-                        this.ctx.fillStyle = owner ? owner.color : '#444444';
-                        this.ctx.beginPath();
-                        this.ctx.arc(territory.x, territory.y, territory.radius || 15, 0, Math.PI * 2);
-                        this.ctx.fill();
-                        
-                        // Army count
-                        this.ctx.fillStyle = '#ffffff';
-                        this.ctx.font = '12px Arial';
-                        this.ctx.textAlign = 'center';
-                        this.ctx.fillText(territory.armyCount || '1', territory.x, territory.y + 4);
+                    if (territory.render) {
+                        territory.render(this.ctx, this.players, this.selectedTerritory, {});
                     }
                 }
             }
             
-            this.ctx.restore();
-            
-            // Basic UI
-            if (this.ui && this.players) {
-                this.ctx.fillStyle = '#ffffff';
-                this.ctx.font = '16px Arial';
-                this.ctx.fillText(`Players: ${this.players.length}`, 10, 30);
-                this.ctx.fillText(`State: ${this.gameState}`, 10, 50);
+            // Render probes
+            if (this.probes) {
+                for (const probe of this.probes) {
+                    if (probe.render) {
+                        probe.render(this.ctx);
+                    }
+                }
             }
             
         } catch (error) {
             console.error('Render error:', error);
         }
+        
+        // Restore context
+        this.ctx.restore();
+        
+        // Render basic UI elements
+        try {
+            if (this.ui) {
+                const selectedTerritory = this.inputHandler ? this.inputHandler.getInputState().selectedTerritory : null;
+                this.ui.render(this.ctx, {
+                    gameState: this.gameState,
+                    gameTimer: this.gameTimer,
+                    players: this.players,
+                    humanPlayer: this.humanPlayer,
+                    selectedTerritory: selectedTerritory,
+                    hoveredTerritory: this.hoveredTerritory,
+                    notifications: this.notifications || [],
+                    messageText: this.messageText || '',
+                    messageTimer: this.messageTimer || 0
+                });
+            }
+        } catch (error) {
+            console.error('UI render error:', error);
+        }
+        
+        // Track performance
+        this.performanceStats.renderTime = performance.now() - renderStart;
     }
     
     /**
