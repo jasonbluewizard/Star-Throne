@@ -214,43 +214,11 @@ export class AnimationSystem {
         };
     }
 
-    // Pre-render static background (nebulas only) for performance
+    // Pre-render static background (now unused - both starfield and nebulas are dynamic)
     preRenderStaticBackground() {
-        if (!this.game.gameMap || !this.game.gameMap.nebulas) return;
-        
-        const canvas = document.createElement('canvas');
-        canvas.width = this.game.canvas.width;
-        canvas.height = this.game.canvas.height;
-        const ctx = canvas.getContext('2d');
-        
-        // Note: Starfield is now rendered dynamically for proper parallax
-        
-        // Render nebulas
-        for (const nebula of this.game.gameMap.nebulas) {
-            const screenPos = this.game.camera.worldToScreen(nebula.x, nebula.y);
-            const screenRadius = nebula.radius * this.game.camera.zoom;
-            
-            if (screenPos.x + screenRadius < 0 || screenPos.x - screenRadius > canvas.width ||
-                screenPos.y + screenRadius < 0 || screenPos.y - screenRadius > canvas.height) {
-                continue; // Skip off-screen nebulas
-            }
-            
-            const gradient = ctx.createRadialGradient(
-                screenPos.x, screenPos.y, 0,
-                screenPos.x, screenPos.y, screenRadius
-            );
-            gradient.addColorStop(0, 'rgba(147, 112, 219, 0.4)');
-            gradient.addColorStop(0.7, 'rgba(147, 112, 219, 0.15)');
-            gradient.addColorStop(1, 'rgba(147, 112, 219, 0)');
-            
-            ctx.fillStyle = gradient;
-            ctx.beginPath();
-            ctx.arc(screenPos.x, screenPos.y, screenRadius, 0, Math.PI * 2);
-            ctx.fill();
-        }
-        
-        this.backgroundStars = canvas;
-        console.log('Static background pre-rendered for performance optimization (nebulas only)');
+        // Both starfield and nebulas are now rendered dynamically for proper camera tracking
+        // This method is kept for compatibility but no longer pre-renders anything
+        console.log('Background rendering switched to dynamic mode for proper parallax and camera tracking');
     }
 
     // Render starfield to static canvas
@@ -283,14 +251,41 @@ export class AnimationSystem {
         }
     }
 
-    // Render dynamic parallax starfield and static nebulas
+    // Render dynamic parallax starfield and dynamic nebulas
     renderStaticBackground(ctx) {
         // First render dynamic parallax starfield
         this.renderParallaxStarfield(ctx);
         
-        // Then render static pre-rendered nebulas on top
-        if (this.backgroundStars) {
-            ctx.drawImage(this.backgroundStars, 0, 0);
+        // Then render dynamic nebulas that follow camera properly
+        this.renderDynamicNebulas(ctx);
+    }
+    
+    // Render nebulas dynamically with proper camera tracking
+    renderDynamicNebulas(ctx) {
+        if (!this.game.gameMap || !this.game.gameMap.nebulas) return;
+        
+        for (const nebula of this.game.gameMap.nebulas) {
+            const screenPos = this.game.camera.worldToScreen(nebula.x, nebula.y);
+            const screenRadius = nebula.radius * this.game.camera.zoom;
+            
+            // Skip off-screen nebulas for performance
+            if (screenPos.x + screenRadius < -50 || screenPos.x - screenRadius > ctx.canvas.width + 50 ||
+                screenPos.y + screenRadius < -50 || screenPos.y - screenRadius > ctx.canvas.height + 50) {
+                continue;
+            }
+            
+            const gradient = ctx.createRadialGradient(
+                screenPos.x, screenPos.y, 0,
+                screenPos.x, screenPos.y, screenRadius
+            );
+            gradient.addColorStop(0, 'rgba(147, 112, 219, 0.4)');
+            gradient.addColorStop(0.7, 'rgba(147, 112, 219, 0.15)');
+            gradient.addColorStop(1, 'rgba(147, 112, 219, 0)');
+            
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(screenPos.x, screenPos.y, screenRadius, 0, Math.PI * 2);
+            ctx.fill();
         }
     }
     
