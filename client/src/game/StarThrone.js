@@ -734,9 +734,7 @@ export default class StarThrone {
                 territory.armySize += discovery.bonus;
                 const friendlyMessage = `👽 Friendly aliens provide ${discovery.bonus} fleet strength!`;
                 console.log(friendlyMessage);
-                if (playerId === this.humanPlayer?.id) {
-                    this.addNotification(friendlyMessage, '#44ff44');
-                }
+                // Notification disabled - using top-center UI notifications instead
                 break;
                 
             case 'attack_bonus':
@@ -744,9 +742,7 @@ export default class StarThrone {
                 playerDiscoveries.precursorWeapons++;
                 const weaponMessage = `⚔️ Precursor Weapons Level ${playerDiscoveries.precursorWeapons}! Empire attack increased by 10%`;
                 console.log(weaponMessage);
-                if (playerId === this.humanPlayer?.id) {
-                    this.addNotification(weaponMessage, '#ff6600');
-                }
+                // Notification disabled - using top-center UI notifications instead
                 break;
                 
             case 'speed_bonus':
@@ -754,9 +750,7 @@ export default class StarThrone {
                 playerDiscoveries.precursorDrive++;
                 const driveMessage = `🚀 Precursor Drive Level ${playerDiscoveries.precursorDrive}! Empire speed increased by 20%`;
                 console.log(driveMessage);
-                if (playerId === this.humanPlayer?.id) {
-                    this.addNotification(driveMessage, '#00ddff');
-                }
+                // Notification disabled - using top-center UI notifications instead
                 break;
                 
             case 'defense_bonus':
@@ -764,9 +758,7 @@ export default class StarThrone {
                 playerDiscoveries.precursorShield++;
                 const shieldMessage = `🛡️ Precursor Shield Level ${playerDiscoveries.precursorShield}! Empire defense increased by 10%`;
                 console.log(shieldMessage);
-                if (playerId === this.humanPlayer?.id) {
-                    this.addNotification(shieldMessage, '#0088ff');
-                }
+                // Notification disabled - using top-center UI notifications instead
                 break;
                 
             case 'factory_planet':
@@ -776,9 +768,7 @@ export default class StarThrone {
                 territory.hasFactory = true; // Add factory icon
                 const factoryMessage = `🏭 Precursor Factory discovered! Planet ${territory.id} has 200% generation rate`;
                 console.log(factoryMessage);
-                if (playerId === this.humanPlayer?.id) {
-                    this.addNotification(factoryMessage, '#ff8800');
-                }
+                // Notification disabled - using top-center UI notifications instead
                 break;
                 
             case 'generation_bonus':
@@ -786,9 +776,7 @@ export default class StarThrone {
                 playerDiscoveries.precursorNanotech++;
                 const nanotechMessage = `🔬 Precursor Nanotech Level ${playerDiscoveries.precursorNanotech}! Empire generation increased by 10%`;
                 console.log(nanotechMessage);
-                if (playerId === this.humanPlayer?.id) {
-                    this.addNotification(nanotechMessage, '#aa00ff');
-                }
+                // Notification disabled - using top-center UI notifications instead
                 break;
                 
             case 'mineral_planet':
@@ -796,9 +784,7 @@ export default class StarThrone {
                 territory.discoveryBonus = 'minerals';
                 const mineralMessage = `💎 Rich minerals found! Planet ${territory.id} has 150% generation rate`;
                 console.log(mineralMessage);
-                if (playerId === this.humanPlayer?.id) {
-                    this.addNotification(mineralMessage, '#ffdd00');
-                }
+                // Notification disabled - using top-center UI notifications instead
                 break;
                 
             case 'reduced_generation':
@@ -806,9 +792,7 @@ export default class StarThrone {
                 territory.discoveryBonus = 'void_storm';
                 const stormMessage = `⚡ Void storm remnants! Planet ${territory.id} has 75% generation rate`;
                 console.log(stormMessage);
-                if (playerId === this.humanPlayer?.id) {
-                    this.addNotification(stormMessage, '#ff4444');
-                }
+                // Notification disabled - using top-center UI notifications instead
                 break;
                 
             case 'cosmetic':
@@ -816,18 +800,14 @@ export default class StarThrone {
                 territory.discoveryBonus = 'ruins';
                 const ruinsMessage = `🏛️ Ancient ruins discovered on planet ${territory.id}`;
                 console.log(ruinsMessage);
-                if (playerId === this.humanPlayer?.id) {
-                    this.addNotification(ruinsMessage, '#888888');
-                }
+                // Notification disabled - using top-center UI notifications instead
                 break;
                 
             default:
                 // No special effect
                 const standardMessage = `🌍 Standard planet colonized: ${territory.id}`;
                 console.log(standardMessage);
-                if (playerId === this.humanPlayer?.id) {
-                    this.addNotification(standardMessage, '#aaaaaa');
-                }
+                // Notification disabled - using top-center UI notifications instead
                 break;
         }
         
