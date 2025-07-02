@@ -15,6 +15,7 @@ import { PerformanceOverlay } from './PerformanceOverlay.js';
 import { DiscoverySystem } from './DiscoverySystem.js';
 import { AnimationSystem } from './AnimationSystem.js';
 import { UIManager } from './UIManager.js';
+import { AIManager } from './AIManager.js';
 
 export default class StarThrone {
     constructor(config = {}) {
@@ -389,6 +390,7 @@ export default class StarThrone {
         this.discoverySystem = new DiscoverySystem(this);
         this.animationSystem = new AnimationSystem(this);
         this.uiManager = new UIManager(this);
+        this.aiManager = new AIManager(this);
         
         // Auto-detect optimal performance profile
         this.performanceManager.detectOptimalProfile();
@@ -1241,7 +1243,7 @@ export default class StarThrone {
             usedColors.add(playerColor);
             
             // Generate human-like name with clan designation
-            const aiName = GameUtils.generateAIName(i - 1);
+            const aiName = AIManager.generateAIName(i - 1);
             const aiPlayer = new Player(i, aiName, playerColor, 'ai');
             this.players.push(aiPlayer);
             this.initializePlayerDiscoveries(aiPlayer.id);
@@ -1398,14 +1400,6 @@ export default class StarThrone {
             return;
         }
         
-        // High-performance AI processing: Staggered updates across 4 frames
-        // Process only 1/4 of AI players per frame for 4x performance improvement
-        const aiPlayers = this.players.filter(p => p.type !== 'human' && !p.isEliminated);
-        const playersPerFrame = Math.ceil(aiPlayers.length / 4);
-        const frameOffset = this.frameCount % 4;
-        const startIndex = frameOffset * playersPerFrame;
-        const endIndex = Math.min(startIndex + playersPerFrame, aiPlayers.length);
-        
         // Always update human player every frame for responsiveness
         const humanPlayer = this.players.find(p => p.type === 'human');
         if (humanPlayer && !humanPlayer.isEliminated) {
@@ -1416,16 +1410,9 @@ export default class StarThrone {
             }
         }
         
-        // Update subset of AI players this frame
-        for (let i = startIndex; i < endIndex; i++) {
-            if (i < aiPlayers.length) {
-                const player = aiPlayers[i];
-                try {
-                    player.update(deltaTime, this.gameMap, this.config.gameSpeed, this);
-                } catch (error) {
-                    console.error(`Error updating AI player ${player.name}:`, error);
-                }
-            }
+        // Delegate AI updates to AIManager for performance and organization
+        if (this.aiManager) {
+            this.aiManager.updateAI(deltaTime);
         }
         
         // Update ship animations and probes with normal delta time (speed applied internally)
