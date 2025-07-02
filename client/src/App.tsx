@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { GameModeSelector } from './components/GameModeSelector';
+import TitleScreen from './components/TitleScreen';
 
 type GameMode = 'single' | 'multiplayer' | null;
 
@@ -15,6 +16,7 @@ interface GameData {
 function App() {
   const gameRef = useRef<any>(null);
   const mountedRef = useRef(false);
+  const [showTitleScreen, setShowTitleScreen] = useState(true);
   const [gameMode, setGameMode] = useState<GameMode>(null);
   const [gameData, setGameData] = useState<GameData | null>(null);
 
@@ -93,6 +95,11 @@ function App() {
       document.body.classList.remove('game-active');
     }
   }, [gameMode]);
+
+  // Show title screen first
+  if (showTitleScreen) {
+    return <TitleScreen onEnterGame={() => setShowTitleScreen(false)} />;
+  }
 
   // Show game mode selector if no mode is selected
   if (!gameMode) {
