@@ -1035,11 +1035,7 @@ export default class StarThrone {
             this.discoverySystem.updateFloatingDiscoveries();
         }
         if (this.animationSystem) {
-            try {
-                this.animationSystem.update(deltaTime);
-            } catch (error) {
-                console.error('Error updating animations:', error);
-            }
+            this.animationSystem.update(deltaTime);
         }
         if (this.memoryManager) {
             this.memoryManager.update();
@@ -1161,70 +1157,44 @@ export default class StarThrone {
         // Apply camera transformation
         this.camera.applyTransform(this.ctx);
         
-        // Basic rendering to get the game visible again
-        try {
-            // Render nebulas if available
-            if (this.gameMap && this.gameMap.nebulas) {
-                for (const nebula of this.gameMap.nebulas) {
-                    const gradient = this.ctx.createRadialGradient(
-                        nebula.x, nebula.y, 0,
-                        nebula.x, nebula.y, nebula.radius
-                    );
-                    gradient.addColorStop(0, 'rgba(147, 112, 219, 0.3)');
-                    gradient.addColorStop(1, 'rgba(147, 112, 219, 0)');
-                    
-                    this.ctx.fillStyle = gradient;
-                    this.ctx.beginPath();
-                    this.ctx.arc(nebula.x, nebula.y, nebula.radius, 0, Math.PI * 2);
-                    this.ctx.fill();
-                }
-            }
-            
-            // Render territories
-            if (this.gameMap && this.gameMap.territories) {
-                const territories = Object.values(this.gameMap.territories);
-                for (const territory of territories) {
-                    if (territory.render) {
-                        territory.render(this.ctx, this.players, this.selectedTerritory, {});
-                    }
-                }
-            }
-            
-            // Render probes
-            if (this.probes) {
-                for (const probe of this.probes) {
-                    if (probe.render) {
-                        probe.render(this.ctx);
-                    }
-                }
-            }
-            
-        } catch (error) {
-            console.error('Render error:', error);
+        // Render parallax starfield behind everything
+        this.renderParallaxStarfield();
+        
+        // Render game world with Level of Detail (LOD) optimizations
+        const lodLevel = this.getLODLevel();
+        
+        this.renderNebulas();
+        this.renderTerritories();
+        
+        // Render connections based on LOD level
+        if (lodLevel >= 2) {
+            this.renderConnections();
         }
+        
+        // Render supply routes for operational and tactical view
+        if (lodLevel >= 2) {
+            this.renderSupplyRoutes();
+        }
+        
+        this.renderDragPreview();
+        this.renderProportionalDragUI();
+        this.renderTransferPreview();
+        
+        // Ship animations and probes for tactical view
+        if (lodLevel >= 2) {
+            this.renderShipAnimations();
+            this.renderProbes();
+        }
+        
+        this.renderFloatingDiscoveryTexts();
+        this.renderArmies();
+        this.renderFloatingTexts();
         
         // Restore context
         this.ctx.restore();
         
-        // Render basic UI elements
-        try {
-            if (this.ui) {
-                const selectedTerritory = this.inputHandler ? this.inputHandler.getInputState().selectedTerritory : null;
-                this.ui.render(this.ctx, {
-                    gameState: this.gameState,
-                    gameTimer: this.gameTimer,
-                    players: this.players,
-                    humanPlayer: this.humanPlayer,
-                    selectedTerritory: selectedTerritory,
-                    hoveredTerritory: this.hoveredTerritory,
-                    notifications: this.notifications || [],
-                    messageText: this.messageText || '',
-                    messageTimer: this.messageTimer || 0
-                });
-            }
-        } catch (error) {
-            console.error('UI render error:', error);
-        }
+        // Render UI (not affected by camera)
+        this.renderUI();
         
         // Track performance
         this.performanceStats.renderTime = performance.now() - renderStart;
@@ -1243,17 +1213,1377 @@ export default class StarThrone {
         return 3; // Tactical view
     }
     
-    restart() {
-        // Clear game state
-        this.gameState = 'playing';
-        this.gameTimer = 0;
+    updateVisibleTerritories() {
+        // Optimized visibility culling with cached bounds
+        if (Date.now() - this.lastVisibilityUpdate < GAME_CONSTANTS.VISIBLE_TERRITORIES_UPDATE_INTERVAL_MS) return;
+        this.lastVisibilityUpdate = Date.now();
         
-        // Clear all arrays
+        const bounds = this.camera.getViewBounds();
+        const margin = GAME_CONSTANTS.TERRITORY_VISIBILITY_PADDING;
+        
+        this.visibleTerritories = [];
+        const territories = Object.values(this.gameMap.territories);
+        
+        for (let i = 0; i < territories.length; i++) {
+            const territory = territories[i];
+            if (territory.x + territory.radius >= bounds.left - margin &&
+                territory.x - territory.radius <= bounds.right + margin &&
+                territory.y + territory.radius >= bounds.top - margin &&
+                territory.y - territory.radius <= bounds.bottom + margin) {
+                this.visibleTerritories.push(territory);
+            }
+        }
+        
+        this.performanceStats.visibleTerritories = this.visibleTerritories.length;
+    }
+    
+    // Render parallax starfield with multiple depth layers
+    renderParallaxStarfield() {
+        if (!this.starfield.initialized) return;
+        
+        const time = Date.now() * 0.001; // For subtle twinkling
+        const cameraPosX = this.camera.x;
+        const cameraPosY = this.camera.y;
+        
+        this.ctx.save();
+        
+        // Far stars (slowest parallax, barely moves)
+        this.ctx.globalAlpha = 0.7; // Brighter for better visibility against background
+        this.starfield.farStars.forEach(star => {
+            // Very subtle parallax movement (5% of camera movement)
+            const parallaxX = star.x - (cameraPosX * 0.05);
+            const parallaxY = star.y - (cameraPosY * 0.05);
+            
+            // Skip stars outside visible area for performance
+            if (!this.camera.isPointVisible(parallaxX, parallaxY, 100)) return;
+            
+            // Subtle twinkling effect
+            const twinkle = star.twinkle + Math.sin(time * 0.5 + star.x * 0.01) * 0.1;
+            this.ctx.globalAlpha = star.brightness * twinkle * 0.7;
+            
+            this.ctx.fillStyle = '#ffffff';
+            this.ctx.beginPath();
+            this.ctx.arc(parallaxX, parallaxY, star.size, 0, Math.PI * 2);
+            this.ctx.fill();
+        });
+        
+        // Mid stars (moderate parallax)
+        this.ctx.globalAlpha = 0.8;
+        this.starfield.midStars.forEach(star => {
+            // Moderate parallax movement (15% of camera movement)
+            const parallaxX = star.x - (cameraPosX * 0.15);
+            const parallaxY = star.y - (cameraPosY * 0.15);
+            
+            if (!this.camera.isPointVisible(parallaxX, parallaxY, 100)) return;
+            
+            const twinkle = star.twinkle + Math.sin(time * 0.8 + star.x * 0.02) * 0.15;
+            this.ctx.globalAlpha = star.brightness * twinkle * 0.8;
+            
+            this.ctx.fillStyle = '#ffffff';
+            this.ctx.beginPath();
+            this.ctx.arc(parallaxX, parallaxY, star.size, 0, Math.PI * 2);
+            this.ctx.fill();
+        });
+        
+        // Near stars (most parallax movement)
+        this.ctx.globalAlpha = 1.0;
+        this.starfield.nearStars.forEach(star => {
+            // Stronger parallax movement (30% of camera movement)
+            const parallaxX = star.x - (cameraPosX * 0.3);
+            const parallaxY = star.y - (cameraPosY * 0.3);
+            
+            if (!this.camera.isPointVisible(parallaxX, parallaxY, 100)) return;
+            
+            const twinkle = star.twinkle + Math.sin(time * 1.2 + star.x * 0.03) * 0.2;
+            this.ctx.globalAlpha = star.brightness * twinkle * 1.0;
+            
+            this.ctx.fillStyle = '#ffffff';
+            this.ctx.beginPath();
+            this.ctx.arc(parallaxX, parallaxY, star.size, 0, Math.PI * 2);
+            this.ctx.fill();
+        });
+        
+        this.ctx.restore();
+    }
+    
+    renderNebulas() {
+        if (!this.gameMap.nebulas) return;
+        
+        this.ctx.save();
+        
+        // Render each nebula as a purple cloud
+        this.gameMap.nebulas.forEach(nebula => {
+            // Create radial gradient for cloud effect
+            const gradient = this.ctx.createRadialGradient(
+                nebula.x, nebula.y, 0,
+                nebula.x, nebula.y, nebula.radius
+            );
+            
+            gradient.addColorStop(0, `rgba(147, 51, 234, ${nebula.opacity})`);
+            gradient.addColorStop(0.5, `rgba(147, 51, 234, ${nebula.opacity * 0.6})`);
+            gradient.addColorStop(1, 'rgba(147, 51, 234, 0)');
+            
+            this.ctx.fillStyle = gradient;
+            this.ctx.beginPath();
+            this.ctx.arc(nebula.x, nebula.y, nebula.radius, 0, Math.PI * 2);
+            this.ctx.fill();
+        });
+        
+        this.ctx.restore();
+    }
+    
+    renderTerritories() {
+        this.updateVisibleTerritories();
+        
+        // Get current selected territory from input handler
+        const inputState = this.inputHandler ? this.inputHandler.getInputState() : {};
+        const selectedTerritory = inputState.selectedTerritory;
+        
+        // Render only visible territories
+        this.visibleTerritories.forEach(territory => {
+            territory.render(this.ctx, this.players, selectedTerritory, {
+                humanPlayer: this.humanPlayer,
+                homeSystemFlashStart: this.homeSystemFlashStart,
+                homeSystemFlashDuration: this.homeSystemFlashDuration
+            }, this.hoveredTerritory);
+        });
+    }
+    
+    renderConnections() {
+        this.ctx.lineWidth = 4;
+        this.ctx.globalAlpha = 0.7;
+        
+        // Cache connections to avoid duplicate rendering
+        const drawnConnections = new Set();
+        
+        this.visibleTerritories.forEach(territory => {
+            territory.neighbors.forEach(neighborId => {
+                const neighbor = this.gameMap.territories[neighborId];
+                if (!neighbor) return;
+                
+                // Create unique connection ID (smaller ID first)
+                const connectionId = territory.id < neighborId 
+                    ? `${territory.id}-${neighborId}` 
+                    : `${neighborId}-${territory.id}`;
+                
+                if (drawnConnections.has(connectionId)) return;
+                drawnConnections.add(connectionId);
+                
+                // Skip connections to/from colonizable planets
+                if (territory.isColonizable || neighbor.isColonizable) {
+                    return;
+                }
+                
+                // Set color based on ownership
+                if (territory.ownerId !== null && 
+                    neighbor.ownerId !== null && 
+                    territory.ownerId === neighbor.ownerId) {
+                    const owner = this.players[territory.ownerId];
+                    this.ctx.strokeStyle = owner ? owner.color : '#666677';
+                } else {
+                    this.ctx.strokeStyle = '#666677';
+                }
+                
+                this.ctx.beginPath();
+                this.ctx.moveTo(territory.x, territory.y);
+                this.ctx.lineTo(neighbor.x, neighbor.y);
+                this.ctx.stroke();
+            });
+        });
+        
+        this.ctx.globalAlpha = 1;
+    }
+    
+    renderSupplyRoutes() {
+        // Render active supply routes with animated arrows
+        this.supplyRoutes.forEach((route, fromId) => {
+            const fromTerritory = this.gameMap.territories[fromId];
+            const toTerritory = this.gameMap.territories[route.targetId];
+            
+            if (fromTerritory && toTerritory && route.path && route.path.length > 1) {
+                this.ctx.save();
+                
+                // Draw route path with animated dashes - color based on activity
+                const routeActive = fromTerritory.armySize > 10; // Route is active if source has armies
+                if (routeActive) {
+                    this.ctx.strokeStyle = '#00ffff'; // Bright cyan for active routes
+                    this.ctx.globalAlpha = 0.9;
+                } else {
+                    this.ctx.strokeStyle = '#006666'; // Dimmed cyan for inactive routes
+                    this.ctx.globalAlpha = 0.5;
+                }
+                this.ctx.lineWidth = 3;
+                
+                // Calculate direction-based animation offset
+                const fromPos = route.path[0];
+                const toPos = route.path[route.path.length - 1];
+                const direction = Math.atan2(toPos.y - fromPos.y, toPos.x - fromPos.x);
+                
+                // Animate dashes flowing in the direction of ship movement
+                const animationOffset = (Date.now() * 0.02) % 20;
+                this.ctx.setLineDash([8, 12]);
+                this.ctx.lineDashOffset = -animationOffset;
+                
+                // Draw path segments
+                for (let i = 0; i < route.path.length - 1; i++) {
+                    const current = route.path[i];
+                    const next = route.path[i + 1];
+                    
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(current.x, current.y);
+                    this.ctx.lineTo(next.x, next.y);
+                    this.ctx.stroke();
+                }
+                
+                // Remove arrow graphics - just show the animated path
+                
+                this.ctx.restore();
+            }
+        });
+    }
+    
+    getTransferPercentage(event) {
+        // Default to 50% transfer
+        if (!event) return 0.5;
+        
+        // Modifier key controls for different transfer amounts
+        if (event.shiftKey) return 0.95; // Send almost all (leave 1)
+        if (event.ctrlKey) return 0.25;  // Send quarter
+        return 0.5; // Default 50%
+    }
+    
+    renderDragPreview() {
+        // Show drag preview when creating supply route
+        if (this.isDraggingForSupplyRoute && this.dragStart) {
+            const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+            const targetTerritory = this.findTerritoryAt(worldPos.x, worldPos.y);
+            
+            this.ctx.save();
+            
+            // Color-coded preview based on target validity
+            if (targetTerritory && targetTerritory.ownerId === this.humanPlayer?.id && 
+                targetTerritory.id !== this.dragStart.id) {
+                this.ctx.strokeStyle = '#00ff00'; // Green for valid supply route target
+                this.ctx.lineWidth = 3;
+            } else {
+                this.ctx.strokeStyle = '#ffff00'; // Yellow for neutral/unknown target
+                this.ctx.lineWidth = 2;
+            }
+            
+            this.ctx.globalAlpha = 0.8;
+            this.ctx.setLineDash([5, 5]);
+            
+            this.ctx.beginPath();
+            this.ctx.moveTo(this.dragStart.x, this.dragStart.y);
+            this.ctx.lineTo(worldPos.x, worldPos.y);
+            this.ctx.stroke();
+            
+            this.ctx.restore();
+        }
+    }
+    
+    renderTransferPreview() {
+        // Show fleet allocation preview when hovering over targets during selection
+        if (!this.selectedTerritory || !this.hoveredTerritory || 
+            this.selectedTerritory.id === this.hoveredTerritory.id ||
+            this.selectedTerritory.ownerId !== this.humanPlayer?.id ||
+            this.isProportionalDrag) { // Don't show during proportional drag
+            return;
+        }
+        
+        const from = this.selectedTerritory;
+        const to = this.hoveredTerritory;
+        
+        // Only show preview for valid targets (neighbors or colonizable)
+        const isValidTarget = from.neighbors.includes(to.id) || to.isColonizable;
+        if (!isValidTarget) return;
+        
+        // Determine transfer percentage based on target type
+        let transferPercentage = 0.5; // Default 50%
+        if (to.ownerId === this.humanPlayer?.id) {
+            transferPercentage = 0.5; // Transfer to own territory
+        } else if (to.isColonizable) {
+            transferPercentage = Math.min(1.0, 10 / from.armySize); // Probe cost (10 ships or all if less)
+        } else {
+            transferPercentage = 0.75; // Attack enemy territory
+        }
+        
+        // Calculate amounts
+        const availableShips = Math.max(0, from.armySize - 1);
+        const shipsToSend = Math.min(availableShips, Math.max(1, Math.floor(from.armySize * transferPercentage)));
+        const remaining = from.armySize - shipsToSend;
+        
+        // Convert to screen coordinates for UI display
+        const screenPos = this.camera.worldToScreen(to.x, to.y);
+        
+        this.ctx.save();
+        
+        // Background for readability
+        const padding = 8;
+        const lineHeight = 16;
+        this.ctx.font = 'bold 12px Arial';
+        this.ctx.textAlign = 'left';
+        
+        const sendText = `Send: ${shipsToSend}`;
+        const keepText = `Keep: ${remaining}`;
+        const maxWidth = Math.max(this.ctx.measureText(sendText).width, this.ctx.measureText(keepText).width);
+        
+        const bgX = screenPos.x + 20;
+        const bgY = screenPos.y - 25;
+        const bgWidth = maxWidth + padding * 2;
+        const bgHeight = lineHeight * 2 + padding;
+        
+        // Background
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        this.ctx.fillRect(bgX, bgY, bgWidth, bgHeight);
+        
+        // Border with action-specific color
+        let borderColor = '#ffffff';
+        if (to.ownerId === this.humanPlayer?.id) {
+            borderColor = '#00ff00'; // Green for transfer
+        } else if (to.isColonizable) {
+            borderColor = '#ffff00'; // Yellow for probe
+        } else {
+            borderColor = '#ff4444'; // Red for attack
+        }
+        
+        this.ctx.strokeStyle = borderColor;
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeRect(bgX, bgY, bgWidth, bgHeight);
+        
+        // Text
+        this.ctx.fillStyle = '#00ff00'; // Green for send
+        this.ctx.fillText(sendText, bgX + padding, bgY + lineHeight);
+        
+        this.ctx.fillStyle = '#ffffff'; // White for keep
+        this.ctx.fillText(keepText, bgX + padding, bgY + lineHeight * 2);
+        
+        this.ctx.restore();
+    }
+    
+    renderFloatingTexts() {
+        if (!this.floatingTexts) return;
+        
+        this.ctx.save();
+        this.ctx.font = 'bold 14px Arial';
+        this.ctx.textAlign = 'center';
+        
+        // Update and render floating texts
+        const now = Date.now();
+        this.floatingTexts = this.floatingTexts.filter(text => {
+            const elapsed = now - text.startTime;
+            if (elapsed >= text.duration) return false;
+            
+            // Calculate animation progress
+            const progress = elapsed / text.duration;
+            const alpha = 1 - progress;
+            const yOffset = progress * 30; // Float upward
+            
+            // Render text
+            this.ctx.globalAlpha = alpha;
+            this.ctx.fillStyle = text.color;
+            this.ctx.strokeStyle = '#000000';
+            this.ctx.lineWidth = 2;
+            
+            this.ctx.strokeText(text.text, text.x, text.y - yOffset);
+            this.ctx.fillText(text.text, text.x, text.y - yOffset);
+            
+            return true;
+        });
+        
+        this.ctx.restore();
+    }
+    
+    renderArmies() {
+        // Dynamic Level of Detail based on camera zoom level
+        const zoomLevel = this.camera.getZoomLevel();
+        const currentZoom = this.camera.zoom;
+        
+        this.ctx.save();
+        
+        const territories = this.visibleTerritories || Object.values(this.gameMap.territories);
+        const playersLookup = {}; // Cache player lookups
+        
+        // Strategic View (zoomed out) - Show simplified information
+        if (zoomLevel === 'strategic') {
+            this.ctx.font = 'bold 12px Arial';
+            this.ctx.textAlign = 'center';
+            
+            for (let i = 0; i < territories.length; i++) {
+                const territory = territories[i];
+                if (territory.ownerId !== null) {
+                    // Use cached player lookup
+                    let owner = playersLookup[territory.ownerId];
+                    if (!owner) {
+                        owner = this.players[territory.ownerId];
+                        if (owner) playersLookup[territory.ownerId] = owner;
+                    }
+                    
+                    if (owner && territory.armySize >= 10) { // Only show significant fleets
+                        const armyText = territory.armySize >= 100 ? `${Math.floor(territory.armySize / 10)}0+` : territory.armySize.toString();
+                        
+                        // Simplified text rendering for performance
+                        this.ctx.fillStyle = '#ffffff';
+                        this.ctx.fillText(armyText, territory.x, territory.y + 3);
+                    }
+                }
+            }
+        }
+        // Operational View (mid zoom) - Show fleet counts as icons
+        else if (zoomLevel === 'operational') {
+            this.ctx.font = 'bold 13px Arial';
+            this.ctx.textAlign = 'center';
+            
+            for (let i = 0; i < territories.length; i++) {
+                const territory = territories[i];
+                if (territory.ownerId !== null && territory.armySize > 0) {
+                    // Use cached player lookup
+                    let owner = playersLookup[territory.ownerId];
+                    if (!owner) {
+                        owner = this.players[territory.ownerId];
+                        if (owner) playersLookup[territory.ownerId] = owner;
+                    }
+                    
+                    if (owner) {
+                        const armyText = territory.armySize.toString();
+                        
+                        // White outline for readability
+                        this.ctx.strokeStyle = '#ffffff';
+                        this.ctx.lineWidth = 2;
+                        this.ctx.strokeText(armyText, territory.x, territory.y + 4);
+                        
+                        // Color-coded text based on owner
+                        this.ctx.fillStyle = owner.id === this.humanPlayer?.id ? '#000000' : '#333333';
+                        this.ctx.fillText(armyText, territory.x, territory.y + 4);
+                    }
+                }
+            }
+        }
+        // Tactical View (zoomed in) - Show full detail
+        else {
+            this.ctx.font = 'bold 14px Arial';
+            this.ctx.textAlign = 'center';
+            
+            for (let i = 0; i < territories.length; i++) {
+                const territory = territories[i];
+                if (territory.ownerId !== null && territory.armySize > 0) {
+                    // Use cached player lookup
+                    let owner = playersLookup[territory.ownerId];
+                    if (!owner) {
+                        owner = this.players[territory.ownerId];
+                        if (owner) playersLookup[territory.ownerId] = owner;
+                    }
+                    
+                    if (owner) {
+                        const armyText = territory.armySize.toString();
+                        
+                        // High-contrast text with thick outline
+                        this.ctx.strokeStyle = '#ffffff';
+                        this.ctx.lineWidth = 3;
+                        this.ctx.strokeText(armyText, territory.x, territory.y + 5);
+                        
+                        // Main black text
+                        this.ctx.fillStyle = '#000000';
+                        this.ctx.fillText(armyText, territory.x, territory.y + 5);
+                    }
+                }
+            }
+        }
+        
+        this.ctx.restore();
+    }
+    
+    render() {
+        const startTime = performance.now();
+        
+        // Clear canvas with dark space background
+        this.ctx.fillStyle = '#0a0a1a';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Render background galaxy image with parallax
+        this.renderBackgroundImage();
+        
+        // Apply camera transformations for background elements
+        this.ctx.save();
+        this.camera.applyTransform(this.ctx);
+        
+        // Render parallax starfield with movement
+        this.renderParallaxStarfield();
+        
+        // Render nebulas with proper depth
+        this.renderNebulas();
+        
+        this.ctx.restore();
+        
+        // Apply camera transformations
+        this.ctx.save();
+        this.camera.applyTransform(this.ctx);
+        
+        // Update performance tracking
+        this.updateVisibleTerritories();
+        
+        // Render connections between territories
+        this.renderConnections();
+        
+        // Render supply routes
+        this.renderSupplyRoutes();
+        
+        // Render territories with fleet counts
+        this.renderTerritories();
+        
+        // Render probes
+        this.renderProbes();
+        
+        // Render ship animations
+        this.renderShipAnimations();
+        
+        // Proportional drag interface handled by InputHandler
+        
+        // Selection is handled by Territory render method itself
+        
+        this.ctx.restore();
+        
+        // Floating discovery texts disabled - using top-center UI notifications instead
+        // this.renderFloatingDiscoveryTexts();
+        
+        // Render UI overlay
+        this.renderUI();
+        
+        // Update and render performance overlay
+        if (this.performanceOverlay) {
+            this.performanceOverlay.update();
+            this.performanceOverlay.render();
+        }
+        
+        // Update performance stats
+        if (this.performanceManager) {
+            this.performanceManager.frameMetrics.renderTime = performance.now() - startTime;
+        }
+        this.performanceStats.renderTime = performance.now() - startTime;
+    }
+    
+    renderFloatingDiscoveryTexts() {
+        if (!this.floatingDiscoveryTexts || this.floatingDiscoveryTexts.length === 0) return;
+        
+        const now = Date.now();
+        
+        // Filter out expired texts and render remaining ones
+        this.floatingDiscoveryTexts = this.floatingDiscoveryTexts.filter(text => {
+            const age = now - text.startTime;
+            if (age > text.duration) return false; // Remove expired texts
+            
+            // Only show human player discoveries
+            if (text.playerId !== this.humanPlayer?.id) return false;
+            
+            // Calculate world position (not affected by camera)
+            const worldX = text.x;
+            const worldY = text.y - (age / text.duration) * 30; // Float upward over time
+            
+            // Convert to screen coordinates
+            const screenX = (worldX - this.camera.x) * this.camera.zoom + this.canvas.width / 2;
+            const screenY = (worldY - this.camera.y) * this.camera.zoom + this.canvas.height / 2;
+            
+            // Only render if on screen
+            if (screenX < -100 || screenX > this.canvas.width + 100 || 
+                screenY < -100 || screenY > this.canvas.height + 100) {
+                return true; // Keep in array but don't render
+            }
+            
+            // Calculate opacity (fade out in last 1 second)
+            let opacity = 1;
+            if (age > text.duration - text.fadeOutDuration) {
+                const fadeAge = age - (text.duration - text.fadeOutDuration);
+                opacity = 1 - (fadeAge / text.fadeOutDuration);
+            }
+            
+            // Set up text rendering
+            this.ctx.save();
+            this.ctx.globalAlpha = opacity;
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            
+            // Measure text with correct font
+            this.ctx.font = 'bold 14px Arial';
+            const textWidth = this.ctx.measureText(text.text).width;
+            const padding = 8;
+            
+            // Draw text background for better visibility
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            this.ctx.fillRect(screenX - textWidth/2 - padding, screenY - 12, textWidth + padding*2, 24);
+            
+            // Draw discovery icon
+            this.ctx.font = '20px Arial';
+            this.ctx.fillStyle = text.color;
+            this.ctx.fillText(text.icon, screenX - textWidth/2 - 15, screenY);
+            
+            // Draw discovery text
+            this.ctx.font = 'bold 14px Arial';
+            this.ctx.fillStyle = text.color;
+            this.ctx.fillText(text.text, screenX, screenY);
+            
+            this.ctx.restore();
+            
+            return true; // Keep in array
+        });
+    }
+    
+    // Input handling methods - REMOVED: Mouse handlers moved to InputHandler.js to prevent conflicts
+    // All mouse input now processed through InputHandler.js and the finite state machine
+    
+    updateHoverState(mousePos) {
+        const worldPos = this.camera.screenToWorld(mousePos.x, mousePos.y);
+        const territory = this.findTerritoryAt(worldPos.x, worldPos.y);
+        
+        this.hoveredTerritory = territory;
+        
+        // Determine cursor mode based on selection and hover target
+        if (this.selectedTerritory && this.selectedTerritory.ownerId === this.humanPlayer?.id && territory) {
+            if (territory.ownerId === this.humanPlayer?.id && territory.id !== this.selectedTerritory.id) {
+                this.cursorMode = 'transfer';
+            } else if (territory.ownerId !== this.humanPlayer?.id && territory.ownerId !== null) {
+                this.cursorMode = 'attack';
+            } else if (territory.isColonizable) {
+                this.cursorMode = 'probe';
+            } else {
+                this.cursorMode = 'default';
+            }
+        } else {
+            this.cursorMode = 'default';
+        }
+        
+        // Update canvas cursor
+        this.updateCanvasCursor();
+    }
+    
+    updateCanvasCursor() {
+        if (!this.canvas) return;
+        
+        switch (this.cursorMode) {
+            case 'attack':
+                this.canvas.style.cursor = 'crosshair';
+                break;
+            case 'transfer':
+                this.canvas.style.cursor = 'move';
+                break;
+            case 'probe':
+                this.canvas.style.cursor = 'help';
+                break;
+            default:
+                this.canvas.style.cursor = 'default';
+                break;
+        }
+    }
+    
+    // Enhanced context action with modifier key support
+    handleContextActionWithModifiers(targetTerritory) {
+        if (!this.selectedTerritory || !targetTerritory) return;
+        
+        // Determine fleet percentage based on modifier keys
+        let fleetPercentage = 0.5; // Default 50%
+        
+        if (this.modifierKeys.shift) {
+            fleetPercentage = 1.0; // Send all available (leave 1)
+        } else if (this.modifierKeys.ctrl) {
+            fleetPercentage = 0.25; // Send 25% - conservative probe
+        }
+        
+        this.executeFleetCommand(this.selectedTerritory, targetTerritory, fleetPercentage);
+    }
+    
+    // Legacy context action for compatibility
+    handleContextAction(targetTerritory) {
+        if (!this.selectedTerritory || this.selectedTerritory.ownerId !== this.humanPlayer?.id || !targetTerritory) {
+            return;
+        }
+        
+        const fromTerritory = this.selectedTerritory;
+        
+        // Validate warp lane connectivity (except for colonizable planets)
+        if (!targetTerritory.isColonizable && !fromTerritory.neighbors.includes(targetTerritory.id)) {
+            console.log(`Cannot perform action: No warp lane from ${fromTerritory.id} to ${targetTerritory.id}`);
+            return;
+        }
+        
+        // Determine action based on target
+        if (targetTerritory.ownerId === this.humanPlayer?.id && targetTerritory.id !== fromTerritory.id) {
+            // Right-click on friendly territory - transfer
+            this.transferArmies(fromTerritory, targetTerritory);
+        } else if (targetTerritory.ownerId !== this.humanPlayer?.id && targetTerritory.ownerId !== null) {
+            // Right-click on enemy territory - attack
+            this.attackTerritory(fromTerritory, targetTerritory);
+        } else if (targetTerritory.isColonizable) {
+            // Right-click on colonizable territory - launch probe
+            this.launchProbe(fromTerritory, targetTerritory);
+        }
+        
+        // Visual feedback - flash the target territory
+        targetTerritory.lastActionFlash = Date.now();
+    }
+    
+    // Wheel handling moved to InputHandler
+    
+    handleUIClick(screenX, screenY) {
+        // Handle UI element clicks (moved from old handleTerritorySelection)
+        
+        // Check for "PLAY AGAIN" button when human player is eliminated
+        const humanPlayer = this.humanPlayer;
+        if (humanPlayer && humanPlayer.territories.length === 0) {
+            const buttonWidth = 200;
+            const buttonHeight = 60;
+            const buttonX = this.canvas.width / 2 - buttonWidth / 2;
+            const buttonY = this.canvas.height / 2 + 50;
+            
+            if (screenX >= buttonX && screenX <= buttonX + buttonWidth &&
+                screenY >= buttonY && screenY <= buttonY + buttonHeight) {
+                this.restartGame();
+                return true;
+            }
+        }
+        
+        // Check for restart button on game over screen (mobile-friendly)
+        if (this.gameState === 'ended' && this.ui && this.ui.restartButton) {
+            const button = this.ui.restartButton;
+            
+            if (screenX >= button.x && screenX <= button.x + button.width &&
+                screenY >= button.y && screenY <= button.y + button.height) {
+                this.restartGame();
+                return true;
+            }
+        }
+        
+        // Check for leaderboard click (screen coordinates, not world coordinates)
+        const leaderboardX = this.canvas.width - 220;
+        const leaderboardY = 60;
+        const leaderboardWidth = 200;
+        const leaderboardHeight = this.leaderboardMinimized ? 30 : 200;
+        
+        if (screenX >= leaderboardX && screenX <= leaderboardX + leaderboardWidth &&
+            screenY >= leaderboardY && screenY <= leaderboardY + leaderboardHeight) {
+            this.leaderboardMinimized = !this.leaderboardMinimized;
+            console.log('Leaderboard toggled:', this.leaderboardMinimized ? 'minimized' : 'maximized');
+            return true;
+        }
+        
+        // Check for minimap click - fix coordinate calculation
+        const minimapSize = 150;
+        const minimapX = this.canvas.width - minimapSize - 20;
+        const minimapY = this.canvas.height - minimapSize - 20;
+        const minimapHeight = this.minimapMinimized ? 30 : minimapSize;
+        const minimapClickY = this.minimapMinimized ? (minimapY + minimapSize - 30) : minimapY;
+        
+        if (screenX >= minimapX && screenX <= minimapX + minimapSize &&
+            screenY >= minimapClickY && screenY <= minimapClickY + minimapHeight) {
+            this.minimapMinimized = !this.minimapMinimized;
+            console.log('Minimap toggled:', this.minimapMinimized ? 'minimized' : 'maximized');
+            return true;
+        }
+        
+        // Zoom controls removed - using mousewheel only
+        
+        return false; // No UI element was clicked
+    }
+    
+    launchProbe(fromTerritory, toTerritory) {
+        const probeCost = 10;
+        
+        if (fromTerritory.armySize < probeCost) {
+            console.log('Not enough fleet power to launch probe! Need 10 fleet power.');
+            return;
+        }
+        
+        // Create probe with gameMap and game references for nebula detection and discovery bonuses
+        const probe = new Probe(
+            this.nextProbeId++,
+            fromTerritory,
+            toTerritory,
+            this.humanPlayer.id,
+            this.humanPlayer.color,
+            this.config.gameSpeed,
+            this.gameMap,
+            this
+        );
+        
+        this.probes.push(probe);
+        fromTerritory.armySize -= probeCost;
+        
+        // Trigger visual feedback
+        fromTerritory.triggerProbeFlash();
+        
+        // Emit probe launched event
+        gameEvents.emit(GAME_EVENTS.PROBE_LAUNCHED, {
+            probe: {
+                id: probe.id,
+                fromTerritoryId: fromTerritory.id,
+                toTerritoryId: toTerritory.id
+            },
+            player: {
+                id: this.humanPlayer.id,
+                name: this.humanPlayer.name
+            }
+        }, EVENT_PRIORITY.MEDIUM);
+        
+        console.log(`Probe launched from territory ${fromTerritory.id} to colonizable planet ${toTerritory.id}`);
+    }
+    
+    launchAIProbe(fromTerritory, toTerritory, player) {
+        const probeCost = 10;
+        
+        if (fromTerritory.armySize < probeCost) {
+            return;
+        }
+        
+        // Create AI probe with gameMap and game references for nebula detection
+        const probe = new Probe(
+            this.nextProbeId++,
+            fromTerritory,
+            toTerritory,
+            player.id,
+            player.color,
+            this.config.gameSpeed,
+            this.gameMap,
+            this
+        );
+        
+        this.probes.push(probe);
+        fromTerritory.armySize -= probeCost;
+        
+        // Trigger visual feedback
+        fromTerritory.triggerProbeFlash();
+        
+        console.log(`AI ${player.name} launched probe from territory ${fromTerritory.id} to colonizable planet ${toTerritory.id}`);
+    }
+    
+    transferFleet(fromTerritory, toTerritory) {
+        // Create ship animation for transfer
+        this.createShipAnimation(fromTerritory, toTerritory, false);
+        
+        // Delegate to centralized CombatSystem
+        const success = this.combatSystem.transferArmies(fromTerritory, toTerritory);
+        
+        if (!success) {
+            console.log('Transfer failed - not enough armies or invalid target');
+        }
+    }
+    
+    // Enhanced fleet transfer with specific amount
+    transferFleetWithAmount(fromTerritory, toTerritory, amount) {
+        // Create ship animation for transfer
+        this.createShipAnimation(fromTerritory, toTerritory, false);
+        
+        // Delegate to centralized CombatSystem with specific amount
+        const success = this.combatSystem.transferArmies(fromTerritory, toTerritory, amount);
+        
+        if (!success) {
+            console.log('Transfer failed - not enough armies or invalid target');
+        }
+    }
+    
+    // Supply route system
+    createSupplyRoute(fromTerritory, toTerritory) {
+        // Find path between territories through owned network
+        const path = this.findPathBetweenTerritories(fromTerritory, toTerritory);
+        
+        if (path && path.length > 1) {
+            const delayPerHop = 2000; // 2 seconds per intervening planet
+            const totalDelay = (path.length - 2) * delayPerHop; // Don't count start and end
+            
+            this.supplyRoutes.set(fromTerritory.id, {
+                targetId: toTerritory.id,
+                path: path,
+                delay: totalDelay,
+                lastValidation: Date.now()
+            });
+            
+            console.log(`Supply route created: ${fromTerritory.id} → ${toTerritory.id} (${path.length - 1} hops, ${totalDelay}ms delay)`);
+            console.log('Path:', path.map(t => t.id).join(' → '));
+        } else {
+            console.log('No valid path found between territories');
+        }
+    }
+    
+    findPathBetweenTerritories(start, end) {
+        // BFS to find shortest path through owned territories
+        const queue = [[start]];
+        const visited = new Set([start.id]);
+        
+        while (queue.length > 0) {
+            const path = queue.shift();
+            const current = path[path.length - 1];
+            
+            if (current.id === end.id) {
+                return path;
+            }
+            
+            // Check all neighbors
+            current.neighbors.forEach(neighborId => {
+                const neighbor = this.gameMap.territories[neighborId];
+                
+                if (neighbor && 
+                    !visited.has(neighbor.id) && 
+                    neighbor.ownerId === this.humanPlayer?.id) {
+                    
+                    visited.add(neighbor.id);
+                    queue.push([...path, neighbor]);
+                }
+            });
+        }
+        
+        return null; // No path found
+    }
+    
+    validateSupplyRoutes() {
+        // Check all supply routes for broken connections
+        const routesToRemove = [];
+        
+        this.supplyRoutes.forEach((route, fromId) => {
+            const fromTerritory = this.gameMap.territories[fromId];
+            const toTerritory = this.gameMap.territories[route.targetId];
+            
+            // Check if territories still exist and are owned by player
+            if (!fromTerritory || !toTerritory || 
+                fromTerritory.ownerId !== this.humanPlayer?.id || 
+                toTerritory.ownerId !== this.humanPlayer?.id) {
+                routesToRemove.push(fromId);
+                return;
+            }
+            
+            // Revalidate path every few seconds
+            const now = Date.now();
+            if (now - route.lastValidation > 5000) {
+                const newPath = this.findPathBetweenTerritories(fromTerritory, toTerritory);
+                
+                if (!newPath) {
+                    routesToRemove.push(fromId);
+                    console.log(`Supply route broken: ${fromId} → ${route.targetId}`);
+                } else {
+                    // Update path and delay if it changed
+                    const delayPerHop = 2000;
+                    const newDelay = (newPath.length - 2) * delayPerHop;
+                    
+                    route.path = newPath;
+                    route.delay = newDelay;
+                    route.lastValidation = now;
+                }
+            }
+        });
+        
+        // Remove broken routes
+        routesToRemove.forEach(id => {
+            this.supplyRoutes.delete(id);
+        });
+    }
+    
+    processSupplyRoutes() {
+        // Handle automatic ship sending along supply routes
+        this.supplyRoutes.forEach((route, fromId) => {
+            const fromTerritory = this.gameMap.territories[fromId];
+            const toTerritory = this.gameMap.territories[route.targetId];
+            
+            if (fromTerritory && toTerritory && fromTerritory.armySize > 2) {
+                // Send new ships when they're generated (but not too frequently)
+                const now = Date.now();
+                if (!route.lastShipment || now - route.lastShipment > 3000) {
+                    const shipsToSend = Math.floor(fromTerritory.armySize / 3); // Send 1/3 of armies
+                    
+                    if (shipsToSend > 0) {
+                        fromTerritory.armySize -= shipsToSend;
+                        route.lastShipment = now;
+                        
+                        // Create delayed transfer with route visualization
+                        this.createDelayedSupplyTransfer(fromTerritory, toTerritory, shipsToSend, route.delay);
+                    }
+                }
+            }
+        });
+    }
+    
+    createDelayedSupplyTransfer(fromTerritory, toTerritory, shipCount, delay) {
+        // Find the supply route to get the path
+        const route = this.supplyRoutes.get(fromTerritory.id);
+        if (route && route.path && route.path.length > 1) {
+            // Create multi-hop ship animation following the path
+            this.createSupplyRouteAnimation(route.path, this.humanPlayer.color);
+        } else {
+            // Fallback to direct animation
+            this.createShipAnimation(fromTerritory, toTerritory, false);
+        }
+        
+        // Apply transfer after delay
+        setTimeout(() => {
+            if (toTerritory.ownerId === this.humanPlayer?.id) {
+                toTerritory.armySize += shipCount;
+                console.log(`Supply route delivered ${shipCount} ships to territory ${toTerritory.id}`);
+            }
+        }, delay);
+    }
+    
+    findTerritoryAt(x, y) {
+        // Use optimized spatial indexing from GameMap (60% performance improvement)
+        return this.gameMap.findTerritoryAt(x, y);
+    }
+    
+    // Core fleet command execution with percentage control
+    executeFleetCommand(fromTerritory, toTerritory, fleetPercentage) {
+        if (!fromTerritory || !toTerritory || fromTerritory.ownerId !== this.humanPlayer?.id) {
+            return;
+        }
+        
+        // Validate warp lane connectivity (except for colonizable planets which can be probed)
+        if (!toTerritory.isColonizable && !fromTerritory.neighbors.includes(toTerritory.id)) {
+            console.log(`Cannot send fleet: No warp lane from ${fromTerritory.id} to ${toTerritory.id}`);
+            return;
+        }
+        
+        // Calculate ships to send based on percentage
+        const availableShips = Math.max(0, fromTerritory.armySize - 1); // Always leave at least 1
+        const shipsToSend = Math.max(1, Math.floor(availableShips * fleetPercentage));
+        
+        // Visual feedback - show number flying off
+        this.showFleetCommandFeedback(fromTerritory, shipsToSend, fleetPercentage);
+        
+        if (toTerritory.ownerId === this.humanPlayer?.id) {
+            // Transfer to own territory with specific amount
+            this.transferFleetWithAmount(fromTerritory, toTerritory, shipsToSend);
+            console.log(`Fleet transfer: ${shipsToSend} ships (${Math.round(fleetPercentage * 100)}%) from ${fromTerritory.id} to ${toTerritory.id}`);
+        } else if (toTerritory.isColonizable) {
+            // Probe colonizable territory
+            this.launchProbe(fromTerritory, toTerritory);
+            console.log(`Probe launched from ${fromTerritory.id} to colonizable ${toTerritory.id}`);
+        } else {
+            // Attack enemy territory with specific amount
+            this.attackTerritoryWithAmount(fromTerritory, toTerritory, shipsToSend);
+            console.log(`Attack: ${shipsToSend} ships (${Math.round(fleetPercentage * 100)}%) from ${fromTerritory.id} to ${toTerritory.id}`);
+        }
+    }
+    
+    // Visual feedback for fleet commands
+    showFleetCommandFeedback(territory, shipsToSend, percentage) {
+        // Flash the territory briefly
+        territory.lastCombatFlash = Date.now();
+        
+        // Show floating text with ship count
+        const floatingText = {
+            x: territory.x + (Math.random() - 0.5) * 40,
+            y: territory.y - 20,
+            text: `-${shipsToSend}`,
+            color: percentage >= 0.8 ? '#ff4444' : percentage >= 0.5 ? '#ffaa00' : '#44ff44',
+            startTime: Date.now(),
+            duration: 1500
+        };
+        
+        if (!this.floatingTexts) this.floatingTexts = [];
+        this.floatingTexts.push(floatingText);
+    }
+    
+    attackTerritory(attackingTerritory, defendingTerritory) {
+        // Trigger combat flash on both territories
+        attackingTerritory.triggerCombatFlash();
+        defendingTerritory.triggerCombatFlash();
+        
+        // Create ship animation for attack
+        this.createShipAnimation(attackingTerritory, defendingTerritory, true);
+        
+        // Delegate to centralized CombatSystem
+        const result = this.combatSystem.attackTerritory(attackingTerritory, defendingTerritory);
+        
+        if (result.success) {
+            console.log(`Territory captured! Attack: ${result.attackPower.toFixed(1)} vs Defense: ${result.defensePower.toFixed(1)}`);
+            
+            if (result.throneCapture) {
+                console.log('👑 THRONE STAR CAPTURED!');
+            }
+            
+            if (result.gameEnded) {
+                this.endGame();
+            }
+        } else {
+            if (result.reason) {
+                console.log(`Attack failed: ${result.reason}`);
+            } else {
+                console.log(`Attack failed! Attack: ${result.attackPower.toFixed(1)} vs Defense: ${result.defensePower.toFixed(1)}`);
+            }
+        }
+        
+        // Update player stats
+        this.players.forEach(player => player.updateStats());
+    }
+    
+    // Enhanced attack method with custom army amount
+    attackTerritoryWithAmount(attackingTerritory, defendingTerritory, attackingArmies) {
+        // Trigger combat flash on both territories
+        attackingTerritory.triggerCombatFlash();
+        defendingTerritory.triggerCombatFlash();
+        
+        // Create ship animation for attack
+        this.createShipAnimation(attackingTerritory, defendingTerritory, true);
+        
+        // Delegate to centralized CombatSystem with specific army count
+        const result = this.combatSystem.attackTerritory(attackingTerritory, defendingTerritory, attackingArmies);
+        
+        if (result.success) {
+            console.log(`Territory captured with custom attack! Attack: ${result.attackPower.toFixed(1)} vs Defense: ${result.defensePower.toFixed(1)}`);
+            
+            if (result.throneCapture) {
+                console.log('👑 THRONE STAR CAPTURED!');
+            }
+            
+            if (result.gameEnded) {
+                this.endGame();
+            }
+        } else {
+            if (result.reason) {
+                console.log(`Custom attack failed: ${result.reason}`);
+            } else {
+                console.log(`Custom attack failed! Attack: ${result.attackPower.toFixed(1)} vs Defense: ${result.defensePower.toFixed(1)}`);
+            }
+        }
+        
+        // Update player stats
+        this.players.forEach(player => player.updateStats());
+    }
+    
+    // Touch event handlers for mobile
+    handleTouchStart(e) {
+        e.preventDefault();
+        
+        this.touchStartTime = Date.now();
+        const rect = this.canvas.getBoundingClientRect();
+        
+        this.touchDebugInfo = `TouchStart: ${e.touches.length} touches\nTime: ${new Date().toLocaleTimeString()}`;
+        
+        if (e.touches.length === 1) {
+            // Single touch - prepare for selection or pan
+            const touch = e.touches[0];
+            this.mousePos = {
+                x: touch.clientX - rect.left,
+                y: touch.clientY - rect.top
+            };
+            this.lastMousePos = { ...this.mousePos };
+            this.isDragging = false;
+            this.isMultiTouch = false;
+            
+            // Setup long press detection
+            this.longPressStartPos = { ...this.mousePos };
+            const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+            this.longPressTarget = this.findTerritoryAt(worldPos.x, worldPos.y);
+            
+            // Clear any existing long press timer
+            if (this.longPressTimer) {
+                clearTimeout(this.longPressTimer);
+            }
+            
+            // Start long press timer
+            this.longPressTimer = setTimeout(() => {
+                this.handleLongPress();
+            }, this.longPressThreshold);
+            
+            this.touchDebugInfo += `\nSingle: ${Math.round(this.mousePos.x)}, ${Math.round(this.mousePos.y)}`;
+            
+        } else if (e.touches.length === 2) {
+            // Two touches - enhanced pinch zoom and pan
+            this.isMultiTouch = true;
+            this.isDragging = true;
+            const touch1 = e.touches[0];
+            const touch2 = e.touches[1];
+            
+            // Store initial touch positions for pan/zoom
+            this.touchStartDistance = Math.hypot(
+                touch2.clientX - touch1.clientX,
+                touch2.clientY - touch1.clientY
+            );
+            
+            this.pinchCenter = {
+                x: ((touch1.clientX + touch2.clientX) / 2) - rect.left,
+                y: ((touch1.clientY + touch2.clientY) / 2) - rect.top
+            };
+            
+            this.lastMousePos = { ...this.pinchCenter };
+            this.initialZoom = this.camera.zoom; // Store initial zoom for relative scaling
+            this.lastPinchDistance = this.touchStartDistance; // Track for smooth updates
+            
+            this.touchDebugInfo += `\nPinch Start: dist ${Math.round(this.touchStartDistance)} zoom ${(this.initialZoom * 100).toFixed(0)}%`;
+        }
+    }
+    
+    handleTouchMove(e) {
+        e.preventDefault();
+        const rect = this.canvas.getBoundingClientRect();
+        
+        this.touchDebugInfo = `TouchMove: ${e.touches.length} touches\nTime: ${new Date().toLocaleTimeString()}`;
+        
+        if (e.touches.length === 1) {
+            // Single touch drag - pan
+            const touch = e.touches[0];
+            const currentPos = {
+                x: touch.clientX - rect.left,
+                y: touch.clientY - rect.top
+            };
+            
+            this.touchDebugInfo += `\nSingle: ${Math.round(currentPos.x)}, ${Math.round(currentPos.y)}`;
+            
+            if (this.lastMousePos) {
+                const deltaX = currentPos.x - this.lastMousePos.x;
+                const deltaY = currentPos.y - this.lastMousePos.y;
+                const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                
+                // Start dragging if moved more than 10 pixels
+                if (!this.isDragging && distance > 10) {
+                    this.isDragging = true;
+                    this.touchDebugInfo += `\nStarted Pan`;
+                    
+                    // Cancel long press if we start dragging
+                    if (this.longPressTimer) {
+                        clearTimeout(this.longPressTimer);
+                        this.longPressTimer = null;
+                    }
+                }
+                
+                if (this.isDragging && !this.isMultiTouch) {
+                    this.camera.pan(-deltaX, -deltaY);
+                    this.touchDebugInfo += `\nPan: ${Math.round(deltaX)}, ${Math.round(deltaY)}`;
+                }
+            }
+            
+            this.lastMousePos = currentPos;
+            
+        } else if (e.touches.length === 2) {
+            // Two touches - pinch zoom and pan
+            const touch1 = e.touches[0];
+            const touch2 = e.touches[1];
+            
+            // Calculate current distance for zoom
+            const currentDistance = Math.hypot(
+                touch2.clientX - touch1.clientX,
+                touch2.clientY - touch1.clientY
+            );
+            
+            // Enhanced pinch-to-zoom with much higher sensitivity
+            if (this.lastPinchDistance && Math.abs(currentDistance - this.lastPinchDistance) > 2) {
+                // Use incremental scaling with higher sensitivity
+                const distanceRatio = currentDistance / this.lastPinchDistance;
+                
+                // Apply incremental zoom change with dramatic sensitivity
+                const zoomMultiplier = 1 + (distanceRatio - 1) * 1.5; // Dramatic scaling for responsive zoom
+                const newZoom = Math.max(0.5, Math.min(3.0, this.camera.zoom * zoomMultiplier));
+                
+                // Calculate zoom center between the two fingers
+                const centerX = ((touch1.clientX + touch2.clientX) / 2) - rect.left;
+                const centerY = ((touch1.clientY + touch2.clientY) / 2) - rect.top;
+                
+                // Apply zoom smoothly to the pinch center
+                this.camera.zoomTo(newZoom, centerX, centerY);
+                this.lastPinchDistance = currentDistance;
+                this.lastZoomTime = Date.now();
+                
+                this.touchDebugInfo += `\nPinch Zoom: ${(newZoom * 100).toFixed(0)}% (dist: ${Math.round(currentDistance)})`;
+            }
+            
+            // Enhanced two-finger pan with smoother movement
+            const currentCenter = {
+                x: ((touch1.clientX + touch2.clientX) / 2) - rect.left,
+                y: ((touch1.clientY + touch2.clientY) / 2) - rect.top
+            };
+            
+            if (this.lastMousePos && Date.now() - this.lastZoomTime > 50) {
+                const deltaX = currentCenter.x - this.lastMousePos.x;
+                const deltaY = currentCenter.y - this.lastMousePos.y;
+                
+                // Smoother pan threshold for better control
+                if (Math.abs(deltaX) > 1 || Math.abs(deltaY) > 1) {
+                    this.camera.pan(-deltaX * 0.8, -deltaY * 0.8); // Damped panning
+                    this.touchDebugInfo += `\nTwo-finger pan: ${Math.round(deltaX)}, ${Math.round(deltaY)}`;
+                }
+            }
+            
+            this.lastMousePos = currentCenter;
+        }
+    }
+    
+    handleTouchEnd(e) {
+        e.preventDefault();
+        const touchDuration = Date.now() - this.touchStartTime;
+        console.log('Touch end:', e.touches.length, 'remaining touches, duration:', touchDuration);
+        
+        if (e.touches.length === 0) {
+            // All fingers lifted
+            if (!this.isDragging && touchDuration < 500 && this.mousePos) {
+                // Quick tap - handle territory selection
+                const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+                this.handleTerritorySelection(worldPos);
+                console.log('Territory selection at:', worldPos);
+            }
+            
+            this.isDragging = false;
+            this.isMultiTouch = false;
+            this.touchStartDistance = null;
+            this.lastPinchDistance = null;
+            this.lastMousePos = null;
+            this.pinchCenter = null;
+            this.lastZoomTime = 0;
+            this.initialZoom = 1.0;
+            
+            // Cancel long press timer
+            if (this.longPressTimer) {
+                clearTimeout(this.longPressTimer);
+                this.longPressTimer = null;
+            }
+            
+        } else if (e.touches.length === 1) {
+            // One finger lifted during multi-touch - continue with single touch
+            this.isMultiTouch = false;
+            this.touchStartDistance = null;
+            const touch = e.touches[0];
+            const rect = this.canvas.getBoundingClientRect();
+            this.lastMousePos = {
+                x: touch.clientX - rect.left,
+                y: touch.clientY - rect.top
+            };
+        }
+    }
+    
+    // Keyboard handling is now done by InputHandler module
+    
+    handleDoubleClick(targetTerritory) {
+        // Double-click detected - create supply route between owned territories
+        if (!this.selectedTerritory || !targetTerritory) {
+            return;
+        }
+        
+        const fromTerritory = this.selectedTerritory;
+        const toTerritory = targetTerritory;
+        
+        // Both territories must be owned by human player
+        if (fromTerritory.ownerId !== this.humanPlayer?.id || toTerritory.ownerId !== this.humanPlayer?.id) {
+            return;
+        }
+        
+        // Must be different territories
+        if (fromTerritory.id === toTerritory.id) {
+            return;
+        }
+        
+        // Check if connected by owned territories
+        const path = this.findPathBetweenTerritories(fromTerritory, toTerritory);
+        if (path && path.length > 0) {
+            this.createSupplyRoute(fromTerritory, toTerritory);
+            console.log(`Double-click: Supply route created from ${fromTerritory.id} to ${toTerritory.id}`);
+        } else {
+            console.log('Double-click: Territories not connected by owned star lanes for supply route');
+        }
+    }
+    
+    restartGame() {
+        // Reset game state
+        this.gameState = 'lobby';
+        this.gameTimer = 10 * 60 * 1000;
+        this.selectedTerritory = null;
+        
+        // Clear players
         this.players = [];
         this.humanPlayer = null;
         
-        // Regenerate map and restart game
-        this.gameMap = new GameMap(2000, 1500, this.config);
+        // Regenerate map and restart
+        this.gameMap = new GameMap(2000, 1500, this.config); // Pass config to maintain connection distances
         this.startGame();
     }
 }
