@@ -78,15 +78,23 @@ export class CombatSystem {
             }
             
             // Add floating combat text
-            this.game.addFloatingText(defendingTerritory.x, defendingTerritory.y, 
-                `+${survivingAttackers}`, attacker.color, 2000);
+            defendingTerritory.floatingText = {
+                text: `+${survivingAttackers}`,
+                startTime: Date.now(),
+                duration: 2000,
+                startY: defendingTerritory.y
+            };
         } else {
             // Attack failed
             defendingTerritory.armySize = Math.max(1, defendingTerritory.armySize - combatResult.defenderLosses);
             
             // Add floating combat text
-            this.game.addFloatingText(defendingTerritory.x, defendingTerritory.y, 
-                `Defended!`, defender.color, 2000);
+            defendingTerritory.floatingText = {
+                text: `Defended!`,
+                startTime: Date.now(),
+                duration: 2000,
+                startY: defendingTerritory.y
+            };
         }
 
         return result;
@@ -221,9 +229,13 @@ export class CombatSystem {
         fromTerritory.armySize -= actualTransfer;
         toTerritory.armySize += actualTransfer;
         
-        // Add visual feedback
-        this.game.addFloatingText(toTerritory.x, toTerritory.y, 
-            `+${actualTransfer}`, this.game.players[toTerritory.ownerId].color, 2000);
+        // Add visual feedback using territory floating text system
+        toTerritory.floatingText = {
+            text: `+${actualTransfer}`,
+            startTime: Date.now(),
+            duration: 2000,
+            startY: toTerritory.y
+        };
         
         console.log(`Transferred ${actualTransfer} armies from territory ${fromTerritory.id} to ${toTerritory.id}`);
         return true;
