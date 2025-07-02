@@ -4,8 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Badge } from './ui/badge';
-// Only import socketClient when needed for multiplayer mode
-// import { socketClient } from '../lib/socketClient';
+import { socketClient } from '../lib/socketClient';
 import { GameConfigScreen, GameConfig } from './GameConfigScreen';
 
 interface GameModeSelectorProps {
@@ -48,7 +47,7 @@ export function GameModeSelector({ onModeSelected }: GameModeSelectorProps) {
     setSelectedMode(null);
   };
 
-  const handleMultiplayerConnect = async () => {
+  const handleMultiplayerConnect = () => {
     // Prompt for player name if not set
     let name = playerName.trim();
     if (!name) {
@@ -64,63 +63,44 @@ export function GameModeSelector({ onModeSelected }: GameModeSelectorProps) {
     setIsConnecting(true);
     setError('');
 
-    try {
-      // Dynamically import socketClient only for multiplayer
-      const { socketClient } = await import('../lib/socketClient');
-      
-      // Set up socket event handlers
-      socketClient.onConnected(() => {
-        console.log('Connected to multiplayer server');
-      });
+    // Set up socket event handlers
+    socketClient.onConnected(() => {
+      console.log('Connected to multiplayer server');
+    });
 
-      socketClient.onError((error) => {
-        setError(error.message);
-        setIsConnecting(false);
-      });
-
-      socketClient.onRoomCreated((room: any) => {
-        onModeSelected('multiplayer', { room, playerName: playerName.trim() });
-      });
-
-      socketClient.onRoomJoined((room: any) => {
-        onModeSelected('multiplayer', { room, playerName: playerName.trim() });
-      });
-
-      // Connect to server
-      socketClient.connect();
-    } catch (error) {
-      console.error('Failed to load multiplayer module:', error);
-      setError('Failed to initialize multiplayer connection');
+    socketClient.onError((error: any) => {
+      setError(error.message);
       setIsConnecting(false);
-    }
+    });
+
+    socketClient.onRoomCreated((room: any) => {
+      onModeSelected('multiplayer', { room, playerName: playerName.trim() });
+    });
+
+    socketClient.onRoomJoined((room: any) => {
+      onModeSelected('multiplayer', { room, playerName: playerName.trim() });
+    });
+
+    // Connect to server
+    socketClient.connect();
   };
 
-  const handleCreateRoom = async () => {
+  const handleCreateRoom = () => {
     if (!roomName.trim()) {
       setError('Please enter a room name');
       return;
     }
 
-    try {
-      const { socketClient } = await import('../lib/socketClient');
-      socketClient.createRoom(roomName.trim(), playerName.trim(), maxPlayers, aiCount);
-    } catch (error) {
-      setError('Failed to create room');
-    }
+    socketClient.createRoom(roomName.trim(), playerName.trim(), maxPlayers, aiCount);
   };
 
-  const handleJoinRoom = async () => {
+  const handleJoinRoom = () => {
     if (!roomId.trim()) {
       setError('Please enter a room ID');
       return;
     }
 
-    try {
-      const { socketClient } = await import('../lib/socketClient');
-      socketClient.joinRoom(roomId.trim().toUpperCase(), playerName.trim());
-    } catch (error) {
-      setError('Failed to join room');
-    }
+    socketClient.joinRoom(roomId.trim().toUpperCase(), playerName.trim());
   };
 
   if (selectedMode === 'multiplayer' && !isConnecting) {
