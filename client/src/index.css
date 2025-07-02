@@ -117,20 +117,24 @@ canvas {
   }
 }
 
-/* Streaming starfield effect */
-@keyframes streamTowardsViewer {
+/* Star tunnel effect - stars fly radially outward from center */
+@keyframes starTunnel {
   0% {
-    transform: scale(0.1) translateZ(-100px);
+    transform: translate(-50%, -50%) scale(0.1) translateZ(0);
     opacity: 0;
   }
-  10% {
+  5% {
     opacity: 1;
   }
   90% {
     opacity: 1;
   }
   100% {
-    transform: scale(3) translateZ(50px);
+    transform: translate(-50%, -50%) 
+               translateX(calc(cos(var(--angle, 0)) * 120vw))
+               translateY(calc(sin(var(--angle, 0)) * 120vh))
+               scale(4) 
+               translateZ(100px);
     opacity: 0;
   }
 }
