@@ -652,40 +652,45 @@ export class GameUI {
         const humanPlayerId = gameData.humanPlayer.id;
         const announcements = gameData.discoveryLog.filter(entry => {
             const age = (now - entry.timestamp) / 1000;
-            return age <= 4 && entry.playerId === humanPlayerId; // Only show human player discoveries for 4 seconds
+            return age <= 3 && entry.playerId === humanPlayerId; // Only show human player discoveries for 3 seconds
         });
         
-        announcements.forEach(announcement => {
-            const age = (now - announcement.timestamp) / 1000;
-            const fadeProgress = age / 4; // Fade over 4 seconds
-            const opacity = Math.max(0, 1 - fadeProgress);
-            
-            // Find the territory position
-            const territory = gameData.gameState && gameData.gameState.territories && 
-                            gameData.gameState.territories[announcement.territoryId];
-            if (!territory) return;
-            
-            // Convert world coordinates to screen coordinates
-            const camera = gameData.camera;
-            if (!camera) return;
-            
-            const screenX = (territory.x - camera.x) * camera.zoom;
-            const screenY = (territory.y - camera.y) * camera.zoom - 50; // Float above territory
-            
-            // Get discovery info
-            const icon = this.getDiscoveryIcon(announcement.discovery.effect);
-            const color = this.getDiscoveryColor(announcement.discovery.effect);
-            
-            // Apply opacity
-            const rgb = this.hexToRgb(color);
-            const fadeColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${opacity})`;
-            
-            // Render floating text
-            ctx.font = 'bold 14px Arial';
-            ctx.textAlign = 'center';
-            const text = `${icon} ${announcement.discovery.name}`;
-            this.renderTextWithShadow(ctx, text, screenX, screenY, fadeColor);
-        });
+        // Show only the most recent announcement at top center
+        if (announcements.length === 0) return;
+        
+        const latestAnnouncement = announcements.sort((a, b) => b.timestamp - a.timestamp)[0];
+        const age = (now - latestAnnouncement.timestamp) / 1000;
+        const fadeProgress = age / 3; // Fade over 3 seconds
+        const opacity = Math.max(0, 1 - fadeProgress);
+        
+        // Get discovery info
+        const icon = this.getDiscoveryIcon(latestAnnouncement.discovery.effect);
+        const color = this.getDiscoveryColor(latestAnnouncement.discovery.effect);
+        
+        // Apply opacity
+        const rgb = this.hexToRgb(color);
+        const fadeColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${opacity})`;
+        
+        // Top center positioning
+        const width = 400;
+        const height = 50;
+        const x = (this.canvas.width - width) / 2;
+        const y = 20;
+        
+        // Background with transparency
+        ctx.fillStyle = `rgba(0, 0, 0, ${0.9 * opacity})`;
+        ctx.fillRect(x, y, width, height);
+        
+        // Border with discovery color
+        ctx.strokeStyle = fadeColor;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, width, height);
+        
+        // Discovery text
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        const text = `${icon} ${latestAnnouncement.discovery.name}`;
+        this.renderTextWithShadow(ctx, text, x + width/2, y + height/2 + 5, fadeColor);
     }
     
     renderMinimap(ctx, gameData) {
