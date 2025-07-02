@@ -117,7 +117,8 @@ export class GameUI {
         // Render notifications
         this.renderNotifications(ctx, gameData);
         
-        // Floating discovery announcements are now rendered in main game renderer
+        // Floating discovery announcements at top center
+        this.renderFloatingAnnouncements(ctx, gameData);
         
         // Game over screen for human player
         const humanPlayer = gameData.humanPlayer;
