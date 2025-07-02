@@ -15,11 +15,6 @@ import { PerformanceOverlay } from './PerformanceOverlay.js';
 import { DiscoverySystem } from './DiscoverySystem.js';
 import { AnimationSystem } from './AnimationSystem.js';
 import { UIManager } from './UIManager.js';
-import { AudioSystem } from './AudioSystem.js';
-import { AIManager } from './AIManager.js';
-import { TerritoryRenderer } from './TerritoryRenderer.js';
-import { MemoryManager } from './MemoryManager.js';
-import { DistanceCache } from './DistanceCache.js';
 
 export default class StarThrone {
     constructor(config = {}) {
@@ -60,11 +55,6 @@ export default class StarThrone {
         this.discoverySystem = null;
         this.animationSystem = null;
         this.uiManager = null;
-        this.audioSystem = null;
-        this.aiManager = null;
-        this.territoryRenderer = null;
-        this.memoryManager = null;
-        this.distanceCache = null;
         
         // Legacy properties for backward compatibility
         this.hoveredTerritory = null;
@@ -189,7 +179,63 @@ export default class StarThrone {
         }
     }
     
-    // Background rendering moved to UIManager
+    loadBackgroundImage() {
+        // Load the background galaxy image
+        this.backgroundImage = new Image();
+        this.backgroundImage.onload = () => {
+            this.backgroundLoaded = true;
+            console.log('Background galaxy image loaded');
+        };
+        this.backgroundImage.onerror = () => {
+            console.log('Background image failed to load, using default starfield');
+            this.backgroundLoaded = false;
+        };
+        // Set the image path
+        this.backgroundImage.src = '/galaxy-background.jpg';
+    }
+    
+    renderBackgroundImage() {
+        if (!this.backgroundImage || !this.backgroundLoaded) return;
+        
+        this.ctx.save();
+        
+        // Calculate parallax offset (background moves slower than camera)
+        const parallaxFactor = 0.2; // Background moves at 20% of camera speed
+        const offsetX = -this.camera.x * parallaxFactor;
+        const offsetY = -this.camera.y * parallaxFactor;
+        
+        // Calculate scale to ensure image covers the entire viewport
+        const imageAspect = this.backgroundImage.width / this.backgroundImage.height;
+        const canvasAspect = this.canvas.width / this.canvas.height;
+        
+        let drawWidth, drawHeight;
+        if (imageAspect > canvasAspect) {
+            // Image is wider - fit to height
+            drawHeight = this.canvas.height * 1.5; // Scale up for parallax coverage
+            drawWidth = drawHeight * imageAspect;
+        } else {
+            // Image is taller - fit to width
+            drawWidth = this.canvas.width * 1.5; // Scale up for parallax coverage
+            drawHeight = drawWidth / imageAspect;
+        }
+        
+        // Center the image with parallax offset
+        const drawX = (this.canvas.width - drawWidth) / 2 + offsetX;
+        const drawY = (this.canvas.height - drawHeight) / 2 + offsetY;
+        
+        // Draw the background image with very low opacity
+        this.ctx.globalAlpha = 0.15; // Even more transparent for very subtle background effect
+        this.ctx.drawImage(this.backgroundImage, drawX, drawY, drawWidth, drawHeight);
+        
+        // Add dark overlay to further dim the background
+        this.ctx.globalAlpha = 0.6;
+        this.ctx.fillStyle = '#000000';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        this.ctx.globalAlpha = 1.0;
+        
+        this.ctx.restore();
+    }
     
     /**
      * Setup event listeners for event-driven architecture
@@ -261,7 +307,59 @@ export default class StarThrone {
         }
     }
 
-    // Notification and message systems moved to UIManager
+    // Add notification to display queue
+    addNotification(text, color = '#44ff44', duration = 4000) {
+        this.notifications.push({
+            text: text,
+            color: color,
+            createdAt: Date.now(),
+            duration: duration,
+            opacity: 1.0
+        });
+    }
+    
+    // Update and clean up notifications
+    updateNotifications() {
+        const now = Date.now();
+        this.notifications = this.notifications.filter(notification => {
+            const age = now - notification.createdAt;
+            if (age > notification.duration) {
+                return false; // Remove expired notifications
+            }
+            
+            // Fade out in the last 500ms
+            if (age > notification.duration - 500) {
+                notification.opacity = (notification.duration - age) / 500;
+            }
+            
+            return true;
+        });
+    }
+    
+    // Message display system for FSM feedback
+    showMessage(text, duration = 3000) {
+        this.messageText = text;
+        this.messageTimer = duration;
+        console.log(`Message: ${text}`);
+    }
+    
+    hideMessage() {
+        this.messageText = '';
+        this.messageTimer = 0;
+    }
+    
+    showError(text) {
+        this.showMessage(`❌ ${text}`, 2000);
+    }
+    
+    updateMessage(deltaTime) {
+        if (this.messageTimer > 0) {
+            this.messageTimer -= deltaTime;
+            if (this.messageTimer <= 0) {
+                this.hideMessage();
+            }
+        }
+    }
     
     init() {
         this.setupCanvas();
@@ -291,11 +389,6 @@ export default class StarThrone {
         this.discoverySystem = new DiscoverySystem(this);
         this.animationSystem = new AnimationSystem(this);
         this.uiManager = new UIManager(this);
-        this.audioSystem = new AudioSystem(this);
-        this.aiManager = new AIManager(this);
-        this.territoryRenderer = new TerritoryRenderer(this);
-        this.memoryManager = new MemoryManager(this);
-        this.distanceCache = new DistanceCache(this);
         
         // Auto-detect optimal performance profile
         this.performanceManager.detectOptimalProfile();
@@ -305,8 +398,239 @@ export default class StarThrone {
         this.gameLoop();
     }
     
-    // Discovery system moved to DiscoverySystem module
+    // Define discovery types and their probabilities
+    getDiscoveryTypes() {
+        return [
+            {
+                id: 'hostile_aliens',
+                name: 'Hostile Aliens',
+                description: 'Hostile alien life destroys your probe!',
+                probability: 0.15,
+                type: 'negative',
+                effect: 'probe_lost'
+            },
+            {
+                id: 'friendly_aliens',
+                name: 'Friendly Aliens',
+                description: 'Friendly aliens join your empire!',
+                probability: 0.12,
+                type: 'positive',
+                effect: 'extra_fleet',
+                bonus: 50
+            },
+            {
+                id: 'precursor_weapons',
+                name: 'Precursor Weapons Cache',
+                description: 'Ancient weapon technology discovered!',
+                probability: 0.08,
+                type: 'empire_bonus',
+                effect: 'attack_bonus',
+                bonus: 10 // +10% attack
+            },
+            {
+                id: 'precursor_drive',
+                name: 'Precursor Drive System',
+                description: 'Advanced propulsion technology found!',
+                probability: 0.08,
+                type: 'empire_bonus',
+                effect: 'speed_bonus',
+                bonus: 20 // +20% speed
+            },
+            {
+                id: 'precursor_shield',
+                name: 'Precursor Shield Matrix',
+                description: 'Defensive technology enhances your empire!',
+                probability: 0.08,
+                type: 'empire_bonus',
+                effect: 'defense_bonus',
+                bonus: 10 // +10% defense
+            },
+            {
+                id: 'precursor_factory',
+                name: 'Precursor Factory Complex',
+                description: 'Ancient manufacturing facility still operational!',
+                probability: 0.06,
+                type: 'planet_bonus',
+                effect: 'factory_planet',
+                bonus: 100 // +100% generation (200% total)
+            },
+            {
+                id: 'precursor_nanotech',
+                name: 'Precursor Nanotechnology',
+                description: 'Self-replicating technology spreads across your empire!',
+                probability: 0.05,
+                type: 'empire_bonus',
+                effect: 'generation_bonus',
+                bonus: 10 // +10% empire-wide generation
+            },
+            {
+                id: 'mineral_deposits',
+                name: 'Rich Mineral Deposits',
+                description: 'Valuable resources boost this planet\'s output!',
+                probability: 0.10,
+                type: 'planet_bonus',
+                effect: 'mineral_planet',
+                bonus: 50 // +50% generation
+            },
+            {
+                id: 'ancient_ruins',
+                name: 'Ancient Ruins',
+                description: 'Mysterious structures provide no immediate benefit.',
+                probability: 0.08,
+                type: 'neutral',
+                effect: 'cosmetic'
+            },
+            {
+                id: 'void_storm',
+                name: 'Void Storm Remnants',
+                description: 'Dangerous energy storms reduce planet effectiveness.',
+                probability: 0.06,
+                type: 'negative',
+                effect: 'reduced_generation',
+                bonus: -25 // -25% generation
+            },
+            {
+                id: 'no_discovery',
+                name: 'Standard Planet',
+                description: 'A typical world with no special features.',
+                probability: 0.14,
+                type: 'neutral',
+                effect: 'none'
+            }
+        ];
+    }
     
+    // Initialize parallax starfield layers
+    initializeStarfield() {
+        if (this.starfield.initialized) return;
+        
+        // Expand starfield area beyond visible map for smooth parallax
+        const starfieldWidth = this.gameMap.width * 2;
+        const starfieldHeight = this.gameMap.height * 2;
+        const offsetX = -this.gameMap.width * 0.5;
+        const offsetY = -this.gameMap.height * 0.5;
+        
+        // Far layer: Many small, dim stars that barely move
+        for (let i = 0; i < 300; i++) {
+            this.starfield.farStars.push({
+                x: Math.random() * starfieldWidth + offsetX,
+                y: Math.random() * starfieldHeight + offsetY,
+                size: Math.random() * 1 + 0.5,
+                brightness: Math.random() * 0.3 + 0.1,
+                twinkle: Math.random() * 0.2 + 0.8
+            });
+        }
+        
+        // Mid layer: Medium stars with moderate movement
+        for (let i = 0; i < 150; i++) {
+            this.starfield.midStars.push({
+                x: Math.random() * starfieldWidth + offsetX,
+                y: Math.random() * starfieldHeight + offsetY,
+                size: Math.random() * 1.5 + 1,
+                brightness: Math.random() * 0.4 + 0.2,
+                twinkle: Math.random() * 0.3 + 0.7
+            });
+        }
+        
+        // Near layer: Fewer large stars with most movement
+        for (let i = 0; i < 80; i++) {
+            this.starfield.nearStars.push({
+                x: Math.random() * starfieldWidth + offsetX,
+                y: Math.random() * starfieldHeight + offsetY,
+                size: Math.random() * 2 + 1.5,
+                brightness: Math.random() * 0.5 + 0.3,
+                twinkle: Math.random() * 0.4 + 0.6
+            });
+        }
+        
+        this.starfield.initialized = true;
+        console.log('Parallax starfield initialized with 530 stars across 3 layers');
+    }
+    
+    // Pre-render static background elements once for performance optimization
+    preRenderStaticBackground() {
+        // Set static canvas to game map size
+        this.staticBg.width = this.gameMap.width;
+        this.staticBg.height = this.gameMap.height;
+        
+        // Clear the static background
+        this.staticBgCtx.fillStyle = '#0a0a1a';
+        this.staticBgCtx.fillRect(0, 0, this.staticBg.width, this.staticBg.height);
+        
+        // Render starfield to static background (once only)
+        this.renderStarfieldStatic(this.staticBgCtx);
+        
+        // Render nebulas to static background (once only)
+        this.renderNebulasStatic(this.staticBgCtx);
+        
+        console.log('Static background pre-rendered for performance optimization');
+    }
+    
+    // Render starfield without parallax for static background
+    renderStarfieldStatic(ctx) {
+        if (!this.starfield.initialized) return;
+        
+        ctx.save();
+        
+        // Render all star layers at base positions (no parallax)
+        const renderLayer = (stars, baseOpacity) => {
+            stars.forEach(star => {
+                // Simple twinkling effect for static background
+                const twinkle = 0.8; // Static brightness
+                const opacity = star.brightness * baseOpacity * twinkle;
+                
+                ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        };
+        
+        // Render all layers
+        renderLayer(this.starfield.farStars, 0.7);
+        renderLayer(this.starfield.midStars, 0.8);
+        renderLayer(this.starfield.nearStars, 1.0);
+        
+        ctx.restore();
+    }
+    
+    // Render nebulas for static background
+    renderNebulasStatic(ctx) {
+        if (!this.gameMap.nebulas) return;
+        
+        this.gameMap.nebulas.forEach(nebula => {
+            const gradient = ctx.createRadialGradient(
+                nebula.x, nebula.y, 0,
+                nebula.x, nebula.y, nebula.radius
+            );
+            gradient.addColorStop(0, nebula.color);
+            gradient.addColorStop(1, 'rgba(147, 112, 219, 0)');
+            
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(nebula.x, nebula.y, nebula.radius, 0, Math.PI * 2);
+            ctx.fill();
+        });
+    }
+    
+    // Random discovery selection based on probabilities
+    selectRandomDiscovery() {
+        const discoveries = this.getDiscoveryTypes();
+        const random = Math.random();
+        let cumulative = 0;
+        
+        for (const discovery of discoveries) {
+            cumulative += discovery.probability;
+            if (random <= cumulative) {
+                return discovery;
+            }
+        }
+        
+        // Fallback to no discovery
+        return discoveries.find(d => d.id === 'no_discovery');
+    }
+    
+    // Log discovery for UI display (called for both successful and failed probes)
     logDiscoveryForUI(territory, playerId, discovery) {
         const player = this.players[playerId];
         if (!player) return;
@@ -598,7 +922,95 @@ export default class StarThrone {
         console.log(`Planet ${planet.id} colonized successfully! Discovery: ${discovery.name}`);
     }
     
-    // Ship animation rendering moved to AnimationSystem
+    // Render ship animations
+    renderShipAnimations() {
+        this.shipAnimations.forEach(animation => {
+            const progress = Math.min(1, animation.progress);
+            const eased = this.easeInOutQuad(progress);
+            
+            const x = animation.fromX + (animation.toX - animation.fromX) * eased;
+            const y = animation.fromY + (animation.toY - animation.fromY) * eased;
+            
+            // Draw ship using player's color
+            this.ctx.save();
+            this.ctx.fillStyle = animation.playerColor;
+            this.ctx.shadowColor = animation.playerColor;
+            this.ctx.shadowBlur = 8;
+            
+            this.ctx.beginPath();
+            this.ctx.arc(x, y, 4, 0, Math.PI * 2);
+            this.ctx.fill();
+            
+            // Add trail effect
+            const trailLength = 5;
+            for (let i = 1; i <= trailLength; i++) {
+                const trailProgress = Math.max(0, eased - (i * 0.1));
+                const trailX = animation.fromX + (animation.toX - animation.fromX) * trailProgress;
+                const trailY = animation.fromY + (animation.toY - animation.fromY) * trailProgress;
+                
+                this.ctx.globalAlpha = (trailLength - i) / trailLength * 0.5;
+                this.ctx.beginPath();
+                this.ctx.arc(trailX, trailY, 2, 0, Math.PI * 2);
+                this.ctx.fill();
+            }
+            
+            this.ctx.restore();
+        });
+    }
+    
+    // Render probes
+    renderProbes() {
+        this.probes.forEach(probe => {
+            probe.render(this.ctx);
+        });
+    }
+    
+    renderFloatingDiscoveryTexts() {
+        if (this.floatingDiscoveryTexts.length === 0) return;
+        
+        this.ctx.save();
+        this.ctx.font = 'bold 14px Arial';
+        this.ctx.textAlign = 'center';
+        
+        this.floatingDiscoveryTexts.forEach(text => {
+            const now = Date.now();
+            const age = now - text.startTime;
+            const progress = age / text.duration;
+            
+            // Calculate opacity (fade out in the last 25% of duration)
+            let opacity = 1;
+            if (progress > 0.75) {
+                opacity = 1 - ((progress - 0.75) / 0.25);
+            }
+            
+            // Only render if text is within camera view
+            const screenPos = this.camera.worldToScreen(text.x, text.y);
+            if (screenPos.x >= -100 && screenPos.x <= this.canvas.width + 100 &&
+                screenPos.y >= -100 && screenPos.y <= this.canvas.height + 100) {
+                
+                // Draw background
+                this.ctx.fillStyle = `rgba(0, 0, 0, ${opacity * 0.8})`;
+                const textWidth = this.ctx.measureText(text.text).width;
+                this.ctx.fillRect(screenPos.x - textWidth/2 - 15, screenPos.y - 15, textWidth + 30, 20);
+                
+                // Draw border
+                this.ctx.strokeStyle = text.color;
+                this.ctx.globalAlpha = opacity;
+                this.ctx.lineWidth = 2;
+                this.ctx.strokeRect(screenPos.x - textWidth/2 - 15, screenPos.y - 15, textWidth + 30, 20);
+                
+                // Draw icon
+                this.ctx.fillStyle = text.color;
+                this.ctx.fillText(text.icon, screenPos.x - textWidth/2 - 5, screenPos.y - 2);
+                
+                // Draw text
+                this.ctx.fillStyle = text.color;
+                this.ctx.fillText(text.text, screenPos.x + 10, screenPos.y - 2);
+            }
+        });
+        
+        this.ctx.restore();
+    }
     
     // Easing function for smooth animation
     easeInOutQuad(t) {
@@ -734,8 +1146,6 @@ export default class StarThrone {
         this.animationSystem.initializeStarfield();
         this.animationSystem.preRenderStaticBackground();
         this.uiManager.loadBackgroundImage();
-        this.distanceCache.buildDistanceMatrix();
-        this.aiManager.initializeAIPersonalities();
         
         // Start home system flashing for player identification
         this.homeSystemFlashStart = Date.now();
@@ -831,7 +1241,7 @@ export default class StarThrone {
             usedColors.add(playerColor);
             
             // Generate human-like name with clan designation
-            const aiName = this.aiManager.generateAIName(i - 1);
+            const aiName = GameUtils.generateAIName(i - 1);
             const aiPlayer = new Player(i, aiName, playerColor, 'ai');
             this.players.push(aiPlayer);
             this.initializePlayerDiscoveries(aiPlayer.id);
@@ -1036,12 +1446,6 @@ export default class StarThrone {
         }
         if (this.animationSystem) {
             this.animationSystem.update(deltaTime);
-        }
-        if (this.memoryManager) {
-            this.memoryManager.update();
-        }
-        if (this.aiManager) {
-            this.aiManager.incrementFrame();
         }
         
         // Process event queue for event-driven architecture
@@ -1482,6 +1886,88 @@ export default class StarThrone {
         }
     }
     
+    renderProportionalDragUI() {
+        if (!this.isProportionalDrag || !this.proportionalDragStart) return;
+        
+        this.ctx.save();
+        
+        const territory = this.proportionalDragStart.territory;
+        const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+        const targetTerritory = this.findTerritoryAt(worldPos.x, worldPos.y);
+        
+        // Draw radial percentage indicator around source territory
+        const radius = territory.radius + 15;
+        const percentage = this.fleetPercentage;
+        
+        // Background circle
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        this.ctx.lineWidth = 8;
+        this.ctx.beginPath();
+        this.ctx.arc(territory.x, territory.y, radius, 0, Math.PI * 2);
+        this.ctx.stroke();
+        
+        // Percentage arc
+        const startAngle = -Math.PI / 2;
+        const endAngle = startAngle + (percentage * Math.PI * 2);
+        
+        // Color based on percentage
+        let color = '#44ff44'; // Green for low
+        if (percentage > 0.7) color = '#ff4444'; // Red for high
+        else if (percentage > 0.4) color = '#ffaa00'; // Orange for medium
+        
+        this.ctx.strokeStyle = color;
+        this.ctx.lineWidth = 6;
+        this.ctx.beginPath();
+        this.ctx.arc(territory.x, territory.y, radius, startAngle, endAngle);
+        this.ctx.stroke();
+        
+        // Calculate ships to send
+        const availableShips = Math.max(0, territory.armySize - 1);
+        const shipsToSend = Math.max(1, Math.floor(availableShips * percentage));
+        const remaining = territory.armySize - shipsToSend;
+        
+        // Display text
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.font = 'bold 12px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.strokeStyle = '#000000';
+        this.ctx.lineWidth = 2;
+        
+        // Sending text
+        const sendText = `Send: ${shipsToSend}`;
+        this.ctx.strokeText(sendText, territory.x, territory.y - 8);
+        this.ctx.fillText(sendText, territory.x, territory.y - 8);
+        
+        // Remaining text
+        const remainText = `Keep: ${remaining}`;
+        this.ctx.strokeText(remainText, territory.x, territory.y + 8);
+        this.ctx.fillText(remainText, territory.x, territory.y + 8);
+        
+        // Draw drag line to target
+        if (targetTerritory) {
+            // Color based on action type
+            let lineColor = '#666666';
+            if (targetTerritory.ownerId === this.humanPlayer?.id) {
+                lineColor = '#44ff44'; // Green for transfer
+            } else if (targetTerritory.isColonizable) {
+                lineColor = '#ffff00'; // Yellow for probe
+            } else {
+                lineColor = '#ff4444'; // Red for attack
+            }
+            
+            this.ctx.strokeStyle = lineColor;
+            this.ctx.lineWidth = 3;
+            this.ctx.setLineDash([8, 4]);
+            this.ctx.beginPath();
+            this.ctx.moveTo(territory.x, territory.y);
+            this.ctx.lineTo(worldPos.x, worldPos.y);
+            this.ctx.stroke();
+            this.ctx.setLineDash([]);
+        }
+        
+        this.ctx.restore();
+    }
+    
     renderTransferPreview() {
         // Show fleet allocation preview when hovering over targets during selection
         if (!this.selectedTerritory || !this.hoveredTerritory || 
@@ -1825,6 +2311,45 @@ export default class StarThrone {
             
             return true; // Keep in array
         });
+    }
+    
+    renderUI() {
+        if (this.ui) {
+            const inputState = this.inputHandler ? this.inputHandler.getInputState() : {};
+            
+            this.ui.render(this.ctx, {
+                gameState: this.gameState,
+                gameTimer: this.gameTimer,
+                players: this.players,
+                humanPlayer: this.humanPlayer,
+                selectedTerritory: inputState.selectedTerritory,
+                hoveredTerritory: this.hoveredTerritory,
+                mousePos: this.inputHandler ? this.inputHandler.mousePos : { x: 0, y: 0 },
+                fps: this.fps,
+                currentPlayers: this.currentPlayers,
+                maxPlayers: this.maxPlayers,
+                touchDebugInfo: this.touchDebugInfo,
+                showTouchDebug: this.showTouchDebug,
+                leaderboardMinimized: this.leaderboardMinimized,
+                minimapMinimized: this.minimapMinimized,
+                camera: this.camera,
+                showPerformancePanel: this.showPerformancePanel,
+                frameTime: this.performanceStats.frameTime,
+                renderTime: this.performanceStats.renderTime,
+                updateTime: this.performanceStats.updateTime,
+                territoryCount: Object.keys(this.gameMap.territories).length,
+                visibleTerritories: this.performanceStats.visibleTerritories,
+                probeCount: this.probes.length,
+                notifications: this.notifications,
+                playerDiscoveries: this.playerDiscoveries,
+                recentProbeResults: this.recentProbeResults,
+                discoveryLog: this.discoveryLog,
+                showBonusPanel: this.showBonusPanel,
+                inputState: inputState,
+                messageText: this.messageText,
+                messageTimer: this.messageTimer
+            });
+        }
     }
     
     // Input handling methods - REMOVED: Mouse handlers moved to InputHandler.js to prevent conflicts
