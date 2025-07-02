@@ -7,6 +7,7 @@ import { InputHandler } from './InputHandler.js';
 import { Renderer } from './Renderer.js';
 import { CombatSystem } from './CombatSystem.js';
 import { SupplySystem } from './SupplySystem.js';
+import { GameUtils } from './utils.js';
 import { GAME_CONSTANTS } from '../../../common/gameConstants.ts';
 
 export default class StarThrone {
@@ -543,99 +544,7 @@ export default class StarThrone {
         }
     }
     
-    // Process discovery when a planet is successfully colonized
-    processDiscovery(territory, playerId, discovery) {
-        const player = this.players[playerId];
-        if (!player) return false;
-        
-        // Get player's discoveries
-        const playerDiscoveries = this.playerDiscoveries.get(playerId);
-        if (!playerDiscoveries) return false;
-        
-        // Apply discovery effects
-        switch (discovery.effect) {
-            case 'probe_lost':
-                // Probe is destroyed, planet remains unexplored
-                territory.isColonizable = true;
-                territory.ownerId = null;
-                territory.armySize = territory.hiddenArmySize || Math.floor(Math.random() * 50) + 1;
-                
-                // Add explosion animation for the territory
-                territory.explosionTime = Date.now();
-                territory.explosionDuration = 1500; // 1.5 second explosion
-                
-                console.log(`💀 Probe lost to hostile aliens! Planet ${territory.id} remains unexplored.`);
-                return false; // Colonization failed
-                
-            case 'extra_fleet':
-                // Friendly aliens boost fleet strength
-                territory.armySize += discovery.bonus;
-                const friendlyMessage = `👽 Friendly aliens provide ${discovery.bonus} fleet strength!`;
-                console.log(friendlyMessage);
-                if (playerId === this.humanPlayer?.id) {
-                    this.addNotification(friendlyMessage, '#44ff44');
-                }
-                break;
-                
-            case 'attack_bonus':
-                // Empire-wide attack bonus
-                playerDiscoveries.precursorWeapons++;
-                const weaponMessage = `⚔️ Precursor Weapons Level ${playerDiscoveries.precursorWeapons}! Empire attack increased by 10%`;
-                console.log(weaponMessage);
-                if (playerId === this.humanPlayer?.id) {
-                    this.addNotification(weaponMessage, '#ff6600');
-                }
-                break;
-                
-            case 'speed_bonus':
-                // Empire-wide speed bonus
-                playerDiscoveries.precursorDrive++;
-                const driveMessage = `🚀 Precursor Drive Level ${playerDiscoveries.precursorDrive}! Empire speed increased by 20%`;
-                console.log(driveMessage);
-                if (playerId === this.humanPlayer?.id) {
-                    this.addNotification(driveMessage, '#00ddff');
-                }
-                break;
-                
-            case 'defense_bonus':
-                // Empire-wide defense bonus
-                playerDiscoveries.precursorShield++;
-                const shieldMessage = `🛡️ Precursor Shield Level ${playerDiscoveries.precursorShield}! Empire defense increased by 10%`;
-                console.log(shieldMessage);
-                if (playerId === this.humanPlayer?.id) {
-                    this.addNotification(shieldMessage, '#0088ff');
-                }
-                break;
-                
-            case 'factory_planet':
-                // Planet gets double generation rate
-                playerDiscoveries.factoryPlanets.add(territory.id);
-                territory.discoveryBonus = 'factory';
-                territory.hasFactory = true; // Add factory icon
-                const factoryMessage = `🏭 Precursor Factory discovered! Planet ${territory.id} has 200% generation rate`;
-                console.log(factoryMessage);
-                if (playerId === this.humanPlayer?.id) {
-                    this.addNotification(factoryMessage, '#ff8800');
-                }
-                break;
-                
-            case 'generation_bonus':
-                // Planet gets improved generation rate
-                playerDiscoveries.precursorNanotech++;
-                const nanotechMessage = `🔬 Precursor Nanotech Level ${playerDiscoveries.precursorNanotech}! Empire generation increased by 10%`;
-                console.log(nanotechMessage);
-                if (playerId === this.humanPlayer?.id) {
-                    this.addNotification(nanotechMessage, '#00ff88');
-                }
-                break;
-                
-            default:
-                // Standard planet colonization
-                break;
-        }
-        
-        return true; // Colonization successful
-    }
+    // Process discovery when a planet is successfully colonized - MOVED TO UTILS.JS
     
     addFloatingDiscoveryText(territory, discovery, playerId) {
         // Create floating text object
@@ -709,110 +618,7 @@ export default class StarThrone {
         });
     }
     
-    processDiscovery(territory, playerId, discovery) {
-        // Get player's discoveries
-        const playerDiscoveries = this.playerDiscoveries.get(playerId);
-        if (!playerDiscoveries) return false;
-        
-        // Apply discovery effects
-        switch (discovery.effect) {
-            case 'probe_lost':
-                // Probe is destroyed, planet remains unexplored
-                territory.isColonizable = true;
-                territory.ownerId = null;
-                territory.armySize = territory.hiddenArmySize || Math.floor(Math.random() * 50) + 1;
-                
-                // Add explosion animation for the territory
-                territory.explosionTime = Date.now();
-                territory.explosionDuration = 1500; // 1.5 second explosion
-                
-                console.log(`💀 Probe lost to hostile aliens! Planet ${territory.id} remains unexplored.`);
-                return false; // Colonization failed
-                
-            case 'extra_fleet':
-                // Friendly aliens boost fleet strength
-                territory.armySize += discovery.bonus;
-                const friendlyMessage = `👽 Friendly aliens provide ${discovery.bonus} fleet strength!`;
-                console.log(friendlyMessage);
-                // Notification disabled - using top-center UI notifications instead
-                break;
-                
-            case 'attack_bonus':
-                // Empire-wide attack bonus
-                playerDiscoveries.precursorWeapons++;
-                const weaponMessage = `⚔️ Precursor Weapons Level ${playerDiscoveries.precursorWeapons}! Empire attack increased by 10%`;
-                console.log(weaponMessage);
-                // Notification disabled - using top-center UI notifications instead
-                break;
-                
-            case 'speed_bonus':
-                // Empire-wide speed bonus
-                playerDiscoveries.precursorDrive++;
-                const driveMessage = `🚀 Precursor Drive Level ${playerDiscoveries.precursorDrive}! Empire speed increased by 20%`;
-                console.log(driveMessage);
-                // Notification disabled - using top-center UI notifications instead
-                break;
-                
-            case 'defense_bonus':
-                // Empire-wide defense bonus
-                playerDiscoveries.precursorShield++;
-                const shieldMessage = `🛡️ Precursor Shield Level ${playerDiscoveries.precursorShield}! Empire defense increased by 10%`;
-                console.log(shieldMessage);
-                // Notification disabled - using top-center UI notifications instead
-                break;
-                
-            case 'factory_planet':
-                // Planet gets double generation rate
-                playerDiscoveries.factoryPlanets.add(territory.id);
-                territory.discoveryBonus = 'factory';
-                territory.hasFactory = true; // Add factory icon
-                const factoryMessage = `🏭 Precursor Factory discovered! Planet ${territory.id} has 200% generation rate`;
-                console.log(factoryMessage);
-                // Notification disabled - using top-center UI notifications instead
-                break;
-                
-            case 'generation_bonus':
-                // Empire-wide generation bonus
-                playerDiscoveries.precursorNanotech++;
-                const nanotechMessage = `🔬 Precursor Nanotech Level ${playerDiscoveries.precursorNanotech}! Empire generation increased by 10%`;
-                console.log(nanotechMessage);
-                // Notification disabled - using top-center UI notifications instead
-                break;
-                
-            case 'mineral_planet':
-                // Planet gets +50% generation
-                territory.discoveryBonus = 'minerals';
-                const mineralMessage = `💎 Rich minerals found! Planet ${territory.id} has 150% generation rate`;
-                console.log(mineralMessage);
-                // Notification disabled - using top-center UI notifications instead
-                break;
-                
-            case 'reduced_generation':
-                // Planet gets reduced generation
-                territory.discoveryBonus = 'void_storm';
-                const stormMessage = `⚡ Void storm remnants! Planet ${territory.id} has 75% generation rate`;
-                console.log(stormMessage);
-                // Notification disabled - using top-center UI notifications instead
-                break;
-                
-            case 'cosmetic':
-                // Ancient ruins - cosmetic only
-                territory.discoveryBonus = 'ruins';
-                const ruinsMessage = `🏛️ Ancient ruins discovered on planet ${territory.id}`;
-                console.log(ruinsMessage);
-                // Notification disabled - using top-center UI notifications instead
-                break;
-                
-            default:
-                // No special effect
-                const standardMessage = `🌍 Standard planet colonized: ${territory.id}`;
-                console.log(standardMessage);
-                // Notification disabled - using top-center UI notifications instead
-                break;
-        }
-        
-        return true; // Colonization successful
-    }
+    // REMOVED: Second duplicate processDiscovery function - logic moved to GameUtils.js
     
     // Create ship movement animation
     createShipAnimation(fromTerritory, toTerritory, isAttack = false) {
