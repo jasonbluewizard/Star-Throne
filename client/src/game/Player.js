@@ -1,4 +1,7 @@
-// AI Finite State Machine states for enhanced strategic behavior
+// Import the new advanced AI strategy system
+import { AIStrategist } from './AIStrategist.js';
+
+// AI Finite State Machine states for enhanced strategic behavior (legacy - being replaced)
 const AI_STATE = {
     EARLY_GAME_EXPANSION: 'EARLY_GAME_EXPANSION',
     CONSOLIDATING: 'CONSOLIDATING',
@@ -32,6 +35,9 @@ export class Player {
             this.decisionTimer = 0;
             this.decisionInterval = 1000 + Math.random() * 500; // Faster decisions with jitter
             this.lastStateTransition = Date.now();
+            
+            // Initialize advanced AI strategist (will be set up when gameMap is available)
+            this.strategist = null;
         }
         
         // Stats tracking
@@ -47,6 +53,15 @@ export class Player {
     selectAIStrategy() {
         const strategies = ['aggressive', 'defensive', 'expansionist', 'opportunistic'];
         return strategies[Math.floor(Math.random() * strategies.length)];
+    }
+    
+    /**
+     * Initialize the advanced AI strategist
+     */
+    initializeAIStrategist(gameMap) {
+        if (this.type === 'ai' && !this.strategist && gameMap) {
+            this.strategist = new AIStrategist(this, gameMap);
+        }
     }
     
     update(deltaTime, gameMap, gameSpeed = 1.0, game = null) {
@@ -454,7 +469,18 @@ export class Player {
     }
 
     makeStrategicDecision(gameMap) {
-        if (this.type !== 'ai' || !this.aiState) return;
+        if (this.type !== 'ai') return false;
+        
+        // Initialize strategist if not done yet
+        this.initializeAIStrategist(gameMap);
+        
+        // Use advanced AI strategist if available, otherwise fall back to legacy system
+        if (this.strategist) {
+            return this.strategist.makeStrategicDecision();
+        }
+        
+        // Legacy AI system fallback
+        if (!this.aiState) return false;
         
         switch (this.aiState) {
             case AI_STATE.EARLY_GAME_EXPANSION:
@@ -470,6 +496,8 @@ export class Player {
                 this.doDefensivePosturing(gameMap);
                 break;
         }
+        
+        return true;
     }
 
     doExpansion(gameMap) {
