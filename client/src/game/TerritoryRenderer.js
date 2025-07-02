@@ -25,30 +25,48 @@ export default class TerritoryRenderer {
 
     /** Render all territory connections (warp lanes) behind the planets. */
     renderConnections() {
-        this.ctx.lineWidth = 2;
-        for (const territory of this.visibleTerritories) {
-            territory.connections.forEach(connId => {
-                const other = this.territories[connId];
-                if (!other) return;
+        this.ctx.lineWidth = 4;
+        this.ctx.globalAlpha = 0.7;
+        
+        // Cache connections to avoid duplicate rendering
+        const drawnConnections = new Set();
+        
+        this.visibleTerritories.forEach(territory => {
+            territory.neighbors.forEach(neighborId => {
+                const neighbor = this.gameMap.territories[neighborId];
+                if (!neighbor) return;
                 
-                // Only draw if the connected territory is also on-screen
-                if (!this.camera.isVisible(other.x, other.y, 50)) return;
+                // Create unique connection ID (smaller ID first)
+                const connectionId = territory.id < neighborId 
+                    ? `${territory.id}-${neighborId}` 
+                    : `${neighborId}-${territory.id}`;
                 
-                // Determine connection color: same-owner color or gray
-                const player1 = territory.owner ? this.players.find(p => p.id === territory.owner) : null;
-                const player2 = other.owner ? this.players.find(p => p.id === other.owner) : null;
+                if (drawnConnections.has(connectionId)) return;
+                drawnConnections.add(connectionId);
                 
-                this.ctx.strokeStyle = (player1 && player2 && player1.id === player2.id) 
-                                       ? player1.color 
-                                       : '#666666';
-                this.ctx.globalAlpha = 0.6;
+                // Skip connections to/from colonizable planets
+                if (territory.isColonizable || neighbor.isColonizable) {
+                    return;
+                }
+                
+                // Set color based on ownership
+                if (territory.ownerId !== null && 
+                    neighbor.ownerId !== null && 
+                    territory.ownerId === neighbor.ownerId) {
+                    const owner = this.players[territory.ownerId];
+                    this.ctx.strokeStyle = owner ? owner.color : '#666677';
+                } else {
+                    this.ctx.strokeStyle = '#666677';
+                }
+                
                 this.ctx.beginPath();
                 this.ctx.moveTo(territory.x, territory.y);
-                this.ctx.lineTo(other.x, other.y);
+                this.ctx.lineTo(neighbor.x, neighbor.y);
                 this.ctx.stroke();
-                this.ctx.globalAlpha = 1.0;
             });
-        }
+        });
+        
+        this.ctx.globalAlpha = 1;
     }
 
     /** Render a single territory (planet), its armies, ownership and special markers. */
@@ -223,6 +241,30 @@ export default class TerritoryRenderer {
         const selectedTerritory = inputState.selectedTerritory;
 
         // Render only visible territories using existing Territory.render method
+        this.visibleTerritories.forEach(territory => {
+            territory.render(this.ctx, this.players, selectedTerritory, {
+                humanPlayer: this.humanPlayer,
+                homeSystemFlashStart: this.game.homeSystemFlashStart,
+                homeSystemFlashDuration: this.game.homeSystemFlashDuration
+            }, this.game.hoveredTerritory);
+        });
+    }
+
+    /** Render both territories and their connections with LOD awareness */
+    renderTerritoriesAndConnections(lodLevel) {
+        // Update which territories are visible (culling)
+        this.updateVisibleTerritories();
+
+        // Render connections first (behind planets) if LOD level allows
+        if (lodLevel >= 2) {
+            this.renderConnections();
+        }
+
+        // Get current selected territory from input handler
+        const inputState = this.game.inputHandler ? this.game.inputHandler.getInputState() : {};
+        const selectedTerritory = inputState.selectedTerritory;
+
+        // Render territories on top of connections
         this.visibleTerritories.forEach(territory => {
             territory.render(this.ctx, this.players, selectedTerritory, {
                 humanPlayer: this.humanPlayer,

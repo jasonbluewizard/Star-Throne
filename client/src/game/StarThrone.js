@@ -1560,13 +1560,8 @@ export default class StarThrone {
         
         this.renderNebulas();
         
-        // Delegate territory rendering to the new module
-        this.territoryRenderer.renderTerritories();
-        
-        // Render connections based on LOD level
-        if (lodLevel >= 2) {
-            this.renderConnections();
-        }
+        // Delegate territory and connection rendering to the new module
+        this.territoryRenderer.renderTerritoriesAndConnections(lodLevel);
         
         // Render supply routes for operational and tactical view
         if (lodLevel >= 2) {
@@ -1735,67 +1730,9 @@ export default class StarThrone {
         this.ctx.restore();
     }
     
-    renderTerritories() {
-        this.updateVisibleTerritories();
-        
-        // Get current selected territory from input handler
-        const inputState = this.inputHandler ? this.inputHandler.getInputState() : {};
-        const selectedTerritory = inputState.selectedTerritory;
-        
-        // Render only visible territories
-        this.visibleTerritories.forEach(territory => {
-            territory.render(this.ctx, this.players, selectedTerritory, {
-                humanPlayer: this.humanPlayer,
-                homeSystemFlashStart: this.homeSystemFlashStart,
-                homeSystemFlashDuration: this.homeSystemFlashDuration
-            }, this.hoveredTerritory);
-        });
-    }
+
     
-    renderConnections() {
-        this.ctx.lineWidth = 4;
-        this.ctx.globalAlpha = 0.7;
-        
-        // Cache connections to avoid duplicate rendering
-        const drawnConnections = new Set();
-        
-        this.visibleTerritories.forEach(territory => {
-            territory.neighbors.forEach(neighborId => {
-                const neighbor = this.gameMap.territories[neighborId];
-                if (!neighbor) return;
-                
-                // Create unique connection ID (smaller ID first)
-                const connectionId = territory.id < neighborId 
-                    ? `${territory.id}-${neighborId}` 
-                    : `${neighborId}-${territory.id}`;
-                
-                if (drawnConnections.has(connectionId)) return;
-                drawnConnections.add(connectionId);
-                
-                // Skip connections to/from colonizable planets
-                if (territory.isColonizable || neighbor.isColonizable) {
-                    return;
-                }
-                
-                // Set color based on ownership
-                if (territory.ownerId !== null && 
-                    neighbor.ownerId !== null && 
-                    territory.ownerId === neighbor.ownerId) {
-                    const owner = this.players[territory.ownerId];
-                    this.ctx.strokeStyle = owner ? owner.color : '#666677';
-                } else {
-                    this.ctx.strokeStyle = '#666677';
-                }
-                
-                this.ctx.beginPath();
-                this.ctx.moveTo(territory.x, territory.y);
-                this.ctx.lineTo(neighbor.x, neighbor.y);
-                this.ctx.stroke();
-            });
-        });
-        
-        this.ctx.globalAlpha = 1;
-    }
+
     
     renderSupplyRoutes() {
         // Render active supply routes with animated arrows
