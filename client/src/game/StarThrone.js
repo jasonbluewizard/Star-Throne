@@ -2176,10 +2176,11 @@ export default class StarThrone {
         this.ctx.save();
         this.camera.applyTransform(this.ctx);
         
-        // Render optimized static background with proper positioning
-        if (this.staticBg && this.staticBg.width > 0) {
-            this.ctx.drawImage(this.staticBg, 0, 0);
-        }
+        // Render parallax starfield with movement
+        this.renderParallaxStarfield();
+        
+        // Render nebulas with proper depth
+        this.renderNebulas();
         
         this.ctx.restore();
         
