@@ -184,9 +184,9 @@ export class AnimationSystem {
         
         // Create three layers of stars with different parallax speeds
         this.starfieldLayers = [
-            this.createStarLayer(300, 0.5, 2, 0.05, mapWidth, mapHeight), // Far layer: tiny, dim, slow
-            this.createStarLayer(150, 1, 4, 0.15, mapWidth, mapHeight), // Mid layer: small, moderate
-            this.createStarLayer(80, 1.5, 6, 0.30, mapWidth, mapHeight)   // Near layer: medium, bright, fast
+            this.createStarLayer(300, 0.25, 1, 0.05, mapWidth, mapHeight), // Far layer: tiny, dim, slow
+            this.createStarLayer(150, 0.5, 2, 0.15, mapWidth, mapHeight), // Mid layer: small, moderate
+            this.createStarLayer(80, 0.75, 3, 0.30, mapWidth, mapHeight)   // Near layer: medium, bright, fast
         ];
         
         console.log('Parallax starfield initialized with 530 stars across 3 layers');
@@ -311,9 +311,9 @@ export class AnimationSystem {
                     continue;
                 }
                 
-                // Twinkling effect
+                // Twinkling effect with 25% dimmer stars
                 const twinkle = 0.7 + 0.3 * Math.sin(now * 0.001 * star.twinkleSpeed + star.twinklePhase);
-                const alpha = star.brightness * twinkle;
+                const alpha = star.brightness * twinkle * 0.75; // 25% dimmer
                 
                 ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
                 ctx.beginPath();
