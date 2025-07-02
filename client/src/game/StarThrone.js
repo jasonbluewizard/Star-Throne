@@ -16,6 +16,7 @@ import { DiscoverySystem } from './DiscoverySystem.js';
 import { AnimationSystem } from './AnimationSystem.js';
 import { UIManager } from './UIManager.js';
 import { AIManager } from './AIManager.js';
+import Controls from './Controls.js';
 
 export default class StarThrone {
     constructor(config = {}) {
@@ -56,6 +57,7 @@ export default class StarThrone {
         this.discoverySystem = null;
         this.animationSystem = null;
         this.uiManager = null;
+        this.controls = null;
         
         // Legacy properties for backward compatibility
         this.hoveredTerritory = null;
@@ -391,6 +393,7 @@ export default class StarThrone {
         this.animationSystem = new AnimationSystem(this);
         this.uiManager = new UIManager(this);
         this.aiManager = new AIManager(this);
+        this.controls = new Controls(this);
         
         // Auto-detect optimal performance profile
         this.performanceManager.detectOptimalProfile();
@@ -1433,6 +1436,9 @@ export default class StarThrone {
         }
         if (this.animationSystem) {
             this.animationSystem.update(deltaTime);
+        }
+        if (this.controls) {
+            this.controls.update(deltaTime);
         }
         
         // Process event queue for event-driven architecture

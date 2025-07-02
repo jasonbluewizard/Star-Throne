@@ -288,6 +288,26 @@ class TerritorySelectedState extends BaseState {
             }
         }
         
+        // Right-click on enemy territory - attack using new Controls module
+        if (!this.isOwnedByPlayer(territory) && !territory.isColonizable) {
+            console.log(`Attempting attack: from ${this.selectedTerritory.id} to ${territory.id}`);
+            if (this.game.controls && this.game.controls.executeAttack) {
+                const attackSuccess = this.game.controls.executeAttack(this.selectedTerritory, territory);
+                if (attackSuccess) {
+                    console.log(`Attack launched successfully via right-click`);
+                    // Stay in TerritorySelected to allow multiple attacks
+                    return true;
+                } else {
+                    console.log(`Attack failed validation`);
+                    return true;
+                }
+            } else {
+                console.log(`Controls module not available, falling back to old attack method`);
+                this.game.attackTerritory(this.selectedTerritory, territory);
+                return true;
+            }
+        }
+        
         return false;
     }
     
