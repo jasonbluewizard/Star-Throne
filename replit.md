@@ -537,11 +537,12 @@ Changelog:
    * Created modular TitleScreen component with dramatic entrance animations
    * Badge zooms up from void with blur effects and perspective transforms
    * Wordmark falls from viewer's POV starting gigantically scaled (8x) and shrinking to final position
-   * Streaming starfield with 150 stars moving toward viewer creating space travel immersion
+   * Streaming starfield with 100 twinkling background stars and 50 moving stars creating space travel motion
    * Badge gentle pulsing animation (98%-102% scale) with minimal floating movements
    * Wordmark positioned below badge for optimal throne prominence with subtle drift animations
    * Professional CSS keyframe animations for smooth 3D perspective effects
    * Seamless integration with existing game mode selector flow
+   * Simple, reliable star movement animations (horizontal/vertical streaming) for cross-browser compatibility
 
 ## User Preferences
 
