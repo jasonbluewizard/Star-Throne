@@ -116,3 +116,62 @@ canvas {
     transform: translateY(28px) translateX(1.5px) translateZ(0) scale(1) rotate(-0.1deg);
   }
 }
+
+/* Streaming starfield effect */
+@keyframes streamTowardsViewer {
+  0% {
+    transform: scale(0.1) translateZ(-100px);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: scale(3) translateZ(50px);
+    opacity: 0;
+  }
+}
+
+@keyframes starTwinkle {
+  0%, 100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Updated gentler badge animation with pulsing */
+@keyframes gentleFloatAndPulse {
+  0%, 100% {
+    transform: translateY(0px) scale(1) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-1px) scale(1.02) rotate(0.05deg);
+  }
+  50% {
+    transform: translateY(-0.5px) scale(0.98) rotate(0deg);
+  }
+  75% {
+    transform: translateY(-1.5px) scale(1.01) rotate(-0.05deg);
+  }
+}
+
+/* Much more subtle wordmark drift */
+@keyframes gentleDrift {
+  0%, 100% {
+    transform: translateY(25px) translateX(0px) translateZ(0) scale(1) rotate(0deg);
+  }
+  25% {
+    transform: translateY(24.5px) translateX(-0.5px) translateZ(0) scale(1) rotate(0.03deg);
+  }
+  50% {
+    transform: translateY(25.5px) translateX(0.5px) translateZ(0) scale(1) rotate(0deg);
+  }
+  75% {
+    transform: translateY(24px) translateX(-0.3px) translateZ(0) scale(1) rotate(-0.03deg);
+  }
+}

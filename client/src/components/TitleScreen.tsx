@@ -18,22 +18,28 @@ const TitleScreen: React.FC<TitleScreenProps> = ({ onEnterGame }) => {
 
   return (
     <div className="fixed inset-0 bg-black flex items-center justify-center overflow-hidden">
-      {/* Animated starfield background */}
-      <div className="absolute inset-0">
-        {[...Array(100)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute rounded-full bg-white animate-pulse"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              width: `${Math.random() * 3 + 1}px`,
-              height: `${Math.random() * 3 + 1}px`,
-              animationDelay: `${Math.random() * 3}s`,
-              animationDuration: `${Math.random() * 2 + 2}s`,
-            }}
-          />
-        ))}
+      {/* Streaming starfield background */}
+      <div className="absolute inset-0 overflow-hidden">
+        {[...Array(150)].map((_, i) => {
+          const speed = Math.random() * 3 + 1; // 1-4 second duration
+          const size = Math.random() * 2 + 0.5; // 0.5-2.5px
+          const delay = Math.random() * 5; // 0-5s delay
+          
+          return (
+            <div
+              key={i}
+              className="absolute rounded-full bg-white"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+                width: `${size}px`,
+                height: `${size}px`,
+                animation: `streamTowardsViewer ${speed}s linear ${delay}s infinite, starTwinkle ${Math.random() * 2 + 2}s ease-in-out infinite`,
+                opacity: Math.random() * 0.8 + 0.2,
+              }}
+            />
+          );
+        })}
       </div>
 
       {/* Main content container */}
@@ -45,7 +51,7 @@ const TitleScreen: React.FC<TitleScreenProps> = ({ onEnterGame }) => {
         <div 
           className="relative z-10 mb-8 transition-all duration-2000 ease-out"
           style={{
-            animation: 'zoomFromVoid 2.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards, gentleFloat 4s ease-in-out 3s infinite',
+            animation: 'zoomFromVoid 2.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards, gentleFloatAndPulse 6s ease-in-out 3s infinite',
           }}
         >
           <img
