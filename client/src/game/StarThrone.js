@@ -1123,7 +1123,12 @@ export default class StarThrone {
             precursorNanotech: 0,   // +10% empire-wide generation per level
             
             // Planet-specific bonuses
-            factoryPlanets: new Set() // Planets with 200% generation
+            factoryPlanets: new Set(), // Planets with 200% generation
+            friendlyAliens: 0,      // Count of friendly alien encounters
+            richMinerals: 0,        // Count of rich mineral discoveries
+            voidStorms: 0,          // Count of void storm discoveries
+            ancientRuins: 0,        // Count of ancient ruin discoveries
+            hostileAliens: 0        // Count of hostile alien encounters
         });
     }
     
