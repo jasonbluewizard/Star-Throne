@@ -2345,28 +2345,15 @@ export default class StarThrone {
     
     // Enhanced fleet transfer with specific amount
     transferFleetWithAmount(fromTerritory, toTerritory, amount) {
-        if (fromTerritory.armySize <= 1) {
-            console.log('Not enough armies to transfer!');
-            return;
-        }
-        
-        // Ensure we don't transfer more than available (minus 1 to keep)
-        const maxTransfer = fromTerritory.armySize - 1;
-        const actualTransfer = Math.min(amount, maxTransfer);
-        
-        if (actualTransfer <= 0) {
-            console.log('No armies available to transfer!');
-            return;
-        }
-        
         // Create ship animation for transfer
         this.createShipAnimation(fromTerritory, toTerritory, false);
         
-        // Execute transfer
-        fromTerritory.armySize -= actualTransfer;
-        toTerritory.armySize += actualTransfer;
+        // Delegate to centralized CombatSystem with specific amount
+        const success = this.combatSystem.transferArmies(fromTerritory, toTerritory, amount);
         
-        console.log(`Transferred ${actualTransfer} armies from territory ${fromTerritory.id} to ${toTerritory.id}`);
+        if (!success) {
+            console.log('Transfer failed - not enough armies or invalid target');
+        }
     }
     
     // Supply route system
