@@ -437,6 +437,14 @@ Changelog:
   * Fixed territory deselection UX: empty space clicks now reliably deselect territories regardless of minor mouse movement
   * Simplified AI Player.js combat logic to use type checking and removed duplicate game end handling
   * Added comprehensive debugging for throne star attacks with success/failure logging
+- January 2, 2025. Code optimization and duplication elimination:
+  * Created centralized GameUtils.js module to eliminate code duplication across game modules
+  * Removed duplicate processDiscovery functions from StarThrone.js (was defined twice)
+  * Centralized AI name generation, discovery processing, and combat calculations in utils
+  * Fixed territory deselection bug by removing conflicting mouse handlers from StarThrone.js
+  * Enhanced Empire Discoveries panel to show friendly aliens and mineral discoveries
+  * Fixed warp lane distance issue - removed hardcoded long connections, ensured 80px limit
+  * Improved code maintainability by consolidating helper functions into single utility module
 - January 2, 2025. Network optimization and performance improvements:
   * Implemented static background pre-rendering optimization: starfield and nebulas rendered once to background canvas
   * Replaced per-frame rendering of 530+ stars with single drawImage blit operation for major performance boost

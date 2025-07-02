@@ -1104,7 +1104,7 @@ export default class StarThrone {
             usedColors.add(playerColor);
             
             // Generate human-like name with clan designation
-            const aiName = this.generateAIName(i - 1);
+            const aiName = GameUtils.generateAIName(i - 1);
             const aiPlayer = new Player(i, aiName, playerColor, 'ai');
             this.players.push(aiPlayer);
             this.initializePlayerDiscoveries(aiPlayer.id);
