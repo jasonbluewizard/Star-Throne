@@ -1561,8 +1561,10 @@ export default class StarThrone {
         // Apply camera transformation
         this.camera.applyTransform(this.ctx);
         
-        // Render parallax starfield behind everything
-        this.renderParallaxStarfield();
+        // Render parallax starfield behind everything via AnimationSystem
+        if (this.animationSystem) {
+            this.animationSystem.renderStaticBackground(this.ctx);
+        }
         
         // Render game world with Level of Detail (LOD) optimizations
         const lodLevel = this.getLODLevel();
@@ -2201,8 +2203,10 @@ export default class StarThrone {
         this.ctx.save();
         this.camera.applyTransform(this.ctx);
         
-        // Render parallax starfield with movement
-        this.renderParallaxStarfield();
+        // Render parallax starfield with movement via AnimationSystem
+        if (this.animationSystem) {
+            this.animationSystem.renderStaticBackground(this.ctx);
+        }
         
         // Render nebulas with proper depth
         this.renderNebulas();
