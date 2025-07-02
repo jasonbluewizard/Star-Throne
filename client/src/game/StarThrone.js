@@ -9,6 +9,7 @@ import { CombatSystem } from './CombatSystem.js';
 import { SupplySystem } from './SupplySystem.js';
 import { GameUtils } from './utils.js';
 import { GAME_CONSTANTS } from '../../../common/gameConstants';
+import { gameEvents, GAME_EVENTS, EVENT_PRIORITY, EventHelpers } from './EventSystem.js';
 
 export default class StarThrone {
     constructor(config = {}) {
@@ -116,6 +117,9 @@ export default class StarThrone {
         // Discovery system for planet colonization - per player tracking
         this.playerDiscoveries = new Map(); // Map of playerId -> discoveries
         
+        // Initialize event system for decoupled component communication
+        this.setupEventListeners();
+        
         // Global discovery log for all players
         this.discoveryLog = [];
         
@@ -194,6 +198,76 @@ export default class StarThrone {
         this.ctx.restore();
     }
     
+    /**
+     * Setup event listeners for event-driven architecture
+     */
+    setupEventListeners() {
+        // Listen for territory capture events to update UI
+        gameEvents.on(GAME_EVENTS.TERRITORY_CAPTURED, (event) => {
+            this.handleTerritoryCapture(event.data);
+        }, EVENT_PRIORITY.HIGH);
+        
+        // Listen for throne capture events for game ending
+        gameEvents.on(GAME_EVENTS.THRONE_CAPTURED, (event) => {
+            this.handleThroneCapture(event.data);
+        }, EVENT_PRIORITY.CRITICAL);
+        
+        // Listen for discovery events to update UI
+        gameEvents.on(GAME_EVENTS.DISCOVERY_MADE, (event) => {
+            this.handleDiscoveryEvent(event.data);
+        }, EVENT_PRIORITY.MEDIUM);
+        
+        // Listen for combat events for animations
+        gameEvents.on(GAME_EVENTS.COMBAT_STARTED, (event) => {
+            this.handleCombatStart(event.data);
+        }, EVENT_PRIORITY.HIGH);
+        
+        // Process event queue each frame
+        this.eventProcessingEnabled = true;
+    }
+    
+    /**
+     * Handle territory capture events
+     */
+    handleTerritoryCapture(data) {
+        if (data.player && data.player.id === this.humanPlayer?.id) {
+            this.addNotification(`Territory ${data.territory.id} captured!`, '#44ff44');
+        }
+    }
+    
+    /**
+     * Handle throne capture events
+     */
+    handleThroneCapture(data) {
+        if (data.gameEnded) {
+            if (data.attacker.id === this.humanPlayer?.id) {
+                this.addNotification(`Victory! You captured ${data.defender.name}'s throne!`, '#ffff44', 8000);
+            } else if (data.defender.id === this.humanPlayer?.id) {
+                this.addNotification(`Defeat! Your throne was captured by ${data.attacker.name}!`, '#ff4444', 8000);
+                this.endGame();
+            }
+        }
+    }
+    
+    /**
+     * Handle discovery events
+     */
+    handleDiscoveryEvent(data) {
+        if (data.player.id === this.humanPlayer?.id) {
+            this.addNotification(`Discovery: ${data.discovery.name}`, '#44ffff', 5000);
+        }
+    }
+    
+    /**
+     * Handle combat start events
+     */
+    handleCombatStart(data) {
+        // Could trigger special effects, sounds, etc.
+        if (data.attacker.id === this.humanPlayer?.id || data.defender?.id === this.humanPlayer?.id) {
+            // Human player is involved in combat - maybe add special visual effects
+        }
+    }
+
     // Add notification to display queue
     addNotification(text, color = '#44ff44', duration = 4000) {
         this.notifications.push({
@@ -1278,6 +1352,11 @@ export default class StarThrone {
         this.updateNotifications();
         this.updateMessage(deltaTime);
         
+        // Process event queue for event-driven architecture
+        if (this.eventProcessingEnabled) {
+            gameEvents.processQueue(5); // Process up to 5 events per frame
+        }
+        
         // Throttled heavy operations for better performance
         if (this.frameCount % 45 === 0) { // Every 45 frames (~0.75 seconds)
             this.validateSupplyRoutes();
@@ -2299,6 +2378,19 @@ export default class StarThrone {
         
         // Trigger visual feedback
         fromTerritory.triggerProbeFlash();
+        
+        // Emit probe launched event
+        gameEvents.emit(GAME_EVENTS.PROBE_LAUNCHED, {
+            probe: {
+                id: probe.id,
+                fromTerritoryId: fromTerritory.id,
+                toTerritoryId: toTerritory.id
+            },
+            player: {
+                id: this.humanPlayer.id,
+                name: this.humanPlayer.name
+            }
+        }, EVENT_PRIORITY.MEDIUM);
         
         console.log(`Probe launched from territory ${fromTerritory.id} to colonizable planet ${toTerritory.id}`);
     }
