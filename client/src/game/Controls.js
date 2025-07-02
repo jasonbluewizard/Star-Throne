@@ -338,16 +338,14 @@ export default class Controls {
       return;
     }
 
-    // Use the game's combat system
-    this.game.combatSystem.processAttack(
+    // Use the game's combat system - call attackTerritory with specific attacking fleet size
+    const result = this.game.combatSystem.attackTerritory(
       fromTerritory, 
       toTerritory, 
-      attackingFleet, 
-      this.game.players, 
-      this.game.floatingTexts
+      attackingFleet
     );
 
-    console.log(`Combat resolved: ${attackingFleet} ships attacked ${toTerritory.id}`);
+    console.log(`Combat resolved: ${attackingFleet} ships attacked ${toTerritory.id}, result: ${result?.success ? 'Victory' : 'Defeat'}`);
   }
 
   /**
