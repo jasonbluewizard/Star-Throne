@@ -612,7 +612,7 @@ export class GameMap {
                 const other = territoryList[j];
                 const distance = territory.getDistanceTo(other);
                 
-                if (distance <= 80) { // Close cluster connections
+                if (distance <= this.connectionDistance) { // Close cluster connections
                     closeNeighbors.push({ territory: other, distance });
                 }
             }

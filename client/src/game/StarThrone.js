@@ -3226,7 +3226,7 @@ export default class StarThrone {
         this.humanPlayer = null;
         
         // Regenerate map and restart
-        this.gameMap = new GameMap(2000, 1500);
+        this.gameMap = new GameMap(2000, 1500, this.config); // Pass config to maintain connection distances
         this.startGame();
     }
 }
