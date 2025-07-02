@@ -482,6 +482,12 @@ Changelog:
   * Updated discovery system to use centralized GameUtils.processDiscovery function instead of deprecated class method
   * Discovery announcements now display correctly for Precursor Factory, Standard Planet, and other discovery types
   * Game now runs smoothly without freezing during probe colonization events
+- January 2, 2025. Empire Discoveries panel data structure fix:
+  * Fixed critical data structure mismatch between discovery initialization and processing functions
+  * StarThrone.js initialized discoveries with numeric properties (richMinerals, voidStorms, ancientRuins, hostileAliens)
+  * GameUtils.js was trying to access Set-based properties (factoryPlanets, mineralPlanets, voidStormPlanets)
+  * Updated GameUtils.processDiscovery to use correct property names matching initialized discovery object structure
+  * Empire Discoveries panel now properly displays all human player discoveries and bonuses
 - January 1, 2025. Strategic camera system implementation (Supreme Commander-style):
   * Enhanced strategic zoom range: extreme zoom-out (0.05x) to tactical close-up (8.0x) for galaxy-wide view
   * Implemented inertial panning with smooth momentum and friction for natural camera movement
