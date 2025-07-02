@@ -2192,8 +2192,10 @@ export default class StarThrone {
         this.ctx.fillStyle = '#0a0a1a';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // Render background galaxy image with parallax
-        this.renderBackgroundImage();
+        // Render background galaxy image with parallax via UIManager
+        if (this.uiManager) {
+            this.uiManager.renderBackgroundImage(this.ctx, this.camera);
+        }
         
         // Apply camera transformations for background elements
         this.ctx.save();
@@ -2355,6 +2357,12 @@ export default class StarThrone {
                 messageText: this.messageText,
                 messageTimer: this.messageTimer
             });
+        }
+        
+        // Render UI components via UIManager (notifications, messages)
+        if (this.uiManager) {
+            this.uiManager.renderNotifications(this.ctx);
+            this.uiManager.renderMessage(this.ctx);
         }
     }
     
