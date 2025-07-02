@@ -270,7 +270,7 @@ export default class StarThrone {
      */
     handleTerritoryCapture(data) {
         if (data.player && data.player.id === this.humanPlayer?.id) {
-            this.addNotification(`Territory ${data.territory.id} captured!`, '#44ff44');
+            this.uiManager?.addNotification(`Territory ${data.territory.id} captured!`, '#44ff44');
         }
     }
     
@@ -280,9 +280,9 @@ export default class StarThrone {
     handleThroneCapture(data) {
         if (data.gameEnded) {
             if (data.attacker.id === this.humanPlayer?.id) {
-                this.addNotification(`Victory! You captured ${data.defender.name}'s throne!`, '#ffff44', 8000);
+                this.uiManager?.addNotification(`Victory! You captured ${data.defender.name}'s throne!`, '#ffff44', 8000);
             } else if (data.defender.id === this.humanPlayer?.id) {
-                this.addNotification(`Defeat! Your throne was captured by ${data.attacker.name}!`, '#ff4444', 8000);
+                this.uiManager?.addNotification(`Defeat! Your throne was captured by ${data.attacker.name}!`, '#ff4444', 8000);
                 this.endGame();
             }
         }
@@ -293,7 +293,7 @@ export default class StarThrone {
      */
     handleDiscoveryEvent(data) {
         if (data.player.id === this.humanPlayer?.id) {
-            this.addNotification(`Discovery: ${data.discovery.name}`, '#44ffff', 5000);
+            this.uiManager?.addNotification(`Discovery: ${data.discovery.name}`, '#44ffff', 5000);
         }
     }
     
@@ -307,60 +307,24 @@ export default class StarThrone {
         }
     }
 
-    // Add notification to display queue
+    // Legacy methods - now handled by UIManager
     addNotification(text, color = '#44ff44', duration = 4000) {
-        this.notifications.push({
-            text: text,
-            color: color,
-            createdAt: Date.now(),
-            duration: duration,
-            opacity: 1.0
-        });
+        this.uiManager?.addNotification(text, color, duration);
     }
     
-    // Update and clean up notifications
-    updateNotifications() {
-        const now = Date.now();
-        this.notifications = this.notifications.filter(notification => {
-            const age = now - notification.createdAt;
-            if (age > notification.duration) {
-                return false; // Remove expired notifications
-            }
-            
-            // Fade out in the last 500ms
-            if (age > notification.duration - 500) {
-                notification.opacity = (notification.duration - age) / 500;
-            }
-            
-            return true;
-        });
-    }
-    
-    // Message display system for FSM feedback
     showMessage(text, duration = 3000) {
-        this.messageText = text;
-        this.messageTimer = duration;
-        console.log(`Message: ${text}`);
-    }
-    
-    hideMessage() {
-        this.messageText = '';
-        this.messageTimer = 0;
+        this.uiManager?.showMessage(text, duration);
     }
     
     showError(text) {
-        this.showMessage(`❌ ${text}`, 2000);
+        this.uiManager?.showError(text);
     }
     
-    updateMessage(deltaTime) {
-        if (this.messageTimer > 0) {
-            this.messageTimer -= deltaTime;
-            if (this.messageTimer <= 0) {
-                this.hideMessage();
-            }
-        }
+    // Legacy method - now handled by DiscoverySystem
+    getDiscoveryTypes() {
+        return this.discoverySystem?.getDiscoveryTypes() || [];
     }
-    
+
     init() {
         this.setupCanvas();
         this.setupEventListeners();
@@ -399,350 +363,17 @@ export default class StarThrone {
     }
     
     // Define discovery types and their probabilities
-    getDiscoveryTypes() {
-        return [
-            {
-                id: 'hostile_aliens',
-                name: 'Hostile Aliens',
-                description: 'Hostile alien life destroys your probe!',
-                probability: 0.15,
-                type: 'negative',
-                effect: 'probe_lost'
-            },
-            {
-                id: 'friendly_aliens',
-                name: 'Friendly Aliens',
-                description: 'Friendly aliens join your empire!',
-                probability: 0.12,
-                type: 'positive',
-                effect: 'extra_fleet',
-                bonus: 50
-            },
-            {
-                id: 'precursor_weapons',
-                name: 'Precursor Weapons Cache',
-                description: 'Ancient weapon technology discovered!',
-                probability: 0.08,
-                type: 'empire_bonus',
-                effect: 'attack_bonus',
-                bonus: 10 // +10% attack
-            },
-            {
-                id: 'precursor_drive',
-                name: 'Precursor Drive System',
-                description: 'Advanced propulsion technology found!',
-                probability: 0.08,
-                type: 'empire_bonus',
-                effect: 'speed_bonus',
-                bonus: 20 // +20% speed
-            },
-            {
-                id: 'precursor_shield',
-                name: 'Precursor Shield Matrix',
-                description: 'Defensive technology enhances your empire!',
-                probability: 0.08,
-                type: 'empire_bonus',
-                effect: 'defense_bonus',
-                bonus: 10 // +10% defense
-            },
-            {
-                id: 'precursor_factory',
-                name: 'Precursor Factory Complex',
-                description: 'Ancient manufacturing facility still operational!',
-                probability: 0.06,
-                type: 'planet_bonus',
-                effect: 'factory_planet',
-                bonus: 100 // +100% generation (200% total)
-            },
-            {
-                id: 'precursor_nanotech',
-                name: 'Precursor Nanotechnology',
-                description: 'Self-replicating technology spreads across your empire!',
-                probability: 0.05,
-                type: 'empire_bonus',
-                effect: 'generation_bonus',
-                bonus: 10 // +10% empire-wide generation
-            },
-            {
-                id: 'mineral_deposits',
-                name: 'Rich Mineral Deposits',
-                description: 'Valuable resources boost this planet\'s output!',
-                probability: 0.10,
-                type: 'planet_bonus',
-                effect: 'mineral_planet',
-                bonus: 50 // +50% generation
-            },
-            {
-                id: 'ancient_ruins',
-                name: 'Ancient Ruins',
-                description: 'Mysterious structures provide no immediate benefit.',
-                probability: 0.08,
-                type: 'neutral',
-                effect: 'cosmetic'
-            },
-            {
-                id: 'void_storm',
-                name: 'Void Storm Remnants',
-                description: 'Dangerous energy storms reduce planet effectiveness.',
-                probability: 0.06,
-                type: 'negative',
-                effect: 'reduced_generation',
-                bonus: -25 // -25% generation
-            },
-            {
-                id: 'no_discovery',
-                name: 'Standard Planet',
-                description: 'A typical world with no special features.',
-                probability: 0.14,
-                type: 'neutral',
-                effect: 'none'
-            }
-        ];
-    }
     
-    // Initialize parallax starfield layers
+    // Legacy method - now handled by AnimationSystem
     initializeStarfield() {
-        if (this.starfield.initialized) return;
-        
-        // Expand starfield area beyond visible map for smooth parallax
-        const starfieldWidth = this.gameMap.width * 2;
-        const starfieldHeight = this.gameMap.height * 2;
-        const offsetX = -this.gameMap.width * 0.5;
-        const offsetY = -this.gameMap.height * 0.5;
-        
-        // Far layer: Many small, dim stars that barely move
-        for (let i = 0; i < 300; i++) {
-            this.starfield.farStars.push({
-                x: Math.random() * starfieldWidth + offsetX,
-                y: Math.random() * starfieldHeight + offsetY,
-                size: Math.random() * 1 + 0.5,
-                brightness: Math.random() * 0.3 + 0.1,
-                twinkle: Math.random() * 0.2 + 0.8
-            });
-        }
-        
-        // Mid layer: Medium stars with moderate movement
-        for (let i = 0; i < 150; i++) {
-            this.starfield.midStars.push({
-                x: Math.random() * starfieldWidth + offsetX,
-                y: Math.random() * starfieldHeight + offsetY,
-                size: Math.random() * 1.5 + 1,
-                brightness: Math.random() * 0.4 + 0.2,
-                twinkle: Math.random() * 0.3 + 0.7
-            });
-        }
-        
-        // Near layer: Fewer large stars with most movement
-        for (let i = 0; i < 80; i++) {
-            this.starfield.nearStars.push({
-                x: Math.random() * starfieldWidth + offsetX,
-                y: Math.random() * starfieldHeight + offsetY,
-                size: Math.random() * 2 + 1.5,
-                brightness: Math.random() * 0.5 + 0.3,
-                twinkle: Math.random() * 0.4 + 0.6
-            });
-        }
-        
-        this.starfield.initialized = true;
-        console.log('Parallax starfield initialized with 530 stars across 3 layers');
+        this.animationSystem?.initializeStarfield();
     }
     
-    // Pre-render static background elements once for performance optimization
+    // Legacy methods - now handled by AnimationSystem
     preRenderStaticBackground() {
-        // Set static canvas to game map size
-        this.staticBg.width = this.gameMap.width;
-        this.staticBg.height = this.gameMap.height;
-        
-        // Clear the static background
-        this.staticBgCtx.fillStyle = '#0a0a1a';
-        this.staticBgCtx.fillRect(0, 0, this.staticBg.width, this.staticBg.height);
-        
-        // Render starfield to static background (once only)
-        this.renderStarfieldStatic(this.staticBgCtx);
-        
-        // Render nebulas to static background (once only)
-        this.renderNebulasStatic(this.staticBgCtx);
-        
-        console.log('Static background pre-rendered for performance optimization');
+        this.animationSystem?.preRenderStaticBackground();
     }
     
-    // Render starfield without parallax for static background
-    renderStarfieldStatic(ctx) {
-        if (!this.starfield.initialized) return;
-        
-        ctx.save();
-        
-        // Render all star layers at base positions (no parallax)
-        const renderLayer = (stars, baseOpacity) => {
-            stars.forEach(star => {
-                // Simple twinkling effect for static background
-                const twinkle = 0.8; // Static brightness
-                const opacity = star.brightness * baseOpacity * twinkle;
-                
-                ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
-                ctx.beginPath();
-                ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
-                ctx.fill();
-            });
-        };
-        
-        // Render all layers
-        renderLayer(this.starfield.farStars, 0.7);
-        renderLayer(this.starfield.midStars, 0.8);
-        renderLayer(this.starfield.nearStars, 1.0);
-        
-        ctx.restore();
-    }
-    
-    // Render nebulas for static background
-    renderNebulasStatic(ctx) {
-        if (!this.gameMap.nebulas) return;
-        
-        this.gameMap.nebulas.forEach(nebula => {
-            const gradient = ctx.createRadialGradient(
-                nebula.x, nebula.y, 0,
-                nebula.x, nebula.y, nebula.radius
-            );
-            gradient.addColorStop(0, nebula.color);
-            gradient.addColorStop(1, 'rgba(147, 112, 219, 0)');
-            
-            ctx.fillStyle = gradient;
-            ctx.beginPath();
-            ctx.arc(nebula.x, nebula.y, nebula.radius, 0, Math.PI * 2);
-            ctx.fill();
-        });
-    }
-    
-    // Random discovery selection based on probabilities
-    selectRandomDiscovery() {
-        const discoveries = this.getDiscoveryTypes();
-        const random = Math.random();
-        let cumulative = 0;
-        
-        for (const discovery of discoveries) {
-            cumulative += discovery.probability;
-            if (random <= cumulative) {
-                return discovery;
-            }
-        }
-        
-        // Fallback to no discovery
-        return discoveries.find(d => d.id === 'no_discovery');
-    }
-    
-    // Log discovery for UI display (called for both successful and failed probes)
-    logDiscoveryForUI(territory, playerId, discovery) {
-        const player = this.players[playerId];
-        if (!player) return;
-        
-        // Add to discovery log for UI display
-        this.discoveryLog.push({
-            timestamp: Date.now(),
-            territoryId: territory.id,
-            playerId: playerId,
-            discovery: discovery,
-            playerName: player.name
-        });
-        
-        console.log(`🔍 Discovery on planet ${territory.id}: ${discovery.name} - ${discovery.description}`);
-        
-        // Add floating discovery text above the planet
-        this.addFloatingDiscoveryText(territory, discovery, playerId);
-        
-        // Track probe result for UI announcements
-        this.recentProbeResults.push({
-            timestamp: Date.now(),
-            territoryId: territory.id,
-            playerId: playerId,
-            discoveryName: discovery.name,
-            success: discovery.effect !== 'probe_lost',
-            discovery: discovery
-        });
-        
-        // Keep only recent results (last 10)
-        if (this.recentProbeResults.length > 10) {
-            this.recentProbeResults.shift();
-        }
-    }
-    
-    // Process discovery when a planet is successfully colonized - MOVED TO UTILS.JS
-    
-    addFloatingDiscoveryText(territory, discovery, playerId) {
-        // Create floating text object
-        const floatingText = {
-            x: territory.x,
-            y: territory.y - 40, // Start above the planet
-            text: discovery.name,
-            icon: this.getDiscoveryIcon(discovery.effect),
-            color: this.getDiscoveryColor(discovery.effect),
-            startTime: Date.now(),
-            duration: 4000, // 4 seconds
-            fadeOutDuration: 1000, // Last 1 second fades out
-            playerId: playerId
-        };
-        
-        this.floatingDiscoveryTexts.push(floatingText);
-        
-        // Limit to 10 floating texts to prevent clutter
-        if (this.floatingDiscoveryTexts.length > 10) {
-            this.floatingDiscoveryTexts.shift();
-        }
-    }
-    
-    getDiscoveryIcon(effect) {
-        const icons = {
-            'probe_lost': '💀',
-            'extra_fleet': '👽',
-            'precursor_weapons': '⚔️',
-            'precursor_drive': '🚀',
-            'precursor_shield': '🛡️',
-            'precursor_nanotech': '🔬',
-            'factory_complex': '🏭',
-            'mineral_deposits': '💎',
-            'void_storm': '⚡',
-            'ancient_ruins': '🏛️'
-        };
-        return icons[effect] || '🔍';
-    }
-    
-    getDiscoveryColor(effect) {
-        const colors = {
-            'probe_lost': '#ff4444',
-            'extra_fleet': '#44ff44',
-            'precursor_weapons': '#ff6b6b',
-            'precursor_drive': '#4ecdc4',
-            'precursor_shield': '#45b7d1',
-            'precursor_nanotech': '#96ceb4',
-            'factory_complex': '#feca57',
-            'mineral_deposits': '#ff9ff3',
-            'void_storm': '#a55eea',
-            'ancient_ruins': '#ffa726'
-        };
-        return colors[effect] || '#ffffff';
-    }
-    
-    updateFloatingDiscoveryTexts(deltaTime) {
-        const now = Date.now();
-        
-        // Update and remove expired floating texts
-        this.floatingDiscoveryTexts = this.floatingDiscoveryTexts.filter(text => {
-            const age = now - text.startTime;
-            
-            if (age > text.duration) {
-                return false; // Remove expired text
-            }
-            
-            // Animate the text (float upward)
-            text.y -= 20 * (deltaTime / 1000); // Move up 20 pixels per second
-            
-            return true;
-        });
-    }
-    
-    // REMOVED: Second duplicate processDiscovery function - logic moved to GameUtils.js
-    
-    // Create ship movement animation
-    createShipAnimation(fromTerritory, toTerritory, isAttack = false) {
         // Use object pooling to reduce garbage collection
         let animation = this.shipAnimationPool.pop();
         if (!animation) {
@@ -824,80 +455,6 @@ export default class StarThrone {
     }
     
     // Update ship animations
-    updateShipAnimations(deltaTime) {
-        const currentTime = Date.now();
-        
-        // Optimize with object pooling and manual iteration
-        for (let i = this.shipAnimations.length - 1; i >= 0; i--) {
-            const animation = this.shipAnimations[i];
-            animation.progress = (currentTime - animation.startTime) / animation.duration;
-            
-            if (animation.progress >= 1) {
-                if (animation.isMultiHop && animation.path) {
-                    // Move to next segment in multi-hop animation
-                    animation.currentSegment++;
-                    
-                    if (this.initializeAnimationSegment(animation)) {
-                        // Continue to next segment
-                        continue;
-                    }
-                }
-                
-                // Return completed animation to pool for reuse
-                this.shipAnimationPool.push(animation);
-                this.shipAnimations.splice(i, 1);
-            }
-        }
-    }
-    
-    // Update probes
-    updateProbes(deltaTime) {
-        for (let i = this.probes.length - 1; i >= 0; i--) {
-            const probe = this.probes[i];
-            const reachedDestination = probe.update(deltaTime);
-            
-            if (reachedDestination) {
-                // Probe reached destination - colonize the planet
-                this.colonizePlanet(probe);
-                this.probes.splice(i, 1);
-            }
-        }
-    }
-    
-    // Colonize planet when probe arrives
-    colonizePlanet(probe) {
-        const planet = probe.toTerritory;
-        const player = this.players.find(p => p.id === probe.playerId);
-        
-        if (!planet || !player) return;
-        
-        // Check if planet is already colonized by another player
-        if (planet.ownerId !== null && planet.ownerId !== player.id) {
-            console.log(`Probe from ${player.name} destroyed! Planet ${planet.id} already colonized by another player.`);
-            return;
-        }
-        
-        console.log(`Probe colonizing planet ${planet.id} for player ${player.name}`);
-        
-        // Trigger discovery event before colonization
-        const discovery = this.selectRandomDiscovery();
-        const discoveryResult = GameUtils.processDiscovery(discovery.id, player.id, planet.id, this.playerDiscoveries, this);
-        const colonizationSuccessful = discoveryResult.success;
-        
-        // Always log the discovery for UI display (both success and failure)
-        this.logDiscoveryForUI(planet, player.id, discovery);
-        
-        // If probe was lost to hostile aliens, colonization fails
-        if (!colonizationSuccessful) {
-            console.log(`Colonization of planet ${planet.id} failed due to hostile encounter!`);
-            return;
-        }
-        
-        // Set ownership - discovery might have already set army size
-        planet.ownerId = player.id;
-        if (planet.armySize === 0 || planet.armySize === planet.hiddenArmySize) {
-            planet.armySize = 1; // Default if not set by discovery
-        }
         
         // Mark as no longer colonizable
         planet.isColonizable = false;
@@ -1153,70 +710,6 @@ export default class StarThrone {
         console.log(`Game started with ${this.players.length} players (${this.config.playerName} + ${this.config.aiCount} AI) and ${Object.keys(this.gameMap.territories).length} territories`);
     }
     
-    generateAIName(index) {
-        const firstNames = [
-            'Alex', 'Blake', 'Casey', 'Dana', 'Emma', 'Felix', 'Grace', 'Hunter', 'Iris', 'Jack',
-            'Kai', 'Luna', 'Max', 'Nova', 'Owen', 'Piper', 'Quinn', 'Riley', 'Sage', 'Tyler',
-            'Uma', 'Victor', 'Wade', 'Xara', 'Yuki', 'Zara', 'Ash', 'Beck', 'Cole', 'Drew',
-            'Echo', 'Finn', 'Gale', 'Hope', 'Ivan', 'Jade', 'Kane', 'Lexi', 'Mika', 'Nora',
-            'Orion', 'Phoenix', 'Raven', 'Storm', 'Tara', 'Vale', 'Wren', 'Zane', 'Aria', 'Brix',
-            'Coda', 'Dex', 'Eden', 'Fox', 'Gray', 'Hawk', 'Juno', 'Kira', 'Lux', 'Moss',
-            'Neo', 'Oslo', 'Pike', 'Rain', 'Sky', 'Tex', 'Vex', 'Wolf', 'Zed', 'Atlas',
-            'Bear', 'Cruz', 'Dash', 'Enzo', 'Flint', 'Ghost', 'Haze', 'Jett', 'Knox', 'Link'
-        ];
-        
-        const clanNames = [
-            'StarForge', 'VoidHunters', 'NebulaRise', 'CosmicFury', 'SolarFlare', 'DarkMatter',
-            'GalaxyCorp', 'NovaStrike', 'CelestialWar', 'SpaceRaiders', 'StellarWolves', 'OrbitClan',
-            'AstroElite', 'CubClan', 'ZenithForce', 'PlasmaBorn', 'StarDust', 'VoidWalkers',
-            'QuantumLeap', 'PhotonStorm', 'EtherGuard', 'CosmoKnights', 'StarVeins', 'NebulaCrest',
-            'VortexClan', 'AstralFire', 'MeteoRiders', 'IonStorm', 'PulsarWave', 'GravityWell',
-            'SolarWind', 'BlackHole', 'RedGiant', 'WhiteDwarf', 'SuperNova', 'Constellation',
-            'MilkyWay', 'Andromeda', 'Centauri', 'Proxima', 'Kepler', 'Hubble', 'Armstrong',
-            'Gagarin', 'Apollo', 'Artemis', 'Orion', 'Pegasus', 'Phoenix', 'Dragon', 'Falcon'
-        ];
-        
-        const additionalNames = [
-            'Admiral Voss', 'Captain Zara', 'Commander Rex', 'Colonel Stone', 'General Mars',
-            'Chief Khan', 'Major Swift', 'Lieutenant Nova', 'Sergeant Blade', 'Marshal Iron',
-            'Dr. Quantum', 'Professor Void', 'Scientist Echo', 'Engineer Prime', 'Architect Zero',
-            'The Shadow', 'The Phoenix', 'The Storm', 'The Hunter', 'The Ghost',
-            'Cyber Wolf', 'Steel Eagle', 'Iron Hawk', 'Gold Tiger', 'Silver Fox',
-            'Red Baron', 'Blue Devil', 'Green Arrow', 'Black Knight', 'White Falcon',
-            'Star Runner', 'Moon Walker', 'Sun Rider', 'Sky Dancer', 'Wind Chaser',
-            'Fire Brand', 'Ice Queen', 'Thunder Lord', 'Lightning Strike', 'Storm Bringer'
-        ];
-        
-        // Only 25% chance of clan name, 75% for varied names
-        if (index % 4 === 0) {
-            // Clan name format
-            const firstName = firstNames[index % firstNames.length];
-            const clanName = clanNames[Math.floor(index / firstNames.length) % clanNames.length];
-            return `[${clanName}] ${firstName}`;
-        } else {
-            // Varied name format - mix of first names and additional names
-            const namePool = [...firstNames, ...additionalNames];
-            return namePool[index % namePool.length];
-        }
-    }
-
-    createPlayers(numPlayers) {
-        // Expanded unique color palette - no duplicates
-        const baseColors = [
-            '#ff4444', '#44ff44', '#4444ff', '#ffff44', '#ff44ff', 
-            '#ff8844', '#88ff44', '#4488ff', '#ff4488', '#88ff88', '#8844ff',
-            '#ffaa44', '#aaff44', '#44aaff', '#ff44aa', '#aaff88', '#aa44ff',
-            '#ff6644', '#66ff44', '#4466ff', '#ff4466', '#66ff88', '#6644ff',
-            '#ff9944', '#99ff44', '#4499ff', '#ff4499', '#99ff88', '#9944ff',
-            '#ffcc44', '#ccff44', '#44ccff', '#ff44cc', '#ccff88', '#cc44ff',
-            '#ff7744', '#77ff44', '#4477ff', '#ff4477', '#77ff88', '#7744ff',
-            '#ffdd44', '#ddff44', '#44ddff', '#ff44dd', '#ddff88', '#dd44ff'
-        ];
-        
-        // Create human player with distinctive bright cyan color
-        this.humanPlayer = new Player(0, 'You', '#00ffff', 'human');
-        this.players.push(this.humanPlayer);
-        this.initializePlayerDiscoveries(this.humanPlayer.id);
         
         // Create AI players with unique colors and human-like names
         const usedColors = new Set(['#00ffff']); // Reserve human color
