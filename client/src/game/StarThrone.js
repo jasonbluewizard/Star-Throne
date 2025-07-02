@@ -2168,20 +2168,20 @@ export default class StarThrone {
     render() {
         const startTime = performance.now();
         
-        // Render optimized static background with single blit
+        // Clear canvas with dark space background
+        this.ctx.fillStyle = '#0a0a1a';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Apply camera transformations for background elements
+        this.ctx.save();
+        this.camera.applyTransform(this.ctx);
+        
+        // Render optimized static background with proper positioning
         if (this.staticBg && this.staticBg.width > 0) {
-            this.ctx.drawImage(
-                this.staticBg,
-                (this.canvas.width / 2) - this.camera.x * this.camera.zoom,
-                (this.canvas.height / 2) - this.camera.y * this.camera.zoom,
-                this.staticBg.width * this.camera.zoom,
-                this.staticBg.height * this.camera.zoom
-            );
-        } else {
-            // Fallback if static background not ready
-            this.ctx.fillStyle = '#0a0a1a';
-            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            this.ctx.drawImage(this.staticBg, 0, 0);
         }
+        
+        this.ctx.restore();
         
         // Apply camera transformations
         this.ctx.save();
