@@ -19,7 +19,7 @@ export const GAME_CONSTANTS = {
 
     // Territory & Map Configuration
     TERRITORY_RADIUS: 25,
-    CONNECTION_DISTANCE: 120,
+    CONNECTION_DISTANCE: 80,
     ARMY_GENERATION_RATE: 3000, // milliseconds per army
 
     // Probe System

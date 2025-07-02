@@ -10,7 +10,7 @@ export class GameMap {
         
         // Advanced configuration options
         this.layout = config.layout || 'organic'; // Layout type: organic, clusters, spiral, core, ring, binary
-        this.connectionDistance = config.connectionRange || 200; // Max distance for territory connections (increased for larger spacing)
+        this.connectionDistance = config.connectionRange || 80; // Max distance for territory connections - prevent long-distance warp lanes
         this.warpLaneDensity = config.warpLaneDensity || 80; // Percentage density for connections
         this.nebulaCount = config.nebulaCount !== undefined ? config.nebulaCount : 10; // Number of nebula fields
         this.nebulaSlowdown = config.nebulaSlowdown !== undefined ? config.nebulaSlowdown : true;
