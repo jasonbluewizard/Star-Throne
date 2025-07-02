@@ -18,9 +18,6 @@ export class GameUtils {
             return { success: false, effectText: 'Discovery system error', icon: '❌' };
         }
         
-        console.log(`Processing discovery: ${discoveryType} for player ${playerId}`);
-        console.log(`Before:`, discoveries);
-        
         let effectText = '';
         let icon = '';
 
@@ -68,7 +65,7 @@ export class GameUtils {
                 }
                 break;
 
-            case 'rich_minerals':
+            case 'mineral_deposits':
                 discoveries.richMinerals++;
                 effectText = `💎 Rich minerals found! Planet ${territoryId} has 150% generation rate`;
                 icon = '💎';
@@ -99,7 +96,6 @@ export class GameUtils {
                 break;
         }
 
-        console.log(`After processing ${discoveryType}:`, discoveries);
         return { success: true, effectText, icon, discoveries };
     }
 
