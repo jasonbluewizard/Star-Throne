@@ -1,0 +1,48 @@
+The core issue is that the game does not correctly process a left-click on an empty area of the map as a "deselect" command. The expected behavior is for any currently selected territory to be deselected upon such an action. The investigation revealed that this is due to conflicting input handlers.
+
+
+Conflicting Event Listeners: Both client/src/game/StarThrone.js and client/src/game/InputHandler.js register their own separate event listeners for mousedown and mouseup on the main game canvas.
+
+
+
+Buggy Handler: The handleMouseUp method within StarThrone.js lacks the specific logic to handle clicks on empty space for deselection . It passes any click, even on empty space (where the target is 
+
+null), to the input state machine without a clear "deselect" instruction.
+
+Correct Handler: The InputHandler.js module, which is intended to be the dedicated input processor, contains the correct logic. Its 
+
+handleMouseUp method explicitly checks if the targetTerritory is null and, if so, correctly initiates the deselection process through the finite state machine (FSM) .
+
+
+The presence of the older, incorrect event handler in StarThrone.js interferes with the corrected logic in InputHandler.js, causing the bug.
+
+2. Proposed Solution
+The most effective solution is to remove the redundant input handling from StarThrone.js and centralize all mouse input logic within the InputHandler.js module, which aligns with the intended modular architecture of the game engine.
+
+File to Edit: client/src/game/StarThrone.js
+
+Procedure:
+
+
+Locate the setupEventListeners function: Navigate to the setupEventListeners method within the StarThrone class.
+
+
+Remove Mouse Event Listeners: Delete or comment out the following lines to prevent StarThrone.js from handling mouse events directly:
+
+JavaScript
+
+// client/src/game/StarThrone.js
+
+this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e)); [cite: 267]
+this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e)); [cite: 268]
+this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e)); [cite: 268]
+
+(Optional) Cleanup: For better code hygiene, the now-unused handler methods (handleMouseDown, handleMouseMove, and handleMouseUp) can also be removed from StarThrone.js .
+
+3. Justification
+The 
+
+InputHandler is already initialized and its event listeners are properly set up within the game's init sequence. By removing the conflicting listeners from 
+
+
+StarThrone.js, the application will rely solely on InputHandler.js for mouse input. This ensures that the corrected deselection logic is executed reliably, resolving the bug and improving the overall code structure.
