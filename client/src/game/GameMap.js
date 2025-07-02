@@ -814,8 +814,9 @@ export class GameMap {
         }
     }
     
-    // Check if a line between two territories passes through any other territory
-    linePassesThroughTerritory(from, to, allTerritories) {
+    // Check if a line between two territories passes through any other territory or existing warp lanes
+    linePassesThroughTerritory(from, to, allTerritories, existingConnections = []) {
+        // Check collision with other territories
         for (const territory of allTerritories) {
             if (territory.id === from.id || territory.id === to.id) continue;
             
@@ -850,16 +851,46 @@ export class GameMap {
             // Distance from territory to closest point on line
             const distToLine = Math.sqrt((E - closestX) ** 2 + (F - closestY) ** 2);
             
-            // If line passes too close to territory (within its radius + margin)
-            if (distToLine < territory.radius + 15) {
+            // If line passes too close to territory (within its radius + larger margin)
+            if (distToLine < territory.radius + 30) { // Increased margin from 15 to 30
                 return true;
             }
         }
+        
+        // Check collision with existing warp lanes
+        for (const connection of existingConnections) {
+            if (this.linesIntersect(from, to, connection.from, connection.to)) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    // Check if two line segments intersect
+    linesIntersect(line1Start, line1End, line2Start, line2End) {
+        const x1 = line1Start.x, y1 = line1Start.y;
+        const x2 = line1End.x, y2 = line1End.y;
+        const x3 = line2Start.x, y3 = line2Start.y;
+        const x4 = line2End.x, y4 = line2End.y;
+        
+        const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+        if (Math.abs(denom) < 1e-10) return false; // Lines are parallel
+        
+        const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
+        const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom;
+        
+        // Check if intersection point is within both line segments
+        if (t >= 0.1 && t <= 0.9 && u >= 0.1 && u <= 0.9) { // Added small margin to avoid endpoint intersections
+            return true;
+        }
+        
         return false;
     }
 
     connectTerritories() {
         const territoryList = Object.values(this.territories);
+        const existingConnections = []; // Track existing warp lanes to prevent intersections
         
         // Use Delaunay triangulation approximation for natural connections
         for (let i = 0; i < territoryList.length; i++) {
@@ -873,7 +904,7 @@ export class GameMap {
                 const other = territoryList[j];
                 const distance = territory.getDistanceTo(other);
                 
-                if (distance <= this.connectionDistance && !this.linePassesThroughTerritory(territory, other, territoryList)) {
+                if (distance <= this.connectionDistance && !this.linePassesThroughTerritory(territory, other, territoryList, existingConnections)) {
                     nearbyTerritories.push({ territory: other, distance });
                 }
             }
@@ -892,6 +923,12 @@ export class GameMap {
                 
                 // Additional density check - some connections may be skipped based on density
                 if (Math.random() * 100 > this.warpLaneDensity) continue;
+                
+                // Track this connection to prevent future intersections
+                existingConnections.push({
+                    from: territory,
+                    to: neighbor
+                });
                 
                 // If either territory is colonizable, make it a hidden connection
                 if (territory.isColonizable || neighbor.isColonizable) {
