@@ -2172,6 +2172,9 @@ export default class StarThrone {
         this.ctx.fillStyle = '#0a0a1a';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
+        // Render background galaxy image with parallax
+        this.renderBackgroundImage();
+        
         // Apply camera transformations for background elements
         this.ctx.save();
         this.camera.applyTransform(this.ctx);
