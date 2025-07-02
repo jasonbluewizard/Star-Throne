@@ -156,6 +156,7 @@ class DefaultState extends BaseState {
     onEnter(data) {
         // Clear selected territory when entering default state
         this.game.selectedTerritory = null;
+        this.fsm.selectedTerritory = null;
         console.log('Default state entered - territory deselected');
     }
     
