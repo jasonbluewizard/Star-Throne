@@ -153,6 +153,12 @@ class BaseState {
 
 // Default State: Nothing selected
 class DefaultState extends BaseState {
+    onEnter(data) {
+        // Clear selected territory when entering default state
+        this.game.selectedTerritory = null;
+        console.log('Default state entered - territory deselected');
+    }
+    
     handleInput(inputType, data) {
         switch (inputType) {
             case 'leftClick':

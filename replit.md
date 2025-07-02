@@ -476,6 +476,12 @@ Changelog:
   * Increased connection range from 140px to 200px to accommodate larger spacing
   * Enhanced tooltip system: context-aware probe instructions based on selected territory and fleet count
   * Fixed misleading "Click to probe" tooltips - now shows requirements and helpful guidance
+- January 2, 2025. Critical bug fixes for game startup and discovery system:
+  * Fixed import path issues preventing game from starting - removed incorrect .js/.ts extensions from gameConstants imports
+  * Resolved "processDiscovery is not a function" error that was freezing the game during planet colonization
+  * Updated discovery system to use centralized GameUtils.processDiscovery function instead of deprecated class method
+  * Discovery announcements now display correctly for Precursor Factory, Standard Planet, and other discovery types
+  * Game now runs smoothly without freezing during probe colonization events
 - January 1, 2025. Strategic camera system implementation (Supreme Commander-style):
   * Enhanced strategic zoom range: extreme zoom-out (0.05x) to tactical close-up (8.0x) for galaxy-wide view
   * Implemented inertial panning with smooth momentum and friction for natural camera movement
