@@ -797,5 +797,57 @@ export default AIManager;
 - Line-by-line changes needed for safe integration
 - Testing checklist to verify no regressions
 
+## ANSWERS TO YOUR QUESTIONS
+
+### Q1: Have you already started extracting any part of the territory rendering logic?
+**NO** - Territory rendering logic is still completely embedded in StarThrone.js. This is a fresh extraction with no prior attempts.
+
+### Q2: Should TerritoryRenderer handle animations and effects?
+**MIXED APPROACH** - Here's the division of responsibilities:
+
+**TerritoryRenderer.js should handle:**
+- Territory visual rendering (planet circles, colors, army counts)
+- Connection/warp lane rendering between territories  
+- Selection highlights and hover effects
+- Throne star crown icons
+- Combat flash effects on territories
+- Text rendering (army counts, "?" markers)
+
+**AnimationSystem.js already handles:**
+- Ship movement animations between territories
+- Parallax starfield background
+- Floating damage numbers
+- Object pooling for animations
+
+**DiscoverySystem.js already handles:**
+- Discovery announcement popups
+- Floating discovery text above planets
+
+### Q3: What output do you want?
+**ALL OF THE ABOVE** - Please provide:
+
+1. **Complete standalone TerritoryRenderer.js implementation**
+2. **Git-style diffs for StarThrone.js integration** 
+3. **Step-by-step integration plan with testing checklist**
+
+### ADDITIONAL CRITICAL REQUIREMENTS
+
+**Visual Fidelity Requirements:**
+- Territory colors must match exactly (player colors, neutral gray, colonizable yellow "?")
+- Army count text styling must be identical (black text with white outlines)
+- Connection rendering must be identical (colored for same-owner, gray for neutral)
+- Special effects timing must match (combat flashes, selection highlights)
+- Throne star crown positioning must be pixel-perfect
+
+**Performance Requirements:**
+- Maintain frustum culling system (only render visible territories)
+- Preserve Level of Detail (LOD) based on zoom level
+- Keep efficient rendering with minimal draw calls
+
+**Integration Safety:**
+- TerritoryRenderer must be initialized AFTER all other systems
+- Must have access to: this.territories, this.players, this.camera, this.selectedTerritory
+- No changes to game logic - pure visual extraction only
+
 ## CRITICAL: MAINTAIN EXACT VISUAL FIDELITY
 The territory rendering system is the core visual component. Any changes in appearance will be immediately obvious. Focus on pure code organization without changing visual output.
