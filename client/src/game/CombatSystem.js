@@ -5,7 +5,7 @@
  * Encapsulates combat mechanics for easier balancing and modification.
  */
 
-import { GAME_CONSTANTS } from '../../../common/gameConstants.ts';
+import { GAME_CONSTANTS } from '../../../common/gameConstants';
 
 export class CombatSystem {
     constructor(game) {

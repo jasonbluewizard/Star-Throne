@@ -5,7 +5,7 @@
  * Handles pathfinding and automated ship transfers between territories.
  */
 
-import { GAME_CONSTANTS } from '../../../common/gameConstants.ts';
+import { GAME_CONSTANTS } from '../../../common/gameConstants';
 
 export class SupplySystem {
     constructor(game) {

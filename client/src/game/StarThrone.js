@@ -8,7 +8,7 @@ import { Renderer } from './Renderer.js';
 import { CombatSystem } from './CombatSystem.js';
 import { SupplySystem } from './SupplySystem.js';
 import { GameUtils } from './utils.js';
-import { GAME_CONSTANTS } from '../../../common/gameConstants.ts';
+import { GAME_CONSTANTS } from '../../../common/gameConstants';
 
 export default class StarThrone {
     constructor(config = {}) {
