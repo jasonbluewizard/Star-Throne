@@ -1,0 +1,801 @@
+# Territory Renderer Modularization Instructions for Advanced AI
+
+## PROJECT CONTEXT
+Star Throne is a real-time strategy game with a massive 3,060+ line StarThrone.js file that needs modular refactoring. We've successfully extracted 4 systems (AnimationSystem, DiscoverySystem, UIManager, AIManager) and now need to extract the territory rendering system.
+
+## CRITICAL SAFETY REQUIREMENTS
+- Previous modularization attempts caused "massive fuckups" according to user
+- MUST maintain exact same visual output and functionality
+- Territory rendering is the core visual system - any bugs will be immediately visible
+- Test thoroughly before suggesting changes
+
+## CURRENT SUCCESSFUL MODULAR ARCHITECTURE
+The following systems have been successfully extracted and work perfectly:
+
+1. **AnimationSystem.js** - Handles ship animations, starfield parallax, object pooling
+2. **DiscoverySystem.js** - Manages planet discoveries, empire bonuses, floating announcements  
+3. **UIManager.js** - Notification system, UI panels, background rendering
+4. **AIManager.js** - AI player updates, name generation, strategic decisions
+
+## TARGET: TERRITORY RENDERING SYSTEM EXTRACTION
+
+### Current Territory Rendering Code in StarThrone.js (lines to extract):
+
+```javascript
+// Territory rendering logic scattered throughout StarThrone.js
+// Main rendering in render() method around lines 1500-1800
+
+render() {
+    // ... other rendering code ...
+    
+    // Territory rendering section
+    for (let i = 0; i < this.territories.length; i++) {
+        const territory = this.territories[i];
+        
+        // Frustum culling check
+        const screenPos = this.camera.worldToScreen(territory.x, territory.y);
+        if (!this.camera.isVisible(territory.x, territory.y, 50)) {
+            continue;
+        }
+        
+        // Territory visual rendering
+        territory.render(this.ctx, this.camera, this.selectedTerritory);
+        
+        // Owner visualization
+        if (territory.owner) {
+            const player = this.players.find(p => p.id === territory.owner);
+            if (player) {
+                // Render territory with player colors
+                // Handle human player special effects (cyan glow)
+                // Render army counts with proper text styling
+            }
+        } else {
+            // Render neutral/colonizable territories
+            // Yellow "?" markers for unexplored planets
+            // Proper text rendering for army counts
+        }
+        
+        // Connection rendering (warp lanes)
+        territory.connections.forEach(connectionId => {
+            const connectedTerritory = this.territories[connectionId];
+            if (connectedTerritory) {
+                // Render colored connections between same-owned territories
+                // Gray connections for neutral lanes
+                // Supply route visualizations
+            }
+        });
+        
+        // Special effects
+        if (territory.isFlashing) {
+            // Combat flash effects
+            // Throne star indicators (crown icons)
+            // Selection highlights
+        }
+    }
+}
+```
+
+### Key Territory Rendering Responsibilities:
+
+1. **Territory Visual Rendering**
+   - Planet circles with player colors
+   - Army count text with shadows/outlines
+   - Colonizable planet "?" markers
+   - Throne star crown indicators
+
+2. **Connection Rendering** 
+   - Warp lanes between territories
+   - Colored connections for same-owned territories
+   - Supply route visualizations with dashed lines
+
+3. **Visual Effects**
+   - Territory selection highlights
+   - Combat flash effects
+   - Human player special glow effects
+   - Floating damage numbers
+
+4. **Performance Optimizations**
+   - Frustum culling for off-screen territories
+   - Level of Detail (LOD) based on zoom level
+   - Efficient rendering with minimal draw calls
+
+## MODULARIZATION REQUIREMENTS
+
+### Create TerritoryRenderer.js with:
+
+```javascript
+class TerritoryRenderer {
+    constructor(game) {
+        this.game = game;
+        this.canvas = game.canvas;
+        this.ctx = game.ctx;
+        this.camera = game.camera;
+        
+        // Cache frequently accessed properties
+        this.territories = game.territories;
+        this.players = game.players;
+        
+        // Performance tracking
+        this.visibleTerritories = [];
+        this.lastCullingUpdate = 0;
+    }
+    
+    // Main rendering method called from StarThrone.render()
+    renderTerritories() {
+        // Implement all territory rendering logic here
+        // Use frustum culling for performance
+        // Handle LOD based on camera zoom level
+    }
+    
+    renderTerritory(territory) {
+        // Individual territory rendering
+        // Planet circles, army counts, special effects
+    }
+    
+    renderConnections() {
+        // Warp lane rendering between territories
+        // Colored connections for owned territories
+        // Supply route visualizations
+    }
+    
+    renderSpecialEffects() {
+        // Combat flashes, selection highlights
+        // Throne star crowns, floating text
+    }
+    
+    updateVisibleTerritories() {
+        // Frustum culling update
+        // Performance optimization
+    }
+}
+```
+
+### Integration Points:
+
+1. **Constructor initialization** in StarThrone.js around line 393:
+   ```javascript
+   this.territoryRenderer = new TerritoryRenderer(this);
+   ```
+
+2. **Replace territory rendering** in render() method around line 1600:
+   ```javascript
+   // Replace territory rendering code with:
+   this.territoryRenderer.renderTerritories();
+   ```
+
+3. **Update method calls** for territory updates and special effects
+
+## COMPLETE CURRENT CODEBASE
+
+### StarThrone.js (Current State - 3,060+ lines)
+```javascript
+import { GAME_CONSTANTS } from '../../../common/gameConstants.js';
+import Territory from './Territory.js';
+import Player from './Player.js';
+import Camera from './Camera.js';
+import GameUI from './GameUI.js';
+import InputHandler from './InputHandler.js';
+import Renderer from './Renderer.js';
+import CombatSystem from './CombatSystem.js';
+import SupplySystem from './SupplySystem.js';
+import PerformanceManager from './PerformanceManager.js';
+import PerformanceOverlay from './PerformanceOverlay.js';
+import GameUtils from './GameUtils.js';
+import DiscoverySystem from './DiscoverySystem.js';
+import AnimationSystem from './AnimationSystem.js';
+import UIManager from './UIManager.js';
+import AIManager from './AIManager.js';
+
+class StarThrone {
+    constructor(canvas, config = {}) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.camera = new Camera(canvas.width, canvas.height);
+        
+        // Game configuration with defaults
+        this.config = {
+            mapSize: config.mapSize || GAME_CONSTANTS.DEFAULT_MAP_SIZE,
+            layout: config.layout || 'organic',
+            gameSpeed: config.gameSpeed || 1.0,
+            ...config
+        };
+        
+        // Core game state
+        this.territories = [];
+        this.players = [];
+        this.currentPlayers = 0;
+        this.maxPlayers = GAME_CONSTANTS.MAX_PLAYERS;
+        this.gameWon = false;
+        this.isGameOver = false;
+        this.winner = null;
+        this.gameOverTime = 0;
+        this.selectedTerritory = null;
+        this.isRunning = true;
+        this.frameCount = 0;
+        this.lastFrameTime = 0;
+        
+        // Performance tracking
+        this.lastFpsUpdate = 0;
+        this.framesSinceLastUpdate = 0;
+        this.currentFps = 0;
+        
+        // Game timing
+        this.lastUpdate = Date.now();
+        this.accumulator = 0;
+        const targetFPS = 60;
+        this.fixedTimeStep = 1000 / targetFPS;
+        
+        // Enhanced map dimensions for organic boundaries
+        this.mapWidth = GAME_CONSTANTS.MAP_BASE_WIDTH * 1.4;
+        this.mapHeight = GAME_CONSTANTS.MAP_BASE_HEIGHT * 1.4;
+        
+        // Initialize nebula system
+        this.nebulas = [];
+        
+        // Discovery system for all players
+        this.playerDiscoveries = new Map();
+        
+        // Supply route system
+        this.supplyRoutes = new Map();
+        
+        // Background galaxy image
+        this.backgroundImage = new Image();
+        this.backgroundImage.src = '/galaxy-background.jpg';
+        this.backgroundLoaded = false;
+        this.backgroundImage.onload = () => {
+            this.backgroundLoaded = true;
+        };
+        
+        this.ui = new GameUI(this.canvas, this.camera);
+        
+        // Initialize modular systems
+        this.inputHandler = new InputHandler(this);
+        this.renderer = new Renderer(this.canvas, this.camera);
+        this.combatSystem = new CombatSystem(this);
+        this.supplySystem = new SupplySystem(this);
+        this.performanceManager = new PerformanceManager(this);
+        this.performanceOverlay = new PerformanceOverlay(this.canvas, this.performanceManager);
+        this.discoverySystem = new DiscoverySystem(this);
+        this.animationSystem = new AnimationSystem(this);
+        this.uiManager = new UIManager(this);
+        this.aiManager = new AIManager(this);
+        
+        // Auto-detect optimal performance profile
+        this.performanceManager.detectOptimalProfile();
+        
+        this.gameStartTime = Date.now(); // Track when game actually starts
+        this.startGame();
+        this.gameLoop();
+    }
+
+    // [TERRITORY GENERATION METHODS - Keep in StarThrone.js]
+    generateMap() {
+        // Extensive map generation logic
+        // Galaxy layout algorithms (Organic, Clusters, Spiral, etc.)
+        // Territory positioning and connections
+    }
+    
+    // [TERRITORY RENDERING METHODS - Extract to TerritoryRenderer.js]
+    render() {
+        // Main render loop - territory rendering section to be extracted
+        this.framesSinceLastUpdate++;
+        
+        const now = Date.now();
+        if (now - this.lastFpsUpdate >= 1000) {
+            this.currentFps = this.framesSinceLastUpdate;
+            this.framesSinceLastUpdate = 0;
+            this.lastFpsUpdate = now;
+        }
+        
+        // Clear canvas
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Background rendering (UIManager handles this)
+        if (this.uiManager) {
+            this.uiManager.renderBackground();
+        }
+        
+        // Save canvas state for territory rendering
+        this.ctx.save();
+        
+        // Apply camera transformation
+        this.camera.applyTransform(this.ctx);
+        
+        // ====== TERRITORY RENDERING SECTION TO EXTRACT ======
+        // This entire section should move to TerritoryRenderer.js
+        
+        // Territory rendering with frustum culling
+        const visibleTerritories = [];
+        for (let i = 0; i < this.territories.length; i++) {
+            const territory = this.territories[i];
+            if (this.camera.isVisible(territory.x, territory.y, 50)) {
+                visibleTerritories.push(territory);
+            }
+        }
+        
+        // Render connections first (behind territories)
+        this.ctx.lineWidth = 2;
+        for (const territory of visibleTerritories) {
+            territory.connections.forEach(connectionId => {
+                const connectedTerritory = this.territories[connectionId];
+                if (connectedTerritory && this.camera.isVisible(connectedTerritory.x, connectedTerritory.y, 50)) {
+                    this.renderConnection(territory, connectedTerritory);
+                }
+            });
+        }
+        
+        // Render territories
+        for (const territory of visibleTerritories) {
+            territory.render(this.ctx, this.camera, this.selectedTerritory);
+            
+            // Render owner-specific visuals
+            if (territory.owner) {
+                const player = this.players.find(p => p.id === territory.owner);
+                if (player) {
+                    this.renderTerritoryOwner(territory, player);
+                }
+            } else {
+                this.renderNeutralTerritory(territory);
+            }
+        }
+        
+        // ====== END TERRITORY RENDERING SECTION ======
+        
+        // Restore canvas state
+        this.ctx.restore();
+        
+        // UI rendering (handled by other systems)
+        if (this.animationSystem) {
+            this.animationSystem.render();
+        }
+        
+        if (this.discoverySystem) {
+            this.discoverySystem.render();
+        }
+        
+        if (this.uiManager) {
+            this.uiManager.render();
+        }
+        
+        // Performance overlay
+        if (this.performanceOverlay) {
+            this.performanceOverlay.render();
+        }
+    }
+    
+    renderConnection(territory1, territory2) {
+        // Connection rendering logic to move to TerritoryRenderer
+        const player1 = territory1.owner ? this.players.find(p => p.id === territory1.owner) : null;
+        const player2 = territory2.owner ? this.players.find(p => p.id === territory2.owner) : null;
+        
+        this.ctx.strokeStyle = (player1 && player2 && player1.id === player2.id) ? player1.color : '#666666';
+        this.ctx.globalAlpha = 0.6;
+        this.ctx.beginPath();
+        this.ctx.moveTo(territory1.x, territory1.y);
+        this.ctx.lineTo(territory2.x, territory2.y);
+        this.ctx.stroke();
+        this.ctx.globalAlpha = 1.0;
+    }
+    
+    renderTerritoryOwner(territory, player) {
+        // Territory owner rendering logic to move to TerritoryRenderer
+        // Special effects for human players, throne stars, army counts
+    }
+    
+    renderNeutralTerritory(territory) {
+        // Neutral territory rendering logic to move to TerritoryRenderer
+        // Colonizable planet markers, army count displays
+    }
+    
+    // [GAME LOGIC METHODS - Keep in StarThrone.js]
+    update(deltaTime) {
+        // Game state updates
+        // Player updates
+        // AI updates (now delegated to AIManager)
+        // Territory updates
+        // Combat resolution
+        // Win condition checking
+    }
+    
+    // [REMAINING METHODS...]
+    // All other game logic, event handling, initialization methods stay in StarThrone.js
+}
+
+export default StarThrone;
+```
+
+### AnimationSystem.js (Successfully Extracted)
+```javascript
+import { GAME_CONSTANTS } from '../../../common/gameConstants.js';
+
+class AnimationSystem {
+    constructor(game) {
+        this.game = game;
+        this.canvas = game.canvas;
+        this.ctx = game.ctx;
+        this.camera = game.camera;
+        
+        // Ship animation system with object pooling
+        this.shipAnimations = [];
+        this.animationPool = [];
+        this.poolSize = 50;
+        
+        // Initialize object pool
+        for (let i = 0; i < this.poolSize; i++) {
+            this.animationPool.push(this.createAnimationObject());
+        }
+        
+        // Parallax starfield system
+        this.starLayers = {
+            far: { stars: [], parallaxFactor: 0.05, count: 300, minSize: 0.5, maxSize: 1, brightness: 0.7 },
+            mid: { stars: [], parallaxFactor: 0.15, count: 150, minSize: 1, maxSize: 1.5, brightness: 0.8 },
+            near: { stars: [], parallaxFactor: 0.3, count: 80, minSize: 1.5, maxSize: 2, brightness: 1.0 }
+        };
+        
+        this.initializeStarfield();
+    }
+    
+    createAnimationObject() {
+        return {
+            fromX: 0, fromY: 0, toX: 0, toY: 0,
+            currentX: 0, currentY: 0,
+            progress: 0, duration: 1000,
+            startTime: 0, color: '#ffffff',
+            isActive: false, segments: null,
+            currentSegment: 0, segmentProgress: 0
+        };
+    }
+    
+    initializeStarfield() {
+        Object.values(this.starLayers).forEach(layer => {
+            layer.stars = [];
+            for (let i = 0; i < layer.count; i++) {
+                layer.stars.push({
+                    x: Math.random() * this.game.mapWidth,
+                    y: Math.random() * this.game.mapHeight,
+                    size: layer.minSize + Math.random() * (layer.maxSize - layer.minSize),
+                    twinkleSpeed: 0.5 + Math.random() * 2,
+                    twinkleOffset: Math.random() * Math.PI * 2
+                });
+            }
+        });
+    }
+    
+    getAnimationFromPool() {
+        if (this.animationPool.length > 0) {
+            return this.animationPool.pop();
+        }
+        return this.createAnimationObject();
+    }
+    
+    returnAnimationToPool(animation) {
+        animation.isActive = false;
+        animation.segments = null;
+        if (this.animationPool.length < this.poolSize) {
+            this.animationPool.push(animation);
+        }
+    }
+    
+    createShipAnimation(fromTerritory, toTerritory, color = '#ffffff', duration = 1000) {
+        const animation = this.getAnimationFromPool();
+        
+        animation.fromX = fromTerritory.x;
+        animation.fromY = fromTerritory.y;
+        animation.toX = toTerritory.x;
+        animation.toY = toTerritory.y;
+        animation.currentX = fromTerritory.x;
+        animation.currentY = fromTerritory.y;
+        animation.progress = 0;
+        animation.duration = duration;
+        animation.startTime = Date.now();
+        animation.color = color;
+        animation.isActive = true;
+        animation.segments = null;
+        animation.currentSegment = 0;
+        animation.segmentProgress = 0;
+        
+        this.shipAnimations.push(animation);
+        return animation;
+    }
+    
+    createSupplyRouteAnimation(segments, color = '#00ffff', segmentDuration = 800) {
+        if (!segments || segments.length < 2) return null;
+        
+        const animation = this.getAnimationFromPool();
+        
+        animation.segments = segments;
+        animation.currentSegment = 0;
+        animation.segmentProgress = 0;
+        animation.duration = segmentDuration;
+        animation.startTime = Date.now();
+        animation.color = color;
+        animation.isActive = true;
+        animation.progress = 0;
+        
+        const firstSegment = segments[0];
+        animation.fromX = firstSegment.x;
+        animation.fromY = firstSegment.y;
+        animation.currentX = firstSegment.x;
+        animation.currentY = firstSegment.y;
+        
+        if (segments.length > 1) {
+            const secondSegment = segments[1];
+            animation.toX = secondSegment.x;
+            animation.toY = secondSegment.y;
+        }
+        
+        this.shipAnimations.push(animation);
+        return animation;
+    }
+    
+    updateAnimations(deltaTime) {
+        const currentTime = Date.now();
+        
+        for (let i = this.shipAnimations.length - 1; i >= 0; i--) {
+            const animation = this.shipAnimations[i];
+            
+            if (animation.segments) {
+                this.updateMultiSegmentAnimation(animation, currentTime);
+            } else {
+                this.updateSingleSegmentAnimation(animation, currentTime);
+            }
+            
+            if (!animation.isActive) {
+                this.shipAnimations.splice(i, 1);
+                this.returnAnimationToPool(animation);
+            }
+        }
+    }
+    
+    updateSingleSegmentAnimation(animation, currentTime) {
+        const elapsed = currentTime - animation.startTime;
+        animation.progress = Math.min(elapsed / animation.duration, 1);
+        
+        if (animation.progress >= 1) {
+            animation.isActive = false;
+            return;
+        }
+        
+        const easeProgress = this.easeInOutQuad(animation.progress);
+        animation.currentX = animation.fromX + (animation.toX - animation.fromX) * easeProgress;
+        animation.currentY = animation.fromY + (animation.toY - animation.fromY) * easeProgress;
+    }
+    
+    updateMultiSegmentAnimation(animation, currentTime) {
+        if (!animation.segments || animation.currentSegment >= animation.segments.length - 1) {
+            animation.isActive = false;
+            return;
+        }
+        
+        const elapsed = currentTime - animation.startTime;
+        animation.segmentProgress = Math.min(elapsed / animation.duration, 1);
+        
+        if (animation.segmentProgress >= 1) {
+            animation.currentSegment++;
+            if (animation.currentSegment >= animation.segments.length - 1) {
+                animation.isActive = false;
+                return;
+            }
+            
+            animation.startTime = currentTime;
+            animation.segmentProgress = 0;
+            
+            const currentSeg = animation.segments[animation.currentSegment];
+            const nextSeg = animation.segments[animation.currentSegment + 1];
+            animation.fromX = currentSeg.x;
+            animation.fromY = currentSeg.y;
+            animation.toX = nextSeg.x;
+            animation.toY = nextSeg.y;
+        }
+        
+        const easeProgress = this.easeInOutQuad(animation.segmentProgress);
+        animation.currentX = animation.fromX + (animation.toX - animation.fromX) * easeProgress;
+        animation.currentY = animation.fromY + (animation.toY - animation.fromY) * easeProgress;
+    }
+    
+    easeInOutQuad(t) {
+        return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    }
+    
+    render() {
+        // Render parallax starfield
+        this.renderStarfield();
+        
+        // Render ship animations
+        this.renderShipAnimations();
+    }
+    
+    renderStarfield() {
+        if (!this.game.camera) return;
+        
+        const currentTime = Date.now();
+        
+        Object.entries(this.starLayers).forEach(([layerName, layer]) => {
+            this.ctx.save();
+            
+            const offsetX = this.game.camera.x * layer.parallaxFactor;
+            const offsetY = this.game.camera.y * layer.parallaxFactor;
+            
+            layer.stars.forEach(star => {
+                const screenX = star.x - offsetX;
+                const screenY = star.y - offsetY;
+                
+                if (screenX >= -50 && screenX <= this.canvas.width + 50 && 
+                    screenY >= -50 && screenY <= this.canvas.height + 50) {
+                    
+                    const twinkle = Math.sin(currentTime * 0.001 * star.twinkleSpeed + star.twinkleOffset);
+                    const alpha = layer.brightness * (0.7 + 0.3 * twinkle);
+                    
+                    this.ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                    this.ctx.beginPath();
+                    this.ctx.arc(screenX, screenY, star.size * 0.5, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+            });
+            
+            this.ctx.restore();
+        });
+    }
+    
+    renderShipAnimations() {
+        if (!this.game.camera) return;
+        
+        this.ctx.save();
+        this.game.camera.applyTransform(this.ctx);
+        
+        this.shipAnimations.forEach(animation => {
+            if (animation.isActive) {
+                this.ctx.fillStyle = animation.color;
+                this.ctx.shadowColor = animation.color;
+                this.ctx.shadowBlur = 8;
+                
+                this.ctx.beginPath();
+                this.ctx.arc(animation.currentX, animation.currentY, 3, 0, Math.PI * 2);
+                this.ctx.fill();
+                
+                this.ctx.shadowBlur = 0;
+            }
+        });
+        
+        this.ctx.restore();
+    }
+    
+    cleanup() {
+        this.shipAnimations.length = 0;
+        this.animationPool.length = 0;
+    }
+}
+
+export default AnimationSystem;
+```
+
+### AIManager.js (Successfully Extracted)
+```javascript
+import { GAME_CONSTANTS } from '../../../common/gameConstants.js';
+
+class AIManager {
+    constructor(game) {
+        this.game = game;
+        this.frameCount = 0;
+        
+        // AI name generation data
+        this.aiFirstNames = [
+            'Alex', 'Blake', 'Casey', 'Drew', 'Ellis', 'Finley', 'Gray', 'Hunter', 'Indigo', 'Jess',
+            'Kai', 'Lane', 'Max', 'Nova', 'Orion', 'Phoenix', 'Quinn', 'River', 'Sage', 'Taylor',
+            'Uri', 'Vale', 'Winter', 'Xen', 'Yuki', 'Zara', 'Astra', 'Blaze', 'Coda', 'Delta',
+            'Echo', 'Flux', 'Ghost', 'Halo', 'Ion', 'Jinx', 'Knox', 'Luna', 'Moss', 'Nyx',
+            'Onyx', 'Pixel', 'Quill', 'Raven', 'Storm', 'Thorn', 'Umbra', 'Vex', 'Wren', 'Xylo',
+            'Admiral', 'Captain', 'Colonel', 'Commander', 'General', 'Major', 'Marshal', 'Commodore',
+            'Pilot', 'Navigator', 'Engineer', 'Specialist', 'Operative', 'Agent', 'Scout', 'Ranger',
+            'Guardian', 'Sentinel', 'Warden', 'Keeper', 'Overseer', 'Director', 'Chief', 'Prime',
+            'Alpha', 'Beta', 'Gamma', 'Sigma', 'Omega', 'Zero', 'One', 'Neo', 'Ace', 'Star'
+        ];
+        
+        this.aiClanNames = [
+            'StarForge', 'VoidHunters', 'NebulaRise', 'CubClan', 'SolarFlare', 'DarkMatter',
+            'GalaxyGuard', 'CosmicFury', 'StellarWind', 'BlackHole', 'RedGiant', 'WhiteDwarf',
+            'Supernova', 'Pulsar', 'Quasar', 'Neutron', 'Aurora', 'Eclipse', 'Meteor', 'Comet',
+            'Asteroid', 'Satellite', 'Orbit', 'Gravity', 'Fusion', 'Plasma', 'Photon', 'Quantum',
+            'Vector', 'Matrix', 'Nexus', 'Vortex', 'Prism', 'Crystal', 'Alloy', 'Titanium',
+            'Steel', 'Chrome', 'Neon', 'Laser', 'Cyber', 'Tech', 'Digital', 'Binary', 'Code', 'Data'
+        ];
+    }
+    
+    updateAI(deltaTime) {
+        // High-performance AI processing: Staggered updates across 4 frames
+        // Process only 1/4 of AI players per frame for 4x performance improvement
+        const aiPlayers = this.game.players.filter(p => p.type !== 'human' && !p.isEliminated);
+        const playersPerFrame = Math.ceil(aiPlayers.length / 4);
+        const frameOffset = this.frameCount % 4;
+        const startIndex = frameOffset * playersPerFrame;
+        const endIndex = Math.min(startIndex + playersPerFrame, aiPlayers.length);
+        
+        // Update subset of AI players this frame
+        for (let i = startIndex; i < endIndex; i++) {
+            if (i < aiPlayers.length) {
+                const player = aiPlayers[i];
+                try {
+                    player.update(deltaTime, this.game.gameMap, this.game.config.gameSpeed, this.game);
+                } catch (error) {
+                    console.error(`Error updating AI player ${player.name}:`, error);
+                }
+            }
+        }
+        
+        this.frameCount++;
+    }
+    
+    static generateAIName(index) {
+        const aiFirstNames = [
+            'Alex', 'Blake', 'Casey', 'Drew', 'Ellis', 'Finley', 'Gray', 'Hunter', 'Indigo', 'Jess',
+            'Kai', 'Lane', 'Max', 'Nova', 'Orion', 'Phoenix', 'Quinn', 'River', 'Sage', 'Taylor',
+            'Uri', 'Vale', 'Winter', 'Xen', 'Yuki', 'Zara', 'Astra', 'Blaze', 'Coda', 'Delta',
+            'Echo', 'Flux', 'Ghost', 'Halo', 'Ion', 'Jinx', 'Knox', 'Luna', 'Moss', 'Nyx',
+            'Onyx', 'Pixel', 'Quill', 'Raven', 'Storm', 'Thorn', 'Umbra', 'Vex', 'Wren', 'Xylo',
+            'Admiral', 'Captain', 'Colonel', 'Commander', 'General', 'Major', 'Marshal', 'Commodore',
+            'Pilot', 'Navigator', 'Engineer', 'Specialist', 'Operative', 'Agent', 'Scout', 'Ranger',
+            'Guardian', 'Sentinel', 'Warden', 'Keeper', 'Overseer', 'Director', 'Chief', 'Prime',
+            'Alpha', 'Beta', 'Gamma', 'Sigma', 'Omega', 'Zero', 'One', 'Neo', 'Ace', 'Star'
+        ];
+        
+        const aiClanNames = [
+            'StarForge', 'VoidHunters', 'NebulaRise', 'CubClan', 'SolarFlare', 'DarkMatter',
+            'GalaxyGuard', 'CosmicFury', 'StellarWind', 'BlackHole', 'RedGiant', 'WhiteDwarf',
+            'Supernova', 'Pulsar', 'Quasar', 'Neutron', 'Aurora', 'Eclipse', 'Meteor', 'Comet',
+            'Asteroid', 'Satellite', 'Orbit', 'Gravity', 'Fusion', 'Plasma', 'Photon', 'Quantum',
+            'Vector', 'Matrix', 'Nexus', 'Vortex', 'Prism', 'Crystal', 'Alloy', 'Titanium',
+            'Steel', 'Chrome', 'Neon', 'Laser', 'Cyber', 'Tech', 'Digital', 'Binary', 'Code', 'Data'
+        ];
+        
+        const firstName = aiFirstNames[index % aiFirstNames.length];
+        
+        // 25% get clan names, 75% get varied naming
+        if (Math.random() < 0.25) {
+            const clanName = aiClanNames[Math.floor(Math.random() * aiClanNames.length)];
+            return `[${clanName}] ${firstName}`;
+        } else {
+            return firstName;
+        }
+    }
+}
+
+export default AIManager;
+```
+
+## EXTRACTION STRATEGY
+
+### Step 1: Analyze Territory Rendering Dependencies
+- Identify all territory rendering methods in StarThrone.js
+- Map dependencies on game state (territories, players, camera, etc.)
+- Note performance optimizations (frustum culling, LOD)
+
+### Step 2: Create TerritoryRenderer.js Module
+- Extract territory rendering logic while maintaining exact visual output
+- Implement frustum culling and performance optimizations
+- Handle special effects (combat flashes, throne stars, selection highlights)
+
+### Step 3: Update StarThrone.js Integration
+- Replace territory rendering code with TerritoryRenderer calls
+- Maintain proper initialization order
+- Ensure no visual regressions
+
+### Step 4: Testing and Validation
+- Verify exact same visual output
+- Test all territory states (owned, neutral, colonizable)
+- Validate special effects and animations work correctly
+
+## SUCCESS CRITERIA
+1. StarThrone.js reduced by ~500-800 lines (territory rendering extraction)
+2. No visual changes or gameplay regressions
+3. Maintained performance optimizations
+4. Clean modular architecture with proper separation of concerns
+5. Easy to maintain and extend territory rendering features
+
+## PROVIDE BACK TO USER
+- Complete TerritoryRenderer.js code
+- Modified StarThrone.js with integration points
+- Line-by-line changes needed for safe integration
+- Testing checklist to verify no regressions
+
+## CRITICAL: MAINTAIN EXACT VISUAL FIDELITY
+The territory rendering system is the core visual component. Any changes in appearance will be immediately obvious. Focus on pure code organization without changing visual output.
