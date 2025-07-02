@@ -15,6 +15,8 @@ import { PerformanceOverlay } from './PerformanceOverlay.js';
 import { DiscoverySystem } from './DiscoverySystem.js';
 import { AnimationSystem } from './AnimationSystem.js';
 import { UIManager } from './UIManager.js';
+import { AudioSystem } from './AudioSystem.js';
+import { AIManager } from './AIManager.js';
 
 export default class StarThrone {
     constructor(config = {}) {
@@ -55,6 +57,8 @@ export default class StarThrone {
         this.discoverySystem = null;
         this.animationSystem = null;
         this.uiManager = null;
+        this.audioSystem = null;
+        this.aiManager = null;
         
         // Legacy properties for backward compatibility
         this.hoveredTerritory = null;
@@ -389,6 +393,8 @@ export default class StarThrone {
         this.discoverySystem = new DiscoverySystem(this);
         this.animationSystem = new AnimationSystem(this);
         this.uiManager = new UIManager(this);
+        this.audioSystem = new AudioSystem(this);
+        this.aiManager = new AIManager(this);
         
         // Auto-detect optimal performance profile
         this.performanceManager.detectOptimalProfile();
@@ -1241,7 +1247,7 @@ export default class StarThrone {
             usedColors.add(playerColor);
             
             // Generate human-like name with clan designation
-            const aiName = GameUtils.generateAIName(i - 1);
+            const aiName = this.aiManager.generateAIName(i - 1);
             const aiPlayer = new Player(i, aiName, playerColor, 'ai');
             this.players.push(aiPlayer);
             this.initializePlayerDiscoveries(aiPlayer.id);
