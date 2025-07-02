@@ -247,8 +247,6 @@ export class Player {
     }
     
     executeAttack(attackingTerritory, defendingTerritory, gameMap) {
-        if (attackingTerritory.armySize <= 1) return;
-        
         // Trigger combat flash on both territories
         attackingTerritory.triggerCombatFlash();
         defendingTerritory.triggerCombatFlash();
@@ -258,9 +256,6 @@ export class Player {
             gameMap.game.createShipAnimation(attackingTerritory, defendingTerritory, true);
         }
         
-        // Store original owner ID first for debugging
-        const oldOwnerId = defendingTerritory.ownerId;
-        
         // Enhanced logging for throne star attacks
         if (defendingTerritory.isThronestar || Math.random() < 0.05) {
             console.log(`AI ${this.name} attacking territory ${defendingTerritory.id} from ${attackingTerritory.id}${defendingTerritory.isThronestar ? ' (👑 THRONE STAR!)' : ''}`);
@@ -269,109 +264,52 @@ export class Player {
         // Debug: Log attacking army strength for throne star attacks
         if (defendingTerritory.isThronestar) {
             console.log(`Throne attack details: Attacker ${attackingTerritory.armySize} armies (${Math.floor(attackingTerritory.armySize * 0.7)} attacking) vs Defender ${defendingTerritory.armySize} armies`);
-            const isHumanTarget = oldOwnerId === 0; // Human player always has ID 0
-            console.log(`Defending player: ${oldOwnerId} ${isHumanTarget ? '(👤 HUMAN PLAYER!)' : '(AI player)'}`);
+            const oldOwner = gameMap.players[defendingTerritory.ownerId];
+            console.log(`Defending player: ${defendingTerritory.ownerId} ${oldOwner?.type === 'human' ? '(👤 HUMAN PLAYER!)' : '(AI player)'}`);
         }
         
-        // Use 70% of armies for attack
+        // Delegate to centralized CombatSystem (AI uses 70% of armies)
         const attackingArmies = Math.floor(attackingTerritory.armySize * 0.7);
-        const defendingArmies = defendingTerritory.armySize;
+        const result = gameMap.game?.combatSystem?.attackTerritory(attackingTerritory, defendingTerritory, attackingArmies);
         
-        // Battle calculation
-        const attackPower = attackingArmies * (0.8 + Math.random() * 0.4);
-        const defensePower = defendingArmies * (1.0 + Math.random() * 0.2);
+        if (!result) {
+            console.log('CombatSystem not available');
+            return;
+        }
         
-        if (attackPower > defensePower) {
-            // Attack successful
-            const survivingArmies = Math.max(1, attackingArmies - defendingArmies);
-            
+        if (result.success) {
             // Debug: Log successful throne attacks
-            if (defendingTerritory.isThronestar) {
-                console.log(`🏆 THRONE ATTACK SUCCESSFUL! ${this.name} captures throne star ${defendingTerritory.id} from ${oldOwnerId}`);
+            if (result.throneCapture) {
+                console.log(`🏆 THRONE ATTACK SUCCESSFUL! ${this.name} captures throne star ${defendingTerritory.id}`);
             }
             
-            // Check if this is a throne star capture
-            if (defendingTerritory.isThronestar && oldOwnerId !== null && gameMap.players && gameMap.players[oldOwnerId]) {
-                const oldOwner = gameMap.players[oldOwnerId];
-                // THRONE STAR CAPTURED! Transfer ALL remaining territories
-                console.log(`🏆 THRONE STAR CAPTURED! ${oldOwner.name}'s empire falls to ${this.name}!`);
-                console.log(`Transferring ${oldOwner.territories.length} territories from ${oldOwner.name} to ${this.name}`);
-                
-                // Special alert if human player's throne is captured (by AI)
-                const isHumanPlayer = oldOwner && (oldOwner.type === 'human' || oldOwner.id === 0);
-                if (isHumanPlayer) {
-                    console.log(`💀 HUMAN PLAYER'S THRONE STAR CAPTURED! Game should end!`);
-                    console.log(`TRIGGERING GAME END: Human player ${oldOwner.name} (ID: ${oldOwner.id}) defeated by ${this.name}`);
-                    if (gameMap.game) {
-                        gameMap.game.gameState = 'ended';
-                        gameMap.game.showMessage(`💀 Your empire has fallen! ${this.name} captured your throne star!`, 10000);
-                        // Force UI to show game over screen
-                        if (gameMap.game.ui) {
-                            gameMap.game.ui.showGameOver = true;
-                        }
-                    }
-                }
-                
-                // Transfer all territories from old owner to attacker
-                const territoriesToTransfer = [...oldOwner.territories];
-                territoriesToTransfer.forEach(territoryId => {
-                    const territory = gameMap.territories[territoryId];
-                    if (territory && territory.ownerId === oldOwnerId) {
-                        territory.ownerId = this.id;
-                        this.territories.push(territoryId);
-                    }
-                });
-                
-                // Clear old owner's territories
-                oldOwner.territories = [];
-                oldOwner.isEliminated = true;
-                this.territoriesConquered += territoriesToTransfer.length;
-                
-                // Destroy the captured throne star (no empire should have multiple thrones)
-                defendingTerritory.isThronestar = false;
-                defendingTerritory.ownerId = this.id;
-                defendingTerritory.armySize = survivingArmies;
-                attackingTerritory.armySize -= attackingArmies;
-                
-                console.log(`👑 Throne star destroyed after capture - no duplicate thrones allowed`);
-            } else {
-                // Normal territory capture
-                defendingTerritory.ownerId = this.id;
-                defendingTerritory.armySize = survivingArmies;
-                attackingTerritory.armySize -= attackingArmies;
-                
-                // Update player territories
-                this.territories.push(defendingTerritory.id);
-                this.territoriesConquered++;
-                
-                // Remove from old owner
-                if (oldOwnerId !== null && gameMap.players && gameMap.players[oldOwnerId]) {
-                    const oldOwner = gameMap.players[oldOwnerId];
-                    const index = oldOwner.territories.indexOf(defendingTerritory.id);
-                    if (index > -1) {
-                        oldOwner.territories.splice(index, 1);
-                        oldOwner.battlesLost++;
-                    }
-                }
-            }
-            
+            // Update player stats for successful attack
             this.battlesWon++;
+            this.territoriesConquered++;
+            
+            // Special handling for human player elimination
+            if (result.gameEnded) {
+                console.log(`💀 HUMAN PLAYER'S THRONE STAR CAPTURED! Game should end!`);
+                if (gameMap.game) {
+                    gameMap.game.gameState = 'ended';
+                    gameMap.game.showMessage(`💀 Your empire has fallen! ${this.name} captured your throne star!`, 10000);
+                    // Force UI to show game over screen
+                    if (gameMap.game.ui) {
+                        gameMap.game.ui.showGameOver = true;
+                    }
+                }
+            }
         } else {
             // Attack failed
-            const survivingDefenders = Math.max(1, defendingArmies - Math.floor(attackingArmies * 0.7));
-            const survivingAttackers = Math.max(1, Math.floor(attackingArmies * 0.3));
-            
-            defendingTerritory.armySize = survivingDefenders;
-            attackingTerritory.armySize = attackingTerritory.armySize - attackingArmies + survivingAttackers;
-            
-            // Debug: Log failed throne attacks
             if (defendingTerritory.isThronestar) {
-                console.log(`❌ THRONE ATTACK FAILED! ${this.name} failed to capture throne star ${defendingTerritory.id} from ${oldOwnerId}`);
-                console.log(`Attack Power: ${attackPower.toFixed(1)} vs Defense Power: ${defensePower.toFixed(1)}`);
+                console.log(`❌ THRONE ATTACK FAILED! ${this.name} failed to capture throne star ${defendingTerritory.id}`);
+                if (result.attackPower && result.defensePower) {
+                    console.log(`Attack Power: ${result.attackPower.toFixed(1)} vs Defense Power: ${result.defensePower.toFixed(1)}`);
+                }
             }
             
             this.battlesLost++;
-            this.armiesLost += (attackingArmies - survivingAttackers);
+            this.armiesLost += (result.attackerLosses || attackingArmies);
         }
         
         this.lastActivity = Date.now();
