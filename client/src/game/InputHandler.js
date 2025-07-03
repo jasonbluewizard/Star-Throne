@@ -126,7 +126,8 @@ export class InputHandler {
                 targetTerritory.id === this.lastClickedTerritory.id &&
                 currentTime - this.lastClickTime < this.doubleClickThreshold) {
                 
-                // Double-click detected - handle supply route creation
+                // Double-click detected - handle supply route creation/stopping
+                console.log(`Double-click detected on territory ${targetTerritory.id}`);
                 this.handleDoubleClick(targetTerritory);
                 this.lastClickTime = 0; // Reset to prevent triple-click
                 this.lastClickedTerritory = null;
@@ -175,22 +176,32 @@ export class InputHandler {
     }
     
     handleDoubleClick(territory) {
+        console.log(`handleDoubleClick called for territory ${territory.id}, owned by player ${territory.ownerId}`);
+        
         // Double-click on owned territory
         if (territory.ownerId === this.game.humanPlayer?.id) {
             const selectedTerritory = this.inputFSM.getState().selectedTerritory;
+            console.log(`Selected territory: ${selectedTerritory?.id}, double-clicked territory: ${territory.id}`);
             
             if (selectedTerritory && selectedTerritory.ownerId === this.game.humanPlayer?.id) {
                 if (selectedTerritory.id === territory.id) {
                     // Double-click on same selected territory - stop supply routes
+                    console.log(`Attempting to stop supply routes from territory ${territory.id}`);
                     const stopped = this.game.supplySystem?.stopSupplyRoutesFromTerritory(territory.id);
                     if (stopped) {
                         console.log('Supply Stopped');
+                    } else {
+                        console.log('No supply routes to stop from this territory');
                     }
                 } else {
                     // Double-click on different owned territory - create supply route
+                    console.log(`Creating supply route from ${selectedTerritory.id} to ${territory.id}`);
                     this.game.createSupplyRoute(selectedTerritory, territory);
                 }
             }
+        } else {
+            console.log('Double-clicked territory is not owned by human player');
+        }
         }
     }
     
