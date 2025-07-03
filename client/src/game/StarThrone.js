@@ -393,11 +393,14 @@ export default class StarThrone {
         this.ui = new GameUI(this.canvas, this.camera);
         
         // Initialize modular systems
+        console.log('*** STARTING INPUTHANDLER INITIALIZATION ***');
         try {
             this.inputHandler = new InputHandler(this);
-            console.log('InputHandler initialized successfully');
+            console.log('*** INPUTHANDLER INITIALIZED SUCCESSFULLY ***');
+            console.log('InputHandler has setupEventListeners:', typeof this.inputHandler.setupEventListeners);
         } catch (error) {
-            console.error('Failed to initialize InputHandler:', error);
+            console.error('*** FAILED TO INITIALIZE INPUTHANDLER ***', error);
+            console.error('Error stack:', error.stack);
         }
         this.renderer = new Renderer(this.canvas, this.camera);
         this.combatSystem = new CombatSystem(this);
