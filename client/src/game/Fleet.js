@@ -24,13 +24,20 @@ export class Fleet {
      * Handle mouse click events for fleet selection and commands
      */
     handleClick(mousePos, isRightClick = false) {
+        console.log(`Fleet.handleClick called - isRightClick: ${isRightClick}, mousePos:`, mousePos);
         const worldPos = this.game.camera.screenToWorld(mousePos.x, mousePos.y);
         const clickedTerritory = this.findTerritoryAtPosition(worldPos);
         
+        console.log(`Fleet: Found territory: ${clickedTerritory?.id || 'none'} at world pos:`, worldPos);
+        
         if (clickedTerritory) {
-            return this.handleTerritoryClick(clickedTerritory, isRightClick);
+            const result = this.handleTerritoryClick(clickedTerritory, isRightClick);
+            console.log(`Fleet: handleTerritoryClick result: ${result}`);
+            return result;
         } else {
-            return this.handleBlankSpaceClick();
+            const result = this.handleBlankSpaceClick();
+            console.log(`Fleet: handleBlankSpaceClick result: ${result}`);
+            return result;
         }
     }
     
