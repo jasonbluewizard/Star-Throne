@@ -124,14 +124,14 @@ export class Fleet {
 
         console.log(`Fleet: Launching probe from territory ${fromTerritory.id} to ${toTerritory.id}`);
         
-        // Use the game's existing probe launch system
+        // Use the game's existing probe launch system (expects territory objects, not IDs)
         if (this.game.launchProbe) {
-            const success = this.game.launchProbe(humanPlayer.id, fromTerritory.id, toTerritory.id);
-            if (success) {
+            try {
+                this.game.launchProbe(fromTerritory, toTerritory);
                 console.log(`Fleet: Probe launched successfully`);
                 return true;
-            } else {
-                console.log(`Fleet: Probe launch failed`);
+            } catch (error) {
+                console.log(`Fleet: Probe launch failed:`, error);
                 return false;
             }
         }
