@@ -69,27 +69,32 @@ export class Camera {
         const visibleWidth = this.viewportWidth / this.zoom;
         const visibleHeight = this.viewportHeight / this.zoom;
         
+        // Add debugging for map dimensions
+        if (this.mapWidth === 1800 && this.mapHeight === 1400) {
+            console.log(`⚠️ Camera using default dimensions ${this.mapWidth}x${this.mapHeight} - may need updating`);
+        }
+        
         // If the map is smaller than the viewport, center it
-        if (visibleWidth >= this.mapWidth + 2 * this.boundaryPadding) {
+        if (visibleWidth >= this.mapWidth) {
             // Center horizontally when zoomed out enough to see entire width
             const mapCenterX = this.mapWidth / 2;
             this.x = mapCenterX - visibleWidth / 2;
             this.targetX = this.x;
         } else {
-            // Normal pan constraints for width
+            // Normal pan constraints for width with more generous boundaries
             const minX = -this.boundaryPadding;
             const maxX = this.mapWidth + this.boundaryPadding - visibleWidth;
             this.x = Math.max(minX, Math.min(maxX, this.x));
             this.targetX = Math.max(minX, Math.min(maxX, this.targetX));
         }
         
-        if (visibleHeight >= this.mapHeight + 2 * this.boundaryPadding) {
+        if (visibleHeight >= this.mapHeight) {
             // Center vertically when zoomed out enough to see entire height
             const mapCenterY = this.mapHeight / 2;
             this.y = mapCenterY - visibleHeight / 2;
             this.targetY = this.y;
         } else {
-            // Normal pan constraints for height
+            // Normal pan constraints for height with more generous boundaries
             const minY = -this.boundaryPadding;
             const maxY = this.mapHeight + this.boundaryPadding - visibleHeight;
             this.y = Math.max(minY, Math.min(maxY, this.y));

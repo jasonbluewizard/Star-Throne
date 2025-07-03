@@ -1142,6 +1142,8 @@ export default class StarThrone {
         this.camera.mapWidth = MapGenerator.mapWidth;
         this.camera.mapHeight = MapGenerator.mapHeight;
         
+        console.log(`📷 Camera updated with map dimensions: ${MapGenerator.mapWidth} x ${MapGenerator.mapHeight}`);
+        
         // Build spatial index for O(1) territory lookups (60% performance improvement)
         this.gameMap.buildSpatialIndex();
         this.log('Advanced map generation completed with spatial index', 'info');
