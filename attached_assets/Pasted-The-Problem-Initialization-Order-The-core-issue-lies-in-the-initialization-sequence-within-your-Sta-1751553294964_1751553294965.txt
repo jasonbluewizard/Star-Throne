@@ -1,0 +1,87 @@
+The Problem: Initialization Order
+The core issue lies in the initialization sequence within your StarThrone.js file. Here's a breakdown of the faulty logic:
+
+
+this.setupEventListeners() Called Too Early: In the init() method of StarThrone.js, you call this.setupEventListeners() before you instantiate InputHandler.
+
+
+
+Method is Empty: The StarThrone.js version of setupEventListeners() has had its mouse event logic removed to prevent conflicts, as it's now meant to be handled by InputHandler.
+
+
+InputHandler Instantiation: You then create new InputHandler(this). The 
+
+InputHandler constructor immediately calls its own setupEventListeners() method.
+
+No Canvas Reference: The problem is that the InputHandler's setupEventListeners method is called from its constructor, which is executed as part of the StarThrone.init sequence. The 
+
+canvas object is passed to InputHandler, but at the point of 
+
+InputHandler's construction, the StarThrone.setupEventListeners has already run.
+
+The console log confirms this. The absence of the "InputHandler: Setting up event listeners" message indicates that the 
+
+setupEventListeners method inside InputHandler is never being successfully called, preventing the crucial addEventListener calls for mouse events. The unhandled rejection error mentioned in the debug log is a strong indicator that a critical system, like the 
+
+InputHandler, failed to initialize correctly, which in turn blocks all subsequent event handling.
+
+The Solution: Correcting the Initialization
+To fix this, you need to ensure that the InputHandler is created before its event listeners are set up. The most direct way to do this is to remove the premature call to setupEventListeners() from StarThrone.js's init() method. The InputHandler's own constructor will correctly handle the setup.
+
+Recommended Code Change
+In CLIENT/SRC/GAME/STARTHRONE.JS:
+
+Modify the init() method by removing the initial call to setupEventListeners.
+
+Before:
+
+JavaScript
+
+init() {
+    this.setupCanvas();
+    this.setupEventListeners(); // This call is the problem
+    this.gameMap = new GameMap(2000, 1500, this.config);
+    this.camera = new Camera(this.canvas.width, this.canvas.height);
+    this.ui = new GameUI(this.canvas, this.camera);
+    try {
+        this.inputHandler = new InputHandler(this);
+        console.log('InputHandler initialized successfully');
+    } catch (error) {
+        console.error('Failed to initialize InputHandler:', error);
+    }
+    
+    // Other systems...
+    this.fleet = new Fleet(this);
+    // ...
+}
+After:
+
+JavaScript
+
+init() {
+    this.setupCanvas();
+    // this.setupEventListeners(); // REMOVE THIS LINE
+    this.gameMap = new GameMap(2000, 1500, this.config);
+    this.camera = new Camera(this.canvas.width, this.canvas.height);
+    this.ui = new GameUI(this.canvas, this.camera);
+    try {
+        this.inputHandler = new InputHandler(this); // InputHandler now correctly sets up its own listeners
+        console.log('InputHandler initialized successfully');
+    } catch (error) {
+        console.error('Failed to initialize InputHandler:', error);
+    }
+    
+    // Other systems...
+    this.fleet = new Fleet(this);
+    console.log('Fleet control system initialized');
+    console.log('InputHandler Fleet reference check:', !!this.inputHandler.game.fleet);
+    
+    // This test listener should now work correctly
+    this.canvas.addEventListener('click', (e) => {
+        console.log('*** DIRECT CANVAS CLICK DETECTED ***');
+        console.log('Click coordinates:', e.clientX, e.clientY);
+    });
+}
+By making this change, the InputHandler will be created and will properly attach all necessary mouse event listeners to the canvas. This will resolve the issue where events are not being detected, allowing your 
+
+Fleet.handleClick() logic to be reached as intended.

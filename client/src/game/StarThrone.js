@@ -376,7 +376,7 @@ export default class StarThrone {
         console.log('- Canvas element type:', this.canvas?.constructor.name);
         console.log('- Canvas in DOM:', document.contains(this.canvas));
         
-        this.setupEventListeners();
+        // REMOVED: this.setupEventListeners() - InputHandler will handle its own event setup
         this.gameMap = new GameMap(2000, 1500, this.config); // Large map with advanced configuration
         this.gameMap.game = this; // Reference for AI animations
         this.camera = new Camera(this.canvas.width, this.canvas.height);
