@@ -569,6 +569,12 @@ Changelog:
    * Added throttled mouse event processing with pending event queuing for smooth frame-rate-locked input handling
    * Integrated throttled event processing into main game loop for consistent performance
    * DOM optimizations prevent forced reflows during frequent mousemove events and improve overall responsiveness
+- January 3, 2025. Critical bug fixes and high-DPI visual enhancement:
+   * Fixed "forEach undefined" error in renderConnections method causing game loop crashes
+   * Corrected visible territories iteration to properly handle territory ID Sets instead of objects
+   * Implemented high-DPI canvas scaling with device pixel ratio support for crisp rendering on retina displays
+   * Added proper DPI scaling to canvas resize handler maintaining visual quality across screen types
+   * Performance optimization phase completed successfully with smooth gameplay on Chromebooks and low-end hardware
 
 ## User Preferences
 
