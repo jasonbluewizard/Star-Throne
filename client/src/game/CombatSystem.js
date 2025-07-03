@@ -129,12 +129,18 @@ export class CombatSystem {
             return false;
         }
         
+        // Check if battle should end before fighting
+        if (battle.attackersRemaining <= 0 || battle.defendersRemaining <= 0) {
+            this.completeBattle(battle);
+            return true;
+        }
+        
         // Fight one round
         const attackerWins = Math.random() < battle.attackerWinChance;
         
         if (attackerWins) {
             // Attacker wins this round - defender loses one ship
-            battle.defendersRemaining--;
+            battle.defendersRemaining = Math.max(0, battle.defendersRemaining - 1);
             
             // Flash the defending planet with attacker's color
             this.flashPlanet(battle.defendingTerritory, battle.attacker.color);
@@ -142,14 +148,14 @@ export class CombatSystem {
             console.log(`Attacker wins round: ${battle.attackersRemaining} vs ${battle.defendersRemaining}`);
         } else {
             // Defender wins this round - attacker loses one ship
-            battle.attackersRemaining--;
+            battle.attackersRemaining = Math.max(0, battle.attackersRemaining - 1);
             
             console.log(`Defender wins round: ${battle.attackersRemaining} vs ${battle.defendersRemaining}`);
         }
         
         battle.lastBattleTime = currentTime;
         
-        // Check if battle is over
+        // Check if battle is over after this round
         if (battle.attackersRemaining <= 0 || battle.defendersRemaining <= 0) {
             this.completeBattle(battle);
             return true;
@@ -163,12 +169,12 @@ export class CombatSystem {
      * @param {Object} battle - Battle object
      */
     completeBattle(battle) {
-        const attackerWins = battle.attackersRemaining > 0;
+        const attackerWins = battle.attackersRemaining > 0 && battle.defendersRemaining <= 0;
         
         if (attackerWins) {
             // Territory captured
             const oldOwner = battle.defender;
-            const survivingAttackers = battle.attackersRemaining;
+            const survivingAttackers = Math.max(1, battle.attackersRemaining);
             
             // Check for throne star capture before changing ownership
             const isThroneCapture = battle.defendingTerritory.isThronestar;
@@ -191,10 +197,10 @@ export class CombatSystem {
                 startY: battle.defendingTerritory.y
             };
             
-            console.log(`Battle won: ${battle.attackingTerritory.id} captures ${battle.defendingTerritory.id}`);
+            console.log(`Battle won: ${battle.attackingTerritory.id} captures ${battle.defendingTerritory.id} with ${survivingAttackers} armies`);
         } else {
-            // Attack failed
-            battle.defendingTerritory.armySize = battle.defendersRemaining;
+            // Attack failed - ensure defenders have at least 1 army
+            battle.defendingTerritory.armySize = Math.max(1, battle.defendersRemaining);
             
             // Add floating combat text
             battle.defendingTerritory.floatingText = {
@@ -204,7 +210,7 @@ export class CombatSystem {
                 startY: battle.defendingTerritory.y
             };
             
-            console.log(`Battle lost: ${battle.defendingTerritory.id} defended successfully`);
+            console.log(`Battle lost: ${battle.defendingTerritory.id} defended successfully with ${battle.defendingTerritory.armySize} armies remaining`);
         }
     }
 
