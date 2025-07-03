@@ -1,0 +1,754 @@
+# Star Throne Supply Route System - Complete Code Documentation
+# Created for AI analysis and debugging assistance
+
+## OVERVIEW & CURRENT ISSUES
+
+Star Throne is a real-time strategy game built with React frontend and JavaScript game engine using HTML5 Canvas.
+The game features territorial conquest with supply routes for automated army transfers between owned territories.
+
+**CURRENT PROBLEMS:**
+1. Supply routes are created successfully (armies do transfer - confirmed in logs)
+2. Ship animations are not visible during transfers
+3. Supply route lines (dotted cyan lines) disappear after being displayed briefly
+4. User can create supply routes via double-click but visual feedback is missing
+
+**DEBUG EVIDENCE:**
+- Console shows: "Supply transfer: 7 armies via 1 hop (2000ms delay)" and "Supply delivery: +7 armies to territory 62"
+- Console shows: "Supply route created: 79 → 62 (3 hops)" and "Supply route established: 2 hops"
+- Console shows: "Supply route route_XXXXX invalidated - path broken" and "Supply route route_XXXXX rerouted"
+
+## ARCHITECTURE OVERVIEW
+
+The supply route system consists of several interconnected modules:
+
+1. **SupplySystem.js** - Main supply route logic and management
+2. **PathfindingService.js** - Shortest path calculation between territories  
+3. **AnimationSystem.js** - Ship animations and visual effects
+4. **InputHandler.js** - Double-click detection for supply route creation
+5. **StarThrone.js** - Main game controller integrating all systems
+
+Game data structure:
+- `gameMap.territories` is an object where keys are territory IDs and values are territory objects
+- Territories have properties: id, x, y, neighbors, ownerId, armySize, etc.
+- Pathfinding expects an array of territories but gets an object
+
+## COMPLETE SOURCE CODE
+
+### 1. SupplySystem.js (Main Supply Route Management)
+```javascript
+/**
+ * SupplySystem.js - Supply route management module
+ * 
+ * Manages the creation, validation, and processing of supply routes.
+ * Uses the new PathfindingService for route calculations.
+ */
+
+import { GAME_CONSTANTS } from '../../../common/gameConstants';
+import { PathfindingService } from './PathfindingService';
+
+export class SupplySystem {
+    constructor(game) {
+        this.game = game;
+        this.supplyRoutes = [];
+        this.pathfindingService = new PathfindingService();
+        
+        console.log('SupplySystem initialized');
+    }
+    
+    async createSupplyRoute(fromTerritory, toTerritory) {
+        console.log('SupplySystem: createSupplyRoute called', fromTerritory.id, toTerritory.id);
+        
+        // Validate the supply route creation
+        const validation = this.validateSupplyRouteCreation(fromTerritory, toTerritory);
+        if (!validation.valid) {
+            console.warn('Supply route validation failed:', validation.reason);
+            return { success: false, reason: validation.reason };
+        }
+        
+        // Check for existing route between these territories
+        const existingRoute = this.findExistingRoute(fromTerritory.id, toTerritory.id);
+        if (existingRoute) {
+            console.log('Supply route already exists between these territories');
+            return { success: false, reason: 'Route already exists' };
+        }
+        
+        try {
+            // Find path between territories using pathfinding service
+            console.log('SupplySystem: calling pathfindingService.findShortestPath');
+            const path = await this.findPathBetweenTerritories(fromTerritory, toTerritory);
+            
+            if (!path || path.length < 2) {
+                console.warn('No valid path found between territories');
+                return { success: false, reason: 'No path found' };
+            }
+            
+            console.log('SupplySystem: pathfinding result:', path);
+            
+            // Create the supply route
+            const route = {
+                id: this.generateRouteId(),
+                fromId: fromTerritory.id,
+                toId: toTerritory.id,
+                path: path,
+                active: true,
+                created: Date.now(),
+                lastTransfer: 0,
+                transferCooldown: GAME_CONSTANTS.SUPPLY_ROUTE.TRANSFER_INTERVAL
+            };
+            
+            this.supplyRoutes.push(route);
+            
+            console.log(`Supply route created: ${fromTerritory.id} → ${toTerritory.id} (${path.length} hops)`);
+            
+            // Show user feedback
+            if (this.game.uiManager) {
+                this.game.uiManager.showMessage(`Supply route established: ${path.length - 1} hops`);
+            }
+            
+            console.log(`Supply route created: ${fromTerritory.id} → ${toTerritory.id}`);
+            return { success: true, route: route };
+            
+        } catch (error) {
+            console.error('Error creating supply route:', error);
+            return { success: false, reason: 'Internal error' };
+        }
+    }
+    
+    validateSupplyRouteCreation(fromTerritory, toTerritory) {
+        if (!fromTerritory || !toTerritory) {
+            return { valid: false, reason: 'Invalid territories' };
+        }
+        
+        if (!this.game.humanPlayer) {
+            return { valid: false, reason: 'No human player' };
+        }
+        
+        if (fromTerritory.ownerId !== this.game.humanPlayer.id) {
+            return { valid: false, reason: 'Source territory not owned by player' };
+        }
+        
+        if (toTerritory.ownerId !== this.game.humanPlayer.id) {
+            return { valid: false, reason: 'Destination territory not owned by player' };
+        }
+        
+        if (fromTerritory.id === toTerritory.id) {
+            return { valid: false, reason: 'Cannot create route to same territory' };
+        }
+        
+        return { valid: true };
+    }
+    
+    findExistingRoute(fromId, toId) {
+        return this.supplyRoutes.find(route => 
+            route.active && 
+            route.fromId === fromId && 
+            route.toId === toId
+        );
+    }
+    
+    async findPathBetweenTerritories(fromTerritory, toTerritory) {
+        // Convert territories object to array for pathfinding service
+        const territoriesArray = Object.values(this.game.gameMap.territories);
+        console.log('SupplySystem: created graph with', territoriesArray.length, 'territories');
+        console.log('SupplySystem: first few territories:', territoriesArray.slice(0, 3));
+        console.log('SupplySystem: humanPlayer:', this.game.humanPlayer);
+        
+        return this.pathfindingService.findShortestPath(
+            territoriesArray,
+            fromTerritory.id,
+            toTerritory.id,
+            this.game.humanPlayer.id
+        );
+    }
+    
+    // Validation and route management
+    validateSupplyRoutes() {
+        if (!this.game.humanPlayer) return;
+        
+        const playerId = this.game.humanPlayer.id;
+        const routesToRemove = [];
+        
+        for (const route of this.supplyRoutes) {
+            if (!route.active) continue;
+            
+            // Check if path is still valid
+            if (!this.isPathValid(route.path, playerId)) {
+                console.log(`Supply route ${route.id} invalidated - path broken`);
+                
+                // Try to reroute
+                const fromTerritory = this.game.gameMap.territories[route.fromId];
+                const toTerritory = this.game.gameMap.territories[route.toId];
+                
+                if (fromTerritory && toTerritory && 
+                    fromTerritory.ownerId === playerId && 
+                    toTerritory.ownerId === playerId) {
+                    
+                    // Attempt rerouting
+                    this.findPathBetweenTerritories(fromTerritory, toTerritory)
+                        .then(newPath => {
+                            if (newPath && newPath.length >= 2) {
+                                route.path = newPath;
+                                console.log(`Supply route ${route.id} rerouted`);
+                            } else {
+                                route.active = false;
+                                routesToRemove.push(route.id);
+                            }
+                        })
+                        .catch(() => {
+                            route.active = false;
+                            routesToRemove.push(route.id);
+                        });
+                } else {
+                    route.active = false;
+                    routesToRemove.push(route.id);
+                }
+            }
+        }
+        
+        // Clean up invalid routes
+        for (const routeId of routesToRemove) {
+            this.removeSupplyRoute(routeId);
+        }
+    }
+    
+    isPathValid(path, ownerId) {
+        // Path contains territory IDs, not territory objects
+        for (const territoryId of path) {
+            const territory = this.game.gameMap.territories[territoryId];
+            if (!territory || territory.ownerId !== ownerId) {
+                return false;
+            }
+        }
+        
+        // Check path connectivity
+        for (let i = 0; i < path.length - 1; i++) {
+            const currentId = path[i];
+            const nextId = path[i + 1];
+            const current = this.game.gameMap.territories[currentId];
+            
+            if (!current || !current.neighbors.includes(nextId)) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+    
+    // Supply route processing
+    processSupplyRoutes(deltaTime) {
+        if (!this.game.humanPlayer || this.supplyRoutes.length === 0) return;
+        
+        const activeRoutes = this.supplyRoutes.filter(route => route.active);
+        if (activeRoutes.length === 0) return;
+        
+        console.log(`Processing ${activeRoutes.length} supply routes`);
+        
+        for (const route of activeRoutes) {
+            const now = Date.now();
+            
+            // Check cooldown
+            if (now - route.lastTransfer < route.transferCooldown) {
+                continue;
+            }
+            
+            const fromTerritory = this.game.gameMap.territories[route.fromId];
+            const toTerritory = this.game.gameMap.territories[route.toId];
+            
+            if (!fromTerritory || !toTerritory) {
+                route.active = false;
+                continue;
+            }
+            
+            // Check if transfer should happen
+            if (this.shouldTransferArmies(fromTerritory, toTerritory)) {
+                this.executeSupplyTransfer(route, fromTerritory, toTerritory);
+                route.lastTransfer = now;
+            }
+        }
+    }
+    
+    shouldTransferArmies(fromTerritory, toTerritory) {
+        const armyDifference = fromTerritory.armySize - toTerritory.armySize;
+        const threshold = GAME_CONSTANTS.SUPPLY_ROUTE.ARMY_DIFFERENCE_THRESHOLD;
+        
+        console.log(`Supply check: ${fromTerritory.id}(${fromTerritory.armySize}) -> ${toTerritory.id}(${toTerritory.armySize}), diff: ${armyDifference}, threshold: ${threshold}`);
+        
+        if (armyDifference >= threshold) {
+            console.log(`✓ Supply transfer approved: ${fromTerritory.id} -> ${toTerritory.id}`);
+            return true;
+        }
+        
+        return false;
+    }
+    
+    executeSupplyTransfer(route, fromTerritory, toTerritory) {
+        const transferAmount = Math.floor((fromTerritory.armySize - toTerritory.armySize) / 2);
+        const hopsCount = route.path.length - 1;
+        const deliveryDelay = hopsCount * GAME_CONSTANTS.SUPPLY_ROUTE.DELAY_PER_HOP;
+        
+        // Deduct armies from source
+        fromTerritory.armySize -= transferAmount;
+        
+        // Schedule delayed delivery
+        this.createDelayedSupplyTransfer(toTerritory, transferAmount, deliveryDelay, route);
+        
+        // Create multi-hop ship animation
+        this.createSupplyRouteAnimation(route, transferAmount);
+        
+        console.log(`Supply transfer: ${transferAmount} armies via ${hopsCount} hop${hopsCount > 1 ? 's' : ''} (${deliveryDelay}ms delay)`);
+    }
+    
+    createDelayedSupplyTransfer(toTerritory, amount, delay, route) {
+        setTimeout(() => {
+            // Verify territory still exists and is owned
+            if (toTerritory && toTerritory.ownerId === this.game.humanPlayer?.id) {
+                toTerritory.armySize += amount;
+                
+                // Visual feedback
+                toTerritory.floatingText = {
+                    text: `+${amount}`,
+                    color: '#00ffff',
+                    startTime: Date.now(),
+                    duration: 2000,
+                    endTime: Date.now() + 2000
+                };
+                
+                console.log(`Supply delivery: +${amount} armies to territory ${toTerritory.id}`);
+            }
+        }, delay);
+    }
+    
+    createSupplyRouteAnimation(route, amount) {
+        if (!route.path || route.path.length < 2) return;
+        
+        const player = this.game.humanPlayer;
+        if (!player) return;
+        
+        // Create multi-segment animation following the supply route path
+        const segments = [];
+        for (let i = 0; i < route.path.length - 1; i++) {
+            const fromTerritory = this.game.gameMap.territories[route.path[i]];
+            const toTerritory = this.game.gameMap.territories[route.path[i + 1]];
+            
+            if (fromTerritory && toTerritory) {
+                segments.push({
+                    from: { x: fromTerritory.x, y: fromTerritory.y },
+                    to: { x: toTerritory.x, y: toTerritory.y }
+                });
+            }
+        }
+        
+        const totalDuration = segments.length * 800; // 800ms per segment
+        
+        // Get start and end territory objects
+        const startTerritory = this.game.gameMap.territories[route.path[0]];
+        const endTerritory = this.game.gameMap.territories[route.path[route.path.length - 1]];
+        
+        if (startTerritory && endTerritory && this.game.animationSystem) {
+            // Create supply route object for animation system
+            const supplyRouteForAnimation = {
+                from: startTerritory,
+                to: endTerritory,
+                path: route.path.map(id => this.game.gameMap.territories[id]).filter(t => t),
+                segments: segments
+            };
+            
+            this.game.animationSystem.createSupplyRouteAnimation(supplyRouteForAnimation, player.color);
+            console.log(`Created supply route animation with ${segments.length} segments`);
+        }
+    }
+    
+    generateRouteId() {
+        return `route_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+    
+    // Public interface
+    getActiveSupplyRoutes() {
+        return this.supplyRoutes.filter(route => route.active);
+    }
+    
+    getSupplyRouteCount() {
+        return this.supplyRoutes.length;
+    }
+    
+    removeSupplyRoute(routeId) {
+        const index = this.supplyRoutes.findIndex(route => route.id === routeId);
+        if (index !== -1) {
+            this.supplyRoutes.splice(index, 1);
+            console.log(`Supply route ${routeId} removed`);
+        }
+    }
+    
+    removeAllSupplyRoutes() {
+        this.supplyRoutes = [];
+        console.log('All supply routes cleared');
+    }
+    
+    // Rendering
+    renderSupplyRoutes(ctx, territories) {
+        if (!this.game.humanPlayer) return;
+        
+        const activeRoutes = this.getActiveSupplyRoutes();
+        
+        for (const route of activeRoutes) {
+            this.renderSupplyRoute(ctx, route, territories);
+        }
+    }
+    
+    renderSupplyRoute(ctx, route, territories) {
+        if (!route.path || route.path.length < 2) return;
+        
+        ctx.save();
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 4]);
+        ctx.globalAlpha = 0.7;
+        
+        ctx.beginPath();
+        for (let i = 0; i < route.path.length - 1; i++) {
+            const fromTerritory = territories[route.path[i]];
+            const toTerritory = territories[route.path[i + 1]];
+            
+            if (fromTerritory && toTerritory) {
+                if (i === 0) {
+                    ctx.moveTo(fromTerritory.x, fromTerritory.y);
+                }
+                ctx.lineTo(toTerritory.x, toTerritory.y);
+            }
+        }
+        ctx.stroke();
+        
+        ctx.restore();
+    }
+    
+    // Territory-specific route management
+    stopSupplyRoutesFromTerritory(territoryId) {
+        const routesToRemove = this.supplyRoutes.filter(route => 
+            route.active && (route.fromId === territoryId || route.toId === territoryId)
+        );
+        
+        for (const route of routesToRemove) {
+            this.removeSupplyRoute(route.id);
+        }
+        
+        console.log(`Stopped ${routesToRemove.length} supply routes from/to territory ${territoryId}`);
+    }
+    
+    getSupplyRoutesBetween(territoryId1, territoryId2) {
+        return this.supplyRoutes.filter(route => 
+            route.active &&
+            ((route.fromId === territoryId1 && route.toId === territoryId2) ||
+             (route.fromId === territoryId2 && route.toId === territoryId1))
+        );
+    }
+    
+    // Debug and stats
+    getSupplyRouteStats() {
+        const active = this.supplyRoutes.filter(r => r.active).length;
+        const total = this.supplyRoutes.length;
+        
+        return {
+            activeRoutes: active,
+            totalRoutes: total,
+            inactiveRoutes: total - active
+        };
+    }
+    
+    logSupplyRouteDebug() {
+        console.log('=== Supply Route Debug ===');
+        console.log(`Total routes: ${this.supplyRoutes.length}`);
+        console.log(`Active routes: ${this.getActiveSupplyRoutes().length}`);
+        
+        for (const route of this.supplyRoutes) {
+            console.log(`Route ${route.id}: ${route.fromId} → ${route.toId} (${route.active ? 'active' : 'inactive'})`);
+        }
+        console.log('========================');
+    }
+}
+```
+
+### 2. PathfindingService.js (Shortest Path Calculation)
+```javascript
+/**
+ * PathfindingService.js - Pathfinding for supply routes
+ * 
+ * Handles shortest path calculation between territories using Dijkstra's algorithm.
+ * Only considers territories owned by the specified player.
+ */
+
+export class PathfindingService {
+    constructor() {
+        // Class is stateless, all methods work with provided data
+    }
+    
+    /**
+     * Find shortest path between two territories
+     * @param {Array} territories - Array of all territory objects
+     * @param {number} startId - Starting territory ID
+     * @param {number} endId - Ending territory ID
+     * @param {string} playerId - Player ID (only traverse owned territories)
+     * @returns {Array|null} Array of territory IDs forming the path, or null if no path
+     */
+    findShortestPath(territories, startId, endId, playerId) {
+        console.log('PathfindingService: territories array length:', territories.length);
+        
+        // Find start and end territories
+        const startTerritory = territories.find(t => t.id === startId);
+        const endTerritory = territories.find(t => t.id === endId);
+        
+        console.log('PathfindingService: startTerritory:', startTerritory);
+        console.log('PathfindingService: endTerritory:', endTerritory);
+        console.log('PathfindingService: playerId:', playerId);
+        
+        if (!startTerritory || !endTerritory) {
+            console.warn('PathfindingService: Start or end territory not found');
+            return null;
+        }
+        
+        if (startTerritory.ownerId !== playerId || endTerritory.ownerId !== playerId) {
+            console.warn('PathfindingService: Start or end territory not owned by player');
+            return null;
+        }
+        
+        // Filter to only player-owned territories
+        const ownedTerritories = territories.filter(t => t.ownerId === playerId);
+        
+        if (ownedTerritories.length === 0) {
+            console.warn('PathfindingService: No owned territories found');
+            return null;
+        }
+        
+        // Build adjacency map for owned territories only
+        const adjacencyMap = new Map();
+        
+        for (const territory of ownedTerritories) {
+            const ownedNeighbors = territory.neighbors.filter(neighborId => {
+                const neighbor = territories.find(t => t.id === neighborId);
+                return neighbor && neighbor.ownerId === playerId;
+            });
+            
+            adjacencyMap.set(territory.id, ownedNeighbors);
+        }
+        
+        // Run Dijkstra's algorithm
+        const path = this.dijkstra(adjacencyMap, startId, endId);
+        
+        console.log('PathfindingService: path found:', path);
+        return path;
+    }
+    
+    /**
+     * Dijkstra's shortest path algorithm
+     * @param {Map} adjacencyMap - Map of territory ID to array of neighbor IDs
+     * @param {number} startId - Starting territory ID
+     * @param {number} endId - Ending territory ID
+     * @returns {Array|null} Array of territory IDs forming the path, or null if no path
+     */
+    dijkstra(adjacencyMap, startId, endId) {
+        // Initialize distances and previous nodes
+        const distances = new Map();
+        const previous = new Map();
+        const unvisited = new Set();
+        
+        // Set initial distances
+        for (const territoryId of adjacencyMap.keys()) {
+            distances.set(territoryId, territoryId === startId ? 0 : Infinity);
+            previous.set(territoryId, null);
+            unvisited.add(territoryId);
+        }
+        
+        while (unvisited.size > 0) {
+            // Find unvisited node with minimum distance
+            let currentId = null;
+            let minDistance = Infinity;
+            
+            for (const territoryId of unvisited) {
+                const distance = distances.get(territoryId);
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    currentId = territoryId;
+                }
+            }
+            
+            if (currentId === null || minDistance === Infinity) {
+                // No path possible
+                break;
+            }
+            
+            // Remove current from unvisited
+            unvisited.delete(currentId);
+            
+            // If we reached the end, reconstruct path
+            if (currentId === endId) {
+                return this.reconstructPath(previous, startId, endId);
+            }
+            
+            // Update distances to neighbors
+            const neighbors = adjacencyMap.get(currentId) || [];
+            const currentDistance = distances.get(currentId);
+            
+            for (const neighborId of neighbors) {
+                if (unvisited.has(neighborId)) {
+                    const newDistance = currentDistance + 1; // Each hop has weight 1
+                    
+                    if (newDistance < distances.get(neighborId)) {
+                        distances.set(neighborId, newDistance);
+                        previous.set(neighborId, currentId);
+                    }
+                }
+            }
+        }
+        
+        // No path found
+        return null;
+    }
+    
+    /**
+     * Reconstruct the shortest path from the previous nodes map
+     * @param {Map} previous - Map of territory ID to previous territory ID in path
+     * @param {number} startId - Starting territory ID
+     * @param {number} endId - Ending territory ID
+     * @returns {Array} Array of territory IDs forming the path
+     */
+    reconstructPath(previous, startId, endId) {
+        const path = [];
+        let currentId = endId;
+        
+        while (currentId !== null) {
+            path.unshift(currentId);
+            currentId = previous.get(currentId);
+        }
+        
+        // Verify the path starts with startId
+        if (path[0] !== startId) {
+            console.warn('PathfindingService: Path reconstruction failed');
+            return null;
+        }
+        
+        return path;
+    }
+}
+```
+
+### 3. AnimationSystem.js (Ship Animations - Relevant Parts)
+```javascript
+// Excerpt from AnimationSystem.js showing supply route animation method
+
+createSupplyRouteAnimation(supplyRoute, color) {
+    const animation = this.getAvailableShipAnimation();
+    if (!animation) return;
+
+    animation.active = true;
+    animation.startTime = Date.now();
+    animation.segments = supplyRoute.segments || [];
+    animation.currentSegment = 0;
+    animation.color = color;
+    animation.supplyRoute = true;
+    animation.duration = supplyRoute.segments ? supplyRoute.segments.length * 800 : 1600;
+    
+    // Set initial position
+    if (supplyRoute.segments && supplyRoute.segments.length > 0) {
+        animation.x = supplyRoute.segments[0].from.x;
+        animation.y = supplyRoute.segments[0].from.y;
+        animation.targetX = supplyRoute.segments[0].to.x;
+        animation.targetY = supplyRoute.segments[0].to.y;
+    } else {
+        animation.x = supplyRoute.from.x;
+        animation.y = supplyRoute.from.y;
+        animation.targetX = supplyRoute.to.x;
+        animation.targetY = supplyRoute.to.y;
+    }
+    
+    return animation;
+}
+```
+
+### 4. InputHandler.js (Double-Click Detection - Relevant Part)
+```javascript
+// Excerpt from InputHandler.js showing double-click handling
+
+handleDoubleClick(clientX, clientY) {
+    const gameCoords = this.camera.screenToGameCoords(clientX, clientY);
+    const territory = this.game.findTerritoryAt(gameCoords.x, gameCoords.y);
+    
+    if (territory) {
+        console.log(`Double-click detected on territory ${territory.id}`);
+        
+        if (territory.ownerId === this.game.humanPlayer?.id) {
+            console.log(`handleDoubleClick called for territory ${territory.id}, owned by player ${territory.ownerId}`);
+            
+            const selectedTerritory = this.game.selectedTerritory;
+            if (selectedTerritory && selectedTerritory.id !== territory.id && selectedTerritory.ownerId === this.game.humanPlayer?.id) {
+                console.log(`Selected territory: ${selectedTerritory.id}, double-clicked territory: ${territory.id}`);
+                console.log(`Creating supply route from ${selectedTerritory.id} to ${territory.id}`);
+                
+                // Create supply route between selected territory and double-clicked territory
+                this.game.supplySystem.createSupplyRoute(selectedTerritory, territory);
+            }
+        }
+    }
+}
+```
+
+### 5. Game Constants (Relevant Parts)
+```javascript
+// From common/gameConstants.ts
+export const GAME_CONSTANTS = {
+    SUPPLY_ROUTE: {
+        TRANSFER_INTERVAL: 3000,        // 3 seconds between transfers
+        ARMY_DIFFERENCE_THRESHOLD: 5,   // Minimum army difference to trigger transfer
+        DELAY_PER_HOP: 2000,           // 2 seconds delay per hop in supply chain
+        MAX_ROUTES_PER_PLAYER: 20      // Maximum supply routes per player
+    }
+};
+```
+
+## INTEGRATION POINTS
+
+### StarThrone.js Integration
+```javascript
+// In StarThrone.js constructor:
+this.supplySystem = new SupplySystem(this);
+
+// In main game loop update():
+if (this.supplySystem) {
+    this.supplySystem.processSupplyRoutes(deltaTime);
+}
+
+// In render method:
+if (this.supplySystem) {
+    this.supplySystem.renderSupplyRoutes(ctx, this.gameMap.territories);
+}
+
+// Validation called periodically:
+if (this.frameCount % 45 === 0 && this.supplySystem) {
+    this.supplySystem.validateSupplyRoutes();
+}
+```
+
+## DEBUGGING EVIDENCE & ANALYSIS
+
+**Working Components:**
+1. Supply route creation logic works (console confirms route creation)
+2. Pathfinding works (finds valid paths like [79,69,62])
+3. Army transfers work (armies are actually moved between territories)
+4. Double-click detection works (properly detects input)
+
+**Failing Components:**
+1. Ship animations not visible (no console logs from animation creation)
+2. Supply route lines disappear (validation invalidates routes)
+3. Visual feedback missing during transfers
+
+**Key Issues Identified:**
+1. **Animation System Interface Mismatch**: The animation method expects different parameters than what's being passed
+2. **Path Validation Bug**: The validation was checking for territory objects but paths contain IDs
+3. **Data Structure Inconsistency**: Game map is object but pathfinding expects array
+4. **Missing Error Handling**: Silent failures in animation system
+
+**Recent Fixes Applied:**
+1. Fixed path validation to check territory IDs correctly
+2. Updated animation method call to match expected interface
+3. Added proper territory object retrieval for animations
+4. Enhanced error logging and debugging output
+
+The supply route system should now work properly with both army transfers and visual feedback (ship animations and persistent route lines).
