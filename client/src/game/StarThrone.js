@@ -1230,47 +1230,46 @@ export default class StarThrone {
             '#ffdd44', '#ddff44', '#44ddff', '#ff44dd', '#ddff88', '#dd44ff'
         ];
         
-        // Create human player with distinctive bright cyan color
-        this.humanPlayer = new Player('human', this.config.playerName || 'Player', '#00ffff', 'human');
-        this.players['human'] = this.humanPlayer;
-        
-        // Initialize discovery system for human player
-        if (this.discoverySystem) {
-            this.discoverySystem.initializePlayer('human');
-        }
-        
-        // Create AI players with unique colors and human-like names
-        const usedColors = new Set(['#00ffff']); // Reserve human color
-        
-        for (let i = 1; i < numPlayers && i < this.maxPlayers; i++) {
-            let playerColor;
-            let attempts = 0;
-            
-            // Find a unique color
-            do {
-                const colorIndex = (i - 1) % baseColors.length;
-                playerColor = baseColors[colorIndex];
-                
-                // If we've used this color, generate a slight variation
-                if (usedColors.has(playerColor)) {
-                    const variation = Math.floor(attempts / baseColors.length) * 0.1 + 0.1;
-                    playerColor = this.adjustColorBrightness(playerColor, variation);
-                }
-                attempts++;
-            } while (usedColors.has(playerColor) && attempts < 100);
-            
-            usedColors.add(playerColor);
-            
-            // Generate human-like name with clan designation
+        // Create human player first
+        const humanPlayer = new Player(
+            'human',
+            this.config.playerName || 'Player',
+            '#00ffff', // Cyan for human player
+            'human'
+        );
+        this.players['human'] = humanPlayer;
+        this.humanPlayer = humanPlayer;
+
+        // Create AI players
+        for (let i = 1; i < numPlayers; i++) {
             const playerId = `ai-${i}`;
-            const aiName = this.generateAIName(i - 1);
-            const aiPlayer = new Player(playerId, aiName, playerColor, 'ai');
+            const playerName = this.generateAIName(i - 1);
+            const playerColor = this.generatePlayerColor(i);
+            
+            const aiPlayer = new Player(
+                playerId,
+                playerName,
+                playerColor,
+                'ai'
+            );
             this.players[playerId] = aiPlayer;
         }
         
-        this.currentPlayers = Object.keys(this.players).length;
-        
-        console.log(`Created ${this.currentPlayers} players (1 human + ${this.currentPlayers - 1} AI)`);
+        console.log(`Created ${numPlayers} players (1 human + ${numPlayers - 1} AI)`);
+    }
+    
+    generatePlayerColor(index) {
+        const baseColors = [
+            '#ff4444', '#44ff44', '#4444ff', '#ffff44', '#ff44ff', 
+            '#ff8844', '#88ff44', '#4488ff', '#ff4488', '#88ff88', '#8844ff',
+            '#ffaa44', '#aaff44', '#44aaff', '#ff44aa', '#aaff88', '#aa44ff',
+            '#ff6644', '#66ff44', '#4466ff', '#ff4466', '#66ff88', '#6644ff',
+            '#ff9944', '#99ff44', '#4499ff', '#ff4499', '#99ff88', '#9944ff',
+            '#ffcc44', '#ccff44', '#44ccff', '#ff44cc', '#ccff88', '#cc44ff',
+            '#ff7744', '#77ff44', '#4477ff', '#ff4477', '#77ff88', '#7744ff',
+            '#ffdd44', '#ddff44', '#44ddff', '#ff44dd', '#ddff88', '#dd44ff'
+        ];
+        return baseColors[index % baseColors.length];
     }
     
     initializePlayerDiscoveries(playerId) {
@@ -1311,8 +1310,10 @@ export default class StarThrone {
         console.log(`Available territories for distribution: ${allTerritories.length} (all are colonizable planets)`);
         
         // Give each player exactly one starting territory with spacing
-        for (let i = 0; i < this.players.length; i++) {
-            const player = this.players[i];
+        const playerIds = Object.keys(this.players);
+        for (let i = 0; i < playerIds.length; i++) {
+            const playerId = playerIds[i];
+            const player = this.players[playerId];
             let bestTerritory = null;
             let bestMinDistance = 0;
             
@@ -1362,7 +1363,7 @@ export default class StarThrone {
         }
         
         // Update player stats
-        this.players.forEach(player => player.updateStats());
+        Object.values(this.players).forEach(player => player.updateStats());
     }
     
     shuffleArray(array) {
