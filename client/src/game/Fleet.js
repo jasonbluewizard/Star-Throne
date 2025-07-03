@@ -199,7 +199,7 @@ export class Fleet {
             toTerritory,
             fleetSize,
             startTime: Date.now(),
-            duration: 2000, // 2 seconds travel time
+            duration: 800, // Fast 800ms travel time for zippy feel
             progress: 0,
             color: shipColor,
             type: 'transfer'
@@ -315,21 +315,41 @@ export class Fleet {
         ctx.strokeStyle = '#FFFFFF';
         ctx.lineWidth = 1;
         
-        // Ship represented as a small triangle
-        const size = 4;
+        // Ship represented as a larger, more visible triangle with glow effect
+        const size = 6;
+        
+        // Add glow effect
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 8;
+        
         ctx.beginPath();
-        ctx.moveTo(currentX, currentY - size);
-        ctx.lineTo(currentX - size, currentY + size);
-        ctx.lineTo(currentX + size, currentY + size);
+        // Calculate direction for proper triangle orientation
+        const dx = endX - startX;
+        const dy = endY - startY;
+        const angle = Math.atan2(dy, dx);
+        
+        // Oriented triangle pointing in direction of travel
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        
+        ctx.moveTo(currentX + cos * size, currentY + sin * size);
+        ctx.lineTo(currentX - cos * size - sin * size, currentY - sin * size + cos * size);
+        ctx.lineTo(currentX - cos * size + sin * size, currentY - sin * size - cos * size);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
         
-        // Draw fleet size near the ship
+        // Remove shadow for text
+        ctx.shadowBlur = 0;
+        
+        // Draw fleet size indicator with better visibility
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = '10px Arial';
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 2;
+        ctx.font = 'bold 12px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText(fleetSize.toString(), currentX, currentY - 8);
+        ctx.strokeText(fleetSize.toString(), currentX, currentY - size - 8);
+        ctx.fillText(fleetSize.toString(), currentX, currentY - size - 8);
         
         ctx.restore();
     }
