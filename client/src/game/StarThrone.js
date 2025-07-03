@@ -1432,6 +1432,11 @@ export default class StarThrone {
             console.error('Error updating animations:', error);
         }
         
+        // Update combat system for delayed battles
+        if (this.combatSystem) {
+            this.combatSystem.update(deltaTime);
+        }
+        
         // Update modular UI systems
         if (this.uiManager) {
             this.uiManager.update(deltaTime);

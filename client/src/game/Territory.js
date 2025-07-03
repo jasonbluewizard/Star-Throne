@@ -140,7 +140,11 @@ export class Territory {
         if (this.combatFlashTime > 0 && currentTime - this.combatFlashTime < this.combatFlashDuration) {
             const flashProgress = (currentTime - this.combatFlashTime) / this.combatFlashDuration;
             const flashIntensity = Math.sin(flashProgress * Math.PI * 6) * (1 - flashProgress);
-            if (flashIntensity > 0) {
+            if (flashIntensity > 0 && this.combatFlashColor) {
+                // Use attacker's color for combat flash
+                fillColor = this.combatFlashColor;
+            } else if (flashIntensity > 0) {
+                // Fallback to red if no color specified
                 fillColor = this.adjustColorBrightness('#ff4444', 1 + flashIntensity * 0.8);
             }
         }

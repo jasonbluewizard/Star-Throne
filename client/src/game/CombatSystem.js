@@ -1,7 +1,7 @@
 /**
  * Centralized Combat System for Star Throne
  * Handles all battle resolution, army transfers, and throne star mechanics
- * Eliminates duplicate combat logic scattered across different files
+ * Features delayed combat with coin-flip battles and visual feedback
  */
 
 import { GameUtils } from './utils.js';
@@ -10,15 +10,18 @@ import { gameEvents, GAME_EVENTS, EVENT_PRIORITY, EventHelpers } from './EventSy
 export class CombatSystem {
     constructor(game) {
         this.game = game;
+        this.pendingBattles = []; // Array of battles waiting for ships to arrive
+        this.activeBattles = []; // Array of battles currently in progress
     }
 
     /**
-     * Resolves an attack between two territories (hardcoded 50% of fleet)
+     * Initiates a delayed attack - ships launch but combat waits until arrival
      * @param {Object} attackingTerritory - Source territory
      * @param {Object} defendingTerritory - Target territory
-     * @returns {Object} Combat result with success, casualties, and throne capture info
+     * @param {number} armyCount - Number of attacking armies
+     * @returns {Object} Attack initiation result
      */
-    attackTerritory(attackingTerritory, defendingTerritory) {
+    attackTerritory(attackingTerritory, defendingTerritory, armyCount) {
         // Validate attack
         if (!this.validateAttack(attackingTerritory, defendingTerritory)) {
             return { success: false, reason: 'Invalid attack' };
@@ -36,88 +39,212 @@ export class CombatSystem {
             return { success: false, reason: 'Invalid players' };
         }
 
-        // Calculate combat result
-        const combatResult = this.resolveCombat(
-            actualAttackers, 
-            defendingTerritory.armySize,
-            attacker,
-            defender
-        );
+        // Deduct armies from attacking territory immediately
+        attackingTerritory.armySize -= actualAttackers;
 
-        // Apply combat result
-        const attackSuccess = combatResult.attackPower > combatResult.defensePower;
-        const result = {
-            success: attackSuccess,
-            attackPower: combatResult.attackPower,
-            defensePower: combatResult.defensePower,
-            attackerLosses: combatResult.attackerLosses,
-            defenderLosses: combatResult.defenderLosses,
-            throneCapture: false,
-            gameEnded: false
+        // Create pending battle for when ships arrive
+        const battle = {
+            id: Date.now() + Math.random(), // Unique battle ID
+            attackingTerritory: attackingTerritory,
+            defendingTerritory: defendingTerritory,
+            attackingArmies: actualAttackers,
+            attacker: attacker,
+            defender: defender,
+            arrivalTime: Date.now() + 1000, // Ships arrive in 1 second
+            status: 'pending'
         };
 
-        // Update army counts
-        attackingTerritory.armySize -= actualAttackers;
+        this.pendingBattles.push(battle);
         
-        if (attackSuccess) {
+        console.log(`Battle initiated: ${actualAttackers} ships from ${attackingTerritory.id} to ${defendingTerritory.id}`);
+
+        return { 
+            success: true, 
+            attackingArmies: actualAttackers,
+            battleId: battle.id
+        };
+    }
+
+    /**
+     * Updates the combat system, processing pending and active battles
+     * @param {number} deltaTime - Time elapsed since last update
+     */
+    update(deltaTime) {
+        const currentTime = Date.now();
+        
+        // Check for pending battles that should start
+        for (let i = this.pendingBattles.length - 1; i >= 0; i--) {
+            const battle = this.pendingBattles[i];
+            
+            if (currentTime >= battle.arrivalTime) {
+                // Ships have arrived - start the battle
+                this.startBattle(battle);
+                this.pendingBattles.splice(i, 1);
+            }
+        }
+        
+        // Update active battles
+        for (let i = this.activeBattles.length - 1; i >= 0; i--) {
+            const battle = this.activeBattles[i];
+            
+            if (this.updateBattle(battle, currentTime)) {
+                // Battle completed
+                this.activeBattles.splice(i, 1);
+            }
+        }
+    }
+
+    /**
+     * Starts a battle with coin-flip mechanics
+     * @param {Object} battle - Battle object
+     */
+    startBattle(battle) {
+        // Calculate combat odds based on discoveries
+        const attackerBonus = this.calculateWeaponBonus(battle.attacker);
+        const defenderBonus = this.calculateDefenseBonus(battle.defender);
+        
+        // Base 50/50 odds adjusted by bonuses
+        const attackerWinChance = Math.max(0.1, Math.min(0.9, 0.5 + attackerBonus - defenderBonus));
+        
+        battle.attackerWinChance = attackerWinChance;
+        battle.attackersRemaining = battle.attackingArmies;
+        battle.defendersRemaining = battle.defendingTerritory.armySize;
+        battle.lastBattleTime = Date.now();
+        battle.status = 'active';
+        
+        console.log(`Battle started: ${battle.attackersRemaining} vs ${battle.defendersRemaining}, attacker chance: ${(attackerWinChance * 100).toFixed(1)}%`);
+        
+        this.activeBattles.push(battle);
+    }
+
+    /**
+     * Updates an active battle, processing coin-flip rounds
+     * @param {Object} battle - Battle object
+     * @param {number} currentTime - Current timestamp
+     * @returns {boolean} True if battle is complete
+     */
+    updateBattle(battle, currentTime) {
+        // Check if it's time for the next round (50ms per battle)
+        if (currentTime - battle.lastBattleTime < 50) {
+            return false;
+        }
+        
+        // Fight one round
+        const attackerWins = Math.random() < battle.attackerWinChance;
+        
+        if (attackerWins) {
+            // Attacker wins this round - defender loses one ship
+            battle.defendersRemaining--;
+            
+            // Flash the defending planet with attacker's color
+            this.flashPlanet(battle.defendingTerritory, battle.attacker.color);
+            
+            console.log(`Attacker wins round: ${battle.attackersRemaining} vs ${battle.defendersRemaining}`);
+        } else {
+            // Defender wins this round - attacker loses one ship
+            battle.attackersRemaining--;
+            
+            console.log(`Defender wins round: ${battle.attackersRemaining} vs ${battle.defendersRemaining}`);
+        }
+        
+        battle.lastBattleTime = currentTime;
+        
+        // Check if battle is over
+        if (battle.attackersRemaining <= 0 || battle.defendersRemaining <= 0) {
+            this.completeBattle(battle);
+            return true;
+        }
+        
+        return false;
+    }
+
+    /**
+     * Completes a battle and applies the results
+     * @param {Object} battle - Battle object
+     */
+    completeBattle(battle) {
+        const attackerWins = battle.attackersRemaining > 0;
+        
+        if (attackerWins) {
             // Territory captured
-            const oldOwner = defender;
-            const survivingAttackers = Math.max(1, actualAttackers - combatResult.attackerLosses);
+            const oldOwner = battle.defender;
+            const survivingAttackers = battle.attackersRemaining;
             
             // Check for throne star capture before changing ownership
-            const isThroneCapture = defendingTerritory.isThronestar;
+            const isThroneCapture = battle.defendingTerritory.isThronestar;
             
             // Transfer territory
-            defendingTerritory.ownerId = attackingTerritory.ownerId;
-            defendingTerritory.armySize = survivingAttackers;
-            
-            // Emit territory captured event
-            EventHelpers.territoryEvent(GAME_EVENTS.TERRITORY_CAPTURED, defendingTerritory, attacker, {
-                previousOwner: oldOwner.id,
-                attackingTerritoryId: attackingTerritory.id,
-                survivingArmies: survivingAttackers
-            });
+            battle.defendingTerritory.ownerId = battle.attackingTerritory.ownerId;
+            battle.defendingTerritory.armySize = survivingAttackers;
             
             // Handle throne star capture
             if (isThroneCapture) {
-                result.throneCapture = true;
-                result.gameEnded = this.handleThroneStarCapture(attacker, oldOwner, defendingTerritory);
-                
-                // Emit throne capture event
-                EventHelpers.combatEvent(GAME_EVENTS.THRONE_CAPTURED, attacker, oldOwner, {
-                    throneTerritory: defendingTerritory.id,
-                    gameEnded: result.gameEnded
-                });
+                console.log(`🏆 THRONE STAR CAPTURED! ${battle.attacker.name} captures throne from ${oldOwner.name}`);
+                this.handleThroneStarCapture(battle.attacker, oldOwner, battle.defendingTerritory);
             }
             
             // Add floating combat text
-            defendingTerritory.floatingText = {
+            battle.defendingTerritory.floatingText = {
                 text: `+${survivingAttackers}`,
                 startTime: Date.now(),
                 duration: 2000,
-                startY: defendingTerritory.y
+                startY: battle.defendingTerritory.y
             };
+            
+            console.log(`Battle won: ${battle.attackingTerritory.id} captures ${battle.defendingTerritory.id}`);
         } else {
             // Attack failed
-            defendingTerritory.armySize = Math.max(1, defendingTerritory.armySize - combatResult.defenderLosses);
-            
-            // Emit territory defended event
-            EventHelpers.territoryEvent(GAME_EVENTS.TERRITORY_DEFENDED, defendingTerritory, defender, {
-                attackerId: attacker.id,
-                attackingTerritoryId: attackingTerritory.id,
-                defenderLosses: combatResult.defenderLosses
-            });
+            battle.defendingTerritory.armySize = battle.defendersRemaining;
             
             // Add floating combat text
-            defendingTerritory.floatingText = {
+            battle.defendingTerritory.floatingText = {
                 text: `Defended!`,
                 startTime: Date.now(),
                 duration: 2000,
-                startY: defendingTerritory.y
+                startY: battle.defendingTerritory.y
             };
+            
+            console.log(`Battle lost: ${battle.defendingTerritory.id} defended successfully`);
         }
+    }
 
-        return result;
+    /**
+     * Flash a planet with the attacker's color
+     * @param {Object} territory - Territory to flash
+     * @param {string} color - Color to flash
+     */
+    flashPlanet(territory, color) {
+        territory.combatFlashTime = Date.now();
+        territory.combatFlashColor = color;
+        territory.combatFlashDuration = 100; // Brief flash
+    }
+
+    /**
+     * Calculate weapon bonus from discoveries
+     * @param {Object} player - Player object
+     * @returns {number} Weapon bonus (0.0 to 0.4)
+     */
+    calculateWeaponBonus(player) {
+        if (!player.discoveries || !player.discoveries.weaponTech) {
+            return 0;
+        }
+        
+        // Each weapon cache provides +5% attack chance
+        return Math.min(0.4, player.discoveries.weaponTech * 0.05);
+    }
+
+    /**
+     * Calculate defense bonus from discoveries
+     * @param {Object} player - Player object
+     * @returns {number} Defense bonus (0.0 to 0.4)
+     */
+    calculateDefenseBonus(player) {
+        if (!player.discoveries || !player.discoveries.shieldTech) {
+            return 0;
+        }
+        
+        // Each shield matrix provides +5% defense chance
+        return Math.min(0.4, player.discoveries.shieldTech * 0.05);
     }
 
     /**
