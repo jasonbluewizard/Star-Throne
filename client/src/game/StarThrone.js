@@ -8,7 +8,7 @@ import { Renderer } from './Renderer.js';
 import { CombatSystem } from './CombatSystem.js';
 import { SupplySystem } from './SupplySystem.js';
 import { GameUtils } from './utils.js';
-// import { GAME_CONSTANTS } from '../../../common/gameConstants.ts'; // TEMPORARILY DISABLED
+import { GAME_CONSTANTS } from '../../../common/gameConstants';
 import { gameEvents, GAME_EVENTS, EVENT_PRIORITY, EventHelpers } from './EventSystem.js';
 import { PerformanceManager } from './PerformanceManager.js';
 import { PerformanceOverlay } from './PerformanceOverlay.js';
@@ -17,9 +17,6 @@ import { AnimationSystem } from './AnimationSystem.js';
 import { UIManager } from './UIManager.js';
 import { AIManager } from './AIManager.js';
 import Controls from './Controls.js';
-import { Fleet } from './Fleet.js';
-
-console.log('*** STARTHRONE.JS MODULE LOADED ***', new Date().getTime());
 
 export default class StarThrone {
     constructor(config = {}) {
@@ -34,8 +31,8 @@ export default class StarThrone {
         // Game configuration from config screen
         this.config = {
             playerName: config.playerName || 'Player',
-            aiCount: config.aiCount || 19, // DEFAULT_SINGLE_PLAYER_AI_COUNT
-            mapSize: config.mapSize || 200, // DEFAULT_MAP_SIZE_TERRITORIES  
+            aiCount: config.aiCount || GAME_CONSTANTS.DEFAULT_SINGLE_PLAYER_AI_COUNT,
+            mapSize: config.mapSize || GAME_CONSTANTS.DEFAULT_MAP_SIZE_TERRITORIES,
             gameSpeed: config.gameSpeed || 1.0,
             layout: config.layout || 'organic',
             ...config
@@ -61,7 +58,6 @@ export default class StarThrone {
         this.animationSystem = null;
         this.uiManager = null;
         this.controls = null;
-        this.fleet = null;
         
         // Legacy properties for backward compatibility
         this.hoveredTerritory = null;
@@ -369,18 +365,8 @@ export default class StarThrone {
     }
     
     init() {
-        console.log('*** STARTHRONE INIT() CALLED ***');
         this.setupCanvas();
-        console.log('*** CANVAS SETUP COMPLETE ***');
-        
-        // CANVAS VALIDATION - Answer for other AI
-        console.log('Canvas validation before InputHandler init:');
-        console.log('- this.canvas exists:', !!this.canvas);
-        console.log('- this.canvas.addEventListener exists:', !!this.canvas?.addEventListener);
-        console.log('- Canvas element type:', this.canvas?.constructor.name);
-        console.log('- Canvas in DOM:', document.contains(this.canvas));
-        
-        // REMOVED: this.setupEventListeners() - InputHandler will handle its own event setup
+        this.setupEventListeners();
         this.gameMap = new GameMap(2000, 1500, this.config); // Large map with advanced configuration
         this.gameMap.game = this; // Reference for AI animations
         this.camera = new Camera(this.canvas.width, this.canvas.height);
@@ -397,15 +383,7 @@ export default class StarThrone {
         this.ui = new GameUI(this.canvas, this.camera);
         
         // Initialize modular systems
-        console.log('*** STARTING INPUTHANDLER INITIALIZATION ***');
-        try {
-            this.inputHandler = new InputHandler(this);
-            console.log('*** INPUTHANDLER INITIALIZED SUCCESSFULLY ***');
-            console.log('InputHandler has setupEventListeners:', typeof this.inputHandler.setupEventListeners);
-        } catch (error) {
-            console.error('*** FAILED TO INITIALIZE INPUTHANDLER ***', error);
-            console.error('Error stack:', error.stack);
-        }
+        this.inputHandler = new InputHandler(this);
         this.renderer = new Renderer(this.canvas, this.camera);
         this.combatSystem = new CombatSystem(this);
         this.supplySystem = new SupplySystem(this);
@@ -416,29 +394,6 @@ export default class StarThrone {
         this.uiManager = new UIManager(this);
         this.aiManager = new AIManager(this);
         this.controls = new Controls(this);
-        this.fleet = new Fleet(this);
-        console.log('Fleet control system initialized');
-        console.log('InputHandler Fleet reference check:', !!this.inputHandler.game.fleet);
-        
-        // Test canvas click events with a simple listener
-        this.canvas.addEventListener('click', (e) => {
-            console.log('*** DIRECT CANVAS CLICK DETECTED ***');
-            console.log('Click coordinates:', e.clientX, e.clientY);
-            console.log('Canvas element:', this.canvas);
-            console.log('Event target:', e.target);
-        });
-        
-        // Also test mousedown for broader event capture
-        this.canvas.addEventListener('mousedown', (e) => {
-            console.log('*** CANVAS MOUSEDOWN DETECTED ***');
-        });
-        
-        // Debug canvas properties
-        console.log('Canvas debug info:');
-        console.log('- Canvas width/height:', this.canvas.width, 'x', this.canvas.height);
-        console.log('- Canvas style:', this.canvas.style.cssText);
-        console.log('- Canvas position in DOM:', this.canvas.getBoundingClientRect());
-        console.log('- Canvas pointer events:', getComputedStyle(this.canvas).pointerEvents);
         
         // Auto-detect optimal performance profile
         this.performanceManager.detectOptimalProfile();
@@ -1368,10 +1323,10 @@ export default class StarThrone {
                 // Manually colonize this territory for the player
                 bestTerritory.ownerId = player.id;
                 bestTerritory.isColonizable = false; // Make it a normal territory
-                bestTerritory.armySize = 50; // INITIAL_STARTING_ARMY_SIZE
+                bestTerritory.armySize = GAME_CONSTANTS.INITIAL_STARTING_ARMY_SIZE;
                 bestTerritory.isThronestar = true; // Mark as throne star
                 
-                console.log(`🏠 Starting territory ${bestTerritory.id} for ${player.name}: 50 armies`);
+                console.log(`🏠 Starting territory ${bestTerritory.id} for ${player.name}: ${GAME_CONSTANTS.INITIAL_STARTING_ARMY_SIZE} armies`);
                 
                 // Debug: Track army changes for human player
                 if (player.id === 0) { // Human player ID
@@ -1484,9 +1439,6 @@ export default class StarThrone {
         }
         if (this.controls) {
             this.controls.update(deltaTime);
-        }
-        if (this.fleet) {
-            this.fleet.update(deltaTime);
         }
         
         // Process event queue for event-driven architecture
@@ -1633,16 +1585,7 @@ export default class StarThrone {
             if (this.animationSystem) {
                 this.animationSystem.renderShipAnimations(this.ctx, this.camera);
             }
-            
-            // Render Fleet transfer animations and selection indicators
-            if (this.fleet) {
-                console.log(`StarThrone: Calling fleet.render() with LOD level ${lodLevel}`);
-                this.fleet.render(this.ctx);
-            }
-            
             this.renderProbes();
-        } else {
-            console.log(`StarThrone: Skipping fleet render, LOD level ${lodLevel} < 2`);
         }
         
         // Use DiscoverySystem for floating discovery texts
@@ -1677,11 +1620,11 @@ export default class StarThrone {
     
     updateVisibleTerritories() {
         // Optimized visibility culling with cached bounds
-        if (Date.now() - this.lastVisibilityUpdate < 100) return; // VISIBLE_TERRITORIES_UPDATE_INTERVAL_MS
+        if (Date.now() - this.lastVisibilityUpdate < GAME_CONSTANTS.VISIBLE_TERRITORIES_UPDATE_INTERVAL_MS) return;
         this.lastVisibilityUpdate = Date.now();
         
         const bounds = this.camera.getViewBounds();
-        const margin = 50; // TERRITORY_VISIBILITY_PADDING
+        const margin = GAME_CONSTANTS.TERRITORY_VISIBILITY_PADDING;
         
         this.visibleTerritories = [];
         const territories = Object.values(this.gameMap.territories);
@@ -2284,12 +2227,6 @@ export default class StarThrone {
         
         // Render ship animations
         this.renderShipAnimations();
-        
-        // Render Fleet transfer animations and selection indicators
-        if (this.fleet) {
-            console.log(`StarThrone: Calling fleet.render() in active render method`);
-            this.fleet.render(this.ctx);
-        }
         
         // Proportional drag interface handled by InputHandler
         

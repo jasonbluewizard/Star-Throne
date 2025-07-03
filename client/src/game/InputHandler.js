@@ -57,16 +57,12 @@ export class InputHandler {
     }
     
     setupEventListeners() {
-        console.log('InputHandler: Setting up event listeners on canvas:', !!this.canvas);
-        
         // Mouse events
         this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
         this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
         this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
         this.canvas.addEventListener('wheel', (e) => this.handleWheel(e));
         this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-        
-        console.log('InputHandler: Mouse event listeners attached');
         
         // Touch events
         this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e));
@@ -80,7 +76,6 @@ export class InputHandler {
     }
     
     handleMouseDown(e) {
-        console.log(`InputHandler: *** MOUSEDOWN EVENT *** Button: ${e.button}`);
         e.preventDefault();
         this.isDragging = false;
         this.isDraggingForSupplyRoute = false;
@@ -177,23 +172,7 @@ export class InputHandler {
                 return;
             }
             
-            // Route left clicks through Fleet system first
-            console.log(`InputHandler: Checking Fleet system - exists: ${!!this.game.fleet}`);
-            if (this.game.fleet && this.game.fleet.handleClick) {
-                console.log(`InputHandler: Calling Fleet.handleClick for left click`);
-                if (this.game.fleet.handleClick(this.mousePos, false)) {
-                    // Fleet system handled the click
-                    console.log(`InputHandler: Fleet handled left click`);
-                    this.resetDragState();
-                    return;
-                } else {
-                    console.log(`InputHandler: Fleet did not handle left click, falling back to FSM`);
-                }
-            } else {
-                console.log(`InputHandler: No Fleet system available, using FSM`);
-            }
-            
-            // Fallback to FSM for compatibility
+            // Fix for territory deselection: Allow empty space clicks to deselect regardless of minor movement
             if (!targetTerritory && this.game.selectedTerritory) {
                 console.log('Empty space click detected - deselecting territory via FSM');
                 this.inputFSM.handleInput('leftClick', {
@@ -211,23 +190,7 @@ export class InputHandler {
             }
         }
         else if (e.button === 2 && wasQuickClick) {
-            // Route right clicks through Fleet system first - Fleet has priority
-            console.log(`InputHandler: Checking Fleet system for right click - exists: ${!!this.game.fleet}`);
-            if (this.game.fleet && this.game.fleet.handleClick) {
-                console.log(`InputHandler: Calling Fleet.handleClick for right click`);
-                if (this.game.fleet.handleClick(this.mousePos, true)) {
-                    // Fleet system handled the click - stop processing
-                    console.log(`InputHandler: Fleet handled right click - stopping propagation`);
-                    this.resetDragState();
-                    return; // Exit immediately, no fallback
-                } else {
-                    console.log(`InputHandler: Fleet did not handle right click, falling back to FSM`);
-                }
-            } else {
-                console.log(`InputHandler: No Fleet system available for right click, using FSM`);
-            }
-            
-            // Fallback to FSM for compatibility
+            // Right click deselection support: empty space right-click should deselect
             if (!targetTerritory && this.game.selectedTerritory) {
                 console.log('Empty space right-click detected - deselecting territory via FSM');
                 this.inputFSM.handleInput('leftClick', {
