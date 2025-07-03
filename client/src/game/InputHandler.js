@@ -101,6 +101,11 @@ export class InputHandler {
         // Update edge panning
         this.game.camera.updateEdgePanning(newMousePos.x, newMousePos.y, 16);
         
+        // Update hovered territory for tooltips
+        const worldPos = this.game.camera.screenToWorld(newMousePos.x, newMousePos.y);
+        const hoveredTerritory = this.game.gameMap.getTerritoryAtPosition(worldPos.x, worldPos.y);
+        this.game.hoveredTerritory = hoveredTerritory;
+        
         this.lastMousePos = newMousePos;
         this.mousePos = newMousePos;
     }
