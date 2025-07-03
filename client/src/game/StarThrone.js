@@ -398,6 +398,7 @@ export default class StarThrone {
         this.controls = new Controls(this);
         this.fleet = new Fleet(this);
         console.log('Fleet control system initialized');
+        console.log('InputHandler Fleet reference check:', !!this.inputHandler.game.fleet);
         
         // Auto-detect optimal performance profile
         this.performanceManager.detectOptimalProfile();

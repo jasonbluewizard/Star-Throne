@@ -76,6 +76,7 @@ export class InputHandler {
     }
     
     handleMouseDown(e) {
+        console.log(`InputHandler: *** MOUSEDOWN EVENT *** Button: ${e.button}`);
         e.preventDefault();
         this.isDragging = false;
         this.isDraggingForSupplyRoute = false;
