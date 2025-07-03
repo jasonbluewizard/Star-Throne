@@ -319,6 +319,18 @@ export class SupplySystem {
         console.log('All supply routes cleared');
     }
     
+    stopSupplyRoutesFromTerritory(territoryId) {
+        const routesToRemove = this.supplyRoutes.filter(route => route.from === territoryId);
+        const count = routesToRemove.length;
+        
+        if (count > 0) {
+            this.supplyRoutes = this.supplyRoutes.filter(route => route.from !== territoryId);
+            console.log(`Supply Stopped - ${count} route(s) from territory ${territoryId} halted`);
+            return true;
+        }
+        return false;
+    }
+    
     getSupplyRoutesBetween(territoryId1, territoryId2) {
         return this.supplyRoutes.filter(route => 
             (route.from === territoryId1 && route.to === territoryId2) ||

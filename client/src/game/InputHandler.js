@@ -175,18 +175,21 @@ export class InputHandler {
     }
     
     handleDoubleClick(territory) {
-
-        
-        // Double-click on owned territory - potential supply route creation
+        // Double-click on owned territory
         if (territory.ownerId === this.game.humanPlayer?.id) {
             const selectedTerritory = this.inputFSM.getState().selectedTerritory;
             
-            if (selectedTerritory && 
-                selectedTerritory.ownerId === this.game.humanPlayer?.id && 
-                selectedTerritory.id !== territory.id) {
-                // Create supply route between owned territories
-                this.game.createSupplyRoute(selectedTerritory, territory);
-
+            if (selectedTerritory && selectedTerritory.ownerId === this.game.humanPlayer?.id) {
+                if (selectedTerritory.id === territory.id) {
+                    // Double-click on same selected territory - stop supply routes
+                    const stopped = this.game.supplySystem?.stopSupplyRoutesFromTerritory(territory.id);
+                    if (stopped) {
+                        console.log('Supply Stopped');
+                    }
+                } else {
+                    // Double-click on different owned territory - create supply route
+                    this.game.createSupplyRoute(selectedTerritory, territory);
+                }
             }
         }
     }
