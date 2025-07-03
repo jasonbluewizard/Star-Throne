@@ -1354,10 +1354,10 @@ export default class StarThrone {
                 // Manually colonize this territory for the player
                 bestTerritory.ownerId = player.id;
                 bestTerritory.isColonizable = false; // Make it a normal territory
-                bestTerritory.armySize = GAME_CONSTANTS.INITIAL_STARTING_ARMY_SIZE;
+                bestTerritory.armySize = 50; // INITIAL_STARTING_ARMY_SIZE
                 bestTerritory.isThronestar = true; // Mark as throne star
                 
-                console.log(`🏠 Starting territory ${bestTerritory.id} for ${player.name}: ${GAME_CONSTANTS.INITIAL_STARTING_ARMY_SIZE} armies`);
+                console.log(`🏠 Starting territory ${bestTerritory.id} for ${player.name}: 50 armies`);
                 
                 // Debug: Track army changes for human player
                 if (player.id === 0) { // Human player ID
@@ -1663,11 +1663,11 @@ export default class StarThrone {
     
     updateVisibleTerritories() {
         // Optimized visibility culling with cached bounds
-        if (Date.now() - this.lastVisibilityUpdate < GAME_CONSTANTS.VISIBLE_TERRITORIES_UPDATE_INTERVAL_MS) return;
+        if (Date.now() - this.lastVisibilityUpdate < 100) return; // VISIBLE_TERRITORIES_UPDATE_INTERVAL_MS
         this.lastVisibilityUpdate = Date.now();
         
         const bounds = this.camera.getViewBounds();
-        const margin = GAME_CONSTANTS.TERRITORY_VISIBILITY_PADDING;
+        const margin = 50; // TERRITORY_VISIBILITY_PADDING
         
         this.visibleTerritories = [];
         const territories = Object.values(this.gameMap.territories);
