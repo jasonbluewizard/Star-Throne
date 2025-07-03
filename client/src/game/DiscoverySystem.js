@@ -4,6 +4,16 @@ import { GAME_CONSTANTS } from '../../../common/gameConstants';
 export class DiscoverySystem {
     constructor(game) {
         this.game = game;
+        this.resetDiscoveries();
+        
+        // Floating discovery announcements
+        this.floatingDiscoveries = [];
+        
+        // Recent discovery log for UI panel
+        this.recentDiscoveries = [];
+    }
+    
+    resetDiscoveries() {
         this.discoveries = {
             precursorWeapons: 0,
             precursorDrive: 0,
@@ -16,12 +26,7 @@ export class DiscoverySystem {
             hostileAliens: 0,
             friendlyAliens: 0
         };
-        
-        // Floating discovery announcements
-        this.floatingDiscoveries = [];
-        
-        // Recent discovery log for UI panel
-        this.recentDiscoveries = [];
+        console.log('Discovery system reset to clean state');
     }
 
     // Define discovery types and their probabilities
