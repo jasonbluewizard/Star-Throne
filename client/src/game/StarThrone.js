@@ -2832,8 +2832,17 @@ export default class StarThrone {
     }
     
     // Supply route system - delegate to SupplySystem module
-    createSupplyRoute(fromTerritory, toTerritory) {
-        return this.supplySystem.createSupplyRoute(fromTerritory, toTerritory);
+    async createSupplyRoute(fromTerritory, toTerritory) {
+        try {
+            const result = await this.supplySystem.createSupplyRoute(fromTerritory, toTerritory);
+            if (result) {
+                console.log(`Supply route created: ${fromTerritory.id} → ${toTerritory.id}`);
+            }
+            return result;
+        } catch (error) {
+            console.error('Failed to create supply route:', error);
+            return false;
+        }
     }
     
     findPathBetweenTerritories(start, end) {

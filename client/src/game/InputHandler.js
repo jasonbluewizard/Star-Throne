@@ -196,7 +196,9 @@ export class InputHandler {
                 } else {
                     // Double-click on different owned territory - create supply route
                     console.log(`Creating supply route from ${selectedTerritory.id} to ${territory.id}`);
-                    this.game.createSupplyRoute(selectedTerritory, territory);
+                    this.game.createSupplyRoute(selectedTerritory, territory).catch(error => {
+                        console.error('Failed to create supply route:', error);
+                    });
                 }
             }
         } else {
