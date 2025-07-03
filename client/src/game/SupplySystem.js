@@ -17,7 +17,10 @@ export class SupplySystem {
     }
     
     async createSupplyRoute(fromTerritory, toTerritory) {
+        console.log('SupplySystem: createSupplyRoute called', fromTerritory.id, toTerritory.id);
+        
         if (!this.validateSupplyRouteCreation(fromTerritory, toTerritory)) {
+            console.log('SupplySystem: validation failed');
             return false;
         }
         
@@ -28,13 +31,22 @@ export class SupplySystem {
             return false;
         }
         
+        // Check if pathfinding service exists
+        if (!this.game.pathfindingService) {
+            console.log('SupplySystem: pathfindingService not available');
+            return false;
+        }
+        
         // Find path between territories using PathfindingService
+        console.log('SupplySystem: calling pathfindingService.findShortestPath');
         const path = await this.game.pathfindingService.findShortestPath(
             fromTerritory.id, 
             toTerritory.id, 
             this.game.gameMap, 
             this.game.humanPlayer?.id
         );
+        
+        console.log('SupplySystem: pathfinding result:', path);
         
         if (!path || path.length < 2) {
             console.log('No valid path found between territories');
