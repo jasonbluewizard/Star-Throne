@@ -567,6 +567,13 @@ Changelog:
    * Empire Discoveries panel now properly displays Precursor technologies when human player finds them through probes
    * Created comprehensive SUCKMYASS.txt file containing complete 15,000+ line codebase with full architecture documentation
    * Documented modular system design, performance optimizations, and multiplayer infrastructure for external reference
+- January 3, 2025. Empire Discovery panel data flow fix completion:
+   * Successfully applied patch to fix Empire Discovery window not showing permanent bonuses
+   * Updated DiscoverySystem.getDiscoveriesForUI() to return proper data structure with explicit field mapping
+   * Fixed data mapping between discovery system and UI layer with correct property names
+   * Verified Empire Discovery panel displays permanent bonuses correctly in bottom-left corner
+   * Removed test data - system now ready for actual probe discoveries during gameplay
+   * Panel correctly shows empire-wide bonuses (weapons, drive, shield, nanotech) and planet-specific bonuses (factory worlds, rich minerals, friendly aliens)
 
 ## User Preferences
 

@@ -1176,18 +1176,7 @@ export default class StarThrone {
         // Start home system flashing for player identification
         this.homeSystemFlashStart = Date.now();
         
-        // TEST: Add some sample discoveries for debugging Empire Discovery panel
-        if (this.discoverySystem && this.humanPlayer) {
-            this.discoverySystem.discoveries.precursorWeapons = 2;
-            this.discoverySystem.discoveries.precursorDrive = 1;
-            this.discoverySystem.discoveries.precursorShield = 1;
-            this.discoverySystem.discoveries.precursorNanotechnology = 1;
-            this.discoverySystem.discoveries.friendlyAliens = 3;
-            this.discoverySystem.discoveries.richMinerals = 2;
-            this.discoverySystem.discoveries.factoryPlanets = ['1', '2', '3'];
-            console.log('🔬 TEST: Added sample discoveries for Empire Discovery panel testing');
-            console.log('🔬 Discovery data:', this.discoverySystem.getDiscoveriesForUI());
-        }
+        // Empire Discovery system is now properly configured and ready for actual discoveries
         
         console.log(`Game started with ${this.players.length} players (${this.config.playerName} + ${this.config.aiCount} AI) and ${Object.keys(this.gameMap.territories).length} territories`);
     }
