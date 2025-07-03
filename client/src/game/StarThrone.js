@@ -1507,9 +1507,12 @@ export default class StarThrone {
     }
     
     checkPlayerElimination() {
+        let playersEliminated = false;
+        
         this.players.forEach(player => {
             if (!player.isEliminated && player.territories.length === 0) {
                 player.isEliminated = true;
+                playersEliminated = true;
                 console.log(`Player ${player.name} has been eliminated!`);
                 
                 if (player === this.humanPlayer) {
@@ -1518,6 +1521,11 @@ export default class StarThrone {
                 }
             }
         });
+        
+        // Invalidate AI player cache if any players were eliminated
+        if (playersEliminated && this.aiManager) {
+            this.aiManager.invalidatePlayerCache();
+        }
     }
     
     checkWinConditions() {

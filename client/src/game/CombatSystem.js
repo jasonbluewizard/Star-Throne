@@ -358,6 +358,11 @@ export class CombatSystem {
         // Mark old owner as eliminated
         oldOwner.isEliminated = true;
         
+        // Invalidate AI player cache since a player was eliminated
+        if (this.game.aiManager) {
+            this.game.aiManager.invalidatePlayerCache();
+        }
+        
         // Destroy the captured throne star (prevent multiple thrones in one empire)
         throneTerritory.isThronestar = false;
         

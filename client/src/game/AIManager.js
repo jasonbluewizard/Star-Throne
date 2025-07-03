@@ -6,23 +6,32 @@ export class AIManager {
         this.frameCount = 0;
         this.lastAIThinkTime = 0;
         this.aiThinkInterval = 2000; // AI thinks every 2 seconds
+        
+        // Cache AI players list to avoid filtering every frame
+        this.aiPlayers = null;
+        this.playerListDirty = true;
     }
 
     // Update AI players with staggered processing for performance
     updateAI(deltaTime) {
         this.frameCount++;
         
-        // Staggered AI updates: process 1/4 of AI players per frame for 4x performance improvement
-        const aiPlayers = this.game.players.filter(p => p.type !== 'human' && !p.isEliminated);
-        const playersPerFrame = Math.ceil(aiPlayers.length / 4);
-        const frameOffset = this.frameCount % 4;
-        const startIndex = frameOffset * playersPerFrame;
-        const endIndex = Math.min(startIndex + playersPerFrame, aiPlayers.length);
+        // Compute AI players list once and reuse it
+        if (!this.aiPlayers || this.playerListDirty) {
+            this.aiPlayers = this.game.players.filter(p => p.type !== 'human' && !p.isEliminated);
+            this.playerListDirty = false;
+        }
+        
+        const batchCount = 3;
+        const frameIndex = this.frameCount % batchCount;
+        const batchSize = Math.ceil(this.aiPlayers.length / batchCount);
+        const aiStartIndex = frameIndex * batchSize;
+        const aiEndIndex = Math.min(this.aiPlayers.length, aiStartIndex + batchSize);
         
         // Update subset of AI players this frame
-        for (let i = startIndex; i < endIndex; i++) {
-            if (i < aiPlayers.length) {
-                const player = aiPlayers[i];
+        for (let i = aiStartIndex; i < aiEndIndex; i++) {
+            if (i < this.aiPlayers.length) {
+                const player = this.aiPlayers[i];
                 try {
                     this.updateAIPlayer(player, deltaTime);
                 } catch (error) {
@@ -38,6 +47,19 @@ export class AIManager {
         
         // Use the player's own update method
         player.update(deltaTime, this.game.gameMap, this.game.config.gameSpeed, this.game);
+    }
+
+    // Mark player list as dirty when players are eliminated or added
+    invalidatePlayerCache() {
+        this.playerListDirty = true;
+    }
+
+    // Get cached AI players count for performance monitoring
+    getAIPlayerCount() {
+        if (!this.aiPlayers) {
+            return 0;
+        }
+        return this.aiPlayers.length;
     }
 
     // Generate realistic AI player names
