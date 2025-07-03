@@ -143,9 +143,13 @@ export class Fleet {
      * Attempt to transfer fleet between friendly territories
      */
     attemptFleetTransfer(fromTerritory, toTerritory) {
-        // Validate territories are connected by warp lane
-        if (!this.areConnectedByWarpLane(fromTerritory, toTerritory)) {
-            console.log(`Fleet transfer blocked: territories ${fromTerritory.id} and ${toTerritory.id} not connected by warp lane`);
+        const humanPlayer = this.game.players.find(p => p.type === 'human');
+        if (!humanPlayer) return false;
+        
+        // Find path through friendly territory network
+        const path = this.findShortestPath(fromTerritory, toTerritory, humanPlayer.id);
+        if (!path || path.length === 0) {
+            console.log(`Fleet transfer blocked: No route found from ${fromTerritory.id} to ${toTerritory.id} through friendly territories`);
             return false;
         }
         
@@ -162,10 +166,10 @@ export class Fleet {
             return false;
         }
         
-        console.log(`Fleet transfer initiated: ${fromTerritory.id} sending ${finalTransferFleet} ships (50%) to ${toTerritory.id}`);
+        console.log(`Fleet transfer initiated: ${fromTerritory.id} sending ${finalTransferFleet} ships via ${path.length-1} hop route to ${toTerritory.id}`);
         
-        // Execute the transfer
-        this.executeFleetTransfer(fromTerritory, toTerritory, finalTransferFleet);
+        // Execute the multi-hop transfer
+        this.executeMultiHopFleetTransfer(fromTerritory, toTerritory, finalTransferFleet, path);
         
         return true;
     }
@@ -256,6 +260,109 @@ export class Fleet {
     }
     
     /**
+     * Find shortest path through friendly territory network using BFS
+     */
+    findShortestPath(fromTerritory, toTerritory, playerId) {
+        if (fromTerritory.id === toTerritory.id) {
+            return [fromTerritory];
+        }
+        
+        const visited = new Set();
+        const queue = [{territory: fromTerritory, path: [fromTerritory]}];
+        visited.add(fromTerritory.id);
+        
+        while (queue.length > 0) {
+            const {territory: current, path} = queue.shift();
+            
+            // Check all connected territories
+            for (const neighborId of current.neighbors || []) {
+                if (visited.has(neighborId)) continue;
+                
+                const neighbor = this.game.gameMap.territories.find(t => t.id === neighborId);
+                if (!neighbor) continue;
+                
+                const newPath = [...path, neighbor];
+                
+                // Found the target
+                if (neighbor.id === toTerritory.id) {
+                    return newPath;
+                }
+                
+                // Only traverse through friendly territories (except target)
+                if (neighbor.ownerId === playerId) {
+                    visited.add(neighborId);
+                    queue.push({territory: neighbor, path: newPath});
+                }
+            }
+        }
+        
+        return null; // No path found
+    }
+    
+    /**
+     * Execute multi-hop fleet transfer with sequential animations
+     */
+    executeMultiHopFleetTransfer(fromTerritory, toTerritory, fleetSize, path) {
+        // Deduct ships immediately from source
+        fromTerritory.armySize -= fleetSize;
+        
+        // Visual feedback - flash the source territory
+        this.addTransferFlash(fromTerritory, fleetSize);
+        
+        // Create sequential hop animations
+        this.createMultiHopAnimation(path, fleetSize);
+        
+        console.log(`${fleetSize} ships departed from territory ${fromTerritory.id} on ${path.length-1} hop journey to ${toTerritory.id}`);
+    }
+    
+    /**
+     * Create sequential animations for multi-hop path
+     */
+    createMultiHopAnimation(path, fleetSize) {
+        const humanPlayer = this.game.players.find(p => p.type === 'human');
+        const shipColor = humanPlayer ? humanPlayer.color : '#00FFFF';
+        
+        // Create animation for each hop in the path
+        for (let i = 0; i < path.length - 1; i++) {
+            const fromTerritory = path[i];
+            const toTerritory = path[i + 1];
+            const hopDelay = i * 800; // Each hop takes 800ms, sequential
+            
+            const animation = {
+                id: Date.now() + Math.random() + i,
+                fromTerritory,
+                toTerritory,
+                fleetSize,
+                startTime: Date.now() + hopDelay,
+                duration: 800,
+                progress: 0,
+                color: shipColor,
+                type: 'multi-hop-transfer',
+                hopIndex: i,
+                totalHops: path.length - 1,
+                finalDestination: path[path.length - 1]
+            };
+            
+            this.transferAnimations.push(animation);
+            
+            // Schedule arrival for final destination
+            if (i === path.length - 2) {
+                setTimeout(() => {
+                    this.completeFleetTransfer(animation.finalDestination, fleetSize);
+                    this.removeAnimation(animation.id);
+                }, hopDelay + animation.duration);
+            } else {
+                // Remove intermediate hop animations
+                setTimeout(() => {
+                    this.removeAnimation(animation.id);
+                }, hopDelay + animation.duration);
+            }
+        }
+        
+        console.log(`Fleet: Created multi-hop animation with ${path.length-1} hops, total animations: ${this.transferAnimations.length}`);
+    }
+    
+    /**
      * Check if two territories are connected by a warp lane
      */
     areConnectedByWarpLane(territory1, territory2) {
@@ -277,13 +384,18 @@ export class Fleet {
         const currentTime = Date.now();
         
         for (let animation of this.transferAnimations) {
-            const elapsed = currentTime - animation.startTime;
-            animation.progress = Math.min(elapsed / animation.duration, 1.0);
+            // Only update progress if animation has started
+            if (currentTime >= animation.startTime) {
+                const elapsed = currentTime - animation.startTime;
+                animation.progress = Math.min(elapsed / animation.duration, 1.0);
+            } else {
+                animation.progress = 0; // Animation hasn't started yet
+            }
         }
         
-        // Remove completed animations
+        // Remove completed animations (only those that have started and finished)
         this.transferAnimations = this.transferAnimations.filter(
-            anim => anim.progress < 1.0
+            anim => currentTime < anim.startTime || anim.progress < 1.0
         );
     }
     
