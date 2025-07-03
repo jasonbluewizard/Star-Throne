@@ -397,6 +397,7 @@ export default class StarThrone {
         this.aiManager = new AIManager(this);
         this.controls = new Controls(this);
         this.fleet = new Fleet(this);
+        console.log('Fleet control system initialized');
         
         // Auto-detect optimal performance profile
         this.performanceManager.detectOptimalProfile();

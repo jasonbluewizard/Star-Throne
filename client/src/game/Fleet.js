@@ -24,7 +24,9 @@ export class Fleet {
      * Handle mouse click events for fleet selection and commands
      */
     handleClick(mousePos, isRightClick = false) {
-        console.log(`Fleet.handleClick called - isRightClick: ${isRightClick}, mousePos:`, mousePos);
+        console.log(`Fleet: *** FLEET.HANDLECLICK CALLED ***`);
+        console.log(`Fleet: isRightClick: ${isRightClick}, mousePos:`, mousePos);
+        console.log(`Fleet: Time: ${Date.now()}`);
         const worldPos = this.game.camera.screenToWorld(mousePos.x, mousePos.y);
         const clickedTerritory = this.findTerritoryAtPosition(worldPos);
         
