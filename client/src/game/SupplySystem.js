@@ -314,21 +314,33 @@ export class SupplySystem {
         // Create multi-segment animation following the supply route path
         const segments = [];
         for (let i = 0; i < route.path.length - 1; i++) {
-            segments.push({
-                from: { x: route.path[i].x, y: route.path[i].y },
-                to: { x: route.path[i + 1].x, y: route.path[i + 1].y }
-            });
+            const fromTerritory = this.game.gameMap.territories[route.path[i]];
+            const toTerritory = this.game.gameMap.territories[route.path[i + 1]];
+            
+            if (fromTerritory && toTerritory) {
+                segments.push({
+                    from: { x: fromTerritory.x, y: fromTerritory.y },
+                    to: { x: toTerritory.x, y: toTerritory.y }
+                });
+            }
         }
         
         const totalDuration = segments.length * 800; // 800ms per segment
         
-        this.game.renderer.createShipAnimation(
-            { x: route.path[0].x, y: route.path[0].y },
-            { x: route.path[route.path.length - 1].x, y: route.path[route.path.length - 1].y },
-            player.color,
-            totalDuration,
-            segments
-        );
+        // Get start and end territory objects
+        const startTerritory = this.game.gameMap.territories[route.path[0]];
+        const endTerritory = this.game.gameMap.territories[route.path[route.path.length - 1]];
+        
+        if (startTerritory && endTerritory && this.game.animationSystem) {
+            this.game.animationSystem.createSupplyRouteAnimation(
+                { x: startTerritory.x, y: startTerritory.y },
+                { x: endTerritory.x, y: endTerritory.y },
+                player.color,
+                totalDuration,
+                segments
+            );
+            console.log(`Created supply route animation with ${segments.length} segments`);
+        }
     }
     
     generateRouteId() {
