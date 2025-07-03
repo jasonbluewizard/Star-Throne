@@ -193,18 +193,21 @@ export class SupplySystem {
     }
     
     isPathValid(path, ownerId) {
-        for (const territory of path) {
-            if (territory.ownerId !== ownerId) {
+        // Path contains territory IDs, not territory objects
+        for (const territoryId of path) {
+            const territory = this.game.gameMap.territories[territoryId];
+            if (!territory || territory.ownerId !== ownerId) {
                 return false;
             }
         }
         
         // Check path connectivity
         for (let i = 0; i < path.length - 1; i++) {
-            const current = path[i];
-            const next = path[i + 1];
+            const currentId = path[i];
+            const nextId = path[i + 1];
+            const current = this.game.gameMap.territories[currentId];
             
-            if (!current.neighbors.includes(next.id)) {
+            if (!current || !current.neighbors.includes(nextId)) {
                 return false;
             }
         }
@@ -332,13 +335,15 @@ export class SupplySystem {
         const endTerritory = this.game.gameMap.territories[route.path[route.path.length - 1]];
         
         if (startTerritory && endTerritory && this.game.animationSystem) {
-            this.game.animationSystem.createSupplyRouteAnimation(
-                { x: startTerritory.x, y: startTerritory.y },
-                { x: endTerritory.x, y: endTerritory.y },
-                player.color,
-                totalDuration,
-                segments
-            );
+            // Create supply route object for animation system
+            const supplyRouteForAnimation = {
+                from: startTerritory,
+                to: endTerritory,
+                path: route.path.map(id => this.game.gameMap.territories[id]).filter(t => t),
+                segments: segments
+            };
+            
+            this.game.animationSystem.createSupplyRouteAnimation(supplyRouteForAnimation, player.color);
             console.log(`Created supply route animation with ${segments.length} segments`);
         }
     }
