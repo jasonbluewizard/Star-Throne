@@ -747,7 +747,7 @@ export default class StarThrone {
     // REMOVED: Second duplicate processDiscovery function - logic moved to GameUtils.js
     
     // Create ship movement animation
-    createShipAnimation(fromTerritory, toTerritory, isAttack = false) {
+    createShipAnimation(fromTerritory, toTerritory, isAttack = false, fleetSize = 0) {
         // Use object pooling to reduce garbage collection
         let animation = this.shipAnimationPool.pop();
         if (!animation) {
@@ -755,7 +755,8 @@ export default class StarThrone {
                 fromX: 0, fromY: 0, toX: 0, toY: 0,
                 progress: 0, duration: 0, startTime: 0,
                 isAttack: false, playerColor: '#ffffff', id: 0,
-                path: null, currentSegment: 0, isMultiHop: false
+                path: null, currentSegment: 0, isMultiHop: false,
+                fleetSize: 0
             };
         }
         
@@ -776,6 +777,7 @@ export default class StarThrone {
         animation.path = null;
         animation.currentSegment = 0;
         animation.isMultiHop = false;
+        animation.fleetSize = fleetSize;
         
         this.shipAnimations.push(animation);
     }
@@ -2759,37 +2761,93 @@ export default class StarThrone {
     }
     
     // Core fleet command execution with percentage control
-    executeFleetCommand(fromTerritory, toTerritory, fleetPercentage) {
+    executeFleetCommand(fromTerritory, toTerritory, fleetPercentage, commandType = 'auto', path = null) {
         if (!fromTerritory || !toTerritory || fromTerritory.ownerId !== this.humanPlayer?.id) {
             return;
         }
         
-        // Validate warp lane connectivity (except for colonizable planets which can be probed)
-        if (!toTerritory.isColonizable && !fromTerritory.neighbors.includes(toTerritory.id)) {
-            console.log(`Cannot send fleet: No warp lane from ${fromTerritory.id} to ${toTerritory.id}`);
+        // Calculate ships to send - hardcoded 50% for new system
+        const availableShips = Math.max(0, fromTerritory.armySize - 1);
+        const shipsToSend = Math.max(1, Math.floor(availableShips * 0.5));
+        
+        // Visual feedback - show number flying off
+        this.showFleetCommandFeedback(fromTerritory, shipsToSend, 0.5);
+        
+        // Handle different command types
+        switch (commandType) {
+            case 'multi-hop-transfer':
+                if (path && path.length > 1) {
+                    this.executeMultiHopTransfer(fromTerritory, toTerritory, shipsToSend, path);
+                    console.log(`Multi-hop transfer: ${shipsToSend} ships from ${fromTerritory.id} to ${toTerritory.id} via path: ${path.join(' -> ')}`);
+                } else {
+                    console.error('Multi-hop transfer requires valid path');
+                }
+                break;
+                
+            case 'transfer':
+                if (toTerritory.ownerId === this.humanPlayer?.id) {
+                    this.combatSystem.transferArmies(fromTerritory, toTerritory);
+                    this.createShipAnimation(fromTerritory, toTerritory, false, shipsToSend);
+                    console.log(`Direct transfer: ${shipsToSend} ships from ${fromTerritory.id} to ${toTerritory.id}`);
+                }
+                break;
+                
+            case 'attack':
+                if (toTerritory.ownerId !== this.humanPlayer?.id && !toTerritory.isColonizable) {
+                    this.combatSystem.attackTerritory(fromTerritory, toTerritory);
+                    this.createShipAnimation(fromTerritory, toTerritory, true, shipsToSend);
+                    console.log(`Attack: ${shipsToSend} ships from ${fromTerritory.id} to ${toTerritory.id}`);
+                }
+                break;
+                
+            case 'auto':
+            default:
+                // Legacy auto-detection mode
+                if (toTerritory.ownerId === this.humanPlayer?.id) {
+                    this.combatSystem.transferArmies(fromTerritory, toTerritory);
+                    this.createShipAnimation(fromTerritory, toTerritory, false, shipsToSend);
+                } else if (toTerritory.isColonizable) {
+                    this.launchProbe(fromTerritory, toTerritory);
+                } else {
+                    this.combatSystem.attackTerritory(fromTerritory, toTerritory);
+                    this.createShipAnimation(fromTerritory, toTerritory, true, shipsToSend);
+                }
+                break;
+        }
+    }
+    
+    executeMultiHopTransfer(fromTerritory, toTerritory, shipsToSend, path) {
+        // Validate path
+        if (!path || path.length < 2) {
+            console.error('Invalid path for multi-hop transfer');
             return;
         }
         
-        // Calculate ships to send based on percentage
-        const availableShips = Math.max(0, fromTerritory.armySize - 1); // Always leave at least 1
-        const shipsToSend = Math.max(1, Math.floor(availableShips * fleetPercentage));
+        // Execute transfer on source territory
+        fromTerritory.armySize -= shipsToSend;
         
-        // Visual feedback - show number flying off
-        this.showFleetCommandFeedback(fromTerritory, shipsToSend, fleetPercentage);
+        // Create multi-hop animation following the path
+        this.createSupplyRouteAnimation(path.map(id => this.gameMap.territories[id]), this.humanPlayer.color);
         
-        if (toTerritory.ownerId === this.humanPlayer?.id) {
-            // Transfer to own territory with specific amount
-            this.transferFleetWithAmount(fromTerritory, toTerritory, shipsToSend);
-            console.log(`Fleet transfer: ${shipsToSend} ships (${Math.round(fleetPercentage * 100)}%) from ${fromTerritory.id} to ${toTerritory.id}`);
-        } else if (toTerritory.isColonizable) {
-            // Probe colonizable territory
-            this.launchProbe(fromTerritory, toTerritory);
-            console.log(`Probe launched from ${fromTerritory.id} to colonizable ${toTerritory.id}`);
-        } else {
-            // Attack enemy territory with specific amount
-            this.attackTerritoryWithAmount(fromTerritory, toTerritory, shipsToSend);
-            console.log(`Attack: ${shipsToSend} ships (${Math.round(fleetPercentage * 100)}%) from ${fromTerritory.id} to ${toTerritory.id}`);
-        }
+        // Calculate delivery delay based on path length (2 seconds per hop)
+        const deliveryDelay = (path.length - 1) * 2000;
+        
+        // Schedule delivery to destination
+        setTimeout(() => {
+            if (toTerritory.ownerId === this.humanPlayer?.id) {
+                toTerritory.armySize += shipsToSend;
+                
+                // Add visual feedback
+                toTerritory.floatingText = {
+                    text: `+${shipsToSend}`,
+                    startTime: Date.now(),
+                    duration: 2000,
+                    startY: toTerritory.y
+                };
+                
+                console.log(`Multi-hop transfer completed: ${shipsToSend} ships delivered to territory ${toTerritory.id}`);
+            }
+        }, deliveryDelay);
     }
     
     // Visual feedback for fleet commands

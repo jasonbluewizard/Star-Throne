@@ -2,10 +2,11 @@
  * SupplySystem.js - Supply route management module
  * 
  * Manages the creation, validation, and processing of supply routes.
- * Handles pathfinding and automated ship transfers between territories.
+ * Uses the new PathfindingService for route calculations.
  */
 
 import { GAME_CONSTANTS } from '../../../common/gameConstants';
+import PathfindingService from './PathfindingService.js';
 
 export class SupplySystem {
     constructor(game) {
@@ -15,7 +16,7 @@ export class SupplySystem {
         this.routeProcessingFrame = 0;
     }
     
-    createSupplyRoute(fromTerritory, toTerritory) {
+    async createSupplyRoute(fromTerritory, toTerritory) {
         if (!this.validateSupplyRouteCreation(fromTerritory, toTerritory)) {
             return false;
         }
@@ -27,8 +28,14 @@ export class SupplySystem {
             return false;
         }
         
-        // Find path between territories
-        const path = this.findPathBetweenTerritories(fromTerritory, toTerritory);
+        // Find path between territories using PathfindingService
+        const path = await PathfindingService.findShortestPath(
+            fromTerritory.id, 
+            toTerritory.id, 
+            this.game.gameMap, 
+            this.game.humanPlayer?.id
+        );
+        
         if (!path || path.length < 2) {
             console.log('No valid path found between territories');
             return false;

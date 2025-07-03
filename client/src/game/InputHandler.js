@@ -1,8 +1,8 @@
 /**
- * InputHandler.js - Dedicated input processing module
+ * InputHandler.js - Simplified input processing module
  * 
- * Encapsulates all user input processing, including mouse, touch, and keyboard events.
- * Translates raw browser events into game-specific commands.
+ * Processes raw browser events into simple left-click selection and right-click contextual actions.
+ * Removes complex proportional drag and modifier key logic per new architecture.
  */
 
 import { InputStateMachine } from './InputStateMachine.js';
@@ -12,42 +12,25 @@ export class InputHandler {
         this.game = game;
         this.canvas = game.canvas;
         
-        // Input state
+        // Simplified input state
         this.mousePos = { x: 0, y: 0 };
         this.lastMousePos = { x: 0, y: 0 };
         this.isDragging = false;
-        this.isDraggingForSupplyRoute = false;
-        this.isProportionalDrag = false;
-        this.proportionalDragStart = null;
-        this.fleetPercentage = 0.5;
         this.dragStartPos = null;
         this.dragStartTime = null;
-        this.dragStart = null;
-        this.dragEnd = null;
         
-        // Modifier keys state
-        this.modifierKeys = {
-            shift: false,
-            ctrl: false,
-            alt: false
-        };
+        // Double-click handling for supply routes
+        this.lastClickTime = 0;
+        this.lastClickedTerritory = null;
+        this.doubleClickThreshold = 250; // ms
         
-        // Touch state
+        // Touch state for mobile support
         this.touchState = {
             activeTouches: new Map(),
             lastTouchDistance: null,
             lastPinchCenter: null,
-            longPressTimer: null,
-            longPressStarted: false,
             panVelocity: { x: 0, y: 0 },
             lastPanTime: 0
-        };
-        
-        // Modifier keys
-        this.modifierKeys = {
-            shift: false,
-            ctrl: false,
-            alt: false
         };
         
         // Initialize FSM
@@ -70,16 +53,13 @@ export class InputHandler {
         this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e));
         this.canvas.addEventListener('touchcancel', (e) => this.handleTouchEnd(e));
         
-        // Keyboard events
+        // Keyboard events (simplified - no modifier key tracking)
         document.addEventListener('keydown', (e) => this.handleKeyDown(e));
-        document.addEventListener('keyup', (e) => this.handleKeyUp(e));
     }
     
     handleMouseDown(e) {
         e.preventDefault();
         this.isDragging = false;
-        this.isDraggingForSupplyRoute = false;
-        this.isProportionalDrag = false;
         
         const rect = this.canvas.getBoundingClientRect();
         this.mousePos = {
@@ -90,9 +70,6 @@ export class InputHandler {
         this.dragStartPos = { ...this.mousePos };
         this.dragStartTime = Date.now();
         this.lastMousePos = { ...this.mousePos };
-        
-        const worldPos = this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
-        this.dragStart = this.game.findTerritoryAt(worldPos.x, worldPos.y);
     }
     
     handleMouseMove(e) {
@@ -102,32 +79,23 @@ export class InputHandler {
             y: e.clientY - rect.top
         };
         
-        // Check for drag threshold
-        if (this.dragStartPos && !this.isDragging && !this.isProportionalDrag) {
+        // Check for camera drag threshold
+        if (this.dragStartPos && !this.isDragging) {
             const dragDistance = Math.sqrt(
                 Math.pow(newMousePos.x - this.dragStartPos.x, 2) + 
                 Math.pow(newMousePos.y - this.dragStartPos.y, 2)
             );
             
-            const timeSinceDragStart = Date.now() - (this.dragStartTime || 0);
-            
-            if (dragDistance > 15 && timeSinceDragStart > 300) {
-                this.startProportionalDrag();
-            } else if (dragDistance > 10 && !this.game.selectedTerritory) {
+            if (dragDistance > 10) {
                 this.isDragging = true;
             }
         }
         
         // Handle camera panning
-        if (this.isDragging && !this.isProportionalDrag) {
+        if (this.isDragging) {
             const deltaX = newMousePos.x - this.lastMousePos.x;
             const deltaY = newMousePos.y - this.lastMousePos.y;
             this.game.camera.pan(-deltaX, -deltaY);
-        }
-        
-        // Handle proportional drag
-        if (this.isProportionalDrag && this.proportionalDragStart) {
-            this.updateProportionalDrag(newMousePos);
         }
         
         // Update edge panning
@@ -139,76 +107,83 @@ export class InputHandler {
     
     handleMouseUp(e) {
         const clickDuration = Date.now() - (this.dragStartTime || 0);
-        const wasQuickClick = clickDuration < 300 && !this.isDragging && !this.isDraggingForSupplyRoute;
+        const wasQuickClick = clickDuration < 300 && !this.isDragging;
         
         const worldPos = this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
         const targetTerritory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
         
-        // Debug logging for click detection
-        if (!targetTerritory && wasQuickClick && this.game.selectedTerritory) {
-            console.log('Empty space click detected - deselecting territory');
-        }
-        
-        // Handle proportional fleet command
-        if (this.isProportionalDrag && this.proportionalDragStart && targetTerritory) {
-            this.game.executeFleetCommand(this.proportionalDragStart.territory, targetTerritory, this.fleetPercentage);
-        }
-        // Handle supply route creation
-        else if (this.isDraggingForSupplyRoute && this.dragStart) {
-            if (targetTerritory && targetTerritory.ownerId === this.game.humanPlayer?.id && targetTerritory.id !== this.dragStart.id) {
-                this.game.createSupplyRoute(this.dragStart, targetTerritory);
-            }
-        }
-        else if (e.button === 0 && (wasQuickClick || (!this.isDragging && !this.isProportionalDrag))) {
-            // Check UI elements first
-            if (this.game.handleUIClick(this.mousePos.x, this.mousePos.y)) {
-                this.resetDragState();
-                return;
-            }
+        if (wasQuickClick) {
+            const currentTime = Date.now();
             
-            // Skip game logic if not in playing state
-            if (this.game.gameState !== 'playing') {
-                this.resetDragState();
-                return;
-            }
-            
-            // Fix for territory deselection: Allow empty space clicks to deselect regardless of minor movement
-            if (!targetTerritory && this.game.selectedTerritory) {
-                console.log('Empty space click detected - deselecting territory via FSM');
-                this.inputFSM.handleInput('leftClick', {
-                    territory: null,
-                    worldPos: worldPos,
-                    screenPos: this.mousePos
-                });
+            // Check for double-click on same territory for supply routes
+            if (targetTerritory && 
+                this.lastClickedTerritory && 
+                targetTerritory.id === this.lastClickedTerritory.id &&
+                currentTime - this.lastClickTime < this.doubleClickThreshold) {
+                
+                // Double-click detected - handle supply route creation
+                this.handleDoubleClick(targetTerritory);
+                this.lastClickTime = 0; // Reset to prevent triple-click
+                this.lastClickedTerritory = null;
             } else {
-                // Left click - use FSM for input handling
-                this.inputFSM.handleInput('leftClick', {
-                    territory: targetTerritory,
-                    worldPos: worldPos,
-                    screenPos: this.mousePos
-                });
-            }
-        }
-        else if (e.button === 2 && wasQuickClick) {
-            // Right click deselection support: empty space right-click should deselect
-            if (!targetTerritory && this.game.selectedTerritory) {
-                console.log('Empty space right-click detected - deselecting territory via FSM');
-                this.inputFSM.handleInput('leftClick', {
-                    territory: null,
-                    worldPos: worldPos,
-                    screenPos: this.mousePos
-                });
-            } else {
-                // Right click - use FSM for input handling
-                this.inputFSM.handleInput('rightClick', {
-                    territory: targetTerritory,
-                    worldPos: worldPos,
-                    screenPos: this.mousePos
-                });
+                // Single click - start timer for potential double-click
+                this.lastClickTime = currentTime;
+                this.lastClickedTerritory = targetTerritory;
+                
+                // Process single click after delay to check for double-click
+                setTimeout(() => {
+                    if (this.lastClickTime === currentTime) {
+                        // No double-click occurred, process as single click
+                        this.processSingleClick(e.button, targetTerritory, worldPos);
+                    }
+                }, this.doubleClickThreshold);
             }
         }
         
         this.resetDragState();
+    }
+    
+    processSingleClick(button, territory, worldPos) {
+        // Check UI elements first
+        if (this.game.handleUIClick(this.mousePos.x, this.mousePos.y)) {
+            return;
+        }
+        
+        // Skip game logic if not in playing state
+        if (this.game.gameState !== 'playing') {
+            return;
+        }
+        
+        if (button === 0) { // Left click
+            this.inputFSM.handleInput('leftClick', {
+                territory: territory,
+                worldPos: worldPos,
+                screenPos: this.mousePos
+            });
+        } else if (button === 2) { // Right click
+            this.inputFSM.handleInput('rightClick', {
+                territory: territory,
+                worldPos: worldPos,
+                screenPos: this.mousePos
+            });
+        }
+    }
+    
+    handleDoubleClick(territory) {
+        console.log(`Double-click detected on territory ${territory.id}`);
+        
+        // Double-click on owned territory - potential supply route creation
+        if (territory.ownerId === this.game.humanPlayer?.id) {
+            const selectedTerritory = this.inputFSM.getState().selectedTerritory;
+            
+            if (selectedTerritory && 
+                selectedTerritory.ownerId === this.game.humanPlayer?.id && 
+                selectedTerritory.id !== territory.id) {
+                // Create supply route between owned territories
+                this.game.createSupplyRoute(selectedTerritory, territory);
+                console.log(`Supply route creation attempted: ${selectedTerritory.id} -> ${territory.id}`);
+            }
+        }
     }
     
     handleWheel(e) {
@@ -238,18 +213,13 @@ export class InputHandler {
             });
         }
         
-        if (this.touchState.activeTouches.size === 1) {
-            this.startLongPressTimer();
-        } else if (this.touchState.activeTouches.size === 2) {
-            this.clearLongPressTimer();
+        if (this.touchState.activeTouches.size === 2) {
             this.initializePinchGesture();
         }
     }
     
     handleTouchMove(e) {
         e.preventDefault();
-        
-        this.clearLongPressTimer();
         
         if (this.touchState.activeTouches.size === 1) {
             this.handleSingleTouchMove(e);
@@ -260,8 +230,6 @@ export class InputHandler {
     
     handleTouchEnd(e) {
         e.preventDefault();
-        
-        this.clearLongPressTimer();
         
         for (const touch of e.changedTouches) {
             const touchData = this.touchState.activeTouches.get(touch.identifier);
@@ -277,13 +245,84 @@ export class InputHandler {
         }
     }
     
-    handleKeyDown(e) {
-        // Track modifier keys
-        this.modifierKeys.shift = e.shiftKey;
-        this.modifierKeys.ctrl = e.ctrlKey;
-        this.modifierKeys.alt = e.altKey;
+    handleTouchTap(touch, touchData) {
+        const tapDuration = Date.now() - touchData.startTime;
         
-        // First check if FSM handles the key
+        if (tapDuration < 500) { // Quick tap
+            const rect = this.canvas.getBoundingClientRect();
+            const worldPos = this.game.camera.screenToWorld(
+                touch.clientX - rect.left,
+                touch.clientY - rect.top
+            );
+            const territory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
+            
+            // Treat touch tap as left-click
+            this.inputFSM.handleInput('leftClick', {
+                territory: territory,
+                worldPos: worldPos,
+                screenPos: { x: touch.clientX - rect.left, y: touch.clientY - rect.top }
+            });
+        }
+    }
+    
+    handleSingleTouchMove(e) {
+        if (e.touches.length !== 1) return;
+        
+        const touch = e.touches[0];
+        const touchData = this.touchState.activeTouches.values().next().value;
+        
+        if (touchData) {
+            const deltaX = touch.clientX - touchData.x;
+            const deltaY = touch.clientY - touchData.y;
+            
+            this.game.camera.pan(-deltaX * 0.5, -deltaY * 0.5);
+            
+            touchData.x = touch.clientX;
+            touchData.y = touch.clientY;
+        }
+    }
+    
+    initializePinchGesture() {
+        const touches = Array.from(this.touchState.activeTouches.values());
+        if (touches.length === 2) {
+            const distance = Math.sqrt(
+                Math.pow(touches[1].x - touches[0].x, 2) + 
+                Math.pow(touches[1].y - touches[0].y, 2)
+            );
+            this.touchState.lastTouchDistance = distance;
+            this.touchState.lastPinchCenter = {
+                x: (touches[0].x + touches[1].x) / 2,
+                y: (touches[0].y + touches[1].y) / 2
+            };
+        }
+    }
+    
+    handlePinchGesture(e) {
+        if (e.touches.length !== 2) return;
+        
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        
+        const distance = Math.sqrt(
+            Math.pow(touch2.clientX - touch1.clientX, 2) + 
+            Math.pow(touch2.clientY - touch1.clientY, 2)
+        );
+        
+        if (this.touchState.lastTouchDistance) {
+            const scale = distance / this.touchState.lastTouchDistance;
+            const newZoom = Math.max(0.1, Math.min(3.0, this.game.camera.targetZoom * scale));
+            
+            const centerX = (touch1.clientX + touch2.clientX) / 2;
+            const centerY = (touch1.clientY + touch2.clientY) / 2;
+            
+            this.game.camera.zoomTo(newZoom, centerX, centerY);
+        }
+        
+        this.touchState.lastTouchDistance = distance;
+    }
+    
+    handleKeyDown(e) {
+        // Forward key events to FSM
         if (this.inputFSM.handleInput('keyPress', { key: e.key })) {
             return;
         }
@@ -295,10 +334,6 @@ export class InputHandler {
                 if (this.game.gameState === 'ended') {
                     this.game.restartGame();
                 }
-                break;
-            case 'd':
-            case 'D':
-                this.game.showTouchDebug = !this.game.showTouchDebug;
                 break;
             case 'm':
             case 'M':
@@ -336,180 +371,9 @@ export class InputHandler {
         }
     }
     
-    handleKeyUp(e) {
-        // Update modifier key state
-        this.modifierKeys.shift = e.shiftKey;
-        this.modifierKeys.ctrl = e.ctrlKey;
-        this.modifierKeys.alt = e.altKey;
-    }
-    
-    // Helper methods
-    startProportionalDrag() {
-        if (this.dragStart && this.dragStart.ownerId === this.game.humanPlayer?.id) {
-            this.isProportionalDrag = true;
-            this.proportionalDragStart = {
-                territory: this.dragStart,
-                startPos: { ...this.dragStartPos }
-            };
-        }
-    }
-    
-    updateProportionalDrag(mousePos) {
-        const distance = Math.sqrt(
-            Math.pow(mousePos.x - this.proportionalDragStart.startPos.x, 2) +
-            Math.pow(mousePos.y - this.proportionalDragStart.startPos.y, 2)
-        );
-        
-        this.fleetPercentage = Math.min(1.0, Math.max(0.1, distance / 100));
-        
-        const worldPos = this.game.camera.screenToWorld(mousePos.x, mousePos.y);
-        this.dragEnd = this.game.findTerritoryAt(worldPos.x, worldPos.y);
-    }
-    
     resetDragState() {
         this.isDragging = false;
-        this.isDraggingForSupplyRoute = false;
-        this.isProportionalDrag = false;
-        this.proportionalDragStart = null;
-        this.fleetPercentage = 0.5;
         this.dragStartPos = null;
         this.dragStartTime = null;
-        this.dragStart = null;
-        this.dragEnd = null;
-    }
-    
-    startLongPressTimer() {
-        this.touchState.longPressTimer = setTimeout(() => {
-            this.touchState.longPressStarted = true;
-            this.handleLongPress();
-        }, 800);
-    }
-    
-    clearLongPressTimer() {
-        if (this.touchState.longPressTimer) {
-            clearTimeout(this.touchState.longPressTimer);
-            this.touchState.longPressTimer = null;
-        }
-        this.touchState.longPressStarted = false;
-    }
-    
-    handleLongPress() {
-        // Long press logic for mobile
-        console.log('Long press detected');
-    }
-    
-    handleSingleTouchMove(e) {
-        const touch = e.touches[0];
-        const rect = this.canvas.getBoundingClientRect();
-        const currentPos = {
-            x: touch.clientX - rect.left,
-            y: touch.clientY - rect.top
-        };
-        
-        if (this.lastMousePos) {
-            const deltaX = currentPos.x - this.lastMousePos.x;
-            const deltaY = currentPos.y - this.lastMousePos.y;
-            this.game.camera.pan(-deltaX, -deltaY);
-        }
-        
-        this.mousePos = currentPos;
-        this.lastMousePos = currentPos;
-    }
-    
-    initializePinchGesture() {
-        const touches = Array.from(this.touchState.activeTouches.values());
-        if (touches.length >= 2) {
-            const distance = Math.sqrt(
-                Math.pow(touches[0].x - touches[1].x, 2) +
-                Math.pow(touches[0].y - touches[1].y, 2)
-            );
-            
-            this.touchState.lastTouchDistance = distance;
-            this.touchState.lastPinchCenter = {
-                x: (touches[0].x + touches[1].x) / 2,
-                y: (touches[0].y + touches[1].y) / 2
-            };
-        }
-    }
-    
-    handlePinchGesture(e) {
-        if (e.touches.length < 2) return;
-        
-        const touch1 = e.touches[0];
-        const touch2 = e.touches[1];
-        
-        const rect = this.canvas.getBoundingClientRect();
-        const pos1 = {
-            x: touch1.clientX - rect.left,
-            y: touch1.clientY - rect.top
-        };
-        const pos2 = {
-            x: touch2.clientX - rect.left,
-            y: touch2.clientY - rect.top
-        };
-        
-        const currentDistance = Math.sqrt(
-            Math.pow(pos1.x - pos2.x, 2) +
-            Math.pow(pos1.y - pos2.y, 2)
-        );
-        
-        if (this.touchState.lastTouchDistance && Math.abs(currentDistance - this.touchState.lastTouchDistance) > 2) {
-            const zoomFactor = currentDistance / this.touchState.lastTouchDistance;
-            const adjustedFactor = 1 + (zoomFactor - 1) * 1.5;
-            
-            const centerX = (pos1.x + pos2.x) / 2;
-            const centerY = (pos1.y + pos2.y) / 2;
-            
-            const newZoom = Math.max(0.1, Math.min(3.0, this.game.camera.targetZoom * adjustedFactor));
-            this.game.camera.zoomTo(newZoom, centerX, centerY);
-        }
-        
-        this.touchState.lastTouchDistance = currentDistance;
-    }
-    
-    handleTouchTap(touch, touchData) {
-        const rect = this.canvas.getBoundingClientRect();
-        const tapPos = {
-            x: touch.clientX - rect.left,
-            y: touch.clientY - rect.top
-        };
-        
-        const tapDuration = Date.now() - touchData.startTime;
-        const tapDistance = Math.sqrt(
-            Math.pow(tapPos.x - touchData.x, 2) +
-            Math.pow(tapPos.y - touchData.y, 2)
-        );
-        
-        if (tapDuration < 500 && tapDistance < 20) {
-            // Check UI elements first
-            if (this.game.handleUIClick(tapPos.x, tapPos.y)) {
-                return;
-            }
-            
-            if (this.game.gameState !== 'playing') return;
-            
-            const worldPos = this.game.camera.screenToWorld(tapPos.x, tapPos.y);
-            const targetTerritory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
-            
-            this.inputFSM.handleInput('leftClick', {
-                territory: targetTerritory,
-                worldPos: worldPos,
-                screenPos: tapPos
-            });
-        }
-    }
-    
-    // Public interface for game engine
-    getSelectedTerritory() {
-        return this.inputFSM.getState().selectedTerritory;
-    }
-    
-    getInputState() {
-        return this.inputFSM.getState();
-    }
-    
-    resetInputState() {
-        this.inputFSM.reset();
-        this.resetDragState();
     }
 }

@@ -1,29 +1,28 @@
 /**
  * Player Input Finite State Machine (FSM)
  * 
- * This FSM manages all player input interactions to eliminate ambiguity
- * and conflicts in the probe launch and territory selection systems.
+ * This FSM manages all player input interactions using the new contextual command model.
+ * Left-click selects territories, right-click executes contextual actions.
  * 
  * States:
  * - Default: No territory selected, awaiting input
  * - TerritorySelected: Player owns selected territory, awaiting command
- * - ProbeTargeting: Active probe targeting mode
  * - EnemySelected: Enemy/neutral territory selected for inspection
  */
+
+import PathfindingService from './PathfindingService.js';
 
 export class InputStateMachine {
     constructor(game) {
         this.game = game;
         this.currentState = 'Default';
         this.selectedTerritory = null;
-        this.probeOrigin = null;
         this.stateData = {};
         
         // Cursor modes for visual feedback
         this.cursorModes = {
             'Default': 'default',
             'TerritorySelected': 'pointer',
-            'ProbeTargeting': 'crosshair',
             'EnemySelected': 'help'
         };
         
@@ -31,7 +30,6 @@ export class InputStateMachine {
         this.stateHandlers = {
             'Default': new DefaultState(this),
             'TerritorySelected': new TerritorySelectedState(this),
-            'ProbeTargeting': new ProbeTargetingState(this),
             'EnemySelected': new EnemySelectedState(this)
         };
         
@@ -48,44 +46,49 @@ export class InputStateMachine {
         
         const result = currentHandler.handleInput(inputType, data);
         
-        // Update cursor based on current state
+        // Update UI cursor based on current state
         this.updateCursor();
         
         return result;
     }
     
-    // State transition with logging
+    // State transition method
     transitionTo(newState, data = {}) {
         const oldState = this.currentState;
+        const oldHandler = this.stateHandlers[oldState];
+        const newHandler = this.stateHandlers[newState];
+        
+        if (!newHandler) {
+            console.error(`Invalid state transition to: ${newState}`);
+            return;
+        }
+        
+        // Exit old state
+        if (oldHandler && oldHandler.onExit) {
+            oldHandler.onExit();
+        }
+        
+        // Change state
         this.currentState = newState;
-        this.stateData = { ...this.stateData, ...data };
+        
+        // Enter new state
+        if (newHandler.onEnter) {
+            newHandler.onEnter(data);
+        }
         
         console.log(`FSM: ${oldState} -> ${newState}`, data);
-        
-        // Notify state handlers of transition
-        if (this.stateHandlers[newState]) {
-            this.stateHandlers[newState].onEnter(data);
-        }
-        
-        if (this.stateHandlers[oldState]) {
-            this.stateHandlers[oldState].onExit();
-        }
-        
-        this.updateCursor();
-        this.updateUI();
     }
     
-    // Get current state for external queries
+    // Get current state information
     getState() {
         return {
             currentState: this.currentState,
             selectedTerritory: this.selectedTerritory,
-            probeOrigin: this.probeOrigin,
             stateData: this.stateData
         };
     }
     
-    // Update cursor visual feedback
+    // Update cursor based on current state
     updateCursor() {
         const cursorMode = this.cursorModes[this.currentState] || 'default';
         if (this.game.canvas) {
@@ -93,60 +96,38 @@ export class InputStateMachine {
         }
     }
     
-    // Update UI to reflect current state
-    updateUI() {
-        if (this.game.ui) {
-            this.game.ui.setInputState(this.getState());
-        }
-    }
-    
-    // Helper method to check if territory is valid for current context
-    isValidTarget(territory, action) {
-        const handler = this.stateHandlers[this.currentState];
-        return handler ? handler.isValidTarget(territory, action) : false;
-    }
-    
-    // Reset FSM to default state
+    // Force state reset (for game restart)
     reset() {
         this.transitionTo('Default');
         this.selectedTerritory = null;
-        this.probeOrigin = null;
         this.stateData = {};
     }
 }
 
-// Base State Class
+// Base state class
 class BaseState {
     constructor(fsm) {
         this.fsm = fsm;
         this.game = fsm.game;
     }
     
+    // State lifecycle methods
+    onEnter(data) {}
+    onExit() {}
+    
+    // Input handling
     handleInput(inputType, data) {
-        console.warn(`Unhandled input ${inputType} in state ${this.constructor.name}`);
         return false;
     }
     
-    onEnter(data) {
-        // Override in subclasses
-    }
-    
-    onExit() {
-        // Override in subclasses
-    }
-    
-    isValidTarget(territory, action) {
-        return false;
-    }
-    
-    // Helper to check if territory is owned by human player
+    // Helper methods
     isOwnedByPlayer(territory) {
         return territory && territory.ownerId === this.game.humanPlayer?.id;
     }
     
-    // Helper to check if territories are neighbors
     areNeighbors(territory1, territory2) {
         return territory1 && territory2 && 
+               territory1.neighbors && 
                territory1.neighbors.includes(territory2.id);
     }
 }
@@ -200,16 +181,13 @@ class DefaultState extends BaseState {
         // No special keys in default state
         return false;
     }
-    
-    isValidTarget(territory, action) {
-        return true; // All territories can be selected from default
-    }
 }
 
 // Territory Selected State: Player owns selected territory
 class TerritorySelectedState extends BaseState {
     onEnter(data) {
         this.selectedTerritory = data.selectedTerritory;
+        this.game.selectedTerritory = this.selectedTerritory;
         console.log(`Selected owned territory ${this.selectedTerritory.id} with ${this.selectedTerritory.armySize} armies`);
     }
     
@@ -235,108 +213,114 @@ class TerritorySelectedState extends BaseState {
         
         // Clicking same territory - keep selected (no deselect for better UX)
         if (territory.id === this.selectedTerritory.id) {
-            // Stay selected to allow multiple actions
             return true;
         }
         
-        // Clicking another owned territory
+        // Clicking another territory - select it
         if (this.isOwnedByPlayer(territory)) {
-            if (this.areNeighbors(this.selectedTerritory, territory)) {
-                // Fleet transfer to adjacent territory
-                this.game.transferFleet(this.selectedTerritory, territory);
-                // Keep territory selected for multiple transfers
-                return true;
-            } else {
-                // Select new territory (distant owned territory)
-                this.fsm.selectedTerritory = territory;
-                this.fsm.transitionTo('TerritorySelected', { selectedTerritory: territory });
-                return true;
-            }
-        }
-        
-        // Clicking enemy/neutral territory - just select it for inspection (no attack on left-click)
-        if (!territory.isColonizable) {
+            this.fsm.selectedTerritory = territory;
+            this.fsm.transitionTo('TerritorySelected', { selectedTerritory: territory });
+            return true;
+        } else {
+            // Enemy, neutral, or colonizable territory
             this.fsm.selectedTerritory = territory;
             this.fsm.transitionTo('EnemySelected', { selectedTerritory: territory });
             return true;
         }
-        
-        // Clicking colonizable territory - select it for inspection
-        this.fsm.selectedTerritory = territory;
-        this.fsm.transitionTo('EnemySelected', { selectedTerritory: territory });
-        return true;
     }
     
-    handleRightClick(territory, worldPos) {
-        console.log(`TerritorySelected: Right-click on territory ${territory?.id}, isColonizable: ${territory?.isColonizable}`);
-        
+    async handleRightClick(territory, worldPos) {
         if (!territory) {
-            return false; // Camera drag
+            // Right-click on empty space - do nothing, maintain selection
+            return true;
         }
         
-        // Right-click on colonizable planet - launch probe
-        if (territory.isColonizable) {
-            console.log(`Attempting probe launch: from ${this.selectedTerritory.id} (${this.selectedTerritory.armySize} armies) to ${territory.id}`);
-            if (this.selectedTerritory.armySize >= 10) {
-                this.game.launchProbe(this.selectedTerritory, territory);
-                console.log(`Probe launched successfully via right-click`);
-                // Stay in TerritorySelected to allow multiple probes
-                return true;
-            } else {
-                this.game.showError("Need at least 10 fleet strength to launch probe");
-                return true;
-            }
+        // Right-click on the selected territory itself - do nothing
+        if (territory.id === this.selectedTerritory.id) {
+            return true;
         }
         
-        // Right-click on friendly territory - transfer reinforcements
-        if (this.isOwnedByPlayer(territory) && territory.id !== this.selectedTerritory.id) {
-            console.log(`Attempting reinforcement: from ${this.selectedTerritory.id} to ${territory.id}`);
-            if (this.game.controls && this.game.controls.executeReinforcement) {
-                const reinforcementSuccess = this.game.controls.executeReinforcement(this.selectedTerritory, territory);
-                if (reinforcementSuccess) {
-                    console.log(`Reinforcement sent successfully via right-click`);
-                    return true;
-                }
-            } else {
-                // Fallback to old transfer system
-                this.game.transferFleet(this.selectedTerritory, territory);
-                return true;
-            }
+        const sourceStar = this.selectedTerritory;
+        const targetStar = territory;
+        const ownershipType = PathfindingService.getTerritoryOwnershipType(targetStar, this.game.humanPlayer?.id);
+        const isAdjacent = PathfindingService.areTerritoriesAdjacent(sourceStar, targetStar);
+        
+        console.log(`Right-click: ${sourceStar.id} -> ${targetStar.id}, ownership: ${ownershipType}, adjacent: ${isAdjacent}`);
+        
+        // Validate minimum fleet size for commands
+        if (sourceStar.armySize <= 1) {
+            this.showFeedback("Need more than 1 army to send fleet", sourceStar.x, sourceStar.y);
+            return true;
         }
         
-        // Right-click on enemy territory - attack using new Controls module
-        if (!this.isOwnedByPlayer(territory) && !territory.isColonizable) {
-            console.log(`Attempting attack: from ${this.selectedTerritory.id} to ${territory.id}`);
-            if (this.game.controls && this.game.controls.executeAttack) {
-                const attackSuccess = this.game.controls.executeAttack(this.selectedTerritory, territory);
-                if (attackSuccess) {
-                    console.log(`Attack launched successfully via right-click`);
-                    // Stay in TerritorySelected to allow multiple attacks
-                    return true;
+        // Handle different target types
+        switch (ownershipType) {
+            case 'friendly':
+                if (isAdjacent) {
+                    // Adjacent friendly star - send reinforcements (50%)
+                    const success = this.game.combatSystem.transferArmies(sourceStar, targetStar);
+                    if (success) {
+                        const fleetSize = Math.floor((sourceStar.armySize + Math.floor(sourceStar.armySize * 0.5)) * 0.5);
+                        this.game.createShipAnimation(sourceStar, targetStar, false, fleetSize);
+                        console.log(`Sent reinforcements from ${sourceStar.id} to adjacent ${targetStar.id}`);
+                    }
                 } else {
-                    console.log(`Attack failed validation`);
-                    return true;
+                    // Distant friendly star - find path and execute multi-hop transfer
+                    try {
+                        const path = await PathfindingService.findShortestPath(
+                            sourceStar.id, 
+                            targetStar.id, 
+                            this.game.gameMap, 
+                            this.game.humanPlayer?.id
+                        );
+                        
+                        if (path && path.length > 1) {
+                            console.log(`Multi-hop transfer path found: ${path.join(' -> ')}`);
+                            this.game.executeFleetCommand(sourceStar, targetStar, 0.5, 'multi-hop-transfer', path);
+                        } else {
+                            this.showFeedback("No valid reinforcement path", sourceStar.x, sourceStar.y);
+                            console.log(`No path found from ${sourceStar.id} to ${targetStar.id}`);
+                        }
+                    } catch (error) {
+                        console.error("Pathfinding error:", error);
+                        this.showFeedback("Pathfinding failed", sourceStar.x, sourceStar.y);
+                    }
                 }
-            } else {
-                console.log(`Controls module not available, falling back to old attack method`);
-                this.game.attackTerritory(this.selectedTerritory, territory);
-                return true;
-            }
+                break;
+                
+            case 'enemy':
+                if (isAdjacent) {
+                    // Adjacent enemy star - attack with 50% of fleet
+                    const attackingArmies = Math.floor((sourceStar.armySize - 1) * 0.5);
+                    if (attackingArmies > 0) {
+                        const result = this.game.combatSystem.attackTerritory(sourceStar, targetStar, attackingArmies);
+                        this.game.createShipAnimation(sourceStar, targetStar, true, attackingArmies);
+                        console.log(`Attacked enemy ${targetStar.id} from ${sourceStar.id}`);
+                    }
+                } else {
+                    // Non-adjacent enemy star - show error feedback
+                    this.showFeedback("Target not in range", sourceStar.x, sourceStar.y);
+                    console.log(`Enemy territory ${targetStar.id} not in range from ${sourceStar.id}`);
+                }
+                break;
+                
+            case 'neutral':
+                // Cannot send fleets to neutral stars
+                this.showFeedback("Cannot send fleets to neutral star", sourceStar.x, sourceStar.y);
+                console.log(`Cannot target neutral territory ${targetStar.id}`);
+                break;
+                
+            default:
+                console.log(`Invalid target: ${targetStar.id}`);
+                break;
         }
         
-        return false;
+        // Keep territory selected for multiple commands
+        return true;
     }
     
     handleKeyPress(key) {
         switch (key) {
-            case 'p':
-            case 'P':
-                // Activate probe targeting mode
-                this.fsm.probeOrigin = this.selectedTerritory;
-                this.fsm.transitionTo('ProbeTargeting', { 
-                    probeOrigin: this.selectedTerritory 
-                });
-                return true;
             case 'Escape':
                 this.fsm.transitionTo('Default');
                 return true;
@@ -345,96 +329,13 @@ class TerritorySelectedState extends BaseState {
         }
     }
     
-    isValidTarget(territory, action) {
-        switch (action) {
-            case 'transfer':
-                return this.isOwnedByPlayer(territory) && 
-                       this.areNeighbors(this.selectedTerritory, territory);
-            case 'attack':
-                return !this.isOwnedByPlayer(territory) && !territory.isColonizable;
-            case 'probe':
-                return territory.isColonizable;
-            default:
-                return false;
-        }
-    }
-}
-
-// Probe Targeting State: Active probe targeting mode
-class ProbeTargetingState extends BaseState {
-    onEnter(data) {
-        this.probeOrigin = data.probeOrigin;
-        console.log(`Entering probe targeting mode from territory ${this.probeOrigin.id}`);
-        this.game.showMessage("Select a colonizable planet to probe", 3000);
-    }
-    
-    onExit() {
-        this.game.hideMessage();
-    }
-    
-    handleInput(inputType, data) {
-        switch (inputType) {
-            case 'leftClick':
-                return this.handleLeftClick(data.territory, data.worldPos);
-            case 'rightClick':
-                return this.handleRightClick(data.territory, data.worldPos);
-            case 'keyPress':
-                return this.handleKeyPress(data.key);
-            default:
-                return false;
-        }
-    }
-    
-    handleLeftClick(territory, worldPos) {
-        if (!territory) {
-            // Clicked empty space - stay in probe targeting
-            return true;
-        }
-        
-        if (territory.isColonizable) {
-            if (this.probeOrigin.armySize >= 10) {
-                this.game.launchProbe(this.probeOrigin, territory);
-                // Return to territory selected state
-                this.fsm.selectedTerritory = this.probeOrigin;
-                this.fsm.transitionTo('TerritorySelected', { 
-                    selectedTerritory: this.probeOrigin 
-                });
-                return true;
-            } else {
-                this.game.showError("Need at least 10 fleet strength to launch probe");
-                return true;
-            }
+    showFeedback(message, x, y) {
+        // Add floating text feedback for failed commands
+        if (this.game.addFloatingText) {
+            this.game.addFloatingText(x, y, message, '#FF6B6B', 2000);
         } else {
-            this.game.showError("Invalid probe target. Select an unexplored planet.");
-            return true;
+            console.log(`Feedback: ${message}`);
         }
-    }
-    
-    handleRightClick(territory, worldPos) {
-        // Right-click cancels probe targeting
-        this.fsm.selectedTerritory = this.probeOrigin;
-        this.fsm.transitionTo('TerritorySelected', { 
-            selectedTerritory: this.probeOrigin 
-        });
-        return true;
-    }
-    
-    handleKeyPress(key) {
-        switch (key) {
-            case 'Escape':
-                // Cancel probe targeting
-                this.fsm.selectedTerritory = this.probeOrigin;
-                this.fsm.transitionTo('TerritorySelected', { 
-                    selectedTerritory: this.probeOrigin 
-                });
-                return true;
-            default:
-                return false;
-        }
-    }
-    
-    isValidTarget(territory, action) {
-        return action === 'probe' && territory.isColonizable;
     }
 }
 
@@ -442,10 +343,14 @@ class ProbeTargetingState extends BaseState {
 class EnemySelectedState extends BaseState {
     onEnter(data) {
         this.selectedTerritory = data.selectedTerritory;
+        this.game.selectedTerritory = this.selectedTerritory;
+        
         if (this.selectedTerritory.isColonizable) {
-            console.log(`Selected colonizable planet ${this.selectedTerritory.id}`);
+            console.log(`Selected colonizable territory ${this.selectedTerritory.id}`);
+        } else if (this.selectedTerritory.ownerId === 0) {
+            console.log(`Selected neutral territory ${this.selectedTerritory.id}`);
         } else {
-            console.log(`Selected enemy territory ${this.selectedTerritory.id}`);
+            console.log(`Selected enemy territory ${this.selectedTerritory.id} (owner: ${this.selectedTerritory.ownerId})`);
         }
     }
     
@@ -464,17 +369,23 @@ class EnemySelectedState extends BaseState {
     
     handleLeftClick(territory, worldPos) {
         if (!territory) {
-            // Clicked empty space - deselect
+            // Clicked empty space - go to default
             this.fsm.transitionTo('Default');
             return true;
         }
         
-        // Any click selects new territory (transition based on ownership)
+        // Clicking same territory - keep selected
+        if (territory.id === this.selectedTerritory.id) {
+            return true;
+        }
+        
+        // Clicking different territory
         if (this.isOwnedByPlayer(territory)) {
             this.fsm.selectedTerritory = territory;
             this.fsm.transitionTo('TerritorySelected', { selectedTerritory: territory });
             return true;
         } else {
+            // Another enemy/neutral/colonizable territory
             this.fsm.selectedTerritory = territory;
             this.fsm.transitionTo('EnemySelected', { selectedTerritory: territory });
             return true;
@@ -494,9 +405,5 @@ class EnemySelectedState extends BaseState {
             default:
                 return false;
         }
-    }
-    
-    isValidTarget(territory, action) {
-        return false; // No actions available from enemy selected state
     }
 }

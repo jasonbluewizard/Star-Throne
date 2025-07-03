@@ -1,0 +1,130 @@
+You are an expert game developer specializing in Real-Time Strategy games and JavaScript. Your task is to refactor the fleet control system for the game Star Throne. The goal is to replace the current complex system, which uses multiple modifier keys and proportional dragging, with a modern, intuitive left-click select / right-click contextual action model.
+
+Please implement the following changes across the specified game modules, based on the existing architecture (InputHandler.js, InputStateMachine.js, CombatSystem.js, SupplySystem.js, AnimationSystem.js, StarThrone.js).
+
+1. Formal Command & Control Logic
+Implement the following core control scheme:
+
+Selection:
+
+Left-click on a friendly star to select it. This is the Selected Star.
+
+Left-click on empty space to deselect any currently selected star.
+
+Left-click on a different star to change the selection to that star.
+
+Actions (when a friendly star is selected):
+
+Right-click on an adjacent friendly star to send 50% of the Selected Star's fleet as reinforcements.
+
+Right-click on an adjacent enemy star to attack with 50% of the Selected Star's fleet.
+
+Right-click on a distant (non-adjacent) friendly star to send 50% of the Selected Star's fleet as reinforcements via the shortest available path through friendly territory. This is a one-time, multi-hop transfer.
+
+Visual Feedback:
+
+When a fleet is transferred or attacks, it must be visualized as a ship icon moving along the starlane path(s).
+
+An updating numerical label indicating the current number of ships in the fleet must be attached to this ship icon throughout its journey.
+
+2. Edge Case Handling
+The system must handle invalid commands gracefully. When a friendly star is selected:
+
+Right-click on a non-adjacent enemy star: The command should fail. Provide visual/audio feedback indicating "Target not in range."
+
+Right-click on an unconnected friendly star: The command should fail if no path exists through friendly territory. Provide feedback: "No valid reinforcement path."
+
+Right-click on the selected star itself: Do nothing.
+
+Right-click on an un-owned neutral star: The command should fail. Provide feedback: "Cannot send fleets to a neutral star."
+
+Right-click on empty space: Do nothing; maintain the current selection.
+
+3. Module-by-Module Refactoring Plan
+A. InputHandler.js
+This module should be simplified to only capture raw click events.
+
+Remove Proportional Drag Logic: Delete all code related to detecting and processing left-click drag actions for fleet commands. This includes removing methods like startProportionalDrag and updateProportionalDrag.
+
+Remove Modifier Key Logic: Eliminate all tracking and conditional checks for Shift, Ctrl, and Alt keys related to fleet percentage commands. The module should no longer modify commands based on these keys.
+
+Implement Double-Click Disambiguation: To preserve the existing "Double-click to create supply route" functionality, implement a mechanism to differentiate single-clicks from double-clicks on a star.
+
+On mousedown, start a short timer (e.g., 250ms).
+
+If a second mousedown occurs on the same star within the time limit, register it as a double-click.
+
+If the timer expires, register it as a single-click for selection.
+
+B. PathfindingService.js (New Module)
+Create a new, reusable pathfinding module to handle multi-hop logic.
+
+Create PathfindingService.js: Extract the Dijkstra's algorithm implementation from SupplySystem.js and place it in this new, dedicated module.
+
+Expose a Generic Function: The service should expose a primary, asynchronous function: findShortestPath(startNodeId, endNodeId, graph).
+
+This function must return a Promise.
+
+The promise should resolve with an array of star IDs representing the shortest path (e.g., [start, hop1, hop2, end]).
+
+If no path exists through friendly territory, the promise should resolve with null.
+
+C. InputStateMachine.js
+This module will become the core of the new contextual command logic.
+
+Update Right-Click Logic: In the TerritorySelected state, the rightClick transition must be expanded into a conditional block that queries the game state.
+
+Implement Contextual Query: On a right-click, the state machine must:
+
+Identify the sourceStar (selected) and targetStar (clicked).
+
+Check the targetStar's ownership (friendly, enemy, neutral).
+
+Check for adjacency between sourceStar and targetStar.
+
+If the target is a distant friendly star, call PathfindingService.findShortestPath().
+
+Route Commands: Based on the query results, call the appropriate function:
+
+Adjacent Friendly: Call CombatSystem.transferArmies().
+
+Adjacent Enemy: Call CombatSystem.attackTerritory().
+
+Distant Friendly (if path exists): Call StarThrone.executeFleetCommand() with a new command type like 'multi-hop-transfer' and the path array.
+
+Invalid Targets: Trigger the appropriate visual/audio feedback as defined in the Edge Case section.
+
+D. SupplySystem.js
+Refactor this module to use the new pathfinding service.
+
+The createSupplyRoute logic should now call PathfindingService.findShortestPath() instead of using its own internal implementation.
+
+E. CombatSystem.js & StarThrone.js
+Simplify these modules to execute the new, standardized commands.
+
+CombatSystem.js: Modify attackTerritory() and transferArmies(). Remove the fleet percentage parameter from their signatures and hardcode the fleet size calculation to 50% of the source star's available armies.
+
+StarThrone.js: Update executeFleetCommand().
+
+Remove all legacy logic for interpreting modifier keys or drag percentages.
+
+Implement a switch statement or if/else block that handles the clear command types ('attack', 'transfer', 'multi-hop-transfer') passed from the InputStateMachine.
+
+For multi-hop transfers, it should trigger an animation that follows the full path array.
+
+F. AnimationSystem.js
+Implement the new visual feedback for fleet movement with high performance.
+
+Implement "Text-as-Sprite" Pattern: To avoid performance issues from rendering text in the main game loop, do not use ctx.fillText() directly for the fleet count. Instead:
+
+Pre-render Text: On game load, generate and cache images (sprites) for numbers (e.g., 1-999).
+
+Enhance Animation Object Pool: Modify the pooled animation objects to include a reference to both the shipSprite and its corresponding labelSprite.
+
+Update createShipAnimation():
+
+Modify this function (in StarThrone.js) to accept the fleetSize.
+
+When an animation is created, it should retrieve the appropriate ship sprite and look up the pre-rendered text sprite for the fleetSize from the cache, assigning both to the pooled animation object.
+
+Update Animation Loop: The main render loop in AnimationSystem.js should be updated to draw both the shipSprite and its associated labelSprite at the correct position, ensuring the label maintains a consistent offset from the ship.

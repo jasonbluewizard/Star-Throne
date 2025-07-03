@@ -1,0 +1,189 @@
+/**
+ * PathfindingService.js - Reusable pathfinding module for Star Throne
+ * Extracted from SupplySystem.js to provide generic pathfinding capabilities
+ * Uses Dijkstra's algorithm to find shortest paths through friendly territory
+ */
+
+export default class PathfindingService {
+    /**
+     * Find the shortest path between two nodes through friendly territory
+     * @param {number} startNodeId - Starting territory ID
+     * @param {number} endNodeId - Destination territory ID
+     * @param {Object} graph - Game graph containing territories and ownership
+     * @param {string} playerId - Player ID for territory ownership validation
+     * @returns {Promise<Array|null>} Array of territory IDs representing path, or null if no path exists
+     */
+    static async findShortestPath(startNodeId, endNodeId, graph, playerId) {
+        return new Promise((resolve) => {
+            // Validate inputs
+            if (!graph || !graph.territories || startNodeId === endNodeId) {
+                resolve(null);
+                return;
+            }
+
+            const territories = graph.territories;
+            const startTerritory = territories[startNodeId];
+            const endTerritory = territories[endNodeId];
+
+            // Validate start and end territories exist and are owned by player
+            if (!startTerritory || !endTerritory || 
+                startTerritory.ownerId !== playerId || 
+                endTerritory.ownerId !== playerId) {
+                resolve(null);
+                return;
+            }
+
+            // Initialize Dijkstra's algorithm data structures
+            const distances = new Map();
+            const previous = new Map();
+            const unvisited = new Set();
+
+            // Initialize all player-owned territories
+            for (let territory of territories) {
+                if (territory && territory.ownerId === playerId) {
+                    distances.set(territory.id, territory.id === startNodeId ? 0 : Infinity);
+                    previous.set(territory.id, null);
+                    unvisited.add(territory.id);
+                }
+            }
+
+            // If end territory is not in unvisited set, no path exists
+            if (!unvisited.has(endNodeId)) {
+                resolve(null);
+                return;
+            }
+
+            // Dijkstra's algorithm main loop
+            while (unvisited.size > 0) {
+                // Find unvisited node with minimum distance
+                let currentNode = null;
+                let minDistance = Infinity;
+                
+                for (let nodeId of unvisited) {
+                    const distance = distances.get(nodeId);
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        currentNode = nodeId;
+                    }
+                }
+
+                // If no reachable unvisited nodes remain
+                if (currentNode === null || minDistance === Infinity) {
+                    break;
+                }
+
+                // Remove current node from unvisited
+                unvisited.delete(currentNode);
+
+                // If we reached the destination, reconstruct path
+                if (currentNode === endNodeId) {
+                    const path = this.reconstructPath(previous, startNodeId, endNodeId);
+                    resolve(path);
+                    return;
+                }
+
+                // Examine neighbors of current node
+                const currentTerritory = territories[currentNode];
+                if (currentTerritory && currentTerritory.neighbors) {
+                    for (let neighborId of currentTerritory.neighbors) {
+                        const neighborTerritory = territories[neighborId];
+                        
+                        // Only consider neighbors owned by the same player
+                        if (neighborTerritory && 
+                            neighborTerritory.ownerId === playerId && 
+                            unvisited.has(neighborId)) {
+                            
+                            const altDistance = distances.get(currentNode) + 1;
+                            
+                            if (altDistance < distances.get(neighborId)) {
+                                distances.set(neighborId, altDistance);
+                                previous.set(neighborId, currentNode);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // No path found
+            resolve(null);
+        });
+    }
+
+    /**
+     * Reconstruct the shortest path from previous node mapping
+     * @param {Map} previous - Map of nodeId -> previousNodeId
+     * @param {number} startNodeId - Starting node ID
+     * @param {number} endNodeId - Ending node ID
+     * @returns {Array} Array of node IDs representing the path
+     */
+    static reconstructPath(previous, startNodeId, endNodeId) {
+        const path = [];
+        let currentNode = endNodeId;
+
+        // Work backwards from end to start
+        while (currentNode !== null) {
+            path.unshift(currentNode);
+            currentNode = previous.get(currentNode);
+        }
+
+        // Validate that we have a complete path
+        if (path.length === 0 || path[0] !== startNodeId) {
+            return null;
+        }
+
+        return path;
+    }
+
+    /**
+     * Check if two territories are adjacent (directly connected)
+     * @param {Object} territory1 - First territory
+     * @param {Object} territory2 - Second territory
+     * @returns {boolean} True if territories are adjacent
+     */
+    static areTerritoriesAdjacent(territory1, territory2) {
+        if (!territory1 || !territory2 || !territory1.neighbors) {
+            return false;
+        }
+        
+        return territory1.neighbors.includes(territory2.id);
+    }
+
+    /**
+     * Validate if a territory is owned by a specific player
+     * @param {Object} territory - Territory to check
+     * @param {string} playerId - Player ID to validate ownership
+     * @returns {boolean} True if territory is owned by player
+     */
+    static isOwnedByPlayer(territory, playerId) {
+        return territory && territory.ownerId === playerId;
+    }
+
+    /**
+     * Get territory ownership type relative to a player
+     * @param {Object} territory - Territory to check
+     * @param {string} playerId - Player ID for comparison
+     * @returns {string} 'friendly', 'enemy', 'neutral', or 'invalid'
+     */
+    static getTerritoryOwnershipType(territory, playerId) {
+        if (!territory) {
+            return 'invalid';
+        }
+
+        if (territory.ownerId === playerId) {
+            return 'friendly';
+        } else if (territory.ownerId === 0) {
+            return 'neutral';
+        } else {
+            return 'enemy';
+        }
+    }
+
+    /**
+     * Calculate path distance (number of hops)
+     * @param {Array} path - Array of territory IDs
+     * @returns {number} Number of hops in the path
+     */
+    static calculatePathDistance(path) {
+        return path ? Math.max(0, path.length - 1) : 0;
+    }
+}
