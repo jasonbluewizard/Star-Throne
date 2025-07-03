@@ -82,7 +82,9 @@ export class Fleet {
             return this.handleSelection(territory, isPlayerTerritory);
         }
         
-        return false;
+        // Fleet system consumes all territory clicks to prevent FSM fallback
+        console.log(`Fleet: Consuming unhandled territory click to prevent FSM fallback`);
+        return true;
     }
     
     /**

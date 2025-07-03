@@ -206,15 +206,15 @@ export class InputHandler {
             }
         }
         else if (e.button === 2 && wasQuickClick) {
-            // Route right clicks through Fleet system first
+            // Route right clicks through Fleet system first - Fleet has priority
             console.log(`InputHandler: Checking Fleet system for right click - exists: ${!!this.game.fleet}`);
             if (this.game.fleet && this.game.fleet.handleClick) {
                 console.log(`InputHandler: Calling Fleet.handleClick for right click`);
                 if (this.game.fleet.handleClick(this.mousePos, true)) {
-                    // Fleet system handled the click
-                    console.log(`InputHandler: Fleet handled right click`);
+                    // Fleet system handled the click - stop processing
+                    console.log(`InputHandler: Fleet handled right click - stopping propagation`);
                     this.resetDragState();
-                    return;
+                    return; // Exit immediately, no fallback
                 } else {
                     console.log(`InputHandler: Fleet did not handle right click, falling back to FSM`);
                 }

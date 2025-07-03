@@ -1,0 +1,148 @@
+Great. I’ll proceed with a full diagnosis and targeted fixes for the Fleet system’s multi-hop transfers and enemy attack handling issues. This includes reviewing the camera sticking bug and rewriting the click routing logic in InputHandler.js where needed.
+
+I’ll follow up shortly with root causes, corrected code, and architecture improvements.
+
+
+# Debugging Multi-Hop Fleet Transfers in Star Throne
+
+**Overview:** The Fleet system should intercept all right-clicks on territories (for transfers/attacks) before any legacy input state machine (FSM) runs. In the current bug, **Fleet.handleClick** is never called for multi-hop moves, so the fallback FSM takes over (locking the camera on the target and preventing movement). The root cause is twofold: (1) the input routing in **InputHandler.js** isn’t giving Fleet first priority on right-clicks, and (2) the pathfinding logic in **Fleet.findShortestPath()** fails (likely due to using the wrong adjacency data), so Fleet.handleClick returns false and lets the FSM handle the click. We must ensure Fleet consumes the event and uses a proper BFS on `territory.neighbors` to find multi-hop paths.
+
+## Input Routing & Event Handling
+
+The input system must call `Fleet.handleClick(event)` first and interpret its return value correctly. In JavaScript-style event chains, returning or stopping an event in one handler prevents further processing. For example, MDN explains that calling `event.stopPropagation()` prevents further handlers from receiving the click, and many frameworks treat returning `false` from a handler as “stop bubbling”. In our case, `Fleet.handleClick` should **return true** when it has consumed the click, signaling the InputHandler not to fall back to the legacy FSM.
+
+In **InputHandler.js** (around lines 175–189 for left-click and 208–223 for right-click), the code should look roughly like:
+
+```js
+// File: client/src/game/InputHandler.js (right-click handler)
+// ...
+if (this.game.fleet.handleClick(event)) {
+    // Fleet system handled the click; do not let legacy FSM run
+    return true;
+}
+// Fallback to InputStateMachine if Fleet didn't handle it
+return this.inputStateMachine.handleRightClick(event);
+```
+
+Make sure `handleClick` is called before any state-machine logic. If `handleClick` returns true (meaning a fleet action was initiated or even if it just consumed the event), InputHandler should immediately exit (preventing the legacy FSM from panning the camera or otherwise interfering). Ensuring this early return effectively **stops propagation** of the click to other systems.
+
+Similarly, in **Fleet.handleClick** (in **Fleet.js**), always return true whenever a fleet action is intended or processed. In particular, even if pathfinding fails, return `true` (to consume the click) rather than `false`, so the legacy FSM does not take over. For example:
+
+```js
+// File: client/src/game/Fleet.js (inside handleClick)
+let path = this.findShortestPath(sourceTerritory, targetTerritory);
+if (!path) {
+    console.warn("No path found for multi-hop transfer");
+    return true;  // Consume the click to prevent fallback
+}
+// proceed with launching fleet along path...
+```
+
+Here we intentionally return `true` on failure, effectively telling the engine “Fleet handled this click (even though nothing moved)”, so the input chain stops here.
+
+## Fleet Pathfinding (BFS) Issues
+
+The Fleet’s pathfinding method `findShortestPath(start, end)` should perform a breadth-first search (BFS) on an unweighted graph of friendly territories. BFS explores layer by layer: enqueue the source, then repeatedly dequeue a territory and enqueue each unvisited neighbor. This guarantees finding the shortest multi-hop route in an unweighted network. For example, GfG notes that “BFS itself can be used to… find shortest path in an unweighted graph” and the algorithm enqueues neighbors level-by-level.
+
+A common bug is using the wrong adjacency property. **Territory.js** uses a `neighbors` array (or similar) to list connected warplines. If `findShortestPath` mistakenly references a nonexistent property (e.g. `territory.warpLanes`) instead of `territory.neighbors`, the BFS queue never expands beyond the start territory and no multi-hop path is found. This would cause `findShortestPath` to return `null` or empty, making `handleClick` return false and dropping into fallback logic.
+
+**Fix:** Confirm and use the correct connection array. For example, if each Territory has `territory.neighbors` listing adjacent warplines, the BFS loop should iterate over `neighbor of currentTerritory.neighbors`. Pseudocode:
+
+```js
+// BFS for shortest path in Fleet.findShortestPath (client/src/game/Fleet.js)
+let queue = [startTerritory];
+let visited = new Set([startTerritory.id]);
+let parent = {}; // to reconstruct path
+while (queue.length > 0) {
+    let curr = queue.shift();
+    if (curr === endTerritory) break;
+    for (let neighbor of curr.neighbors) {
+        if (neighbor.owner === playerId && !visited.has(neighbor.id)) {
+            visited.add(neighbor.id);
+            parent[neighbor.id] = curr.id;
+            queue.push(neighbor);
+        }
+    }
+}
+// reconstruct path from 'parent' map...
+```
+
+This uses only friendly-owned neighbors. Ensure the code uses `curr.neighbors` (as defined in Territory.js) and that ownership checks compare to the *current player’s* ID. With this corrected adjacency, BFS will correctly find 2+ hop routes where they exist.
+
+## Camera and Fallback Handling
+
+When no path is found, the camera got “stuck on the target.” Likely the code was focusing the camera before verifying a valid move. To fix this, **do not lock the camera early**. Only pan or lock the camera after a successful path is found and the fleet begins moving. If pathfinding fails, simply consume the event (as above) without moving the camera.
+
+Also ensure that returning `true` (consuming the click) prevents the legacy FSM’s camera code from running. If any camera lock logic was triggered preemptively, move it to after the path check. For example:
+
+```js
+// File: client/src/game/Fleet.js (snippet)
+// After BFS and before moving fleet:
+if (path) {
+    camera.moveAlong(path); // only now move camera/fleet
+    return true;
+} else {
+    // No path: do not call camera move or fallback
+    return true;
+}
+```
+
+This ensures the camera isn’t left pointing at a target without movement.
+
+## Example Code Fixes
+
+Below are representative code snippets indicating the fixes (file names and approximate line numbers shown as comments):
+
+```js
+// client/src/game/InputHandler.js (around lines 208-223 for RMB)
+...
+// Route right-clicks first to Fleet
+if (this.game.fleet.handleClick(event)) {
+    // Fleet consumed the click; stop further processing
+    event.stopPropagation(); // optional extra safety
+    return true;
+}
+// Legacy input state machine fallback
+return this.inputStateMachine.handleRightClick(event);
+```
+
+```js
+// client/src/game/Fleet.js (inside handleClick, e.g. around the transfer logic)
+let path = this.findShortestPath(srcTerritory, destTerritory);
+if (!path) {
+    console.warn("Fleet: No multi-hop path found");
+    // Consume click to prevent legacy FSM/camera fallback
+    return true;
+}
+// (Path exists) proceed to launch fleet and move camera
+this.launchFleetAlong(path);
+camera.focusOn(path.end); 
+return true;
+```
+
+```js
+// client/src/game/Fleet.js (findShortestPath logic snippet)
+let queue = [start];
+let visited = new Set([start.id]);
+let parent = {};
+while (queue.length > 0) {
+    let curr = queue.shift();
+    if (curr === end) break;
+    for (let neigh of curr.neighbors) {
+        if (neigh.owner === playerId && !visited.has(neigh.id)) {
+            visited.add(neigh.id);
+            parent[neigh.id] = curr.id;
+            queue.push(neigh);
+        }
+    }
+}
+// Reconstruct shortest path from 'parent' map
+```
+
+These changes ensure the fleet system has priority: all right-clicks on owned territories are processed by Fleet, and **only** if `handleClick` returns false will the FSM (with its camera logic) run. When no path exists, Fleet still returns true (consumes the click) so the camera is not wrongly locked.
+
+## Conclusion
+
+The core issues were improper input routing and a broken multi-hop BFS. By updating **InputHandler.js** so that `Fleet.handleClick()` is called first (and its true/false return respected) and by correcting **Fleet.findShortestPath()** to use the actual `neighbors` data (allowing BFS to succeed), multi-hop moves and attacks will work. Returning `true` in `handleClick` (even on failure) prevents the legacy FSM from hijacking the input and freezing the camera. After implementing these fixes, multi-hop transfers should function normally and the camera will remain responsive.
+
+**References:** Standard graph BFS ensures shortest paths in unweighted graphs. Proper event handler return values/propagation control (e.g. using `stopPropagation()` or return-flag conventions) prevent further handling by fallback logic.
