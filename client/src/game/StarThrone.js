@@ -368,6 +368,14 @@ export default class StarThrone {
     
     init() {
         this.setupCanvas();
+        
+        // CANVAS VALIDATION - Answer for other AI
+        console.log('Canvas validation before InputHandler init:');
+        console.log('- this.canvas exists:', !!this.canvas);
+        console.log('- this.canvas.addEventListener exists:', !!this.canvas?.addEventListener);
+        console.log('- Canvas element type:', this.canvas?.constructor.name);
+        console.log('- Canvas in DOM:', document.contains(this.canvas));
+        
         this.setupEventListeners();
         this.gameMap = new GameMap(2000, 1500, this.config); // Large map with advanced configuration
         this.gameMap.game = this; // Reference for AI animations
