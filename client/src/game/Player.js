@@ -1,5 +1,6 @@
 // Import the new advanced AI strategy system
 import { AIStrategist } from './AIStrategist.js';
+import GameUtils from './GameUtils.js';
 
 // AI Finite State Machine states for enhanced strategic behavior (legacy - being replaced)
 const AI_STATE = {
@@ -394,9 +395,7 @@ export class Player {
             // Look for colonizable planets within a reasonable range
             Object.values(gameMap.territories).forEach(target => {
                 if (target.isColonizable && target.ownerId === null) {
-                    const distance = Math.sqrt(
-                        (territory.x - target.x) ** 2 + (territory.y - target.y) ** 2
-                    );
+                    const distance = GameUtils.distance(territory.x, territory.y, target.x, target.y);
                     
                     // Only consider colonizable planets within reasonable probe range
                     if (distance < 300) { // Adjust range as needed

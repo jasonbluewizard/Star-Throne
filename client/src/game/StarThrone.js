@@ -15,6 +15,7 @@ import { PerformanceOverlay } from './PerformanceOverlay.js';
 import { DiscoverySystem } from './DiscoverySystem.js';
 import { AnimationSystem } from './AnimationSystem.js';
 import { UIManager } from './UIManager.js';
+import GameUtils from './GameUtils.js';
 import { AIManager } from './AIManager.js';
 import Controls from './Controls.js';
 
@@ -1305,10 +1306,7 @@ export default class StarThrone {
                 let minDistanceToUsed = Infinity;
                 for (const usedId of usedTerritories) {
                     const usedTerritory = this.gameMap.territories[usedId];
-                    const distance = Math.sqrt(
-                        (territory.x - usedTerritory.x) ** 2 + 
-                        (territory.y - usedTerritory.y) ** 2
-                    );
+                    const distance = GameUtils.distance(territory.x, territory.y, usedTerritory.x, usedTerritory.y);
                     minDistanceToUsed = Math.min(minDistanceToUsed, distance);
                 }
                 

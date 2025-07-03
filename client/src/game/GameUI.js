@@ -1,3 +1,5 @@
+import GameUtils from './GameUtils.js';
+
 export class GameUI {
     constructor(canvas, camera) {
         this.canvas = canvas;
@@ -580,44 +582,44 @@ export class GameUI {
         
         // Show empire-wide bonuses (with safety checks)
         if (discoveries && discoveries.precursorWeapons > 0) {
-            this.renderTextWithShadow(ctx, `⚔️ Weapons Lvl ${discoveries.precursorWeapons}: +${discoveries.precursorWeapons * 10}% Attack`, x + padding, currentY, '#FF6B6B');
+            GameUtils.drawTextShadow(ctx, `⚔️ Weapons Lvl ${discoveries.precursorWeapons}: +${discoveries.precursorWeapons * 10}% Attack`, x + padding, currentY, '#FF6B6B', '12px Arial');
             currentY += lineHeight;
         }
         
         if (discoveries && discoveries.precursorDrive > 0) {
-            this.renderTextWithShadow(ctx, `🚀 Drive Lvl ${discoveries.precursorDrive}: +${discoveries.precursorDrive * 20}% Speed`, x + padding, currentY, '#4ECDC4');
+            GameUtils.drawTextShadow(ctx, `🚀 Drive Lvl ${discoveries.precursorDrive}: +${discoveries.precursorDrive * 20}% Speed`, x + padding, currentY, '#4ECDC4', '12px Arial');
             currentY += lineHeight;
         }
         
         if (discoveries && discoveries.precursorShield > 0) {
-            this.renderTextWithShadow(ctx, `🛡️ Shield Lvl ${discoveries.precursorShield}: +${discoveries.precursorShield * 10}% Defense`, x + padding, currentY, '#45B7D1');
+            GameUtils.drawTextShadow(ctx, `🛡️ Shield Lvl ${discoveries.precursorShield}: +${discoveries.precursorShield * 10}% Defense`, x + padding, currentY, '#45B7D1', '12px Arial');
             currentY += lineHeight;
         }
         
         if (discoveries && discoveries.precursorNanotech > 0) {
-            this.renderTextWithShadow(ctx, `🔬 Nanotech Lvl ${discoveries.precursorNanotech}: +${discoveries.precursorNanotech * 10}% Generation`, x + padding, currentY, '#96CEB4');
+            GameUtils.drawTextShadow(ctx, `🔬 Nanotech Lvl ${discoveries.precursorNanotech}: +${discoveries.precursorNanotech * 10}% Generation`, x + padding, currentY, '#96CEB4', '12px Arial');
             currentY += lineHeight;
         }
         
         if (discoveries && discoveries.factoryPlanets && discoveries.factoryPlanets.size > 0) {
-            this.renderTextWithShadow(ctx, `🏭 Factory Worlds: ${discoveries.factoryPlanets.size} (+100% each)`, x + padding, currentY, '#FECA57');
+            GameUtils.drawTextShadow(ctx, `🏭 Factory Worlds: ${discoveries.factoryPlanets.size} (+100% each)`, x + padding, currentY, '#FECA57', '12px Arial');
             currentY += lineHeight;
         }
         
         if (discoveries && discoveries.friendlyAliens > 0) {
-            this.renderTextWithShadow(ctx, `👽 Friendly Aliens: +${discoveries.friendlyAliens * 50} Fleet Strength`, x + padding, currentY, '#9B59B6');
+            GameUtils.drawTextShadow(ctx, `👽 Friendly Aliens: +${discoveries.friendlyAliens * 50} Fleet Strength`, x + padding, currentY, '#9B59B6', '12px Arial');
             currentY += lineHeight;
         }
         
         if (discoveries && discoveries.richMinerals > 0) {
-            this.renderTextWithShadow(ctx, `💎 Rich Minerals: ${discoveries.richMinerals} Worlds (+50% each)`, x + padding, currentY, '#F39C12');
+            GameUtils.drawTextShadow(ctx, `💎 Rich Minerals: ${discoveries.richMinerals} Worlds (+50% each)`, x + padding, currentY, '#F39C12', '12px Arial');
             currentY += lineHeight;
         }
         
         // Discovery count summary
         ctx.font = '10px Arial';
         ctx.textAlign = 'right';
-        this.renderTextWithShadow(ctx, `Total: ${discoveryCount} discoveries`, x + width - padding, y + height - 5, '#888888');
+        GameUtils.drawTextShadow(ctx, `Total: ${discoveryCount} discoveries`, x + width - padding, y + height - 5, '#888888', '10px Arial');
     }
     
     hexToRgb(hex) {

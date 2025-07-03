@@ -1,4 +1,5 @@
 import { Territory } from './Territory.js';
+import GameUtils from './GameUtils.js';
 
 export class GameMap {
     constructor(width, height, config = {}) {
@@ -75,7 +76,7 @@ export class GameMap {
         
         // Then check minimum distance from other territories
         for (const point of existingPoints) {
-            const dist = Math.sqrt((x - point.x) ** 2 + (y - point.y) ** 2);
+            const dist = GameUtils.distance(x, y, point.x, point.y);
             if (dist < minDistance) return false;
         }
         return true;
@@ -204,7 +205,7 @@ export class GameMap {
             const adaptiveGridSize = this.gridSize * (1.2 - localDensity * 0.7); // Closer in dense areas
             
             for (const point of points) {
-                const dist = Math.sqrt((x - point.x) ** 2 + (y - point.y) ** 2);
+                const dist = GameUtils.distance(x, y, point.x, point.y);
                 if (dist < adaptiveGridSize) return false;
             }
             return true;
