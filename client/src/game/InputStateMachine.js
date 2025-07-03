@@ -236,8 +236,18 @@ class TerritorySelectedState extends BaseState {
             return true;
         }
         
-        // Right-click on the selected territory itself - do nothing
+        // Right-click on the selected territory itself - cancel supply routes if any exist
         if (territory.id === this.selectedTerritory.id) {
+            // Check if this territory has any outgoing supply routes
+            const outgoingRoutes = this.game.supplySystem.supplyRoutes.filter(route => route.from === territory.id);
+            if (outgoingRoutes.length > 0) {
+                // Cancel all outgoing supply routes from this territory
+                outgoingRoutes.forEach(route => {
+                    this.game.supplySystem.removeSupplyRoute(route.id);
+                    console.log(`Cancelled supply route from ${territory.id} to ${route.to}`);
+                });
+                return true;
+            }
             return true;
         }
         

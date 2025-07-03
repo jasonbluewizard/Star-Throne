@@ -838,6 +838,19 @@ export class GameUI {
                 tooltipLines.push(`👑 Throne Star`);
             }
             
+            // Show supply route information if this territory is supplying another
+            if (gameData.supplySystem && gameData.supplySystem.supplyRoutes) {
+                const outgoingRoutes = gameData.supplySystem.supplyRoutes.filter(route => route.from === territory.id);
+                if (outgoingRoutes.length > 0) {
+                    outgoingRoutes.forEach(route => {
+                        const targetTerritory = gameData.territories[route.to];
+                        if (targetTerritory) {
+                            tooltipLines.push(`Supplying territory ${route.to}`);
+                        }
+                    });
+                }
+            }
+            
             // Show battle odds if player has selected territory and this is an enemy
             if (gameData.selectedTerritory && 
                 gameData.selectedTerritory.ownerId === gameData.humanPlayer?.id &&

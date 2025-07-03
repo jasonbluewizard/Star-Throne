@@ -2611,7 +2611,9 @@ export default class StarThrone {
                 inputState: inputState,
                 messageText: this.messageText,
                 messageTimer: this.messageTimer,
-                combatSystem: this.combatSystem
+                combatSystem: this.combatSystem,
+                supplySystem: this.supplySystem,
+                territories: this.gameMap.territories
             });
         }
         
