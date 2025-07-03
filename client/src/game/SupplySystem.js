@@ -219,17 +219,27 @@ export class SupplySystem {
         this.routeProcessingFrame = 0;
         
         const currentTime = Date.now();
+        console.log(`Processing ${this.supplyRoutes.length} supply routes`);
         
         for (const route of this.supplyRoutes) {
-            if (!route.active) continue;
+            if (!route.active) {
+                console.log(`Route ${route.id} is inactive`);
+                continue;
+            }
             
             // Check transfer cooldown
-            if (currentTime - route.lastTransfer < route.transferCooldown) continue;
+            if (currentTime - route.lastTransfer < route.transferCooldown) {
+                console.log(`Route ${route.id} on cooldown for ${route.transferCooldown - (currentTime - route.lastTransfer)}ms`);
+                continue;
+            }
             
             const fromTerritory = this.game.gameMap.territories[route.from];
             const toTerritory = this.game.gameMap.territories[route.to];
             
-            if (!fromTerritory || !toTerritory) continue;
+            if (!fromTerritory || !toTerritory) {
+                console.log(`Route ${route.id} missing territories`);
+                continue;
+            }
             
             // Check if transfer is needed and beneficial
             if (this.shouldTransferArmies(fromTerritory, toTerritory)) {
@@ -255,13 +265,13 @@ export class SupplySystem {
     }
     
     executeSupplyTransfer(route, fromTerritory, toTerritory) {
-        const transferAmount = Math.floor(fromTerritory.armySize * GAME_CONSTANTS.SUPPLY_ROUTE_TRANSFER_RATIO);
+        const transferAmount = Math.floor(fromTerritory.armySize / GAME_CONSTANTS.SUPPLY_ROUTE_TRANSFER_DIVISOR);
         
         if (transferAmount < 1) return;
         
         // Calculate delivery delay based on path length
         const hopsCount = route.path.length - 1;
-        const deliveryDelay = hopsCount * GAME_CONSTANTS.SUPPLY_ROUTE_HOP_DELAY;
+        const deliveryDelay = hopsCount * GAME_CONSTANTS.SUPPLY_ROUTE_DELAY_PER_HOP_MS;
         
         // Immediate deduction from source
         fromTerritory.armySize -= transferAmount;
