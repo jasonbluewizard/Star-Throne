@@ -6,7 +6,7 @@
  */
 
 import { GAME_CONSTANTS } from '../../../common/gameConstants';
-import PathfindingService from './PathfindingService.js';
+import { PathfindingService } from './PathfindingService.js';
 
 export class SupplySystem {
     constructor(game) {
