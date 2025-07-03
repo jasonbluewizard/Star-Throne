@@ -385,7 +385,12 @@ export default class StarThrone {
         this.ui = new GameUI(this.canvas, this.camera);
         
         // Initialize modular systems
-        this.inputHandler = new InputHandler(this);
+        try {
+            this.inputHandler = new InputHandler(this);
+            console.log('InputHandler initialized successfully');
+        } catch (error) {
+            console.error('Failed to initialize InputHandler:', error);
+        }
         this.renderer = new Renderer(this.canvas, this.camera);
         this.combatSystem = new CombatSystem(this);
         this.supplySystem = new SupplySystem(this);
@@ -399,6 +404,12 @@ export default class StarThrone {
         this.fleet = new Fleet(this);
         console.log('Fleet control system initialized');
         console.log('InputHandler Fleet reference check:', !!this.inputHandler.game.fleet);
+        
+        // Test canvas click events with a simple listener
+        this.canvas.addEventListener('click', (e) => {
+            console.log('*** DIRECT CANVAS CLICK DETECTED ***');
+            console.log('Click coordinates:', e.clientX, e.clientY);
+        });
         
         // Auto-detect optimal performance profile
         this.performanceManager.detectOptimalProfile();

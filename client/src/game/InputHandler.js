@@ -57,12 +57,16 @@ export class InputHandler {
     }
     
     setupEventListeners() {
+        console.log('InputHandler: Setting up event listeners on canvas:', !!this.canvas);
+        
         // Mouse events
         this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
         this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
         this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
         this.canvas.addEventListener('wheel', (e) => this.handleWheel(e));
         this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+        
+        console.log('InputHandler: Mouse event listeners attached');
         
         // Touch events
         this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e));
