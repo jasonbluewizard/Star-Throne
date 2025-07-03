@@ -61,9 +61,18 @@ export class Camera {
     }
     
     applyConstraints() {
+        // Calculate the minimum zoom needed to see entire galaxy
+        const minZoomForFullGalaxy = Math.min(
+            this.viewportWidth / this.mapWidth,
+            this.viewportHeight / this.mapHeight
+        );
+        
+        // Use the calculated minimum zoom, but allow going slightly lower for buffer
+        const effectiveMinZoom = Math.max(this.minZoom, minZoomForFullGalaxy * 0.95);
+        
         // Zoom constraints
-        this.zoom = Math.max(this.minZoom, Math.min(this.maxZoom, this.zoom));
-        this.targetZoom = Math.max(this.minZoom, Math.min(this.maxZoom, this.targetZoom));
+        this.zoom = Math.max(effectiveMinZoom, Math.min(this.maxZoom, this.zoom));
+        this.targetZoom = Math.max(effectiveMinZoom, Math.min(this.maxZoom, this.targetZoom));
         
         // Calculate visible area
         const visibleWidth = this.viewportWidth / this.zoom;
@@ -74,17 +83,30 @@ export class Camera {
             console.log(`⚠️ Camera using default dimensions ${this.mapWidth}x${this.mapHeight} - may need updating`);
         }
         
-        // Always allow generous pan constraints with buffer zones
-        const minX = -this.boundaryPadding;
-        const maxX = this.mapWidth + this.boundaryPadding - visibleWidth;
-        const minY = -this.boundaryPadding;
-        const maxY = this.mapHeight + this.boundaryPadding - visibleHeight;
+        // Check if entire galaxy is visible
+        const galaxyFullyVisible = visibleWidth >= this.mapWidth && visibleHeight >= this.mapHeight;
         
-        // Apply constraints with buffer zones in all directions
-        this.x = Math.max(minX, Math.min(maxX, this.x));
-        this.targetX = Math.max(minX, Math.min(maxX, this.targetX));
-        this.y = Math.max(minY, Math.min(maxY, this.y));
-        this.targetY = Math.max(minY, Math.min(maxY, this.targetY));
+        if (galaxyFullyVisible) {
+            // Center the camera on the galaxy and disable scrolling
+            const mapCenterX = this.mapWidth / 2;
+            const mapCenterY = this.mapHeight / 2;
+            this.x = mapCenterX - visibleWidth / 2;
+            this.y = mapCenterY - visibleHeight / 2;
+            this.targetX = this.x;
+            this.targetY = this.y;
+        } else {
+            // Normal pan constraints with buffer zones when zoomed in
+            const minX = -this.boundaryPadding;
+            const maxX = this.mapWidth + this.boundaryPadding - visibleWidth;
+            const minY = -this.boundaryPadding;
+            const maxY = this.mapHeight + this.boundaryPadding - visibleHeight;
+            
+            // Apply constraints with buffer zones in all directions
+            this.x = Math.max(minX, Math.min(maxX, this.x));
+            this.targetX = Math.max(minX, Math.min(maxX, this.targetX));
+            this.y = Math.max(minY, Math.min(maxY, this.y));
+            this.targetY = Math.max(minY, Math.min(maxY, this.targetY));
+        }
     }
     
     pan(deltaX, deltaY) {
