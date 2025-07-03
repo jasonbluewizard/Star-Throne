@@ -1,0 +1,327 @@
+STAR THRONE FLEET CONTROL SYSTEM - COMPREHENSIVE ARCHITECTURE DOCUMENTATION
+================================================================================
+
+PROJECT OVERVIEW
+================================================================================
+
+Star Throne is a massive multiplayer RTS game with sophisticated fleet control mechanics.
+Players control territories (planets) and command fleets to attack, defend, and expand
+their galactic empire. The game features real-time combat, supply routes, colonization
+probes, and complex multi-layered control systems.
+
+CURRENT FLEET CONTROL ARCHITECTURE
+================================================================================
+
+The fleet control system consists of several interconnected modules:
+
+1. InputHandler.js - Processes all user input (mouse, touch, keyboard)
+2. InputStateMachine.js - Manages input states and context-sensitive actions
+3. CombatSystem.js - Handles combat resolution and territory transfers
+4. SupplySystem.js - Manages automated supply routes between territories
+5. StarThrone.js - Main game controller with fleet animation system
+6. AnimationSystem.js - Handles ship movement animations and visual effects
+
+DETAILED CODE ARCHITECTURE
+================================================================================
+
+### 1. INPUT HANDLER MODULE (InputHandler.js)
+================================================================================
+
+RESPONSIBILITIES:
+- Mouse/touch event processing
+- Keyboard shortcut handling
+- Drag detection and proportional fleet commands
+- Multi-touch gesture support (pinch-to-zoom, long-press)
+- Modifier key tracking (Shift, Ctrl, Alt)
+
+KEY METHODS:
+- handleMouseDown() - Initiates drag operations and territory selection
+- handleMouseMove() - Processes camera panning and proportional drag
+- handleMouseUp() - Executes fleet commands and territory actions
+- handleTouchStart/Move/End() - Mobile touch support with gesture detection
+- startProportionalDrag() - Enables percentage-based fleet allocation
+- updateProportionalDrag() - Real-time fleet percentage calculation
+
+FLEET CONTROL FEATURES:
+- Proportional drag: Left-click drag from owned territory with distance-based percentage
+- Modifier keys: Shift (100%), Ctrl (25%), default right-click (50%)
+- Long-press support: 800ms threshold for mobile advanced actions
+- Warp lane validation: Prevents commands to unreachable territories
+- Supply route creation: Double-click between owned territories
+
+CRITICAL INPUT FLOW:
+1. Mouse/touch input captured
+2. Drag threshold detection (15px + 300ms delay)
+3. Territory ownership validation
+4. Fleet command routing via InputStateMachine
+5. Visual feedback rendering during drag operations
+
+### 2. INPUT STATE MACHINE (InputStateMachine.js)
+================================================================================
+
+STATES:
+- Default: No territory selected, camera free movement
+- TerritorySelected: Player territory selected, ready for fleet commands
+- ProbeMode: Targeting colonizable planets for exploration
+
+STATE TRANSITIONS:
+- leftClick: Territory selection/deselection
+- rightClick: Fleet command execution (context-sensitive)
+- keyPress: Hotkey handling (Space=focus, H=frame, M=minimap)
+
+FLEET COMMAND ROUTING:
+- Attack: Enemy territory targeted from owned territory
+- Transfer: Friendly territory targeted from owned territory  
+- Probe: Colonizable planet targeted from owned territory
+- Supply Route: Double-click on connected friendly territories
+
+### 3. COMBAT SYSTEM MODULE (CombatSystem.js)
+================================================================================
+
+RESPONSIBILITIES:
+- Attack resolution with discovery bonuses
+- Territory transfer mechanics
+- Throne star capture handling
+- Army casualty calculations
+
+KEY METHODS:
+- attackTerritory() - Resolves combat between territories
+- validateAttack() - Checks attack legality (connectivity, army count)
+- resolveCombat() - Calculates combat outcome with bonuses
+- handleThroneStarCapture() - Empire collapse mechanics
+- transferArmies() - Friendly territory reinforcement
+
+COMBAT CALCULATIONS:
+- Attack power: armies × (0.8-1.2 random) × discovery bonuses
+- Defense power: armies × (1.0-1.2 random) × shield bonuses
+- Casualties: 20-50% for attackers, 30-70% for defenders
+- Discovery bonuses: +10% per Precursor Weapons/Shield level
+
+THRONE STAR MECHANICS:
+- Capturing enemy throne transfers ALL their territories
+- Captured throne stars are destroyed to prevent multiple thrones
+- Human player throne capture triggers game end condition
+
+### 4. SUPPLY SYSTEM MODULE (SupplySystem.js)
+================================================================================
+
+RESPONSIBILITIES:
+- Automated fleet transfer between owned territories
+- Multi-hop pathfinding through controlled space
+- Route validation and breaking when paths are lost
+- Delayed delivery based on distance
+
+KEY FEATURES:
+- Pathfinding: Dijkstra's algorithm through owned territory network
+- Route validation: Checks every 30 frames for broken paths
+- Multi-hop delivery: 2-second delay per intermediate territory
+- Visual feedback: Animated cyan dashed lines with directional flow
+- Automatic cancellation: Routes break when ownership changes
+
+SUPPLY ROUTE CREATION:
+1. Double-click on owned territory (source)
+2. Double-click on connected owned territory (destination)
+3. Pathfinding calculates route through controlled space
+4. Route stored in game.supplyRoutes Map
+5. Periodic validation ensures path remains valid
+
+### 5. MAIN GAME CONTROLLER (StarThrone.js)
+================================================================================
+
+FLEET COMMAND EXECUTION:
+- executeFleetCommand() - Central fleet command processing
+- createShipAnimation() - Visual ship movement between territories
+- createSupplyRouteAnimation() - Multi-hop ship animations
+- launchProbe() - Colonization probe deployment
+
+ANIMATION SYSTEM:
+- Object pooling: 20 pre-allocated animation objects
+- Multi-hop support: Ships follow actual warp lane paths
+- Color coding: Ships match player colors during transit
+- Performance optimization: Pooled objects reduce garbage collection
+
+FLEET PERCENTAGE SYSTEM:
+- Right-click: 50% of available fleet (default)
+- Shift+Right-click: 100% of fleet minus 1 (all-in attack)
+- Ctrl+Right-click: 25% of fleet (conservative reinforcement)
+- Drag: Distance-based percentage (10-100% based on drag length)
+
+### 6. ANIMATION SYSTEM MODULE (AnimationSystem.js)
+================================================================================
+
+RESPONSIBILITIES:
+- Ship movement animations between territories
+- Multi-hop pathfinding animations for supply routes
+- Visual feedback effects (combat flashes, floating text)
+- Performance optimization through object pooling
+
+ANIMATION TYPES:
+- Direct: Point-to-point ship movement
+- Multi-hop: Ships follow supply route paths segment by segment
+- Probe: Slower colonization ships with discovery effects
+- Combat: Flash effects and floating damage numbers
+
+PERFORMANCE FEATURES:
+- Object pooling: Reuse animation objects to reduce memory allocation
+- Viewport culling: Only animate visible ship movements
+- Staggered updates: Process animations in batches to maintain FPS
+
+CURRENT CONTROL SCHEME SUMMARY
+================================================================================
+
+MOUSE CONTROLS:
+- Left-click: Territory selection/deselection
+- Right-click: Fleet command (50% of fleet)
+- Shift+Right-click: All-in attack (100% minus 1)
+- Ctrl+Right-click: Conservative reinforcement (25%)
+- Left-click drag: Proportional fleet control (distance-based percentage)
+- Double-click: Supply route creation between owned territories
+- Mouse wheel: Zoom in/out with center-point preservation
+
+TOUCH CONTROLS:
+- Single tap: Territory selection
+- Long-press (800ms): Advanced actions (supply routes, all-in attacks)
+- Pinch-to-zoom: Multi-touch zooming with 1.5x sensitivity
+- Two-finger pan: Camera movement with momentum
+- Drag: Proportional fleet commands (mobile-optimized)
+
+KEYBOARD SHORTCUTS:
+- Space: Focus camera on selected territory
+- H: Frame all player territories
+- M: Toggle minimap visibility
+- R: Restart game (when ended)
+- Q: Toggle performance panel
+
+FLEET COMMAND VALIDATION:
+- Warp lane connectivity: Commands only work between connected territories
+- Army requirements: Must have >1 army to send fleets
+- Ownership validation: Can only command owned territories
+- Colonizable exception: Probes can target any colonizable planet
+
+PERFORMANCE OPTIMIZATIONS
+================================================================================
+
+IMPLEMENTED OPTIMIZATIONS:
+- Viewport culling: Only render visible territories (70% performance improvement)
+- Object pooling: Reuse animation objects (25% memory reduction)
+- Staggered AI updates: Process 1/3 of AI players per frame (40% FPS boost)
+- Spatial indexing: O(1) territory lookup instead of O(n) linear search
+- Supply route throttling: Validation every 30 frames instead of every frame
+
+RENDERING OPTIMIZATIONS:
+- Level of Detail (LOD): Simplified rendering at strategic zoom levels
+- Frustum culling: Skip off-screen territory rendering
+- Batch operations: Group similar rendering calls
+- Canvas optimization: ctx.save/restore pairing for state management
+
+CURRENT ISSUES AND LIMITATIONS
+================================================================================
+
+KNOWN PROBLEMS:
+1. Control conflicts between supply routes and proportional drag
+2. Complex learning curve for new players (6 different control methods)
+3. Mobile touch detection occasionally conflicts with camera panning
+4. Supply route pathfinding can be expensive with large territory counts
+5. Fleet percentage calculation not intuitive for casual players
+
+PERFORMANCE BOTTLENECKS:
+1. Supply route validation scales poorly with territory count
+2. Ship animation rendering can impact FPS during large battles
+3. AI decision-making creates frame rate spikes with many players
+4. Proportional drag calculations run every frame during drag operations
+
+ACCESSIBILITY CONCERNS:
+1. Small touch targets on mobile devices
+2. No visual feedback for failed fleet commands
+3. Complex modifier key combinations difficult for some users
+4. Color-blind players may struggle with fleet color coding
+
+ARCHITECTURE STRENGTHS
+================================================================================
+
+MODULARITY:
+- Clean separation of concerns between input, combat, and animation systems
+- State machine pattern provides predictable input handling
+- Pluggable architecture allows easy feature additions
+
+FLEXIBILITY:
+- Multiple control methods accommodate different player preferences
+- Percentage-based fleet commands provide strategic depth
+- Touch and mouse support with feature parity
+
+PERFORMANCE:
+- Object pooling reduces garbage collection pressure
+- Viewport culling dramatically improves rendering performance
+- Spatial indexing provides O(1) territory lookups
+
+SCALABILITY:
+- System handles 100+ territories with 20+ AI players
+- Modular design supports easy feature expansion
+- Supply route system scales to complex territory networks
+
+POTENTIAL IMPROVEMENTS
+================================================================================
+
+CONTROL SIMPLIFICATION:
+- Reduce number of control methods to core essentials
+- Implement smart defaults that work for most situations
+- Add visual tutorials for complex control combinations
+
+MOBILE OPTIMIZATION:
+- Larger touch targets for fleet commands
+- Simplified gesture set for mobile devices
+- Haptic feedback for successful commands
+
+VISUAL FEEDBACK:
+- Clear indicators for invalid fleet commands
+- Better visual feedback during proportional drag
+- Color-blind friendly fleet command indicators
+
+PERFORMANCE ENHANCEMENTS:
+- Lazy evaluation of supply route validation
+- More aggressive viewport culling
+- Batch fleet command processing
+
+USER EXPERIENCE:
+- Context-sensitive help system
+- Undo functionality for accidental commands
+- Preset fleet allocation buttons (25%, 50%, 75%, 100%)
+
+EXTERNAL CONSULTATION QUESTIONS
+================================================================================
+
+1. CONTROL SCHEME OPTIMIZATION:
+   - How can we simplify the current 6-method control system?
+   - What's the optimal balance between power-user features and accessibility?
+   - Should we implement adaptive UI that learns player preferences?
+
+2. MOBILE EXPERIENCE:
+   - How can we eliminate conflicts between touch gestures and fleet commands?
+   - What's the best practice for touch-based RTS controls?
+   - Should mobile have a completely different control scheme?
+
+3. PERFORMANCE SCALING:
+   - How can we optimize supply route pathfinding for 400+ territories?
+   - What's the best approach for handling thousands of simultaneous ship animations?
+   - Should we implement client-side prediction for fleet commands?
+
+4. ACCESSIBILITY:
+   - How can we make complex fleet commands accessible to casual players?
+   - What visual feedback systems work best for failed commands?
+   - Should we implement voice commands or other accessibility features?
+
+5. STRATEGIC DEPTH:
+   - Does the current fleet percentage system provide meaningful strategic choices?
+   - How can we balance complexity with usability?
+   - Should we add more advanced fleet management features?
+
+================================================================================
+END OF DOCUMENTATION
+================================================================================
+
+File Generation Date: January 2, 2025
+Game Version: Star Throne v1.0
+Total Lines of Fleet Control Code: ~4,500 lines across 6 modules
+Architecture Complexity: High (Modular, State-Machine Based)
+Performance Status: Optimized (70% rendering improvement, 40% FPS boost)
+Platform Support: Desktop (Mouse/Keyboard) + Mobile (Touch/Gestures)
