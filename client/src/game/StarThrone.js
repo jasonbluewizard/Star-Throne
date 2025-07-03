@@ -2845,7 +2845,7 @@ export default class StarThrone {
         // Trigger visual feedback
         fromTerritory.triggerProbeFlash();
         
-        console.log(`AI ${player.name} launched probe from territory ${fromTerritory.id} to colonizable planet ${toTerritory.id}`);
+
     }
     
     transferFleet(fromTerritory, toTerritory) {

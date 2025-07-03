@@ -175,7 +175,7 @@ export class InputHandler {
     }
     
     handleDoubleClick(territory) {
-        console.log(`Double-click detected on territory ${territory.id}`);
+
         
         // Double-click on owned territory - potential supply route creation
         if (territory.ownerId === this.game.humanPlayer?.id) {
@@ -186,7 +186,7 @@ export class InputHandler {
                 selectedTerritory.id !== territory.id) {
                 // Create supply route between owned territories
                 this.game.createSupplyRoute(selectedTerritory, territory);
-                console.log(`Supply route creation attempted: ${selectedTerritory.id} -> ${territory.id}`);
+
             }
         }
     }
@@ -204,7 +204,7 @@ export class InputHandler {
         const newZoom = Math.max(0.1, Math.min(3.0, this.game.camera.targetZoom * zoomFactor));
         this.game.camera.zoomTo(newZoom, mouseX, mouseY);
         
-        console.log('Mouse wheel zoom:', Math.round(this.game.camera.targetZoom * 100) + '%');
+
     }
     
     handleTouchStart(e) {
@@ -343,24 +343,24 @@ export class InputHandler {
             case 'm':
             case 'M':
                 this.game.minimapMinimized = !this.game.minimapMinimized;
-                console.log('Minimap toggled with M key:', this.game.minimapMinimized ? 'minimized' : 'maximized');
+
                 break;
             case 'q':
             case 'Q':
                 this.game.showPerformancePanel = !this.game.showPerformancePanel;
-                console.log('Performance panel toggled with Q key:', this.game.showPerformancePanel ? 'shown' : 'hidden');
+
                 break;
             case ' ':
                 // Spacebar - Focus on Selected Territory
                 const fsmState = this.inputFSM.getState();
                 if (fsmState.selectedTerritory) {
                     this.game.camera.focusOnTerritory(fsmState.selectedTerritory);
-                    console.log('Focused camera on selected territory');
+
                 } else if (this.game.humanPlayer && this.game.humanPlayer.territories.length > 0) {
                     const firstTerritory = this.game.gameMap.territories[this.game.humanPlayer.territories[0]];
                     if (firstTerritory) {
                         this.game.camera.focusOnTerritory(firstTerritory);
-                        console.log('Focused camera on first owned territory');
+
                     }
                 }
                 break;
@@ -370,7 +370,7 @@ export class InputHandler {
                 if (this.game.humanPlayer && this.game.humanPlayer.territories.length > 0) {
                     const playerTerritories = this.game.humanPlayer.territories.map(id => this.game.gameMap.territories[id]);
                     this.game.camera.frameRegion(playerTerritories);
-                    console.log('Framed all player territories');
+
                 }
                 break;
         }

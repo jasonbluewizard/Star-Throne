@@ -56,7 +56,7 @@ export class CombatSystem {
 
         this.pendingBattles.push(battle);
         
-        console.log(`Battle initiated: ${actualAttackers} ships from ${attackingTerritory.id} to ${defendingTerritory.id}`);
+
 
         return { 
             success: true, 
@@ -112,7 +112,7 @@ export class CombatSystem {
         battle.lastBattleTime = Date.now();
         battle.status = 'active';
         
-        console.log(`Battle started: ${battle.attackersRemaining} vs ${battle.defendersRemaining}, attacker chance: ${(attackerWinChance * 100).toFixed(1)}%`);
+
         
         this.activeBattles.push(battle);
     }
@@ -148,7 +148,7 @@ export class CombatSystem {
             // Flash the defending planet with attacker's color (defender dies)
             this.flashPlanet(battle.defendingTerritory, battle.attacker.color);
             
-            console.log(`Attacker wins round: ${battle.attackersRemaining} vs ${battle.defendersRemaining}`);
+
         } else {
             // Defender wins this round - attacker loses one ship
             battle.attackersRemaining = Math.max(0, battle.attackersRemaining - 1);
@@ -156,7 +156,7 @@ export class CombatSystem {
             // Flash the defending planet with red (attacker dies)
             this.flashPlanet(battle.defendingTerritory, '#ff0000');
             
-            console.log(`Defender wins round: ${battle.attackersRemaining} vs ${battle.defendersRemaining}`);
+
         }
         
         battle.lastBattleTime = currentTime;
@@ -203,7 +203,7 @@ export class CombatSystem {
                 startY: battle.defendingTerritory.y
             };
             
-            console.log(`Battle won: ${battle.attackingTerritory.id} captures ${battle.defendingTerritory.id} with ${survivingAttackers} armies`);
+
         } else {
             // Attack failed - ensure defenders have at least 1 army
             battle.defendingTerritory.armySize = Math.max(1, battle.defendersRemaining);
@@ -216,7 +216,7 @@ export class CombatSystem {
                 startY: battle.defendingTerritory.y
             };
             
-            console.log(`Battle lost: ${battle.defendingTerritory.id} defended successfully with ${battle.defendingTerritory.armySize} armies remaining`);
+
         }
     }
 
