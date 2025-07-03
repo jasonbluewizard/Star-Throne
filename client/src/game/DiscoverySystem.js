@@ -4,16 +4,6 @@ import { GAME_CONSTANTS } from '../../../common/gameConstants';
 export class DiscoverySystem {
     constructor(game) {
         this.game = game;
-        this.resetDiscoveries();
-        
-        // Floating discovery announcements
-        this.floatingDiscoveries = [];
-        
-        // Recent discovery log for UI panel
-        this.recentDiscoveries = [];
-    }
-    
-    resetDiscoveries() {
         this.discoveries = {
             precursorWeapons: 0,
             precursorDrive: 0,
@@ -26,13 +16,12 @@ export class DiscoverySystem {
             hostileAliens: 0,
             friendlyAliens: 0
         };
-        console.log('Discovery system reset to clean state');
-    }
-    
-    initializePlayer(playerId) {
-        // Discovery system is global for the human player
-        // No per-player initialization needed since we only track human discoveries
-        console.log(`Discovery system initialized for player: ${playerId}`);
+        
+        // Floating discovery announcements
+        this.floatingDiscoveries = [];
+        
+        // Recent discovery log for UI panel
+        this.recentDiscoveries = [];
     }
 
     // Define discovery types and their probabilities
@@ -144,8 +133,6 @@ export class DiscoverySystem {
     applyDiscovery(discovery, territory, player) {
         // Only track discoveries for human player in UI
         const isHumanPlayer = player.type === 'human';
-        
-        console.log(`🔬 Processing discovery: ${discovery.name} for player ${player.name} (type: ${player.type}, isHuman: ${isHumanPlayer})`);
         
         // Apply discovery effects
         switch (discovery.id) {
@@ -342,19 +329,8 @@ export class DiscoverySystem {
 
     // Get discoveries for UI display
     getDiscoveriesForUI() {
-        // Return an object containing all permanent empire-wide discovery values
         return {
-            // Imperial bonuses
-            precursorWeapons: this.discoveries.precursorWeapons || 0,
-            precursorDrive: this.discoveries.precursorDrive || 0,
-            precursorShield: this.discoveries.precursorShield || 0,
-            precursorNanotech: this.discoveries.precursorNanotechnology || 0,
-            // Planet bonuses (per-world)
-            factoryPlanets: this.discoveries.factoryPlanets || [],
-            richMinerals: this.discoveries.richMinerals || 0,
-            // Friendly aliens (count of events triggered)
-            friendlyAliens: this.discoveries.friendlyAliens || 0,
-            // Recent discoveries for temporary notifications
+            ...this.discoveries,
             recentDiscoveries: this.recentDiscoveries
         };
     }

@@ -7,6 +7,7 @@ import { InputHandler } from './InputHandler.js';
 import { Renderer } from './Renderer.js';
 import { CombatSystem } from './CombatSystem.js';
 import { SupplySystem } from './SupplySystem.js';
+import { GameUtils } from './utils.js';
 import { GAME_CONSTANTS } from '../../../common/gameConstants';
 import { gameEvents, GAME_EVENTS, EVENT_PRIORITY, EventHelpers } from './EventSystem.js';
 import { PerformanceManager } from './PerformanceManager.js';
@@ -14,10 +15,8 @@ import { PerformanceOverlay } from './PerformanceOverlay.js';
 import { DiscoverySystem } from './DiscoverySystem.js';
 import { AnimationSystem } from './AnimationSystem.js';
 import { UIManager } from './UIManager.js';
-import GameUtils from './GameUtils.js';
 import { AIManager } from './AIManager.js';
 import Controls from './Controls.js';
-import MapGenerator from './MapGenerator.js';
 
 export default class StarThrone {
     constructor(config = {}) {
@@ -872,49 +871,60 @@ export default class StarThrone {
     
     // Colonize planet when probe arrives
     colonizePlanet(probe) {
-        const territory = this.gameMap.territories[probe.targetId];
-        if (!territory || territory.ownerId !== null) {
-            console.log(`Probe ${probe.id} failed: territory ${probe.targetId} already colonized`);
+        const planet = probe.toTerritory;
+        const player = this.players.find(p => p.id === probe.playerId);
+        
+        if (!planet || !player) return;
+        
+        // Check if planet is already colonized by another player
+        if (planet.ownerId !== null && planet.ownerId !== player.id) {
+            console.log(`Probe from ${player.name} destroyed! Planet ${planet.id} already colonized by another player.`);
             return;
         }
         
-        const player = this.players[probe.playerId];
-        if (!player) return;
+        console.log(`Probe colonizing planet ${planet.id} for player ${player.name}`);
         
-        console.log(`Probe colonizing planet ${probe.targetId} for player ${player.name}`);
+        // Trigger discovery event before colonization
+        const discovery = this.selectRandomDiscovery();
+        const discoveryResult = GameUtils.processDiscovery(discovery.id, player.id, planet.id, this.playerDiscoveries, this);
+        const colonizationSuccessful = discoveryResult.success;
         
-        // Use DiscoverySystem for processing discoveries
-        const colonizationSuccessful = this.discoverySystem.processDiscovery(territory, player);
+        // Always log the discovery for UI display (both success and failure)
+        this.logDiscoveryForUI(planet, player.id, discovery);
         
         // If probe was lost to hostile aliens, colonization fails
         if (!colonizationSuccessful) {
-            console.log(`Probe destroyed by hostile aliens on planet ${probe.targetId}!`);
+            console.log(`Colonization of planet ${planet.id} failed due to hostile encounter!`);
             return;
         }
         
-        // Successful colonization
-        territory.ownerId = probe.playerId;
-        territory.armySize = 1; // Start with 1 army regardless of hidden strength
-        territory.isColonizable = false;
-        territory.lastArmyGeneration = Date.now();
+        // Set ownership - discovery might have already set army size
+        planet.ownerId = player.id;
+        if (planet.armySize === 0 || planet.armySize === planet.hiddenArmySize) {
+            planet.armySize = 1; // Default if not set by discovery
+        }
         
-        // Reveal connections to other territories
-        territory.neighbors.forEach(neighborId => {
-            const neighbor = this.gameMap.territories[neighborId];
-            if (neighbor && !neighbor.isColonizable) {
-                // Make connection visible
-                neighbor.hiddenConnections = neighbor.hiddenConnections || [];
-                const connectionIndex = neighbor.hiddenConnections.indexOf(territory.id);
-                if (connectionIndex > -1) {
-                    neighbor.hiddenConnections.splice(connectionIndex, 1);
-                }
+        // Mark as no longer colonizable
+        planet.isColonizable = false;
+        
+        // Add to player's territories
+        player.territories.push(planet.id);
+        
+        // Reveal hidden connections
+        planet.revealConnections();
+        
+        // Update neighboring territories' connections
+        Object.values(this.gameMap.territories).forEach(territory => {
+            if (territory.hiddenNeighbors.includes(planet.id)) {
+                territory.hiddenNeighbors = territory.hiddenNeighbors.filter(id => id !== planet.id);
+                territory.neighbors.push(planet.id);
             }
         });
         
-        console.log(`Planet ${probe.targetId} colonized successfully!`);
+        // Update player stats
+        player.updateStats();
         
-        // Update player territories
-        player.territories.push(territory.id);
+        console.log(`Planet ${planet.id} colonized successfully! Discovery: ${discovery.name}`);
     }
     
     // Render ship animations
@@ -1110,32 +1120,12 @@ export default class StarThrone {
     startGame() {
         console.log('Starting Star Throne game with config:', this.config);
         
-        // Generate territories using advanced MapGenerator with physics-based layout
-        const territories = MapGenerator.generateMap(
-            this.config.mapSize, 
-            this.config.layout, 
-            1 + this.config.aiCount // Total players including human
-        );
-        
-        // Convert array to object format expected by existing code
-        this.gameMap.territories = {};
-        territories.forEach(territory => {
-            this.gameMap.territories[territory.id] = territory;
-        });
-        
-        // Update map dimensions to match generated map
-        this.gameMap.width = MapGenerator.mapWidth;
-        this.gameMap.height = MapGenerator.mapHeight;
-        
-        // Update camera boundaries
-        this.camera.mapWidth = MapGenerator.mapWidth;
-        this.camera.mapHeight = MapGenerator.mapHeight;
-        
-        console.log(`📷 Camera updated with map dimensions: ${MapGenerator.mapWidth} x ${MapGenerator.mapHeight}`);
+        // Generate territories using configured map size
+        this.gameMap.generateTerritories(this.config.mapSize);
         
         // Build spatial index for O(1) territory lookups (60% performance improvement)
         this.gameMap.buildSpatialIndex();
-        this.log('Advanced map generation completed with spatial index', 'info');
+        this.log('Spatial index built for optimized territory lookups', 'info');
         
         // Create players: 1 human + configured AI count
         const totalPlayers = 1 + this.config.aiCount;
@@ -1164,8 +1154,6 @@ export default class StarThrone {
         
         // Start home system flashing for player identification
         this.homeSystemFlashStart = Date.now();
-        
-        // Empire Discovery system is now properly configured and ready for actual discoveries
         
         console.log(`Game started with ${this.players.length} players (${this.config.playerName} + ${this.config.aiCount} AI) and ${Object.keys(this.gameMap.territories).length} territories`);
     }
@@ -1230,46 +1218,41 @@ export default class StarThrone {
             '#ffdd44', '#ddff44', '#44ddff', '#ff44dd', '#ddff88', '#dd44ff'
         ];
         
-        // Create human player first
-        const humanPlayer = new Player(
-            'human',
-            this.config.playerName || 'Player',
-            '#00ffff', // Cyan for human player
-            'human'
-        );
-        this.players['human'] = humanPlayer;
-        this.humanPlayer = humanPlayer;
-
-        // Create AI players
-        for (let i = 1; i < numPlayers; i++) {
-            const playerId = `ai-${i}`;
-            const playerName = this.generateAIName(i - 1);
-            const playerColor = this.generatePlayerColor(i);
+        // Create human player with distinctive bright cyan color
+        this.humanPlayer = new Player(0, 'You', '#00ffff', 'human');
+        this.players.push(this.humanPlayer);
+        this.initializePlayerDiscoveries(this.humanPlayer.id);
+        
+        // Create AI players with unique colors and human-like names
+        const usedColors = new Set(['#00ffff']); // Reserve human color
+        
+        for (let i = 1; i < numPlayers && i < this.maxPlayers; i++) {
+            let playerColor;
+            let attempts = 0;
             
-            const aiPlayer = new Player(
-                playerId,
-                playerName,
-                playerColor,
-                'ai'
-            );
-            this.players[playerId] = aiPlayer;
+            // Find a unique color
+            do {
+                const colorIndex = (i - 1) % baseColors.length;
+                playerColor = baseColors[colorIndex];
+                
+                // If we've used this color, generate a slight variation
+                if (usedColors.has(playerColor)) {
+                    const variation = Math.floor(attempts / baseColors.length) * 0.1 + 0.1;
+                    playerColor = this.adjustColorBrightness(playerColor, variation);
+                }
+                attempts++;
+            } while (usedColors.has(playerColor) && attempts < 100);
+            
+            usedColors.add(playerColor);
+            
+            // Generate human-like name with clan designation
+            const aiName = AIManager.generateAIName(i - 1);
+            const aiPlayer = new Player(i, aiName, playerColor, 'ai');
+            this.players.push(aiPlayer);
+            this.initializePlayerDiscoveries(aiPlayer.id);
         }
         
-        console.log(`Created ${numPlayers} players (1 human + ${numPlayers - 1} AI)`);
-    }
-    
-    generatePlayerColor(index) {
-        const baseColors = [
-            '#ff4444', '#44ff44', '#4444ff', '#ffff44', '#ff44ff', 
-            '#ff8844', '#88ff44', '#4488ff', '#ff4488', '#88ff88', '#8844ff',
-            '#ffaa44', '#aaff44', '#44aaff', '#ff44aa', '#aaff88', '#aa44ff',
-            '#ff6644', '#66ff44', '#4466ff', '#ff4466', '#66ff88', '#6644ff',
-            '#ff9944', '#99ff44', '#4499ff', '#ff4499', '#99ff88', '#9944ff',
-            '#ffcc44', '#ccff44', '#44ccff', '#ff44cc', '#ccff88', '#cc44ff',
-            '#ff7744', '#77ff44', '#4477ff', '#ff4477', '#77ff88', '#7744ff',
-            '#ffdd44', '#ddff44', '#44ddff', '#ff44dd', '#ddff88', '#dd44ff'
-        ];
-        return baseColors[index % baseColors.length];
+        this.currentPlayers = this.players.length;
     }
     
     initializePlayerDiscoveries(playerId) {
@@ -1310,10 +1293,8 @@ export default class StarThrone {
         console.log(`Available territories for distribution: ${allTerritories.length} (all are colonizable planets)`);
         
         // Give each player exactly one starting territory with spacing
-        const playerIds = Object.keys(this.players);
-        for (let i = 0; i < playerIds.length; i++) {
-            const playerId = playerIds[i];
-            const player = this.players[playerId];
+        for (let i = 0; i < this.players.length; i++) {
+            const player = this.players[i];
             let bestTerritory = null;
             let bestMinDistance = 0;
             
@@ -1324,7 +1305,10 @@ export default class StarThrone {
                 let minDistanceToUsed = Infinity;
                 for (const usedId of usedTerritories) {
                     const usedTerritory = this.gameMap.territories[usedId];
-                    const distance = GameUtils.distance(territory.x, territory.y, usedTerritory.x, usedTerritory.y);
+                    const distance = Math.sqrt(
+                        (territory.x - usedTerritory.x) ** 2 + 
+                        (territory.y - usedTerritory.y) ** 2
+                    );
                     minDistanceToUsed = Math.min(minDistanceToUsed, distance);
                 }
                 
@@ -1363,7 +1347,7 @@ export default class StarThrone {
         }
         
         // Update player stats
-        Object.values(this.players).forEach(player => player.updateStats());
+        this.players.forEach(player => player.updateStats());
     }
     
     shuffleArray(array) {
@@ -1436,27 +1420,11 @@ export default class StarThrone {
         
         // Update ship animations and probes with normal delta time (speed applied internally)
         try {
-            if (this.updateShipAnimations) {
-                this.updateShipAnimations(deltaTime);
-            }
+            this.updateShipAnimations(deltaTime);
+            this.updateProbes(deltaTime);
+            this.updateFloatingDiscoveryTexts(deltaTime);
         } catch (error) {
-            console.error('Error updating ship animations:', error, error.stack);
-        }
-        
-        try {
-            if (this.updateProbes) {
-                this.updateProbes(deltaTime);
-            }
-        } catch (error) {
-            console.error('Error updating probes:', error, error.stack);
-        }
-        
-        try {
-            if (this.updateFloatingDiscoveryTexts) {
-                this.updateFloatingDiscoveryTexts(deltaTime);
-            }
-        } catch (error) {
-            console.error('Error updating floating discovery texts:', error, error.stack);
+            console.error('Error updating animations:', error);
         }
         
         // Update modular UI systems
@@ -2378,7 +2346,7 @@ export default class StarThrone {
                 visibleTerritories: this.performanceStats.visibleTerritories,
                 probeCount: this.probes.length,
                 notifications: this.notifications,
-                playerDiscoveries: this.discoverySystem ? this.discoverySystem.getDiscoveriesForUI() : {},
+                playerDiscoveries: this.playerDiscoveries,
                 recentProbeResults: this.recentProbeResults,
                 discoveryLog: this.discoveryLog,
                 showBonusPanel: this.showBonusPanel,
@@ -3150,8 +3118,8 @@ export default class StarThrone {
         this.players = [];
         this.humanPlayer = null;
         
-        // Reset map for new generation
-        this.gameMap = new GameMap(MapGenerator.mapWidth || 2800, MapGenerator.mapHeight || 2100, this.config);
+        // Regenerate map and restart
+        this.gameMap = new GameMap(2000, 1500, this.config); // Pass config to maintain connection distances
         this.startGame();
     }
 }

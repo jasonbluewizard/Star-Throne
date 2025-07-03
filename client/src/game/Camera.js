@@ -7,7 +7,7 @@ export class Camera {
         this.viewportHeight = viewportHeight;
         
         // Strategic zoom constraints - Supreme Commander style
-        this.minZoom = 0.01;  // Allow extreme zoom out to see entire galaxy with buffer
+        this.minZoom = 0.05;  // Allow extreme zoom out to see entire galaxy
         this.maxZoom = 8.0;   // Allow tactical close-up
         
         // Smooth movement with inertial panning
@@ -27,14 +27,10 @@ export class Camera {
         this.edgePanBorder = 20;
         this.edgePanEnabled = true;
         
-        // Pan constraints (map boundaries) - updated for closer planets
-        this.mapWidth = 1800;
-        this.mapHeight = 1400;
-        this.boundaryPadding = 400; // Increased padding for better scrolling buffer
-        
-        // Scrolling lock system for full galaxy visibility
-        this.scrollingLocked = false;
-        this.wasScrollingLocked = false;
+        // Pan constraints (map boundaries)
+        this.mapWidth = 2000;
+        this.mapHeight = 1500;
+        this.boundaryPadding = 100;
     }
     
     updateViewport(width, height) {
@@ -65,82 +61,43 @@ export class Camera {
     }
     
     applyConstraints() {
-        // Calculate the minimum zoom needed to see entire galaxy
-        const minZoomForFullGalaxy = Math.min(
-            this.viewportWidth / this.mapWidth,
-            this.viewportHeight / this.mapHeight
-        );
-        
-        // Set minimum zoom to exactly show full galaxy (no going below this)
-        const effectiveMinZoom = Math.max(this.minZoom, minZoomForFullGalaxy);
-        
         // Zoom constraints
-        this.zoom = Math.max(effectiveMinZoom, Math.min(this.maxZoom, this.zoom));
-        this.targetZoom = Math.max(effectiveMinZoom, Math.min(this.maxZoom, this.targetZoom));
+        this.zoom = Math.max(this.minZoom, Math.min(this.maxZoom, this.zoom));
+        this.targetZoom = Math.max(this.minZoom, Math.min(this.maxZoom, this.targetZoom));
         
         // Calculate visible area
         const visibleWidth = this.viewportWidth / this.zoom;
         const visibleHeight = this.viewportHeight / this.zoom;
         
-        // Add debugging for map dimensions
-        if (this.mapWidth === 1800 && this.mapHeight === 1400) {
-            console.log(`⚠️ Camera using default dimensions ${this.mapWidth}x${this.mapHeight} - may need updating`);
-        }
-        
-        // Check visibility in each dimension separately
-        const widthFullyVisible = visibleWidth >= this.mapWidth;
-        const heightFullyVisible = visibleHeight >= this.mapHeight;
-        
-        // Set scrolling lock when full galaxy is visible in both dimensions
-        this.scrollingLocked = widthFullyVisible && heightFullyVisible;
-        
-        // Handle horizontal constraints
-        if (widthFullyVisible) {
-            // Center horizontally and disable horizontal scrolling
+        // If the map is smaller than the viewport, center it
+        if (visibleWidth >= this.mapWidth + 2 * this.boundaryPadding) {
+            // Center horizontally when zoomed out enough to see entire width
             const mapCenterX = this.mapWidth / 2;
             this.x = mapCenterX - visibleWidth / 2;
             this.targetX = this.x;
         } else {
-            // Normal horizontal pan constraints with buffer zones
+            // Normal pan constraints for width
             const minX = -this.boundaryPadding;
             const maxX = this.mapWidth + this.boundaryPadding - visibleWidth;
             this.x = Math.max(minX, Math.min(maxX, this.x));
             this.targetX = Math.max(minX, Math.min(maxX, this.targetX));
         }
         
-        // Handle vertical constraints
-        if (heightFullyVisible) {
-            // Center vertically and disable vertical scrolling
-            // Account for UI elements at top of screen (status bar, timer, etc.)
-            const topUIHeight = 60; // Height of top UI bar in screen pixels
-            const uiOffset = topUIHeight / this.zoom; // Convert UI space to world space
-            
+        if (visibleHeight >= this.mapHeight + 2 * this.boundaryPadding) {
+            // Center vertically when zoomed out enough to see entire height
             const mapCenterY = this.mapHeight / 2;
-            this.y = mapCenterY - visibleHeight / 2 + uiOffset / 2; // Shift down to account for top UI
+            this.y = mapCenterY - visibleHeight / 2;
             this.targetY = this.y;
         } else {
-            // Normal vertical pan constraints with buffer zones
+            // Normal pan constraints for height
             const minY = -this.boundaryPadding;
             const maxY = this.mapHeight + this.boundaryPadding - visibleHeight;
             this.y = Math.max(minY, Math.min(maxY, this.y));
             this.targetY = Math.max(minY, Math.min(maxY, this.targetY));
         }
-        
-        // Debug logging when scrolling lock changes
-        if (this.scrollingLocked && !this.wasScrollingLocked) {
-            console.log(`🔒 Scrolling locked at zoom ${(this.zoom * 100).toFixed(0)}% - full galaxy visible`);
-        } else if (!this.scrollingLocked && this.wasScrollingLocked) {
-            console.log(`🔓 Scrolling unlocked at zoom ${(this.zoom * 100).toFixed(0)}% - galaxy extends beyond view`);
-        }
-        this.wasScrollingLocked = this.scrollingLocked;
     }
     
     pan(deltaX, deltaY) {
-        // Prevent panning when scrolling is locked (full galaxy visible)
-        if (this.scrollingLocked) {
-            return;
-        }
-        
         const panSpeed = 1 / this.zoom;
         this.targetX += deltaX * panSpeed;
         this.targetY += deltaY * panSpeed;
@@ -154,7 +111,7 @@ export class Camera {
     
     // Edge panning for RTS-style navigation
     updateEdgePanning(mouseX, mouseY, deltaTime) {
-        if (!this.edgePanEnabled || this.scrollingLocked) return;
+        if (!this.edgePanEnabled) return;
         
         let edgePanX = 0;
         let edgePanY = 0;
