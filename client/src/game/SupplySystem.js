@@ -39,6 +39,8 @@ export class SupplySystem {
         
         // Find path between territories using PathfindingService
         console.log('SupplySystem: calling pathfindingService.findShortestPath');
+        console.log('SupplySystem: gameMap structure:', this.game.gameMap);
+        console.log('SupplySystem: humanPlayer:', this.game.humanPlayer);
         const path = await this.game.pathfindingService.findShortestPath(
             fromTerritory.id, 
             toTerritory.id, 
