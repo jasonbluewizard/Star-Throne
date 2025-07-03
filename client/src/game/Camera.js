@@ -83,27 +83,34 @@ export class Camera {
             console.log(`⚠️ Camera using default dimensions ${this.mapWidth}x${this.mapHeight} - may need updating`);
         }
         
-        // Check if entire galaxy is visible
-        const galaxyFullyVisible = visibleWidth >= this.mapWidth && visibleHeight >= this.mapHeight;
+        // Check visibility in each dimension separately
+        const widthFullyVisible = visibleWidth >= this.mapWidth;
+        const heightFullyVisible = visibleHeight >= this.mapHeight;
         
-        if (galaxyFullyVisible) {
-            // Center the camera on the galaxy and disable scrolling
+        // Handle horizontal constraints
+        if (widthFullyVisible) {
+            // Center horizontally and disable horizontal scrolling
             const mapCenterX = this.mapWidth / 2;
-            const mapCenterY = this.mapHeight / 2;
             this.x = mapCenterX - visibleWidth / 2;
-            this.y = mapCenterY - visibleHeight / 2;
             this.targetX = this.x;
-            this.targetY = this.y;
         } else {
-            // Normal pan constraints with buffer zones when zoomed in
+            // Normal horizontal pan constraints with buffer zones
             const minX = -this.boundaryPadding;
             const maxX = this.mapWidth + this.boundaryPadding - visibleWidth;
-            const minY = -this.boundaryPadding;
-            const maxY = this.mapHeight + this.boundaryPadding - visibleHeight;
-            
-            // Apply constraints with buffer zones in all directions
             this.x = Math.max(minX, Math.min(maxX, this.x));
             this.targetX = Math.max(minX, Math.min(maxX, this.targetX));
+        }
+        
+        // Handle vertical constraints
+        if (heightFullyVisible) {
+            // Center vertically and disable vertical scrolling
+            const mapCenterY = this.mapHeight / 2;
+            this.y = mapCenterY - visibleHeight / 2;
+            this.targetY = this.y;
+        } else {
+            // Normal vertical pan constraints with buffer zones
+            const minY = -this.boundaryPadding;
+            const maxY = this.mapHeight + this.boundaryPadding - visibleHeight;
             this.y = Math.max(minY, Math.min(maxY, this.y));
             this.targetY = Math.max(minY, Math.min(maxY, this.targetY));
         }
