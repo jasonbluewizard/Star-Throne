@@ -1594,10 +1594,13 @@ export default class StarThrone {
             
             // Render Fleet transfer animations and selection indicators
             if (this.fleet) {
+                console.log(`StarThrone: Calling fleet.render() with LOD level ${lodLevel}`);
                 this.fleet.render(this.ctx);
             }
             
             this.renderProbes();
+        } else {
+            console.log(`StarThrone: Skipping fleet render, LOD level ${lodLevel} < 2`);
         }
         
         // Use DiscoverySystem for floating discovery texts
@@ -2239,6 +2242,12 @@ export default class StarThrone {
         
         // Render ship animations
         this.renderShipAnimations();
+        
+        // Render Fleet transfer animations and selection indicators
+        if (this.fleet) {
+            console.log(`StarThrone: Calling fleet.render() in active render method`);
+            this.fleet.render(this.ctx);
+        }
         
         // Proportional drag interface handled by InputHandler
         

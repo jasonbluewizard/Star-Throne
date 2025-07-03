@@ -291,6 +291,7 @@ export class Fleet {
      * Render transfer animations
      */
     render(ctx) {
+        console.log(`Fleet: Rendering ${this.transferAnimations.length} animations`);
         for (let animation of this.transferAnimations) {
             this.renderTransferAnimation(ctx, animation);
         }
