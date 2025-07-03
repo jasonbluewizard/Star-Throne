@@ -28,6 +28,12 @@ export class DiscoverySystem {
         };
         console.log('Discovery system reset to clean state');
     }
+    
+    initializePlayer(playerId) {
+        // Discovery system is global for the human player
+        // No per-player initialization needed since we only track human discoveries
+        console.log(`Discovery system initialized for player: ${playerId}`);
+    }
 
     // Define discovery types and their probabilities
     getDiscoveryTypes() {
@@ -138,6 +144,8 @@ export class DiscoverySystem {
     applyDiscovery(discovery, territory, player) {
         // Only track discoveries for human player in UI
         const isHumanPlayer = player.type === 'human';
+        
+        console.log(`🔬 Processing discovery: ${discovery.name} for player ${player.name} (type: ${player.type}, isHuman: ${isHumanPlayer})`);
         
         // Apply discovery effects
         switch (discovery.id) {

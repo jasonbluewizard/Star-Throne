@@ -1231,9 +1231,13 @@ export default class StarThrone {
         ];
         
         // Create human player with distinctive bright cyan color
-        this.humanPlayer = new Player(0, 'You', '#00ffff', 'human');
-        this.players.push(this.humanPlayer);
-        this.initializePlayerDiscoveries(this.humanPlayer.id);
+        this.humanPlayer = new Player('human', this.config.playerName || 'Player', '#00ffff', 'human');
+        this.players['human'] = this.humanPlayer;
+        
+        // Initialize discovery system for human player
+        if (this.discoverySystem) {
+            this.discoverySystem.initializePlayer('human');
+        }
         
         // Create AI players with unique colors and human-like names
         const usedColors = new Set(['#00ffff']); // Reserve human color
@@ -1258,13 +1262,15 @@ export default class StarThrone {
             usedColors.add(playerColor);
             
             // Generate human-like name with clan designation
-            const aiName = AIManager.generateAIName(i - 1);
-            const aiPlayer = new Player(i, aiName, playerColor, 'ai');
-            this.players.push(aiPlayer);
-            this.initializePlayerDiscoveries(aiPlayer.id);
+            const playerId = `ai-${i}`;
+            const aiName = this.generateAIName(i - 1);
+            const aiPlayer = new Player(playerId, aiName, playerColor, 'ai');
+            this.players[playerId] = aiPlayer;
         }
         
-        this.currentPlayers = this.players.length;
+        this.currentPlayers = Object.keys(this.players).length;
+        
+        console.log(`Created ${this.currentPlayers} players (1 human + ${this.currentPlayers - 1} AI)`);
     }
     
     initializePlayerDiscoveries(playerId) {
