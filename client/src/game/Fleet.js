@@ -43,8 +43,11 @@ export class Fleet {
         
         const isPlayerTerritory = territory.ownerId === humanPlayer.id;
         
+        console.log(`Fleet: Territory click - ID: ${territory.id}, isRightClick: ${isRightClick}, isPlayerTerritory: ${isPlayerTerritory}, selectedTerritory: ${this.selectedTerritory?.id || 'none'}`);
+        
         if (isRightClick && this.selectedTerritory && isPlayerTerritory) {
             // RMB on friendly system while having selection - attempt fleet transfer
+            console.log(`Fleet: Attempting transfer from ${this.selectedTerritory.id} to ${territory.id}`);
             return this.attemptFleetTransfer(this.selectedTerritory, territory);
         } else if (!isRightClick) {
             // LMB on any system - handle selection
