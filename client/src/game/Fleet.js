@@ -205,24 +205,31 @@ export class Fleet {
      */
     transferWithPathfinding(fromTerritory, toTerritory) {
         const humanPlayer = this.game.players.find(p => p.type === 'human');
-        if (!humanPlayer) return false;
+        if (!humanPlayer) {
+            console.log('Fleet: No human player found');
+            return false;
+        }
 
         // Find shortest path between territories
         const path = this.findShortestPath(fromTerritory.id, toTerritory.id);
         
         if (!path || path.length < 2) {
             console.log('Fleet: No valid path found between territories');
-            return false;
+            console.log(`Fleet: Pathfinding failed - territories not connected through player empire`);
+            return false; // This should prevent camera issues by indicating the command was handled
         }
 
+        // Check correct army property
+        const armyCount = fromTerritory.armySize || fromTerritory.armies || 0;
+        
         // Must have at least 2 ships (1 must stay)
-        if (fromTerritory.armies < 2) {
-            console.log('Fleet: Not enough ships for transfer (need at least 2)');
-            return false;
+        if (armyCount < 2) {
+            console.log(`Fleet: Not enough ships for transfer (${armyCount} < 2)`);
+            return true; // Return true to prevent camera issues
         }
 
         // Send 50% of available fleet
-        const shipsToSend = Math.floor(fromTerritory.armies * 0.5);
+        const shipsToSend = Math.floor(armyCount * 0.5);
         
         console.log(`Fleet: Multi-hop transfer from ${fromTerritory.id} to ${toTerritory.id} via path:`, path);
         console.log(`Fleet: Sending ${shipsToSend} ships along ${path.length - 1} hops`);
@@ -230,30 +237,47 @@ export class Fleet {
         // Create multi-hop animation
         this.createMultiHopAnimation(path, shipsToSend);
         
-        // Deduct ships from source
-        fromTerritory.armies -= shipsToSend;
+        // Deduct ships from source (use correct property)
+        if (fromTerritory.armySize !== undefined) {
+            fromTerritory.armySize -= shipsToSend;
+        } else if (fromTerritory.armies !== undefined) {
+            fromTerritory.armies -= shipsToSend;
+        }
         
         // Schedule final delivery
         const totalTime = (path.length - 1) * 800; // 800ms per hop
         setTimeout(() => {
-            toTerritory.armies += shipsToSend;
-            console.log(`${shipsToSend} ships arrived at territory ${toTerritory.id} via multi-hop (total: ${toTerritory.armies})`);
+            const finalArmyCount = toTerritory.armySize || toTerritory.armies || 0;
+            
+            if (toTerritory.armySize !== undefined) {
+                toTerritory.armySize += shipsToSend;
+            } else if (toTerritory.armies !== undefined) {
+                toTerritory.armies += shipsToSend;
+            }
+            
+            console.log(`${shipsToSend} ships arrived at territory ${toTerritory.id} via multi-hop (total: ${finalArmyCount + shipsToSend})`);
         }, totalTime);
         
-        return true;
+        return true; // Always return true to prevent camera interference
     }
 
     /**
      * Attempt to transfer fleet between friendly territories
      */
     attemptFleetTransfer(fromTerritory, toTerritory) {
+        console.log(`Fleet: Attempting transfer from ${fromTerritory.id} to ${toTerritory.id}`);
+        
         // Check if territories are directly connected
         if (this.areConnectedByWarpLane(fromTerritory, toTerritory)) {
             // Direct transfer for adjacent territories
+            console.log(`Fleet: Using direct transfer (1 hop)`);
             return this.directFleetTransfer(fromTerritory, toTerritory);
         } else {
             // Use pathfinding for multi-hop transfers
-            return this.transferWithPathfinding(fromTerritory, toTerritory);
+            console.log(`Fleet: Using pathfinding for multi-hop transfer`);
+            const result = this.transferWithPathfinding(fromTerritory, toTerritory);
+            console.log(`Fleet: Multi-hop transfer result: ${result}`);
+            return result;
         }
     }
 
