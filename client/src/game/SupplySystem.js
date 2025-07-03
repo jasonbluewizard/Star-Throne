@@ -319,6 +319,53 @@ export class SupplySystem {
         console.log('All supply routes cleared');
     }
     
+    renderSupplyRoutes(ctx, territories) {
+        // Render active supply routes with animated arrows
+        this.supplyRoutes.forEach(route => {
+            if (!route.active) return;
+            
+            const fromTerritory = territories[route.from];
+            const toTerritory = territories[route.to];
+            
+            if (fromTerritory && toTerritory && route.path && route.path.length > 1) {
+                ctx.save();
+                
+                // Draw route path with animated dashes - color based on activity
+                const routeActive = fromTerritory.armySize > 10; // Route is active if source has armies
+                if (routeActive) {
+                    ctx.strokeStyle = '#00ffff'; // Bright cyan for active routes
+                    ctx.globalAlpha = 0.9;
+                } else {
+                    ctx.strokeStyle = '#006666'; // Dimmed cyan for inactive routes
+                    ctx.globalAlpha = 0.5;
+                }
+                ctx.lineWidth = 3;
+                
+                // Animate dashes flowing in the direction of ship movement
+                const animationOffset = (Date.now() * 0.02) % 20;
+                ctx.setLineDash([8, 12]);
+                ctx.lineDashOffset = -animationOffset;
+                
+                // Draw path segments using territory IDs to get coordinates
+                for (let i = 0; i < route.path.length - 1; i++) {
+                    const currentId = route.path[i];
+                    const nextId = route.path[i + 1];
+                    const current = territories[currentId];
+                    const next = territories[nextId];
+                    
+                    if (current && next) {
+                        ctx.beginPath();
+                        ctx.moveTo(current.x, current.y);
+                        ctx.lineTo(next.x, next.y);
+                        ctx.stroke();
+                    }
+                }
+                
+                ctx.restore();
+            }
+        });
+    }
+    
     stopSupplyRoutesFromTerritory(territoryId) {
         const routesToRemove = this.supplyRoutes.filter(route => route.from === territoryId);
         const count = routesToRemove.length;

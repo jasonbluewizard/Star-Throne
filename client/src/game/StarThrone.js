@@ -106,8 +106,7 @@ export default class StarThrone {
         this.floatingDiscoveryTexts = [];
         this.discoveryLog = []; // Recent discovery announcements for panel display
         
-        // Ship funneling system
-        this.supplyRoutes = new Map(); // territoryId -> { targetId, path, delay }
+        // Legacy drag variables (kept for compatibility)
         this.dragStart = null;
         this.dragEnd = null;
         this.isDraggingForSupplyRoute = false;
@@ -1639,12 +1638,12 @@ export default class StarThrone {
             }
         }
         
-        // Throttled heavy operations for better performance
+        // Throttled heavy operations for better performance - use SupplySystem module
         if (this.frameCount % 45 === 0) { // Every 45 frames (~0.75 seconds)
-            this.validateSupplyRoutes();
+            this.supplySystem.validateSupplyRoutes();
         }
         if (this.frameCount % 90 === 0) { // Every 90 frames (~1.5 seconds)
-            this.processSupplyRoutes(this.config.gameSpeed);
+            this.supplySystem.processSupplyRoutes(deltaTime);
         }
         
         // Check for player elimination (throttled)
@@ -2058,51 +2057,8 @@ export default class StarThrone {
     }
     
     renderSupplyRoutes() {
-        // Render active supply routes with animated arrows
-        this.supplyRoutes.forEach((route, fromId) => {
-            const fromTerritory = this.gameMap.territories[fromId];
-            const toTerritory = this.gameMap.territories[route.targetId];
-            
-            if (fromTerritory && toTerritory && route.path && route.path.length > 1) {
-                this.ctx.save();
-                
-                // Draw route path with animated dashes - color based on activity
-                const routeActive = fromTerritory.armySize > 10; // Route is active if source has armies
-                if (routeActive) {
-                    this.ctx.strokeStyle = '#00ffff'; // Bright cyan for active routes
-                    this.ctx.globalAlpha = 0.9;
-                } else {
-                    this.ctx.strokeStyle = '#006666'; // Dimmed cyan for inactive routes
-                    this.ctx.globalAlpha = 0.5;
-                }
-                this.ctx.lineWidth = 3;
-                
-                // Calculate direction-based animation offset
-                const fromPos = route.path[0];
-                const toPos = route.path[route.path.length - 1];
-                const direction = Math.atan2(toPos.y - fromPos.y, toPos.x - fromPos.x);
-                
-                // Animate dashes flowing in the direction of ship movement
-                const animationOffset = (Date.now() * 0.02) % 20;
-                this.ctx.setLineDash([8, 12]);
-                this.ctx.lineDashOffset = -animationOffset;
-                
-                // Draw path segments
-                for (let i = 0; i < route.path.length - 1; i++) {
-                    const current = route.path[i];
-                    const next = route.path[i + 1];
-                    
-                    this.ctx.beginPath();
-                    this.ctx.moveTo(current.x, current.y);
-                    this.ctx.lineTo(next.x, next.y);
-                    this.ctx.stroke();
-                }
-                
-                // Remove arrow graphics - just show the animated path
-                
-                this.ctx.restore();
-            }
-        });
+        // Delegate to SupplySystem module for rendering
+        this.supplySystem.renderSupplyRoutes(this.ctx, this.gameMap.territories);
     }
     
     getTransferPercentage(event) {
@@ -2613,7 +2569,6 @@ export default class StarThrone {
                 messageTimer: this.messageTimer,
                 combatSystem: this.combatSystem,
                 supplySystem: this.supplySystem,
-                supplyRoutes: this.supplyRoutes,
                 territories: this.gameMap.territories
             });
         }
@@ -2876,27 +2831,9 @@ export default class StarThrone {
         }
     }
     
-    // Supply route system
+    // Supply route system - delegate to SupplySystem module
     createSupplyRoute(fromTerritory, toTerritory) {
-        // Find path between territories through owned network
-        const path = this.findPathBetweenTerritories(fromTerritory, toTerritory);
-        
-        if (path && path.length > 1) {
-            const delayPerHop = 2000; // 2 seconds per intervening planet
-            const totalDelay = (path.length - 2) * delayPerHop; // Don't count start and end
-            
-            this.supplyRoutes.set(fromTerritory.id, {
-                targetId: toTerritory.id,
-                path: path,
-                delay: totalDelay,
-                lastValidation: Date.now()
-            });
-            
-            console.log(`Supply route created: ${fromTerritory.id} → ${toTerritory.id} (${path.length - 1} hops, ${totalDelay}ms delay)`);
-            console.log('Path:', path.map(t => t.id).join(' → '));
-        } else {
-            console.log('No valid path found between territories');
-        }
+        return this.supplySystem.createSupplyRoute(fromTerritory, toTerritory);
     }
     
     findPathBetweenTerritories(start, end) {

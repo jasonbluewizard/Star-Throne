@@ -839,11 +839,15 @@ export class GameUI {
             }
             
             // Show supply route information if this territory is supplying another
-            if (gameData.supplyRoutes && gameData.supplyRoutes.has(territory.id)) {
-                const route = gameData.supplyRoutes.get(territory.id);
-                const targetTerritory = gameData.territories[route.targetId];
-                if (targetTerritory) {
-                    tooltipLines.push(`Supplying territory ${route.targetId}`);
+            if (gameData.supplySystem && gameData.supplySystem.supplyRoutes) {
+                const outgoingRoutes = gameData.supplySystem.supplyRoutes.filter(route => route.from === territory.id);
+                if (outgoingRoutes.length > 0) {
+                    outgoingRoutes.forEach(route => {
+                        const targetTerritory = gameData.territories[route.to];
+                        if (targetTerritory) {
+                            tooltipLines.push(`Supplying territory ${route.to}`);
+                        }
+                    });
                 }
             }
             
