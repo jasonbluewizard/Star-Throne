@@ -45,7 +45,8 @@ export class SupplySystem {
             territories: this.game.territories
         };
         
-        console.log('SupplySystem: created graph with', this.game.territories.length, 'territories');
+        console.log('SupplySystem: created graph with', this.game.territories?.length || 'undefined', 'territories');
+        console.log('SupplySystem: first few territories:', this.game.territories?.slice(0, 3));
         console.log('SupplySystem: humanPlayer:', this.game.humanPlayer);
         const path = await this.game.pathfindingService.findShortestPath(
             fromTerritory.id, 
