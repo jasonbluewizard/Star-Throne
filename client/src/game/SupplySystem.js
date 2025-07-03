@@ -41,12 +41,14 @@ export class SupplySystem {
         console.log('SupplySystem: calling pathfindingService.findShortestPath');
         
         // Create proper graph structure for pathfinding
+        // Convert gameMap.territories object to array for pathfinding service
+        const territoriesArray = Object.values(this.game.gameMap.territories);
         const graph = {
-            territories: this.game.territories
+            territories: territoriesArray
         };
         
-        console.log('SupplySystem: created graph with', this.game.territories?.length || 'undefined', 'territories');
-        console.log('SupplySystem: first few territories:', this.game.territories?.slice(0, 3));
+        console.log('SupplySystem: created graph with', territoriesArray.length, 'territories');
+        console.log('SupplySystem: first few territories:', territoriesArray.slice(0, 2));
         console.log('SupplySystem: humanPlayer:', this.game.humanPlayer);
         const path = await this.game.pathfindingService.findShortestPath(
             fromTerritory.id, 
