@@ -181,7 +181,11 @@ export class Fleet {
         this.addTransferFlash(fromTerritory, fleetSize);
         
         // Create ship animation along warp lane
-        this.createTransferAnimation(fromTerritory, toTerritory, fleetSize);
+        try {
+            this.createTransferAnimation(fromTerritory, toTerritory, fleetSize);
+        } catch (error) {
+            console.error('Fleet: Error creating transfer animation:', error);
+        }
         
         console.log(`${fleetSize} ships departed from territory ${fromTerritory.id} to ${toTerritory.id}`);
     }
