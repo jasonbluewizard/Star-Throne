@@ -156,32 +156,46 @@ export class Fleet {
      */
     launchAttack(fromTerritory, toTerritory) {
         const humanPlayer = this.game.players.find(p => p.type === 'human');
-        if (!humanPlayer) return false;
+        if (!humanPlayer) {
+            console.log('Fleet: No human player found for attack');
+            return false;
+        }
 
+        // Check armySize property (used by Territory class)
+        const armyCount = fromTerritory.armySize || fromTerritory.armies || 0;
+        
         // Must have at least 2 ships (1 must stay)
-        if (fromTerritory.armies < 2) {
-            console.log('Fleet: Not enough ships for attack (need at least 2)');
+        if (armyCount < 2) {
+            console.log(`Fleet: Not enough ships for attack (${armyCount} < 2)`);
             return false;
         }
 
         // Send 50% of available fleet
-        const shipsToSend = Math.floor(fromTerritory.armies * 0.5);
+        const shipsToSend = Math.floor(armyCount * 0.5);
         
         console.log(`Fleet: Attacking territory ${toTerritory.id} from ${fromTerritory.id} with ${shipsToSend} ships`);
+        console.log(`Fleet: Source army count: ${armyCount}, target owner: ${toTerritory.ownerId}`);
         
         // Create attack animation (red color for attacks)
         this.createAttackAnimation(fromTerritory, toTerritory, shipsToSend);
         
-        // Deduct ships from source
-        fromTerritory.armies -= shipsToSend;
+        // Deduct ships from source (use correct property)
+        if (fromTerritory.armySize !== undefined) {
+            fromTerritory.armySize -= shipsToSend;
+        } else if (fromTerritory.armies !== undefined) {
+            fromTerritory.armies -= shipsToSend;
+        }
         
-        // Schedule attack resolution using game's combat system
-        setTimeout(() => {
-            if (this.game.attackTerritory) {
+        // Use the game's existing attack system
+        if (this.game.attackTerritory) {
+            // Schedule attack resolution using game's combat system
+            setTimeout(() => {
                 this.game.attackTerritory(humanPlayer.id, fromTerritory.id, toTerritory.id);
                 console.log(`${shipsToSend} ships attacked territory ${toTerritory.id}`);
-            }
-        }, 800); // Match animation duration
+            }, 800); // Match animation duration
+        } else {
+            console.log('Fleet: Game attack method not available');
+        }
         
         return true;
     }
@@ -358,7 +372,15 @@ export class Fleet {
      * Check if two territories are connected by a warp lane
      */
     areConnectedByWarpLane(territory1, territory2) {
-        return territory1.neighbors && territory1.neighbors.includes(territory2.id);
+        // Check both neighbors array and connections array for compatibility
+        const isConnected = (territory1.neighbors && territory1.neighbors.includes(territory2.id)) ||
+                           (territory1.connections && territory1.connections.includes(territory2.id));
+        
+        console.log(`Fleet: Connection check between ${territory1.id} and ${territory2.id}: ${isConnected}`);
+        console.log(`Fleet: Territory ${territory1.id} neighbors:`, territory1.neighbors);
+        console.log(`Fleet: Territory ${territory1.id} connections:`, territory1.connections);
+        
+        return isConnected;
     }
     
     /**
@@ -393,8 +415,10 @@ export class Fleet {
             const currentTerritory = this.game.territories.find(t => t.id === currentId);
             if (!currentTerritory) continue;
 
-            // Explore connected territories
-            for (let connectedId of currentTerritory.connections) {
+            // Explore connected territories - check both neighbors and connections arrays
+            const connections = currentTerritory.neighbors || currentTerritory.connections || [];
+            
+            for (let connectedId of connections) {
                 if (visited.has(connectedId)) continue;
 
                 const connectedTerritory = this.game.territories.find(t => t.id === connectedId);
