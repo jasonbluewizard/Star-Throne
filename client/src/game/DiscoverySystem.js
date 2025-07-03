@@ -329,8 +329,19 @@ export class DiscoverySystem {
 
     // Get discoveries for UI display
     getDiscoveriesForUI() {
+        // Return an object containing all permanent empire-wide discovery values
         return {
-            ...this.discoveries,
+            // Imperial bonuses
+            precursorWeapons: this.discoveries.precursorWeapons || 0,
+            precursorDrive: this.discoveries.precursorDrive || 0,
+            precursorShield: this.discoveries.precursorShield || 0,
+            precursorNanotech: this.discoveries.precursorNanotechnology || 0,
+            // Planet bonuses (per-world)
+            factoryPlanets: this.discoveries.factoryPlanets || [],
+            richMinerals: this.discoveries.richMinerals || 0,
+            // Friendly aliens (count of events triggered)
+            friendlyAliens: this.discoveries.friendlyAliens || 0,
+            // Recent discoveries for temporary notifications
             recentDiscoveries: this.recentDiscoveries
         };
     }
