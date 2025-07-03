@@ -19,6 +19,8 @@ import { AIManager } from './AIManager.js';
 import Controls from './Controls.js';
 import { Fleet } from './Fleet.js';
 
+console.log('*** STARTHRONE.JS MODULE LOADED ***', new Date().getTime());
+
 export default class StarThrone {
     constructor(config = {}) {
         this.canvas = null;
@@ -367,7 +369,9 @@ export default class StarThrone {
     }
     
     init() {
+        console.log('*** STARTHRONE INIT() CALLED ***');
         this.setupCanvas();
+        console.log('*** CANVAS SETUP COMPLETE ***');
         
         // CANVAS VALIDATION - Answer for other AI
         console.log('Canvas validation before InputHandler init:');
