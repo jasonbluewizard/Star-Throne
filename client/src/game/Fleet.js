@@ -210,20 +210,8 @@ export class Fleet {
      * Find territory at given world position
      */
     findTerritoryAtPosition(worldPos) {
-        const territories = this.game.gameMap.territories;
-        
-        for (let territory of territories) {
-            const distance = Math.sqrt(
-                Math.pow(worldPos.x - territory.x, 2) + 
-                Math.pow(worldPos.y - territory.y, 2)
-            );
-            
-            if (distance <= territory.radius) {
-                return territory;
-            }
-        }
-        
-        return null;
+        // Use the existing findTerritoryAt method from GameMap for consistency
+        return this.game.gameMap.findTerritoryAt(worldPos.x, worldPos.y);
     }
     
     /**
