@@ -424,7 +424,21 @@ export default class StarThrone {
         this.canvas.addEventListener('click', (e) => {
             console.log('*** DIRECT CANVAS CLICK DETECTED ***');
             console.log('Click coordinates:', e.clientX, e.clientY);
+            console.log('Canvas element:', this.canvas);
+            console.log('Event target:', e.target);
         });
+        
+        // Also test mousedown for broader event capture
+        this.canvas.addEventListener('mousedown', (e) => {
+            console.log('*** CANVAS MOUSEDOWN DETECTED ***');
+        });
+        
+        // Debug canvas properties
+        console.log('Canvas debug info:');
+        console.log('- Canvas width/height:', this.canvas.width, 'x', this.canvas.height);
+        console.log('- Canvas style:', this.canvas.style.cssText);
+        console.log('- Canvas position in DOM:', this.canvas.getBoundingClientRect());
+        console.log('- Canvas pointer events:', getComputedStyle(this.canvas).pointerEvents);
         
         // Auto-detect optimal performance profile
         this.performanceManager.detectOptimalProfile();
