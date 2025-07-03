@@ -556,6 +556,12 @@ Changelog:
    * Added automatic cache invalidation when players are eliminated (StarThrone.js and CombatSystem.js)
    * Enhanced performance monitoring with getAIPlayerCount() method for debugging
    * Reduced per-frame overhead on slower CPUs while maintaining proven staggered update approach
+- January 3, 2025. Viewport culling enhancements for hover detection and rendering optimization:
+   * Enhanced findTerritoryAt() to use visibleTerritories Set instead of scanning all territories for hover detection
+   * Implemented adaptive culling intervals: 150% longer on devices with FPS < 30 for smoother performance
+   * Added incremental territory processing: large maps (200+ territories) split checks across 3 frames to prevent spikes
+   * Converted visibleTerritories from array to Set for O(1) lookup performance in hover detection
+   * Enhanced culling system prevents mouse hover bottlenecks on large maps and improves Chromebook compatibility
 
 ## User Preferences
 

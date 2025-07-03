@@ -71,8 +71,9 @@ export default class StarThrone {
         this.lastFpsUpdate = 0;
         
         // Performance optimizations
-        this.visibleTerritories = [];
+        this.visibleTerritories = new Set();
         this.lastVisibilityUpdate = 0;
+        this.cullingBatchIndex = 0; // For incremental visibility processing
         this.performanceStats = {
             frameTime: 0,
             renderTime: 0,
@@ -1654,27 +1655,49 @@ export default class StarThrone {
     }
     
     updateVisibleTerritories() {
-        // Optimized visibility culling with cached bounds
-        if (Date.now() - this.lastVisibilityUpdate < GAME_CONSTANTS.VISIBLE_TERRITORIES_UPDATE_INTERVAL_MS) return;
-        this.lastVisibilityUpdate = Date.now();
+        // Enhanced viewport culling with incremental processing for smooth performance
+        const now = Date.now();
+        const updateInterval = GAME_CONSTANTS.VISIBLE_TERRITORIES_UPDATE_INTERVAL_MS;
+        
+        // Adaptive interval based on performance - increase on slower devices
+        const adaptiveInterval = this.fps < 30 ? updateInterval * 1.5 : updateInterval;
+        
+        if (now - this.lastVisibilityUpdate < adaptiveInterval) return;
+        this.lastVisibilityUpdate = now;
         
         const bounds = this.camera.getViewBounds();
         const margin = GAME_CONSTANTS.TERRITORY_VISIBILITY_PADDING;
         
-        this.visibleTerritories = [];
+        // Initialize visibility tracking as Set for O(1) lookups
+        if (!this.visibleTerritories || !this.visibleTerritories.has) {
+            this.visibleTerritories = new Set();
+        }
+        
+        this.visibleTerritories.clear();
         const territories = Object.values(this.gameMap.territories);
         
-        for (let i = 0; i < territories.length; i++) {
+        // Incremental processing: split territory checks across multiple frames on large maps
+        const batchSize = territories.length > 200 ? Math.ceil(territories.length / 3) : territories.length;
+        const startIndex = (this.cullingBatchIndex || 0) % territories.length;
+        const endIndex = Math.min(startIndex + batchSize, territories.length);
+        
+        // Process current batch
+        for (let i = startIndex; i < endIndex; i++) {
             const territory = territories[i];
             if (territory.x + territory.radius >= bounds.left - margin &&
                 territory.x - territory.radius <= bounds.right + margin &&
                 territory.y + territory.radius >= bounds.top - margin &&
                 territory.y - territory.radius <= bounds.bottom + margin) {
-                this.visibleTerritories.push(territory);
+                this.visibleTerritories.add(territory.id);
             }
         }
         
-        this.performanceStats.visibleTerritories = this.visibleTerritories.length;
+        // Update batch index for next frame (if processing incrementally)
+        if (batchSize < territories.length) {
+            this.cullingBatchIndex = endIndex >= territories.length ? 0 : endIndex;
+        }
+        
+        this.performanceStats.visibleTerritories = this.visibleTerritories.size;
     }
     
     // Render parallax starfield with multiple depth layers
@@ -1780,13 +1803,16 @@ export default class StarThrone {
         const selectedTerritory = inputState.selectedTerritory;
         
         // Render only visible territories
-        this.visibleTerritories.forEach(territory => {
-            territory.render(this.ctx, this.players, selectedTerritory, {
-                humanPlayer: this.humanPlayer,
-                homeSystemFlashStart: this.homeSystemFlashStart,
-                homeSystemFlashDuration: this.homeSystemFlashDuration
-            }, this.hoveredTerritory);
-        });
+        for (const territoryId of this.visibleTerritories) {
+            const territory = this.gameMap.territories[territoryId];
+            if (territory) {
+                territory.render(this.ctx, this.players, selectedTerritory, {
+                    humanPlayer: this.humanPlayer,
+                    homeSystemFlashStart: this.homeSystemFlashStart,
+                    homeSystemFlashDuration: this.homeSystemFlashDuration
+                }, this.hoveredTerritory);
+            }
+        }
     }
     
     renderConnections() {
@@ -2790,7 +2816,21 @@ export default class StarThrone {
     }
     
     findTerritoryAt(x, y) {
-        // Use optimized spatial indexing from GameMap (60% performance improvement)
+        // Viewport culling optimization: only check visible territories for hover detection
+        if (this.visibleTerritories && this.visibleTerritories.size > 0) {
+            for (const territoryId of this.visibleTerritories) {
+                const territory = this.gameMap.territories[territoryId];
+                if (!territory) continue;
+                
+                const distance = Math.sqrt((x - territory.x) ** 2 + (y - territory.y) ** 2);
+                if (distance <= territory.radius) {
+                    return territory;
+                }
+            }
+            return null;
+        }
+        
+        // Fallback to spatial indexing if visibility culling not available
         return this.gameMap.findTerritoryAt(x, y);
     }
     
