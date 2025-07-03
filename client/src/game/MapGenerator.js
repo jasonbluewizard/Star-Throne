@@ -12,7 +12,7 @@
  */
 
 import Delaunator from 'delaunator';
-import { GAME_CONSTANTS } from '../../../common/gameConstants.js';
+import { GAME_CONSTANTS } from '../../../common/gameConstants';
 
 /**
  * Helper: Returns true if line segment AB intersects circle centered at C with radius R
