@@ -2613,6 +2613,7 @@ export default class StarThrone {
                 messageTimer: this.messageTimer,
                 combatSystem: this.combatSystem,
                 supplySystem: this.supplySystem,
+                supplyRoutes: this.supplyRoutes,
                 territories: this.gameMap.territories
             });
         }

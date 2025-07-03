@@ -238,15 +238,14 @@ class TerritorySelectedState extends BaseState {
         
         // Right-click on the selected territory itself - cancel supply routes if any exist
         if (territory.id === this.selectedTerritory.id) {
-            // Check if this territory has any outgoing supply routes
-            const outgoingRoutes = this.game.supplySystem.supplyRoutes.filter(route => route.from === territory.id);
-            if (outgoingRoutes.length > 0) {
-                // Cancel all outgoing supply routes from this territory
-                outgoingRoutes.forEach(route => {
-                    this.game.supplySystem.removeSupplyRoute(route.id);
-                    console.log(`Cancelled supply route from ${territory.id} to ${route.to}`);
-                });
+            // Check if this territory has any outgoing supply routes (using the actual Map-based system)
+            if (this.game.supplyRoutes && this.game.supplyRoutes.has(territory.id)) {
+                const route = this.game.supplyRoutes.get(territory.id);
+                this.game.supplyRoutes.delete(territory.id);
+                console.log(`Cancelled supply route from ${territory.id} to ${route.targetId}`);
                 return true;
+            } else {
+                console.log(`No supply route to cancel from territory ${territory.id}`);
             }
             return true;
         }
