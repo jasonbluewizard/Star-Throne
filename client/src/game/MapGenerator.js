@@ -103,10 +103,13 @@ export default class MapGenerator {
         // 5. OPTIONAL: ADD EXTRA CONNECTIONS FOR STRATEGIC DEPTH
         this.addExtraConnections(points, connections, edges);
         
-        // 6. BUILD TERRITORY OBJECTS
+        // 6. ENSURE FULL CONNECTIVITY (CRITICAL FOR GAMEPLAY)
+        this.ensureConnectivity(points, connections, edges);
+        
+        // 7. BUILD TERRITORY OBJECTS
         const territories = this.buildTerritories(points, connections);
         
-        // 7. SET MAP DIMENSIONS
+        // 8. SET MAP DIMENSIONS
         this.calculateMapDimensions(points);
         
         console.log(`✨ Generated ${territories.length} territories with ${this.countConnections(connections)} warp lanes`);
@@ -652,6 +655,125 @@ export default class MapGenerator {
         this.mapHeight = maxY - minY + margin * 2;
         
         console.log(`📐 Map dimensions: ${this.mapWidth} x ${this.mapHeight}`);
+    }
+    
+    /**
+     * Ensure all territories are connected via a path (critical for gameplay)
+     */
+    static ensureConnectivity(points, connections, edges) {
+        console.log('🔗 Ensuring full galaxy connectivity...');
+        
+        // Find all connected components using BFS
+        const visited = new Set();
+        const components = [];
+        
+        for (let i = 0; i < points.length; i++) {
+            if (!visited.has(i)) {
+                // Start a new component
+                const component = [];
+                const queue = [i];
+                visited.add(i);
+                
+                while (queue.length > 0) {
+                    const current = queue.shift();
+                    component.push(current);
+                    
+                    // Visit all neighbors
+                    for (const neighbor of connections[current] || []) {
+                        if (!visited.has(neighbor)) {
+                            visited.add(neighbor);
+                            queue.push(neighbor);
+                        }
+                    }
+                }
+                
+                components.push(component);
+            }
+        }
+        
+        console.log(`Found ${components.length} connected components`);
+        
+        // If we have multiple components, connect them
+        if (components.length > 1) {
+            // Sort available edges by length to prefer shorter connections
+            const availableEdges = edges.filter(edge => {
+                return !connections[edge.u].includes(edge.v) && 
+                       !connections[edge.v].includes(edge.u);
+            }).sort((a, b) => a.length - b.length);
+            
+            // Connect components by finding shortest edges between them
+            for (let i = 1; i < components.length; i++) {
+                const comp1 = components[0]; // Always connect to main component
+                const comp2 = components[i];
+                
+                let bestEdge = null;
+                let bestDistance = Infinity;
+                
+                // Find shortest edge between the two components
+                for (const node1 of comp1) {
+                    for (const node2 of comp2) {
+                        const distance = Math.hypot(
+                            points[node1].x - points[node2].x,
+                            points[node1].y - points[node2].y
+                        );
+                        
+                        if (distance < bestDistance) {
+                            bestDistance = distance;
+                            bestEdge = { u: node1, v: node2, length: distance };
+                        }
+                    }
+                }
+                
+                // Add the connection
+                if (bestEdge) {
+                    connections[bestEdge.u].push(bestEdge.v);
+                    connections[bestEdge.v].push(bestEdge.u);
+                    console.log(`🌉 Connected components via bridge: ${bestEdge.u} ↔ ${bestEdge.v} (distance: ${Math.round(bestEdge.length)})`);
+                    
+                    // Merge component i into component 0
+                    components[0] = components[0].concat(comp2);
+                }
+            }
+            
+            console.log(`✅ All territories now connected in single component`);
+        } else {
+            console.log(`✅ Galaxy already fully connected`);
+        }
+        
+        // Final validation
+        const finalComponents = this.countConnectedComponents(points.length, connections);
+        if (finalComponents > 1) {
+            console.warn(`⚠️ Still have ${finalComponents} disconnected components after repair!`);
+        }
+    }
+    
+    /**
+     * Count connected components for validation
+     */
+    static countConnectedComponents(numPoints, connections) {
+        const visited = new Set();
+        let components = 0;
+        
+        for (let i = 0; i < numPoints; i++) {
+            if (!visited.has(i)) {
+                components++;
+                const stack = [i];
+                
+                while (stack.length > 0) {
+                    const current = stack.pop();
+                    if (!visited.has(current)) {
+                        visited.add(current);
+                        for (const neighbor of connections[current] || []) {
+                            if (!visited.has(neighbor)) {
+                                stack.push(neighbor);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        return components;
     }
     
     /**
