@@ -50,9 +50,21 @@ export class Fleet {
             console.log(`Fleet: Attempting transfer from ${this.selectedTerritory.id} to ${territory.id}`);
             return this.attemptFleetTransfer(this.selectedTerritory, territory);
         } else if (isRightClick && this.selectedTerritory && !isPlayerTerritory) {
-            // RMB on enemy territory with selection - launch probe attack
-            console.log(`Fleet: Launching probe attack from ${this.selectedTerritory.id} to ${territory.id}`);
-            return this.launchProbeAttack(this.selectedTerritory, territory);
+            // RMB on non-player territory - check if colonizable or enemy
+            if (territory.isColonizable) {
+                // Colonizable planet - launch probe
+                console.log(`Fleet: Launching probe from ${this.selectedTerritory.id} to colonizable planet ${territory.id}`);
+                return this.launchProbeAttack(this.selectedTerritory, territory);
+            } else if (territory.ownerId !== null) {
+                // Enemy territory - check if connected by warp lane for attack
+                if (this.areConnectedByWarpLane(this.selectedTerritory, territory)) {
+                    console.log(`Fleet: Attacking enemy territory ${territory.id} from ${this.selectedTerritory.id}`);
+                    return this.launchAttack(this.selectedTerritory, territory);
+                } else {
+                    console.log(`Fleet: Cannot attack territory ${territory.id} - not connected by warp lane`);
+                    return false;
+                }
+            }
         } else if (!isRightClick) {
             // LMB on any system - handle selection
             return this.handleSelection(territory, isPlayerTerritory);
@@ -140,14 +152,101 @@ export class Fleet {
     }
 
     /**
+     * Launch attack on enemy territory
+     */
+    launchAttack(fromTerritory, toTerritory) {
+        const humanPlayer = this.game.players.find(p => p.type === 'human');
+        if (!humanPlayer) return false;
+
+        // Must have at least 2 ships (1 must stay)
+        if (fromTerritory.armies < 2) {
+            console.log('Fleet: Not enough ships for attack (need at least 2)');
+            return false;
+        }
+
+        // Send 50% of available fleet
+        const shipsToSend = Math.floor(fromTerritory.armies * 0.5);
+        
+        console.log(`Fleet: Attacking territory ${toTerritory.id} from ${fromTerritory.id} with ${shipsToSend} ships`);
+        
+        // Create attack animation (red color for attacks)
+        this.createAttackAnimation(fromTerritory, toTerritory, shipsToSend);
+        
+        // Deduct ships from source
+        fromTerritory.armies -= shipsToSend;
+        
+        // Schedule attack resolution using game's combat system
+        setTimeout(() => {
+            if (this.game.attackTerritory) {
+                this.game.attackTerritory(humanPlayer.id, fromTerritory.id, toTerritory.id);
+                console.log(`${shipsToSend} ships attacked territory ${toTerritory.id}`);
+            }
+        }, 800); // Match animation duration
+        
+        return true;
+    }
+
+    /**
+     * Transfer ships using shortest path routing for distant territories
+     */
+    transferWithPathfinding(fromTerritory, toTerritory) {
+        const humanPlayer = this.game.players.find(p => p.type === 'human');
+        if (!humanPlayer) return false;
+
+        // Find shortest path between territories
+        const path = this.findShortestPath(fromTerritory.id, toTerritory.id);
+        
+        if (!path || path.length < 2) {
+            console.log('Fleet: No valid path found between territories');
+            return false;
+        }
+
+        // Must have at least 2 ships (1 must stay)
+        if (fromTerritory.armies < 2) {
+            console.log('Fleet: Not enough ships for transfer (need at least 2)');
+            return false;
+        }
+
+        // Send 50% of available fleet
+        const shipsToSend = Math.floor(fromTerritory.armies * 0.5);
+        
+        console.log(`Fleet: Multi-hop transfer from ${fromTerritory.id} to ${toTerritory.id} via path:`, path);
+        console.log(`Fleet: Sending ${shipsToSend} ships along ${path.length - 1} hops`);
+        
+        // Create multi-hop animation
+        this.createMultiHopAnimation(path, shipsToSend);
+        
+        // Deduct ships from source
+        fromTerritory.armies -= shipsToSend;
+        
+        // Schedule final delivery
+        const totalTime = (path.length - 1) * 800; // 800ms per hop
+        setTimeout(() => {
+            toTerritory.armies += shipsToSend;
+            console.log(`${shipsToSend} ships arrived at territory ${toTerritory.id} via multi-hop (total: ${toTerritory.armies})`);
+        }, totalTime);
+        
+        return true;
+    }
+
+    /**
      * Attempt to transfer fleet between friendly territories
      */
     attemptFleetTransfer(fromTerritory, toTerritory) {
-        // Validate territories are connected by warp lane
-        if (!this.areConnectedByWarpLane(fromTerritory, toTerritory)) {
-            console.log(`Fleet transfer blocked: territories ${fromTerritory.id} and ${toTerritory.id} not connected by warp lane`);
-            return false;
+        // Check if territories are directly connected
+        if (this.areConnectedByWarpLane(fromTerritory, toTerritory)) {
+            // Direct transfer for adjacent territories
+            return this.directFleetTransfer(fromTerritory, toTerritory);
+        } else {
+            // Use pathfinding for multi-hop transfers
+            return this.transferWithPathfinding(fromTerritory, toTerritory);
         }
+    }
+
+    /**
+     * Direct transfer between adjacent territories
+     */
+    directFleetTransfer(fromTerritory, toTerritory) {
         
         // Calculate transfer fleet size (50%)
         const totalShips = fromTerritory.armySize;
@@ -268,6 +367,105 @@ export class Fleet {
     findTerritoryAtPosition(worldPos) {
         // Use the existing findTerritoryAt method from GameMap for consistency
         return this.game.gameMap.findTerritoryAt(worldPos.x, worldPos.y);
+    }
+
+    /**
+     * Find shortest path between two territories using BFS
+     */
+    findShortestPath(fromId, toId) {
+        const humanPlayer = this.game.players.find(p => p.type === 'human');
+        if (!humanPlayer) return null;
+
+        // BFS to find shortest path through player-owned territories
+        const queue = [[fromId]];
+        const visited = new Set([fromId]);
+
+        while (queue.length > 0) {
+            const path = queue.shift();
+            const currentId = path[path.length - 1];
+
+            // Found destination
+            if (currentId === toId) {
+                return path;
+            }
+
+            // Get current territory
+            const currentTerritory = this.game.territories.find(t => t.id === currentId);
+            if (!currentTerritory) continue;
+
+            // Explore connected territories
+            for (let connectedId of currentTerritory.connections) {
+                if (visited.has(connectedId)) continue;
+
+                const connectedTerritory = this.game.territories.find(t => t.id === connectedId);
+                if (!connectedTerritory) continue;
+
+                // Only traverse through player-owned territories (except destination)
+                if (connectedId !== toId && connectedTerritory.ownerId !== humanPlayer.id) {
+                    continue;
+                }
+
+                visited.add(connectedId);
+                queue.push([...path, connectedId]);
+            }
+        }
+
+        return null; // No path found
+    }
+
+    /**
+     * Create attack animation with red ships
+     */
+    createAttackAnimation(fromTerritory, toTerritory, fleetSize) {
+        const animation = {
+            id: Date.now() + Math.random(),
+            fromTerritory,
+            toTerritory,
+            fleetSize,
+            progress: 0,
+            startTime: Date.now(),
+            duration: 800,
+            color: '#ff4444', // Red for attacks
+            type: 'attack'
+        };
+
+        this.transferAnimations.push(animation);
+        console.log(`Fleet: Created attack animation ${animation.id}, total animations: ${this.transferAnimations.length}`);
+    }
+
+    /**
+     * Create multi-hop animation chain
+     */
+    createMultiHopAnimation(path, fleetSize) {
+        const humanPlayer = this.game.players.find(p => p.type === 'human');
+        const playerColor = humanPlayer ? humanPlayer.color : '#00ffff';
+
+        for (let i = 0; i < path.length - 1; i++) {
+            const fromId = path[i];
+            const toId = path[i + 1];
+
+            const fromTerritory = this.game.territories.find(t => t.id === fromId);
+            const toTerritory = this.game.territories.find(t => t.id === toId);
+
+            if (fromTerritory && toTerritory) {
+                const animation = {
+                    id: Date.now() + Math.random() + i,
+                    fromTerritory,
+                    toTerritory,
+                    fleetSize,
+                    progress: 0,
+                    startTime: Date.now() + (i * 800), // Stagger each hop
+                    duration: 800,
+                    color: playerColor,
+                    type: 'multi-hop',
+                    hopIndex: i
+                };
+
+                this.transferAnimations.push(animation);
+            }
+        }
+
+        console.log(`Fleet: Created ${path.length - 1} hop animations for multi-hop transfer`);
     }
     
     /**
