@@ -13,6 +13,7 @@
 
 import Delaunator from 'delaunator';
 import { GAME_CONSTANTS } from '../../../common/gameConstants';
+import { Territory } from './Territory.js';
 
 /**
  * Helper: Returns true if line segment AB intersects circle centered at C with radius R
@@ -530,32 +531,22 @@ export default class MapGenerator {
         const territories = [];
         
         for (let i = 0; i < points.length; i++) {
-            territories.push({
-                id: i,
-                x: points[i].x,
-                y: points[i].y,
-                radius: 20,
-                neighbors: connections[i].slice(), // Copy array
-                ownerId: null,
-                armySize: Math.floor(Math.random() * 10) + 1, // 1-10 armies for neutrals
-                isColonizable: true,
-                isThronestar: false,
-                neutralColor: '#666666',
-                
-                // Visual effects
-                combatFlashTime: 0,
-                combatFlashDuration: 500,
-                probeFlashTime: 0,
-                probeFlashDuration: 1000,
-                attackFlash: 0,
-                reinforcementArrivedFlash: 0,
-                
-                // Factory discovery
-                hasFactory: false,
-                
-                // Floating text
-                floatingText: null
-            });
+            // Create proper Territory instance
+            const territory = new Territory(i, points[i].x, points[i].y, 20, true);
+            
+            // Set up connections
+            territory.neighbors = connections[i].slice(); // Copy array
+            
+            // Set initial properties
+            territory.armySize = Math.floor(Math.random() * 10) + 1; // 1-10 armies for neutrals
+            territory.isThronestar = false;
+            
+            // Additional properties for compatibility
+            territory.attackFlash = 0;
+            territory.reinforcementArrivedFlash = 0;
+            territory.hasFactory = false;
+            
+            territories.push(territory);
         }
         
         return territories;
