@@ -872,60 +872,49 @@ export default class StarThrone {
     
     // Colonize planet when probe arrives
     colonizePlanet(probe) {
-        const planet = probe.toTerritory;
-        const player = this.players.find(p => p.id === probe.playerId);
-        
-        if (!planet || !player) return;
-        
-        // Check if planet is already colonized by another player
-        if (planet.ownerId !== null && planet.ownerId !== player.id) {
-            console.log(`Probe from ${player.name} destroyed! Planet ${planet.id} already colonized by another player.`);
+        const territory = this.gameMap.territories[probe.targetId];
+        if (!territory || territory.ownerId !== null) {
+            console.log(`Probe ${probe.id} failed: territory ${probe.targetId} already colonized`);
             return;
         }
         
-        console.log(`Probe colonizing planet ${planet.id} for player ${player.name}`);
+        const player = this.players[probe.playerId];
+        if (!player) return;
         
-        // Trigger discovery event before colonization
-        const discovery = this.selectRandomDiscovery();
-        const discoveryResult = GameUtils.processDiscovery(discovery.id, player.id, planet.id, this.playerDiscoveries, this);
-        const colonizationSuccessful = discoveryResult ? discoveryResult.success : true; // Default to success if null
+        console.log(`Probe colonizing planet ${probe.targetId} for player ${player.name}`);
         
-        // Always log the discovery for UI display (both success and failure)
-        this.logDiscoveryForUI(planet, player.id, discovery);
+        // Use DiscoverySystem for processing discoveries
+        const colonizationSuccessful = this.discoverySystem.processDiscovery(territory, player);
         
         // If probe was lost to hostile aliens, colonization fails
         if (!colonizationSuccessful) {
-            console.log(`Colonization of planet ${planet.id} failed due to hostile encounter!`);
+            console.log(`Probe destroyed by hostile aliens on planet ${probe.targetId}!`);
             return;
         }
         
-        // Set ownership - discovery might have already set army size
-        planet.ownerId = player.id;
-        if (planet.armySize === 0 || planet.armySize === planet.hiddenArmySize) {
-            planet.armySize = 1; // Default if not set by discovery
-        }
+        // Successful colonization
+        territory.ownerId = probe.playerId;
+        territory.armySize = 1; // Start with 1 army regardless of hidden strength
+        territory.isColonizable = false;
+        territory.lastArmyGeneration = Date.now();
         
-        // Mark as no longer colonizable
-        planet.isColonizable = false;
-        
-        // Add to player's territories
-        player.territories.push(planet.id);
-        
-        // Reveal hidden connections
-        planet.revealConnections();
-        
-        // Update neighboring territories' connections
-        Object.values(this.gameMap.territories).forEach(territory => {
-            if (territory.hiddenNeighbors.includes(planet.id)) {
-                territory.hiddenNeighbors = territory.hiddenNeighbors.filter(id => id !== planet.id);
-                territory.neighbors.push(planet.id);
+        // Reveal connections to other territories
+        territory.neighbors.forEach(neighborId => {
+            const neighbor = this.gameMap.territories[neighborId];
+            if (neighbor && !neighbor.isColonizable) {
+                // Make connection visible
+                neighbor.hiddenConnections = neighbor.hiddenConnections || [];
+                const connectionIndex = neighbor.hiddenConnections.indexOf(territory.id);
+                if (connectionIndex > -1) {
+                    neighbor.hiddenConnections.splice(connectionIndex, 1);
+                }
             }
         });
         
-        // Update player stats
-        player.updateStats();
+        console.log(`Planet ${probe.targetId} colonized successfully!`);
         
-        console.log(`Planet ${planet.id} colonized successfully! Discovery: ${discovery.name}`);
+        // Update player territories
+        player.territories.push(territory.id);
     }
     
     // Render ship animations
