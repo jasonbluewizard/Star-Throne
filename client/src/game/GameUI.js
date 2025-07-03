@@ -532,8 +532,20 @@ export class GameUI {
         // Only show human player's discoveries
         if (!gameData.playerDiscoveries || !gameData.humanPlayer) return;
         
-        const discoveries = gameData.playerDiscoveries.get(gameData.humanPlayer.id);
+        // Handle both old Map format and new DiscoverySystem format
+        let discoveries;
+        if (gameData.playerDiscoveries.get && typeof gameData.playerDiscoveries.get === 'function') {
+            // Old Map format
+            discoveries = gameData.playerDiscoveries.get(gameData.humanPlayer.id);
+        } else {
+            // New DiscoverySystem format (direct object)
+            discoveries = gameData.playerDiscoveries;
+        }
+        
         if (!discoveries) return;
+        
+        // Debug: Log discovery data to see what's being passed
+        console.log('🔬 Empire Discovery Panel - Discoveries data:', discoveries);
         
         // Count active discoveries (with safety checks)
         let discoveryCount = 0;

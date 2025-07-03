@@ -111,8 +111,12 @@ export class Camera {
         // Handle vertical constraints
         if (heightFullyVisible) {
             // Center vertically and disable vertical scrolling
+            // Account for UI elements at top of screen (status bar, timer, etc.)
+            const topUIHeight = 60; // Height of top UI bar in screen pixels
+            const uiOffset = topUIHeight / this.zoom; // Convert UI space to world space
+            
             const mapCenterY = this.mapHeight / 2;
-            this.y = mapCenterY - visibleHeight / 2;
+            this.y = mapCenterY - visibleHeight / 2 + uiOffset / 2; // Shift down to account for top UI
             this.targetY = this.y;
         } else {
             // Normal vertical pan constraints with buffer zones

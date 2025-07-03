@@ -2380,7 +2380,7 @@ export default class StarThrone {
                 visibleTerritories: this.performanceStats.visibleTerritories,
                 probeCount: this.probes.length,
                 notifications: this.notifications,
-                playerDiscoveries: this.playerDiscoveries,
+                playerDiscoveries: this.discoverySystem ? this.discoverySystem.getDiscoveriesForUI() : {},
                 recentProbeResults: this.recentProbeResults,
                 discoveryLog: this.discoveryLog,
                 showBonusPanel: this.showBonusPanel,
