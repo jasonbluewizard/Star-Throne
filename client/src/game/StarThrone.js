@@ -7,6 +7,7 @@ import { InputHandler } from './InputHandler.js';
 import { Renderer } from './Renderer.js';
 import { CombatSystem } from './CombatSystem.js';
 import { SupplySystem } from './SupplySystem.js';
+import { PathfindingService } from './PathfindingService.js';
 import { GameUtils } from './utils.js';
 import { GAME_CONSTANTS } from '../../../common/gameConstants';
 import { gameEvents, GAME_EVENTS, EVENT_PRIORITY, EventHelpers } from './EventSystem.js';
@@ -53,6 +54,7 @@ export default class StarThrone {
         this.renderer = null;
         this.combatSystem = null;
         this.supplySystem = null;
+        this.pathfindingService = null;
         this.performanceManager = null;
         this.discoverySystem = null;
         this.animationSystem = null;
@@ -387,6 +389,7 @@ export default class StarThrone {
         this.renderer = new Renderer(this.canvas, this.camera);
         this.combatSystem = new CombatSystem(this);
         this.supplySystem = new SupplySystem(this);
+        this.pathfindingService = new PathfindingService(this);
         this.performanceManager = new PerformanceManager(this);
         this.performanceOverlay = new PerformanceOverlay(this.canvas, this.performanceManager);
         this.discoverySystem = new DiscoverySystem(this);

@@ -10,7 +10,7 @@
  * - EnemySelected: Enemy/neutral territory selected for inspection
  */
 
-import PathfindingService from './PathfindingService.js';
+import { PathfindingService } from './PathfindingService.js';
 
 export class InputStateMachine {
     constructor(game) {
@@ -242,8 +242,8 @@ class TerritorySelectedState extends BaseState {
         
         const sourceStar = this.selectedTerritory;
         const targetStar = territory;
-        const ownershipType = PathfindingService.getTerritoryOwnershipType(targetStar, this.game.humanPlayer?.id);
-        const isAdjacent = PathfindingService.areTerritoriesAdjacent(sourceStar, targetStar);
+        const ownershipType = this.game.pathfindingService.getTerritoryOwnershipType(targetStar, this.game.humanPlayer?.id);
+        const isAdjacent = this.game.pathfindingService.areTerritoriesAdjacent(sourceStar, targetStar);
         
         console.log(`Right-click: ${sourceStar.id} -> ${targetStar.id}, ownership: ${ownershipType}, adjacent: ${isAdjacent}`);
         
@@ -267,7 +267,7 @@ class TerritorySelectedState extends BaseState {
                 } else {
                     // Distant friendly star - find path and execute multi-hop transfer
                     try {
-                        const path = await PathfindingService.findShortestPath(
+                        const path = await this.game.pathfindingService.findShortestPath(
                             sourceStar.id, 
                             targetStar.id, 
                             this.game.gameMap, 

@@ -4,7 +4,11 @@
  * Uses Dijkstra's algorithm to find shortest paths through friendly territory
  */
 
-export default class PathfindingService {
+export class PathfindingService {
+    constructor(game) {
+        this.game = game;
+    }
+
     /**
      * Find the shortest path between two nodes through friendly territory
      * @param {number} startNodeId - Starting territory ID
@@ -13,7 +17,7 @@ export default class PathfindingService {
      * @param {string} playerId - Player ID for territory ownership validation
      * @returns {Promise<Array|null>} Array of territory IDs representing path, or null if no path exists
      */
-    static async findShortestPath(startNodeId, endNodeId, graph, playerId) {
+    async findShortestPath(startNodeId, endNodeId, graph, playerId) {
         return new Promise((resolve) => {
             // Validate inputs
             if (!graph || !graph.territories || startNodeId === endNodeId) {
@@ -116,7 +120,7 @@ export default class PathfindingService {
      * @param {number} endNodeId - Ending node ID
      * @returns {Array} Array of node IDs representing the path
      */
-    static reconstructPath(previous, startNodeId, endNodeId) {
+    reconstructPath(previous, startNodeId, endNodeId) {
         const path = [];
         let currentNode = endNodeId;
 
@@ -140,7 +144,7 @@ export default class PathfindingService {
      * @param {Object} territory2 - Second territory
      * @returns {boolean} True if territories are adjacent
      */
-    static areTerritoriesAdjacent(territory1, territory2) {
+    areTerritoriesAdjacent(territory1, territory2) {
         if (!territory1 || !territory2 || !territory1.neighbors) {
             return false;
         }
@@ -154,7 +158,7 @@ export default class PathfindingService {
      * @param {string} playerId - Player ID to validate ownership
      * @returns {boolean} True if territory is owned by player
      */
-    static isOwnedByPlayer(territory, playerId) {
+    isOwnedByPlayer(territory, playerId) {
         return territory && territory.ownerId === playerId;
     }
 
@@ -164,7 +168,7 @@ export default class PathfindingService {
      * @param {string} playerId - Player ID for comparison
      * @returns {string} 'friendly', 'enemy', 'neutral', or 'invalid'
      */
-    static getTerritoryOwnershipType(territory, playerId) {
+    getTerritoryOwnershipType(territory, playerId) {
         if (!territory) {
             return 'invalid';
         }
@@ -183,7 +187,7 @@ export default class PathfindingService {
      * @param {Array} path - Array of territory IDs
      * @returns {number} Number of hops in the path
      */
-    static calculatePathDistance(path) {
+    calculatePathDistance(path) {
         return path ? Math.max(0, path.length - 1) : 0;
     }
 }

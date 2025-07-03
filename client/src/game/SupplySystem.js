@@ -29,7 +29,7 @@ export class SupplySystem {
         }
         
         // Find path between territories using PathfindingService
-        const path = await PathfindingService.findShortestPath(
+        const path = await this.game.pathfindingService.findShortestPath(
             fromTerritory.id, 
             toTerritory.id, 
             this.game.gameMap, 
