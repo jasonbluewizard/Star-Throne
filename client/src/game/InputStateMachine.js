@@ -310,6 +310,21 @@ class TerritorySelectedState extends BaseState {
                 console.log(`Cannot target neutral territory ${targetStar.id}`);
                 break;
                 
+            case 'colonizable':
+                // Launch probe to colonizable planet
+                if (sourceStar.armySize >= 11) { // Need at least 11 armies (probe costs 10, leave 1)
+                    const success = this.game.launchProbe(sourceStar, targetStar);
+                    if (success) {
+                        console.log(`Probe launched from ${sourceStar.id} to colonizable planet ${targetStar.id}`);
+                    } else {
+                        this.showFeedback("Probe launch failed", sourceStar.x, sourceStar.y);
+                    }
+                } else {
+                    this.showFeedback("Need 11+ armies to launch probe", sourceStar.x, sourceStar.y);
+                    console.log(`Insufficient armies to launch probe from ${sourceStar.id}`);
+                }
+                break;
+                
             default:
                 console.log(`Invalid target: ${targetStar.id}`);
                 break;

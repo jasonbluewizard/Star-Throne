@@ -173,6 +173,11 @@ export class PathfindingService {
             return 'invalid';
         }
 
+        // Check for colonizable planets first
+        if (territory.isColonizable) {
+            return 'colonizable';
+        }
+
         if (territory.ownerId === playerId) {
             return 'friendly';
         } else if (territory.ownerId === 0) {
