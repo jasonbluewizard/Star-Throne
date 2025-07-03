@@ -1,4 +1,5 @@
 import { Territory } from './Territory.js';
+import MapGenerator from './MapGenerator.js';
 
 export class GameMap {
     constructor(width, height, config = {}) {
@@ -82,57 +83,38 @@ export class GameMap {
     }
 
     generateTerritories(count) {
-        console.log(`Generating ${count} territories using ${this.layout} layout on ${this.width}x${this.height} map...`);
+        console.log(`🌌 Generating ${count} territories using advanced ${this.layout} layout...`);
         
-        // Generate territories based on selected layout
-        let territories;
-        switch (this.layout) {
-            case 'clusters':
-                territories = this.generateClusterLayout(count);
-                break;
-            case 'spiral':
-                territories = this.generateSpiralLayout(count);
-                break;
-            case 'core':
-                territories = this.generateCoreLayout(count);
-                break;
-            case 'ring':
-                territories = this.generateRingLayout(count);
-                break;
-            case 'binary':
-                territories = this.generateBinaryLayout(count);
-                break;
-            case 'organic':
-            default:
-                territories = this.poissonDiskSampling(count);
-                break;
-        }
+        // Use the advanced MapGenerator for sophisticated galaxy layouts
+        const generatedTerritories = MapGenerator.generateMap(count, this.layout, 20); // Assume 20 players for cluster generation
         
-        // Create Territory objects - ALL are now colonizable requiring probes
-        territories.forEach((pos, index) => {
-            // ALL territories are now colonizable
-            const territory = new Territory(index, pos.x, pos.y, 25, true);
-            
-            // Hidden army count from 1 to 50, only revealed when probed
+        // Update map dimensions from MapGenerator
+        this.width = MapGenerator.mapWidth;
+        this.height = MapGenerator.mapHeight;
+        
+        // Convert generated territories to our game format - ALL are colonizable requiring probes
+        generatedTerritories.forEach((territory, index) => {
+            // Modify territory to be colonizable (probe required)
+            territory.isColonizable = true;
             territory.hiddenArmySize = Math.floor(Math.random() * 50) + 1;
             territory.armySize = 0; // Unknown until colonized
             
+            // Convert neighbors array to hidden neighbors (invisible until colonized)
+            territory.hiddenNeighbors = territory.neighbors.slice();
+            territory.neighbors = []; // Hide connections until colonized
+            
             this.territories[index] = territory;
+            
+            // Spatial indexing for performance
+            this.addToSpatialGrid(territory);
         });
         
-        // Generate nebulas after territories
+        console.log(`✨ Generated ${count} territories with advanced ${this.layout} galaxy layout`);
+        console.log(`📐 Map dimensions: ${this.width} x ${this.height}`);
+        console.log(`🔗 Sophisticated warp lane network with planar connectivity`);
+        
+        // Generate nebula fields AFTER territories to avoid overlaps
         this.generateNebulas();
-        
-        // Connect territories based on layout
-        this.connectTerritoriesForLayout();
-        
-        // All territories are now colonizable
-        console.log(`Generated ${Object.keys(this.territories).length} territories with ${this.layout} layout`);
-        console.log(`Generated ${this.nebulas.length} nebula clouds`);
-        console.log(`All territories are colonizable planets requiring probes`);
-        
-        // Ensure connectivity by connecting isolated territories
-        this.ensureConnectivity();
     }
     
     generateNebulas() {
