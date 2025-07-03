@@ -3,6 +3,8 @@
  * Centralizes event handling to decouple components and improve maintainability
  */
 
+import { GameUtils } from './utils.js';
+
 // Game Event Types
 export const GAME_EVENTS = {
     // Territory Events
@@ -239,7 +241,7 @@ export class EventSystem {
                     listener.callback(event);
                 }
             } catch (error) {
-                console.error(`EventSystem: Error in ${event.type} listener:`, error);
+                GameUtils.logError(`EventSystem: Error in ${event.type} listener:`, error);
             }
         }
         

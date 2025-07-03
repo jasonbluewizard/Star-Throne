@@ -7,6 +7,30 @@ import { GAME_CONSTANTS } from '../../../common/gameConstants';
 
 export class GameUtils {
     /**
+     * Centralized error logging that respects debug mode
+     * @param {string} message - Error message to log
+     * @param {Error} error - Error object to log
+     */
+    static logError(message, error) {
+        if (GAME_CONSTANTS.DEBUG_MODE) {
+            console.error(message, error);
+        }
+        // In non-debug mode, we could send these errors to a server or store them if needed,
+        // but avoid spamming the console.
+    }
+    
+    /**
+     * Centralized debug logging that respects debug mode
+     * @param {string} message - Debug message to log
+     * @param {...any} args - Additional arguments to log
+     */
+    static logDebug(message, ...args) {
+        if (GAME_CONSTANTS.DEBUG_MODE) {
+            console.log(message, ...args);
+        }
+    }
+    
+    /**
      * Process discovery effects for a player
      * Centralized discovery logic used by both client and server
      */

@@ -1,4 +1,5 @@
 import { GAME_CONSTANTS } from '../../../common/gameConstants';
+import { GameUtils } from './utils.js';
 
 export class AIManager {
     constructor(game) {
@@ -35,7 +36,7 @@ export class AIManager {
                 try {
                     this.updateAIPlayer(player, deltaTime);
                 } catch (error) {
-                    console.error(`Error updating AI player ${player.name}:`, error);
+                    GameUtils.logError(`Error updating AI player ${player.name}:`, error);
                 }
             }
         }

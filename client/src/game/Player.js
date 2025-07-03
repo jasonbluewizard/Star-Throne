@@ -304,7 +304,7 @@ export class Player {
         const result = gameMap.game?.combatSystem?.attackTerritory(attackingTerritory, defendingTerritory, attackingArmies);
         
         if (!result) {
-            console.log('CombatSystem not available');
+
             return;
         }
         

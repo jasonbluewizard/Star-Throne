@@ -844,23 +844,23 @@ export class GameUI {
                 territory.ownerId !== gameData.humanPlayer?.id &&
                 territory.ownerId !== null) {
                 
-                console.log('Checking battle odds for', territory.id, 'selected:', gameData.selectedTerritory.id);
+
                 
                 // Check if territories are connected by star lane
                 const isAdjacent = gameData.selectedTerritory.neighbors && 
                                  gameData.selectedTerritory.neighbors.includes(territory.id);
                 
-                console.log('Is adjacent:', isAdjacent, 'neighbors:', gameData.selectedTerritory.neighbors);
+
                 
                 if (isAdjacent && gameData.combatSystem) {
                     const attacker = gameData.humanPlayer;
                     const defender = gameData.players[territory.ownerId];
                     
-                    console.log('Combat system available, calculating odds');
+
                     
                     if (attacker && defender) {
                         const winChance = gameData.combatSystem.calculateBattleOdds(attacker, defender);
-                        console.log('Battle odds calculated:', winChance);
+
                         tooltipLines.push(`Battle Odds: ${winChance}% win`);
                     }
                 }

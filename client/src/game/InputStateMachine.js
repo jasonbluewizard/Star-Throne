@@ -11,6 +11,7 @@
  */
 
 import { PathfindingService } from './PathfindingService.js';
+import { GameUtils } from './utils.js';
 
 export class InputStateMachine {
     constructor(game) {
@@ -40,7 +41,7 @@ export class InputStateMachine {
     handleInput(inputType, data) {
         const currentHandler = this.stateHandlers[this.currentState];
         if (!currentHandler) {
-            console.error(`No handler for state: ${this.currentState}`);
+            GameUtils.logError(`No handler for state: ${this.currentState}`);
             return false;
         }
         
@@ -59,7 +60,7 @@ export class InputStateMachine {
         const newHandler = this.stateHandlers[newState];
         
         if (!newHandler) {
-            console.error(`Invalid state transition to: ${newState}`);
+            GameUtils.logError(`Invalid state transition to: ${newState}`);
             return;
         }
         
@@ -275,14 +276,14 @@ class TerritorySelectedState extends BaseState {
                         );
                         
                         if (path && path.length > 1) {
-                            console.log(`Multi-hop transfer path found: ${path.join(' -> ')}`);
+                            GameUtils.logDebug(`Multi-hop transfer path found: ${path.join(' -> ')}`);
                             this.game.executeFleetCommand(sourceStar, targetStar, 0.5, 'multi-hop-transfer', path);
                         } else {
                             this.showFeedback("No valid reinforcement path", sourceStar.x, sourceStar.y);
-                            console.log(`No path found from ${sourceStar.id} to ${targetStar.id}`);
+                            GameUtils.logDebug(`No path found from ${sourceStar.id} to ${targetStar.id}`);
                         }
                     } catch (error) {
-                        console.error("Pathfinding error:", error);
+                        GameUtils.logError("Pathfinding error:", error);
                         this.showFeedback("Pathfinding failed", sourceStar.x, sourceStar.y);
                     }
                 }

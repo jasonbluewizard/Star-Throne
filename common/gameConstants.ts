@@ -2,6 +2,9 @@
 // It is shared between the client and server to ensure a single source of truth.
 
 export const GAME_CONSTANTS = {
+    // Debug Configuration
+    DEBUG_MODE: false, // Toggle verbose logging and debug features
+    
     // Game Core
     DEFAULT_MAP_WIDTH: 2000,
     DEFAULT_MAP_HEIGHT: 2000,
