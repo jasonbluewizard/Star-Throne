@@ -106,7 +106,7 @@ export class GameMap {
             this.territories[index] = territory;
             
             // Spatial indexing for performance
-            this.addToSpatialGrid(territory);
+            this.addToSpatialIndex(territory);
         });
         
         console.log(`✨ Generated ${count} territories with advanced ${this.layout} galaxy layout`);
