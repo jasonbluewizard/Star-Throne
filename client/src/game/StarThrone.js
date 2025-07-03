@@ -7,7 +7,6 @@ import { InputHandler } from './InputHandler.js';
 import { Renderer } from './Renderer.js';
 import { CombatSystem } from './CombatSystem.js';
 import { SupplySystem } from './SupplySystem.js';
-import { GameUtils } from './utils.js';
 import { GAME_CONSTANTS } from '../../../common/gameConstants';
 import { gameEvents, GAME_EVENTS, EVENT_PRIORITY, EventHelpers } from './EventSystem.js';
 import { PerformanceManager } from './PerformanceManager.js';
@@ -18,6 +17,7 @@ import { UIManager } from './UIManager.js';
 import GameUtils from './GameUtils.js';
 import { AIManager } from './AIManager.js';
 import Controls from './Controls.js';
+import MapGenerator from './MapGenerator.js';
 
 export default class StarThrone {
     constructor(config = {}) {
@@ -1121,12 +1121,30 @@ export default class StarThrone {
     startGame() {
         console.log('Starting Star Throne game with config:', this.config);
         
-        // Generate territories using configured map size
-        this.gameMap.generateTerritories(this.config.mapSize);
+        // Generate territories using advanced MapGenerator with physics-based layout
+        const territories = MapGenerator.generateMap(
+            this.config.mapSize, 
+            this.config.layout, 
+            1 + this.config.aiCount // Total players including human
+        );
+        
+        // Convert array to object format expected by existing code
+        this.gameMap.territories = {};
+        territories.forEach(territory => {
+            this.gameMap.territories[territory.id] = territory;
+        });
+        
+        // Update map dimensions to match generated map
+        this.gameMap.width = MapGenerator.mapWidth;
+        this.gameMap.height = MapGenerator.mapHeight;
+        
+        // Update camera boundaries
+        this.camera.mapWidth = MapGenerator.mapWidth;
+        this.camera.mapHeight = MapGenerator.mapHeight;
         
         // Build spatial index for O(1) territory lookups (60% performance improvement)
         this.gameMap.buildSpatialIndex();
-        this.log('Spatial index built for optimized territory lookups', 'info');
+        this.log('Advanced map generation completed with spatial index', 'info');
         
         // Create players: 1 human + configured AI count
         const totalPlayers = 1 + this.config.aiCount;
@@ -3116,8 +3134,8 @@ export default class StarThrone {
         this.players = [];
         this.humanPlayer = null;
         
-        // Regenerate map and restart
-        this.gameMap = new GameMap(2000, 1500, this.config); // Pass config to maintain connection distances
+        // Reset map for new generation
+        this.gameMap = new GameMap(MapGenerator.mapWidth || 2800, MapGenerator.mapHeight || 2100, this.config);
         this.startGame();
     }
 }
