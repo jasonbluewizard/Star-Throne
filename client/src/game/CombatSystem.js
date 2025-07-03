@@ -192,7 +192,7 @@ export class CombatSystem {
         // Transfer all territories from old owner to attacker
         const transferredTerritories = [];
         
-        for (let territory of this.game.gameMap.territories) {
+        for (let territory of Object.values(this.game.gameMap.territories)) {
             if (territory.ownerId === oldOwner.id && territory.id !== throneTerritory.id) {
                 territory.ownerId = attacker.id;
                 transferredTerritories.push(territory);

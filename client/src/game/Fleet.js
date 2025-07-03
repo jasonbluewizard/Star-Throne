@@ -59,8 +59,14 @@ export class Fleet {
      */
     handleBlankSpaceClick() {
         if (this.selectedTerritory) {
-            console.log(`Deselecting territory ${this.selectedTerritory.id}`);
+            console.log(`Fleet: Deselecting territory ${this.selectedTerritory.id}`);
             this.selectedTerritory = null;
+            
+            // Sync with main game's InputStateMachine selection
+            if (this.game.inputHandler && this.game.inputHandler.inputFSM) {
+                this.game.inputHandler.inputFSM.selectedTerritory = null;
+            }
+            
             return true; // Event handled
         }
         return false;
@@ -73,17 +79,23 @@ export class Fleet {
         if (isPlayerTerritory) {
             if (this.selectedTerritory && this.selectedTerritory.id === territory.id) {
                 // Clicking same territory - keep it selected
-                console.log(`Territory ${territory.id} remains selected`);
+                console.log(`Fleet: Territory ${territory.id} remains selected`);
             } else {
                 // Select new friendly territory
                 this.selectedTerritory = territory;
-                console.log(`Territory ${territory.id} selected (${territory.armySize} ships)`);
+                
+                // Sync with main game's InputStateMachine selection
+                if (this.game.inputHandler && this.game.inputHandler.inputFSM) {
+                    this.game.inputHandler.inputFSM.selectedTerritory = territory;
+                }
+                
+                console.log(`Fleet: Territory ${territory.id} selected (${territory.armySize} ships)`);
             }
             return true;
         } else {
             // Clicked on enemy territory - could trigger attack if we have selection
             if (this.selectedTerritory) {
-                console.log(`Clicked enemy territory ${territory.id} while ${this.selectedTerritory.id} selected`);
+                console.log(`Fleet: Clicked enemy territory ${territory.id} while ${this.selectedTerritory.id} selected`);
                 // This could be handled by combat system
             }
             return false;
