@@ -1436,11 +1436,27 @@ export default class StarThrone {
         
         // Update ship animations and probes with normal delta time (speed applied internally)
         try {
-            this.updateShipAnimations(deltaTime);
-            this.updateProbes(deltaTime);
-            this.updateFloatingDiscoveryTexts(deltaTime);
+            if (this.updateShipAnimations) {
+                this.updateShipAnimations(deltaTime);
+            }
         } catch (error) {
-            console.error('Error updating animations:', error);
+            console.error('Error updating ship animations:', error, error.stack);
+        }
+        
+        try {
+            if (this.updateProbes) {
+                this.updateProbes(deltaTime);
+            }
+        } catch (error) {
+            console.error('Error updating probes:', error, error.stack);
+        }
+        
+        try {
+            if (this.updateFloatingDiscoveryTexts) {
+                this.updateFloatingDiscoveryTexts(deltaTime);
+            }
+        } catch (error) {
+            console.error('Error updating floating discovery texts:', error, error.stack);
         }
         
         // Update modular UI systems
