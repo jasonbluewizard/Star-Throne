@@ -596,13 +596,13 @@ export class GameUI {
             currentY += lineHeight;
         }
         
-        if (discoveries && discoveries.precursorNanotech > 0) {
-            GameUtils.drawTextShadow(ctx, `🔬 Nanotech Lvl ${discoveries.precursorNanotech}: +${discoveries.precursorNanotech * 10}% Generation`, x + padding, currentY, '#96CEB4', '12px Arial');
+        if (discoveries && discoveries.precursorNanotechnology > 0) {
+            GameUtils.drawTextShadow(ctx, `🔬 Nanotech Lvl ${discoveries.precursorNanotechnology}: +${discoveries.precursorNanotechnology * 10}% Generation`, x + padding, currentY, '#96CEB4', '12px Arial');
             currentY += lineHeight;
         }
         
-        if (discoveries && discoveries.factoryPlanets && discoveries.factoryPlanets.size > 0) {
-            GameUtils.drawTextShadow(ctx, `🏭 Factory Worlds: ${discoveries.factoryPlanets.size} (+100% each)`, x + padding, currentY, '#FECA57', '12px Arial');
+        if (discoveries && discoveries.factoryPlanets && discoveries.factoryPlanets.length > 0) {
+            GameUtils.drawTextShadow(ctx, `🏭 Factory Worlds: ${discoveries.factoryPlanets.length} (+100% each)`, x + padding, currentY, '#FECA57', '12px Arial');
             currentY += lineHeight;
         }
         

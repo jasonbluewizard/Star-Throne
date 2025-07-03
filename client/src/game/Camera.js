@@ -7,7 +7,7 @@ export class Camera {
         this.viewportHeight = viewportHeight;
         
         // Strategic zoom constraints - Supreme Commander style
-        this.minZoom = 0.02;  // Allow extreme zoom out to see entire galaxy
+        this.minZoom = 0.01;  // Allow extreme zoom out to see entire galaxy with buffer
         this.maxZoom = 8.0;   // Allow tactical close-up
         
         // Smooth movement with inertial panning
@@ -30,7 +30,7 @@ export class Camera {
         // Pan constraints (map boundaries) - updated for closer planets
         this.mapWidth = 1800;
         this.mapHeight = 1400;
-        this.boundaryPadding = 100;
+        this.boundaryPadding = 400; // Increased padding for better scrolling buffer
     }
     
     updateViewport(width, height) {
@@ -74,32 +74,17 @@ export class Camera {
             console.log(`⚠️ Camera using default dimensions ${this.mapWidth}x${this.mapHeight} - may need updating`);
         }
         
-        // If the map is smaller than the viewport, center it
-        if (visibleWidth >= this.mapWidth) {
-            // Center horizontally when zoomed out enough to see entire width
-            const mapCenterX = this.mapWidth / 2;
-            this.x = mapCenterX - visibleWidth / 2;
-            this.targetX = this.x;
-        } else {
-            // Normal pan constraints for width with more generous boundaries
-            const minX = -this.boundaryPadding;
-            const maxX = this.mapWidth + this.boundaryPadding - visibleWidth;
-            this.x = Math.max(minX, Math.min(maxX, this.x));
-            this.targetX = Math.max(minX, Math.min(maxX, this.targetX));
-        }
+        // Always allow generous pan constraints with buffer zones
+        const minX = -this.boundaryPadding;
+        const maxX = this.mapWidth + this.boundaryPadding - visibleWidth;
+        const minY = -this.boundaryPadding;
+        const maxY = this.mapHeight + this.boundaryPadding - visibleHeight;
         
-        if (visibleHeight >= this.mapHeight) {
-            // Center vertically when zoomed out enough to see entire height
-            const mapCenterY = this.mapHeight / 2;
-            this.y = mapCenterY - visibleHeight / 2;
-            this.targetY = this.y;
-        } else {
-            // Normal pan constraints for height with more generous boundaries
-            const minY = -this.boundaryPadding;
-            const maxY = this.mapHeight + this.boundaryPadding - visibleHeight;
-            this.y = Math.max(minY, Math.min(maxY, this.y));
-            this.targetY = Math.max(minY, Math.min(maxY, this.targetY));
-        }
+        // Apply constraints with buffer zones in all directions
+        this.x = Math.max(minX, Math.min(maxX, this.x));
+        this.targetX = Math.max(minX, Math.min(maxX, this.targetX));
+        this.y = Math.max(minY, Math.min(maxY, this.y));
+        this.targetY = Math.max(minY, Math.min(maxY, this.targetY));
     }
     
     pan(deltaX, deltaY) {
