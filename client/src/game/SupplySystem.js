@@ -241,10 +241,17 @@ export class SupplySystem {
     
     shouldTransferArmies(fromTerritory, toTerritory) {
         // Transfer threshold - only if source has significantly more armies
-        const transferThreshold = GAME_CONSTANTS.SUPPLY_ROUTE_TRANSFER_THRESHOLD;
+        const transferThreshold = GAME_CONSTANTS.SUPPLY_ROUTE_MIN_ARMY_DIFFERENCE;
         const armyDifference = fromTerritory.armySize - toTerritory.armySize;
         
-        return armyDifference >= transferThreshold && fromTerritory.armySize > 10;
+        console.log(`Supply check: ${fromTerritory.id}(${fromTerritory.armySize}) -> ${toTerritory.id}(${toTerritory.armySize}), diff: ${armyDifference}, threshold: ${transferThreshold}`);
+        
+        const shouldTransfer = armyDifference >= transferThreshold && fromTerritory.armySize > 10;
+        if (shouldTransfer) {
+            console.log(`✓ Supply transfer approved: ${fromTerritory.id} -> ${toTerritory.id}`);
+        }
+        
+        return shouldTransfer;
     }
     
     executeSupplyTransfer(route, fromTerritory, toTerritory) {
