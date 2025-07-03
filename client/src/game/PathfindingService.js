@@ -19,8 +19,16 @@ export class PathfindingService {
      */
     async findShortestPath(startNodeId, endNodeId, graph, playerId) {
         return new Promise((resolve) => {
+            // Add timeout to prevent hanging
+            const timeout = setTimeout(() => {
+                console.log('PathfindingService: timeout after 5 seconds');
+                resolve(null);
+            }, 5000);
+            
             // Validate inputs
             if (!graph || !graph.territories || startNodeId === endNodeId) {
+                clearTimeout(timeout);
+                console.log('PathfindingService: invalid inputs');
                 resolve(null);
                 return;
             }
@@ -29,10 +37,17 @@ export class PathfindingService {
             const startTerritory = territories[startNodeId];
             const endTerritory = territories[endNodeId];
 
+            console.log('PathfindingService: territories array length:', territories.length);
+            console.log('PathfindingService: startTerritory:', startTerritory);
+            console.log('PathfindingService: endTerritory:', endTerritory);
+            console.log('PathfindingService: playerId:', playerId);
+
             // Validate start and end territories exist and are owned by player
             if (!startTerritory || !endTerritory || 
                 startTerritory.ownerId !== playerId || 
                 endTerritory.ownerId !== playerId) {
+                clearTimeout(timeout);
+                console.log('PathfindingService: territory validation failed');
                 resolve(null);
                 return;
             }
@@ -81,7 +96,9 @@ export class PathfindingService {
 
                 // If we reached the destination, reconstruct path
                 if (currentNode === endNodeId) {
+                    clearTimeout(timeout);
                     const path = this.reconstructPath(previous, startNodeId, endNodeId);
+                    console.log('PathfindingService: path found:', path);
                     resolve(path);
                     return;
                 }
@@ -109,6 +126,8 @@ export class PathfindingService {
             }
 
             // No path found
+            clearTimeout(timeout);
+            console.log('PathfindingService: no path found');
             resolve(null);
         });
     }
