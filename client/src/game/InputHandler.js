@@ -202,7 +202,6 @@ export class InputHandler {
         } else {
             console.log('Double-clicked territory is not owned by human player');
         }
-        }
     }
     
     handleWheel(e) {
