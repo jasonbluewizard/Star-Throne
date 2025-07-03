@@ -142,13 +142,16 @@ export class CombatSystem {
             // Attacker wins this round - defender loses one ship
             battle.defendersRemaining = Math.max(0, battle.defendersRemaining - 1);
             
-            // Flash the defending planet with attacker's color
+            // Flash the defending planet with attacker's color (defender dies)
             this.flashPlanet(battle.defendingTerritory, battle.attacker.color);
             
             console.log(`Attacker wins round: ${battle.attackersRemaining} vs ${battle.defendersRemaining}`);
         } else {
             // Defender wins this round - attacker loses one ship
             battle.attackersRemaining = Math.max(0, battle.attackersRemaining - 1);
+            
+            // Flash the defending planet with red (attacker dies)
+            this.flashPlanet(battle.defendingTerritory, '#ff0000');
             
             console.log(`Defender wins round: ${battle.attackersRemaining} vs ${battle.defendersRemaining}`);
         }

@@ -1382,6 +1382,9 @@ export default class StarThrone {
             this.performanceStats.frameTime = performance.now() - frameStart;
         } catch (error) {
             console.error('Game loop error:', error);
+            console.error('Error message:', error.message);
+            console.error('Error stack:', error.stack);
+            console.error('Game state:', this.gameState);
             // Continue running to prevent complete game halt
         }
         
@@ -1434,7 +1437,13 @@ export default class StarThrone {
         
         // Update combat system for delayed battles
         if (this.combatSystem) {
-            this.combatSystem.update(deltaTime);
+            try {
+                this.combatSystem.update(deltaTime);
+            } catch (error) {
+                console.error('Combat system error:', error);
+                console.error('Combat system error message:', error.message);
+                console.error('Combat system error stack:', error.stack);
+            }
         }
         
         // Update modular UI systems
