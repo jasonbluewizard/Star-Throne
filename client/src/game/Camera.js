@@ -31,6 +31,10 @@ export class Camera {
         this.mapWidth = 1800;
         this.mapHeight = 1400;
         this.boundaryPadding = 400; // Increased padding for better scrolling buffer
+        
+        // Scrolling lock system for full galaxy visibility
+        this.scrollingLocked = false;
+        this.wasScrollingLocked = false;
     }
     
     updateViewport(width, height) {
@@ -67,8 +71,8 @@ export class Camera {
             this.viewportHeight / this.mapHeight
         );
         
-        // Use the calculated minimum zoom, but allow going slightly lower for buffer
-        const effectiveMinZoom = Math.max(this.minZoom, minZoomForFullGalaxy * 0.95);
+        // Set minimum zoom to exactly show full galaxy (no going below this)
+        const effectiveMinZoom = Math.max(this.minZoom, minZoomForFullGalaxy);
         
         // Zoom constraints
         this.zoom = Math.max(effectiveMinZoom, Math.min(this.maxZoom, this.zoom));
@@ -86,6 +90,9 @@ export class Camera {
         // Check visibility in each dimension separately
         const widthFullyVisible = visibleWidth >= this.mapWidth;
         const heightFullyVisible = visibleHeight >= this.mapHeight;
+        
+        // Set scrolling lock when full galaxy is visible in both dimensions
+        this.scrollingLocked = widthFullyVisible && heightFullyVisible;
         
         // Handle horizontal constraints
         if (widthFullyVisible) {
@@ -114,9 +121,22 @@ export class Camera {
             this.y = Math.max(minY, Math.min(maxY, this.y));
             this.targetY = Math.max(minY, Math.min(maxY, this.targetY));
         }
+        
+        // Debug logging when scrolling lock changes
+        if (this.scrollingLocked && !this.wasScrollingLocked) {
+            console.log(`🔒 Scrolling locked at zoom ${(this.zoom * 100).toFixed(0)}% - full galaxy visible`);
+        } else if (!this.scrollingLocked && this.wasScrollingLocked) {
+            console.log(`🔓 Scrolling unlocked at zoom ${(this.zoom * 100).toFixed(0)}% - galaxy extends beyond view`);
+        }
+        this.wasScrollingLocked = this.scrollingLocked;
     }
     
     pan(deltaX, deltaY) {
+        // Prevent panning when scrolling is locked (full galaxy visible)
+        if (this.scrollingLocked) {
+            return;
+        }
+        
         const panSpeed = 1 / this.zoom;
         this.targetX += deltaX * panSpeed;
         this.targetY += deltaY * panSpeed;
@@ -130,7 +150,7 @@ export class Camera {
     
     // Edge panning for RTS-style navigation
     updateEdgePanning(mouseX, mouseY, deltaTime) {
-        if (!this.edgePanEnabled) return;
+        if (!this.edgePanEnabled || this.scrollingLocked) return;
         
         let edgePanX = 0;
         let edgePanY = 0;
