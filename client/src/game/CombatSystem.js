@@ -142,6 +142,9 @@ export class CombatSystem {
             // Attacker wins this round - defender loses one ship
             battle.defendersRemaining = Math.max(0, battle.defendersRemaining - 1);
             
+            // Update the actual territory army count immediately
+            battle.defendingTerritory.armySize = Math.max(0, battle.defendersRemaining);
+            
             // Flash the defending planet with attacker's color (defender dies)
             this.flashPlanet(battle.defendingTerritory, battle.attacker.color);
             
