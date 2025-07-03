@@ -67,7 +67,7 @@ export class Fleet {
                     return this.launchAttack(this.selectedTerritory, territory);
                 } else {
                     console.log(`Fleet: Cannot attack territory ${territory.id} - not connected by warp lane`);
-                    return false;
+                    return true; // Return true to prevent FSM fallback
                 }
             }
         } else if (!isRightClick) {
@@ -221,7 +221,7 @@ export class Fleet {
         if (!path || path.length < 2) {
             console.log('Fleet: No valid path found between territories');
             console.log(`Fleet: Pathfinding failed - territories not connected through player empire`);
-            return false; // This should prevent camera issues by indicating the command was handled
+            return true; // Return true to prevent FSM fallback and camera interference
         }
 
         // Check correct army property
