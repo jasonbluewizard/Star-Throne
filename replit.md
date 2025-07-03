@@ -575,6 +575,12 @@ Changelog:
    * Implemented high-DPI canvas scaling with device pixel ratio support for crisp rendering on retina displays
    * Added proper DPI scaling to canvas resize handler maintaining visual quality across screen types
    * Performance optimization phase completed successfully with smooth gameplay on Chromebooks and low-end hardware
+- January 3, 2025. Code hygiene improvements implementation (Phase 1 architectural refactoring):
+   * Comprehensive debug log cleanup: removed verbose combat, input, tooltip, and pathfinding debug messages
+   * Centralized logging system: added DEBUG_MODE flag to game constants with GameUtils.logError() and GameUtils.logDebug()
+   * Modernized error handling: updated AIManager, EventSystem, and InputStateMachine to use centralized logging
+   * Console output optimization: production builds now show only essential game events (discoveries, throne captures)
+   * Error handling consistency: all modules now respect DEBUG_MODE flag for toggling development vs production logging
 
 ## User Preferences
 

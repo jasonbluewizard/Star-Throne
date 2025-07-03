@@ -31,6 +31,68 @@ export class GameUtils {
     }
     
     /**
+     * Generate random integer between min and max (inclusive)
+     * @param {number} min - Minimum value
+     * @param {number} max - Maximum value
+     * @returns {number} Random integer
+     */
+    static randomInt(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+    
+    /**
+     * Generate random float between min and max
+     * @param {number} min - Minimum value
+     * @param {number} max - Maximum value
+     * @returns {number} Random float
+     */
+    static randomFloat(min, max) {
+        return Math.random() * (max - min) + min;
+    }
+    
+    /**
+     * Get random element from array
+     * @param {Array} array - Array to select from
+     * @returns {*} Random element from array
+     */
+    static getRandomElement(array) {
+        if (!array || array.length === 0) {
+            this.logError('getRandomElement called with empty or null array');
+            return null;
+        }
+        return array[Math.floor(Math.random() * array.length)];
+    }
+    
+    /**
+     * Validate that a value is a number and within optional bounds
+     * @param {*} value - Value to validate
+     * @param {number} min - Optional minimum value
+     * @param {number} max - Optional maximum value
+     * @returns {boolean} True if valid number within bounds
+     */
+    static isValidNumber(value, min = null, max = null) {
+        if (typeof value !== 'number' || isNaN(value)) {
+            return false;
+        }
+        if (min !== null && value < min) return false;
+        if (max !== null && value > max) return false;
+        return true;
+    }
+    
+    /**
+     * Safe array access with bounds checking
+     * @param {Array} array - Array to access
+     * @param {number} index - Index to access
+     * @returns {*} Element at index or null if invalid
+     */
+    static safeArrayAccess(array, index) {
+        if (!array || !Array.isArray(array) || index < 0 || index >= array.length) {
+            return null;
+        }
+        return array[index];
+    }
+    
+    /**
      * Process discovery effects for a player
      * Centralized discovery logic used by both client and server
      */
