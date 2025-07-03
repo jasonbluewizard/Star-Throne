@@ -190,8 +190,10 @@ export class Fleet {
      * Create visual ship animation along warp lane
      */
     createTransferAnimation(fromTerritory, toTerritory, fleetSize) {
+        console.log(`Fleet: createTransferAnimation called for ${fleetSize} ships from ${fromTerritory.id} to ${toTerritory.id}`);
         const humanPlayer = this.game.players.find(p => p.type === 'human');
         const shipColor = humanPlayer ? humanPlayer.color : '#00FFFF';
+        console.log(`Fleet: Found human player color: ${shipColor}`);
         
         const animation = {
             id: Date.now() + Math.random(),
@@ -206,6 +208,7 @@ export class Fleet {
         };
         
         this.transferAnimations.push(animation);
+        console.log(`Fleet: Created animation ${animation.id}, total animations: ${this.transferAnimations.length}`);
         
         // Schedule arrival
         setTimeout(() => {
