@@ -260,6 +260,22 @@ export class CombatSystem {
     }
 
     /**
+     * Calculate battle odds for tooltip display
+     * @param {Object} attacker - Attacking player
+     * @param {Object} defender - Defending player
+     * @returns {number} Win chance percentage (0-100)
+     */
+    calculateBattleOdds(attacker, defender) {
+        const attackerBonus = this.calculateWeaponBonus(attacker);
+        const defenderBonus = this.calculateDefenseBonus(defender);
+        
+        // Base 50/50 odds adjusted by bonuses
+        const attackerWinChance = Math.max(0.1, Math.min(0.9, 0.5 + attackerBonus - defenderBonus));
+        
+        return Math.round(attackerWinChance * 100);
+    }
+
+    /**
      * Validates if an attack is legal
      */
     validateAttack(attackingTerritory, defendingTerritory) {
@@ -330,7 +346,7 @@ export class CombatSystem {
         // Transfer all territories from old owner to attacker
         const transferredTerritories = [];
         
-        for (let territory of this.game.gameMap.territories) {
+        for (let territory of Object.values(this.game.gameMap.territories)) {
             if (territory.ownerId === oldOwner.id && territory.id !== throneTerritory.id) {
                 territory.ownerId = attacker.id;
                 transferredTerritories.push(territory);

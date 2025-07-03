@@ -2371,7 +2371,8 @@ export default class StarThrone {
                 showBonusPanel: this.showBonusPanel,
                 inputState: inputState,
                 messageText: this.messageText,
-                messageTimer: this.messageTimer
+                messageTimer: this.messageTimer,
+                combatSystem: this.combatSystem
             });
         }
         

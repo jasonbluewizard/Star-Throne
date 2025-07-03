@@ -832,6 +832,27 @@ export class GameUI {
             if (territory.isThronestar) {
                 tooltipLines.push(`👑 Throne Star`);
             }
+            
+            // Show battle odds if player has selected territory and this is an enemy
+            if (gameData.selectedTerritory && 
+                gameData.selectedTerritory.ownerId === gameData.humanPlayer?.id &&
+                territory.ownerId !== gameData.humanPlayer?.id &&
+                territory.ownerId !== null) {
+                
+                // Check if territories are connected by star lane
+                const isAdjacent = gameData.selectedTerritory.neighbors && 
+                                 gameData.selectedTerritory.neighbors.includes(territory.id);
+                
+                if (isAdjacent && gameData.combatSystem) {
+                    const attacker = gameData.humanPlayer;
+                    const defender = gameData.players[territory.ownerId];
+                    
+                    if (attacker && defender) {
+                        const winChance = gameData.combatSystem.calculateBattleOdds(attacker, defender);
+                        tooltipLines.push(`Battle Odds: ${winChance}% win`);
+                    }
+                }
+            }
         }
         
         // Tooltip dimensions
