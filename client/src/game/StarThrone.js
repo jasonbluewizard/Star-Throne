@@ -1035,13 +1035,21 @@ export default class StarThrone {
         canvasElement.height = window.innerHeight;
         canvasElement.style.display = 'block';
         canvasElement.style.background = '#1a1a2e';
+        canvasElement.style.position = 'fixed';
+        canvasElement.style.top = '0';
+        canvasElement.style.left = '0';
+        canvasElement.style.zIndex = '1';
         
         console.log('Creating canvas:', canvasElement.width, 'x', canvasElement.height);
         
-        // Replace the root div content
+        // Append to root without destroying React content
         const root = document.getElementById('root');
         if (root) {
-            root.innerHTML = '';
+            // Check if canvas already exists
+            const existingCanvas = document.getElementById('gameCanvas');
+            if (existingCanvas) {
+                existingCanvas.remove();
+            }
             root.appendChild(canvasElement);
             console.log('Canvas appended to root');
         } else {
