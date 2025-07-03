@@ -156,6 +156,16 @@ export default class StarThrone {
         this.logThrottles = new Map(); // Track throttled log messages
         this.lastLogTimes = new Map(); // Track last log timestamp per message type
         
+        // DOM optimization: Cache layout measurements
+        this.cachedCanvasRect = null;
+        this.canvasRectUpdateTime = 0;
+        this.canvasRectCacheDuration = 1000; // Cache for 1 second
+        
+        // Input throttling for performance
+        this.lastMouseMoveTime = 0;
+        this.mouseMoveThrottleMs = 16; // ~60 FPS, one event per frame
+        this.pendingMouseEvent = null;
+        
         this.init();
         this.loadBackgroundImage();
     }
@@ -183,6 +193,72 @@ export default class StarThrone {
                 console.log(message);
             }
         }
+    }
+    
+    /**
+     * Get cached canvas bounding rectangle with automatic cache invalidation
+     * Prevents expensive getBoundingClientRect() calls on every mouse event
+     */
+    getCachedCanvasRect() {
+        const now = Date.now();
+        
+        // Return cached rect if still valid
+        if (this.cachedCanvasRect && (now - this.canvasRectUpdateTime) < this.canvasRectCacheDuration) {
+            return this.cachedCanvasRect;
+        }
+        
+        // Update cache with fresh measurement
+        if (this.canvas) {
+            this.cachedCanvasRect = this.canvas.getBoundingClientRect();
+            this.canvasRectUpdateTime = now;
+        }
+        
+        return this.cachedCanvasRect;
+    }
+    
+    /**
+     * Invalidate canvas rect cache on window resize or scroll
+     */
+    invalidateCanvasRectCache() {
+        this.cachedCanvasRect = null;
+        this.canvasRectUpdateTime = 0;
+    }
+    
+    /**
+     * Throttled mouse event processing - limits to one event per frame
+     * @param {MouseEvent} event - Raw mouse event
+     * @param {Function} handler - Event handler function
+     */
+    handleThrottledMouseEvent(event, handler) {
+        const now = Date.now();
+        
+        // Store the latest event for processing
+        this.pendingMouseEvent = { event, handler, timestamp: now };
+        
+        // Only process if enough time has passed (throttle to ~60 FPS)
+        if (now - this.lastMouseMoveTime >= this.mouseMoveThrottleMs) {
+            this.processPendingMouseEvent();
+        }
+    }
+    
+    /**
+     * Process the most recent pending mouse event
+     */
+    processPendingMouseEvent() {
+        if (!this.pendingMouseEvent) return;
+        
+        const { event, handler } = this.pendingMouseEvent;
+        this.lastMouseMoveTime = Date.now();
+        
+        // Get cached canvas rect to avoid expensive DOM measurement
+        const rect = this.getCachedCanvasRect();
+        if (rect) {
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            handler(x, y, event);
+        }
+        
+        this.pendingMouseEvent = null;
     }
     
     loadBackgroundImage() {
@@ -1094,6 +1170,13 @@ export default class StarThrone {
         this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e), { passive: false });
         this.canvas.addEventListener('touchcancel', (e) => this.handleTouchEnd(e), { passive: false });
         
+        // Window events for DOM optimization
+        window.addEventListener('resize', this.handleResize.bind(this));
+        window.addEventListener('scroll', this.invalidateCanvasRectCache.bind(this));
+        
+        // Initialize canvas rect cache
+        this.getCachedCanvasRect();
+        
         // Also add document-level listeners to catch events outside canvas
         document.addEventListener('touchmove', (e) => {
             if (e.target === this.canvas) {
@@ -1129,6 +1212,45 @@ export default class StarThrone {
         
         // Prevent context menu
         this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    }
+    
+    /**
+     * Handle window resize events with DOM cache invalidation
+     */
+    handleResize() {
+        if (!this.canvas) return;
+        
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+        
+        if (this.camera) {
+            this.camera.setViewportSize(this.canvas.width, this.canvas.height);
+        }
+        
+        // Invalidate canvas rect cache after resize
+        this.invalidateCanvasRectCache();
+        
+        console.log('Resized canvas to:', this.canvas.width, 'x', this.canvas.height);
+    }
+    
+    /**
+     * Throttled mouse move handler - called via the throttling system
+     * @param {number} x - Canvas-relative X coordinate
+     * @param {number} y - Canvas-relative Y coordinate
+     * @param {MouseEvent} event - Original mouse event
+     */
+    handleMouseMoveThrottled(x, y, event) {
+        // Update mouse position for other systems
+        this.mousePos = { x, y };
+        
+        // Update hovered territory without expensive DOM operations
+        const worldPos = this.camera.screenToWorld(x, y);
+        this.updateHoveredTerritory(worldPos.x, worldPos.y);
+        
+        // Handle camera edge panning for desktop
+        if (!this.isDragging && !this.isMultiTouch) {
+            this.camera.updateEdgePanning(x, y, 16); // 16ms frame time approximation
+        }
     }
     
     startGame() {
@@ -1434,6 +1556,9 @@ export default class StarThrone {
         if (this.aiManager) {
             this.aiManager.updateAI(deltaTime);
         }
+        
+        // Process any pending throttled mouse events
+        this.processPendingMouseEvent();
         
         // Update ship animations and probes with normal delta time (speed applied internally)
         try {

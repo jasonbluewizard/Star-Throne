@@ -562,6 +562,13 @@ Changelog:
    * Added incremental territory processing: large maps (200+ territories) split checks across 3 frames to prevent spikes
    * Converted visibleTerritories from array to Set for O(1) lookup performance in hover detection
    * Enhanced culling system prevents mouse hover bottlenecks on large maps and improves Chromebook compatibility
+- January 3, 2025. DOM and input handling performance optimizations:
+   * Implemented cached canvas rect measurements with 1-second cache duration to eliminate repeated getBoundingClientRect() calls
+   * Added automatic cache invalidation on window resize and scroll events to maintain accuracy
+   * Implemented input event throttling limited to 60 FPS (16ms intervals) to prevent event flooding on slower devices
+   * Added throttled mouse event processing with pending event queuing for smooth frame-rate-locked input handling
+   * Integrated throttled event processing into main game loop for consistent performance
+   * DOM optimizations prevent forced reflows during frequent mousemove events and improve overall responsiveness
 
 ## User Preferences
 
