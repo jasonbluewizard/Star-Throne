@@ -44,11 +44,16 @@ export class Fleet {
         const isPlayerTerritory = territory.ownerId === humanPlayer.id;
         
         console.log(`Fleet: Territory click - ID: ${territory.id}, isRightClick: ${isRightClick}, isPlayerTerritory: ${isPlayerTerritory}, selectedTerritory: ${this.selectedTerritory?.id || 'none'}`);
+        console.log(`Fleet: Territory owner: ${territory.ownerId}, isColonizable: ${territory.isColonizable}`);
+        console.log(`Fleet: Selected territory armies: ${this.selectedTerritory?.armySize || this.selectedTerritory?.armies || 'N/A'}`);
         
         if (isRightClick && this.selectedTerritory && isPlayerTerritory) {
             // RMB on friendly system while having selection - attempt fleet transfer
-            console.log(`Fleet: Attempting transfer from ${this.selectedTerritory.id} to ${territory.id}`);
-            return this.attemptFleetTransfer(this.selectedTerritory, territory);
+            console.log(`Fleet: *** FRIENDLY TRANSFER ATTEMPT ***`);
+            console.log(`Fleet: From ${this.selectedTerritory.id} to ${territory.id}`);
+            const result = this.attemptFleetTransfer(this.selectedTerritory, territory);
+            console.log(`Fleet: Transfer attempt result: ${result}`);
+            return result;
         } else if (isRightClick && this.selectedTerritory && !isPlayerTerritory) {
             // RMB on non-player territory - check if colonizable or enemy
             if (territory.isColonizable) {
