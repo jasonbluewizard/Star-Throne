@@ -173,10 +173,19 @@ export class InputHandler {
             }
             
             // Route left clicks through Fleet system first
-            if (this.game.fleet && this.game.fleet.handleClick(this.mousePos, false)) {
-                // Fleet system handled the click
-                this.resetDragState();
-                return;
+            console.log(`InputHandler: Checking Fleet system - exists: ${!!this.game.fleet}`);
+            if (this.game.fleet && this.game.fleet.handleClick) {
+                console.log(`InputHandler: Calling Fleet.handleClick for left click`);
+                if (this.game.fleet.handleClick(this.mousePos, false)) {
+                    // Fleet system handled the click
+                    console.log(`InputHandler: Fleet handled left click`);
+                    this.resetDragState();
+                    return;
+                } else {
+                    console.log(`InputHandler: Fleet did not handle left click, falling back to FSM`);
+                }
+            } else {
+                console.log(`InputHandler: No Fleet system available, using FSM`);
             }
             
             // Fallback to FSM for compatibility
@@ -198,10 +207,19 @@ export class InputHandler {
         }
         else if (e.button === 2 && wasQuickClick) {
             // Route right clicks through Fleet system first
-            if (this.game.fleet && this.game.fleet.handleClick(this.mousePos, true)) {
-                // Fleet system handled the click
-                this.resetDragState();
-                return;
+            console.log(`InputHandler: Checking Fleet system for right click - exists: ${!!this.game.fleet}`);
+            if (this.game.fleet && this.game.fleet.handleClick) {
+                console.log(`InputHandler: Calling Fleet.handleClick for right click`);
+                if (this.game.fleet.handleClick(this.mousePos, true)) {
+                    // Fleet system handled the click
+                    console.log(`InputHandler: Fleet handled right click`);
+                    this.resetDragState();
+                    return;
+                } else {
+                    console.log(`InputHandler: Fleet did not handle right click, falling back to FSM`);
+                }
+            } else {
+                console.log(`InputHandler: No Fleet system available for right click, using FSM`);
             }
             
             // Fallback to FSM for compatibility
