@@ -2243,6 +2243,12 @@ export default class StarThrone {
         // Render ship animations
         this.renderShipAnimations();
         
+        // Render Fleet transfer animations and selection indicators
+        if (this.fleet) {
+            console.log(`StarThrone: Calling fleet.render() in active render method`);
+            this.fleet.render(this.ctx);
+        }
+        
         // Proportional drag interface handled by InputHandler
         
         // Selection is handled by Territory render method itself
