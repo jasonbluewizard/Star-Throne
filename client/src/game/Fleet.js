@@ -435,45 +435,68 @@ export class Fleet {
      * Find shortest path between two territories using BFS
      */
     findShortestPath(fromId, toId) {
+        console.log(`Fleet: *** PATHFINDING START *** From ${fromId} to ${toId}`);
         const humanPlayer = this.game.players.find(p => p.type === 'human');
-        if (!humanPlayer) return null;
+        if (!humanPlayer) {
+            console.log('Fleet: No human player found for pathfinding');
+            return null;
+        }
 
         // BFS to find shortest path through player-owned territories
         const queue = [[fromId]];
         const visited = new Set([fromId]);
+        let iterations = 0;
 
-        while (queue.length > 0) {
+        console.log(`Fleet: Starting BFS pathfinding, human player ID: ${humanPlayer.id}`);
+
+        while (queue.length > 0 && iterations < 100) { // Safety limit
+            iterations++;
             const path = queue.shift();
             const currentId = path[path.length - 1];
 
+            console.log(`Fleet: BFS iteration ${iterations}, current path:`, path);
+
             // Found destination
             if (currentId === toId) {
+                console.log(`Fleet: *** PATH FOUND *** Length: ${path.length} hops:`, path);
                 return path;
             }
 
             // Get current territory
             const currentTerritory = this.game.territories.find(t => t.id === currentId);
-            if (!currentTerritory) continue;
+            if (!currentTerritory) {
+                console.log(`Fleet: Territory ${currentId} not found, skipping`);
+                continue;
+            }
 
             // Explore connected territories - check both neighbors and connections arrays
             const connections = currentTerritory.neighbors || currentTerritory.connections || [];
+            console.log(`Fleet: Territory ${currentId} has ${connections.length} connections:`, connections);
             
             for (let connectedId of connections) {
                 if (visited.has(connectedId)) continue;
 
                 const connectedTerritory = this.game.territories.find(t => t.id === connectedId);
-                if (!connectedTerritory) continue;
-
-                // Only traverse through player-owned territories (except destination)
-                if (connectedId !== toId && connectedTerritory.ownerId !== humanPlayer.id) {
+                if (!connectedTerritory) {
+                    console.log(`Fleet: Connected territory ${connectedId} not found`);
                     continue;
                 }
 
+                console.log(`Fleet: Checking territory ${connectedId}, owner: ${connectedTerritory.ownerId}, human: ${humanPlayer.id}`);
+
+                // Only traverse through player-owned territories (except destination)
+                if (connectedId !== toId && connectedTerritory.ownerId !== humanPlayer.id) {
+                    console.log(`Fleet: Skipping ${connectedId} - not owned by player`);
+                    continue;
+                }
+
+                console.log(`Fleet: Adding ${connectedId} to BFS queue`);
                 visited.add(connectedId);
                 queue.push([...path, connectedId]);
             }
         }
 
+        console.log(`Fleet: *** NO PATH FOUND *** after ${iterations} iterations`);
         return null; // No path found
     }
 

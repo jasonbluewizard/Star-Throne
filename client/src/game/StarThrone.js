@@ -8,7 +8,7 @@ import { Renderer } from './Renderer.js';
 import { CombatSystem } from './CombatSystem.js';
 import { SupplySystem } from './SupplySystem.js';
 import { GameUtils } from './utils.js';
-import { GAME_CONSTANTS } from '../../../common/gameConstants.ts';
+// import { GAME_CONSTANTS } from '../../../common/gameConstants.ts'; // TEMPORARILY DISABLED
 import { gameEvents, GAME_EVENTS, EVENT_PRIORITY, EventHelpers } from './EventSystem.js';
 import { PerformanceManager } from './PerformanceManager.js';
 import { PerformanceOverlay } from './PerformanceOverlay.js';
@@ -34,8 +34,8 @@ export default class StarThrone {
         // Game configuration from config screen
         this.config = {
             playerName: config.playerName || 'Player',
-            aiCount: config.aiCount || GAME_CONSTANTS.DEFAULT_SINGLE_PLAYER_AI_COUNT,
-            mapSize: config.mapSize || GAME_CONSTANTS.DEFAULT_MAP_SIZE_TERRITORIES,
+            aiCount: config.aiCount || 19, // DEFAULT_SINGLE_PLAYER_AI_COUNT
+            mapSize: config.mapSize || 200, // DEFAULT_MAP_SIZE_TERRITORIES  
             gameSpeed: config.gameSpeed || 1.0,
             layout: config.layout || 'organic',
             ...config
