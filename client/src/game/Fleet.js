@@ -1,0 +1,342 @@
+/**
+ * Fleet.js - Advanced Fleet Control System
+ * 
+ * Handles sophisticated movement UX with visual ship transfers along warp lanes:
+ * - LMB on system: select it
+ * - LMB/RMB on blank space: deselect
+ * - LMB on friendly system when selected: switch selection
+ * - RMB on connected friendly system: send 50% ships with visual movement
+ */
+
+export class Fleet {
+    constructor(game) {
+        this.game = game;
+        this.selectedTerritory = null;
+        this.transferAnimations = [];
+        
+        // Fleet transfer settings
+        this.transferPercentage = 0.50; // 50% of ships
+        
+        console.log('Fleet control system initialized');
+    }
+    
+    /**
+     * Handle mouse click events for fleet selection and commands
+     */
+    handleClick(mousePos, isRightClick = false) {
+        const worldPos = this.game.camera.screenToWorld(mousePos.x, mousePos.y);
+        const clickedTerritory = this.findTerritoryAtPosition(worldPos);
+        
+        if (clickedTerritory) {
+            return this.handleTerritoryClick(clickedTerritory, isRightClick);
+        } else {
+            return this.handleBlankSpaceClick();
+        }
+    }
+    
+    /**
+     * Handle clicks on territories
+     */
+    handleTerritoryClick(territory, isRightClick) {
+        const humanPlayer = this.game.players.find(p => p.type === 'human');
+        if (!humanPlayer) return false;
+        
+        const isPlayerTerritory = territory.ownerId === humanPlayer.id;
+        
+        if (isRightClick && this.selectedTerritory && isPlayerTerritory) {
+            // RMB on friendly system while having selection - attempt fleet transfer
+            return this.attemptFleetTransfer(this.selectedTerritory, territory);
+        } else if (!isRightClick) {
+            // LMB on any system - handle selection
+            return this.handleSelection(territory, isPlayerTerritory);
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Handle clicks on blank space
+     */
+    handleBlankSpaceClick() {
+        if (this.selectedTerritory) {
+            console.log(`Deselecting territory ${this.selectedTerritory.id}`);
+            this.selectedTerritory = null;
+            return true; // Event handled
+        }
+        return false;
+    }
+    
+    /**
+     * Handle territory selection logic
+     */
+    handleSelection(territory, isPlayerTerritory) {
+        if (isPlayerTerritory) {
+            if (this.selectedTerritory && this.selectedTerritory.id === territory.id) {
+                // Clicking same territory - keep it selected
+                console.log(`Territory ${territory.id} remains selected`);
+            } else {
+                // Select new friendly territory
+                this.selectedTerritory = territory;
+                console.log(`Territory ${territory.id} selected (${territory.armySize} ships)`);
+            }
+            return true;
+        } else {
+            // Clicked on enemy territory - could trigger attack if we have selection
+            if (this.selectedTerritory) {
+                console.log(`Clicked enemy territory ${territory.id} while ${this.selectedTerritory.id} selected`);
+                // This could be handled by combat system
+            }
+            return false;
+        }
+    }
+    
+    /**
+     * Attempt to transfer fleet between friendly territories
+     */
+    attemptFleetTransfer(fromTerritory, toTerritory) {
+        // Validate territories are connected by warp lane
+        if (!this.areConnectedByWarpLane(fromTerritory, toTerritory)) {
+            console.log(`Fleet transfer blocked: territories ${fromTerritory.id} and ${toTerritory.id} not connected by warp lane`);
+            return false;
+        }
+        
+        // Calculate transfer fleet size (50%)
+        const totalShips = fromTerritory.armySize;
+        const transferFleet = Math.floor(totalShips * this.transferPercentage);
+        
+        // Ensure we don't send all ships (leave at least 1)
+        const maxTransferFleet = Math.max(0, totalShips - 1);
+        const finalTransferFleet = Math.min(transferFleet, maxTransferFleet);
+        
+        if (finalTransferFleet <= 0) {
+            console.log(`Fleet transfer blocked: ${fromTerritory.id} needs to keep at least 1 ship`);
+            return false;
+        }
+        
+        console.log(`Fleet transfer initiated: ${fromTerritory.id} sending ${finalTransferFleet} ships (50%) to ${toTerritory.id}`);
+        
+        // Execute the transfer
+        this.executeFleetTransfer(fromTerritory, toTerritory, finalTransferFleet);
+        
+        return true;
+    }
+    
+    /**
+     * Execute fleet transfer with visual animation
+     */
+    executeFleetTransfer(fromTerritory, toTerritory, fleetSize) {
+        // Deduct ships immediately from source
+        fromTerritory.armySize -= fleetSize;
+        
+        // Visual feedback - flash the source territory
+        this.addTransferFlash(fromTerritory, fleetSize);
+        
+        // Create ship animation along warp lane
+        this.createTransferAnimation(fromTerritory, toTerritory, fleetSize);
+        
+        console.log(`${fleetSize} ships departed from territory ${fromTerritory.id} to ${toTerritory.id}`);
+    }
+    
+    /**
+     * Create visual ship animation along warp lane
+     */
+    createTransferAnimation(fromTerritory, toTerritory, fleetSize) {
+        const humanPlayer = this.game.players.find(p => p.type === 'human');
+        const shipColor = humanPlayer ? humanPlayer.color : '#00FFFF';
+        
+        const animation = {
+            id: Date.now() + Math.random(),
+            fromTerritory,
+            toTerritory,
+            fleetSize,
+            startTime: Date.now(),
+            duration: 2000, // 2 seconds travel time
+            progress: 0,
+            color: shipColor,
+            type: 'transfer'
+        };
+        
+        this.transferAnimations.push(animation);
+        
+        // Schedule arrival
+        setTimeout(() => {
+            this.completeFleetTransfer(toTerritory, fleetSize);
+            this.removeAnimation(animation.id);
+        }, animation.duration);
+    }
+    
+    /**
+     * Complete fleet transfer when ships arrive
+     */
+    completeFleetTransfer(toTerritory, fleetSize) {
+        toTerritory.armySize += fleetSize;
+        console.log(`${fleetSize} ships arrived at territory ${toTerritory.id} (total: ${toTerritory.armySize})`);
+        
+        // Visual feedback for arrival
+        this.addArrivalFlash(toTerritory);
+    }
+    
+    /**
+     * Add visual flash effect for ship departure
+     */
+    addTransferFlash(territory, fleetSize) {
+        if (this.game.addFloatingText) {
+            this.game.addFloatingText(territory.x, territory.y - 20, `-${fleetSize}`, '#FFFF00', 1500);
+        }
+        
+        // Add flash effect
+        territory.flashColor = '#FFFF00';
+        territory.flashDuration = 500;
+        territory.flashStartTime = Date.now();
+    }
+    
+    /**
+     * Add visual flash effect for ship arrival
+     */
+    addArrivalFlash(territory) {
+        territory.flashColor = '#00FF00';
+        territory.flashDuration = 300;
+        territory.flashStartTime = Date.now();
+    }
+    
+    /**
+     * Check if two territories are connected by a warp lane
+     */
+    areConnectedByWarpLane(territory1, territory2) {
+        return territory1.neighbors && territory1.neighbors.includes(territory2.id);
+    }
+    
+    /**
+     * Find territory at given world position
+     */
+    findTerritoryAtPosition(worldPos) {
+        const territories = this.game.gameMap.territories;
+        
+        for (let territory of territories) {
+            const distance = Math.sqrt(
+                Math.pow(worldPos.x - territory.x, 2) + 
+                Math.pow(worldPos.y - territory.y, 2)
+            );
+            
+            if (distance <= territory.radius) {
+                return territory;
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Update transfer animations
+     */
+    update(deltaTime) {
+        const currentTime = Date.now();
+        
+        for (let animation of this.transferAnimations) {
+            const elapsed = currentTime - animation.startTime;
+            animation.progress = Math.min(elapsed / animation.duration, 1.0);
+        }
+        
+        // Remove completed animations
+        this.transferAnimations = this.transferAnimations.filter(
+            anim => anim.progress < 1.0
+        );
+    }
+    
+    /**
+     * Render transfer animations
+     */
+    render(ctx) {
+        for (let animation of this.transferAnimations) {
+            this.renderTransferAnimation(ctx, animation);
+        }
+        
+        // Render selection indicator
+        if (this.selectedTerritory) {
+            this.renderSelectionIndicator(ctx, this.selectedTerritory);
+        }
+    }
+    
+    /**
+     * Render individual transfer animation
+     */
+    renderTransferAnimation(ctx, animation) {
+        const { fromTerritory, toTerritory, progress, color, fleetSize } = animation;
+        
+        // Calculate current position along the path
+        const startX = fromTerritory.x;
+        const startY = fromTerritory.y;
+        const endX = toTerritory.x;
+        const endY = toTerritory.y;
+        
+        const currentX = startX + (endX - startX) * progress;
+        const currentY = startY + (endY - startY) * progress;
+        
+        // Draw ship sprite/icon
+        ctx.save();
+        ctx.fillStyle = color;
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 1;
+        
+        // Ship represented as a small triangle
+        const size = 4;
+        ctx.beginPath();
+        ctx.moveTo(currentX, currentY - size);
+        ctx.lineTo(currentX - size, currentY + size);
+        ctx.lineTo(currentX + size, currentY + size);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        // Draw fleet size near the ship
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(fleetSize.toString(), currentX, currentY - 8);
+        
+        ctx.restore();
+    }
+    
+    /**
+     * Render selection indicator around selected territory
+     */
+    renderSelectionIndicator(ctx, territory) {
+        ctx.save();
+        ctx.strokeStyle = '#FFFF00';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([5, 5]);
+        
+        // Animated dashed circle
+        const time = Date.now() / 200;
+        ctx.lineDashOffset = time % 10;
+        
+        ctx.beginPath();
+        ctx.arc(territory.x, territory.y, territory.radius + 8, 0, 2 * Math.PI);
+        ctx.stroke();
+        
+        ctx.restore();
+    }
+    
+    /**
+     * Remove animation by ID
+     */
+    removeAnimation(animationId) {
+        this.transferAnimations = this.transferAnimations.filter(
+            anim => anim.id !== animationId
+        );
+    }
+    
+    /**
+     * Get currently selected territory
+     */
+    getSelectedTerritory() {
+        return this.selectedTerritory;
+    }
+    
+    /**
+     * Clear selection
+     */
+    clearSelection() {
+        this.selectedTerritory = null;
+    }
+}

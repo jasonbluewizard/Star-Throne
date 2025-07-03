@@ -172,7 +172,14 @@ export class InputHandler {
                 return;
             }
             
-            // Fix for territory deselection: Allow empty space clicks to deselect regardless of minor movement
+            // Route left clicks through Fleet system first
+            if (this.game.fleet && this.game.fleet.handleClick(this.mousePos, false)) {
+                // Fleet system handled the click
+                this.resetDragState();
+                return;
+            }
+            
+            // Fallback to FSM for compatibility
             if (!targetTerritory && this.game.selectedTerritory) {
                 console.log('Empty space click detected - deselecting territory via FSM');
                 this.inputFSM.handleInput('leftClick', {
@@ -190,7 +197,14 @@ export class InputHandler {
             }
         }
         else if (e.button === 2 && wasQuickClick) {
-            // Right click deselection support: empty space right-click should deselect
+            // Route right clicks through Fleet system first
+            if (this.game.fleet && this.game.fleet.handleClick(this.mousePos, true)) {
+                // Fleet system handled the click
+                this.resetDragState();
+                return;
+            }
+            
+            // Fallback to FSM for compatibility
             if (!targetTerritory && this.game.selectedTerritory) {
                 console.log('Empty space right-click detected - deselecting territory via FSM');
                 this.inputFSM.handleInput('leftClick', {

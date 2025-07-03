@@ -17,6 +17,7 @@ import { AnimationSystem } from './AnimationSystem.js';
 import { UIManager } from './UIManager.js';
 import { AIManager } from './AIManager.js';
 import Controls from './Controls.js';
+import { Fleet } from './Fleet.js';
 
 export default class StarThrone {
     constructor(config = {}) {
@@ -58,6 +59,7 @@ export default class StarThrone {
         this.animationSystem = null;
         this.uiManager = null;
         this.controls = null;
+        this.fleet = null;
         
         // Legacy properties for backward compatibility
         this.hoveredTerritory = null;
@@ -394,6 +396,7 @@ export default class StarThrone {
         this.uiManager = new UIManager(this);
         this.aiManager = new AIManager(this);
         this.controls = new Controls(this);
+        this.fleet = new Fleet(this);
         
         // Auto-detect optimal performance profile
         this.performanceManager.detectOptimalProfile();
@@ -1440,6 +1443,9 @@ export default class StarThrone {
         if (this.controls) {
             this.controls.update(deltaTime);
         }
+        if (this.fleet) {
+            this.fleet.update(deltaTime);
+        }
         
         // Process event queue for event-driven architecture
         if (this.eventProcessingEnabled) {
@@ -1585,6 +1591,12 @@ export default class StarThrone {
             if (this.animationSystem) {
                 this.animationSystem.renderShipAnimations(this.ctx, this.camera);
             }
+            
+            // Render Fleet transfer animations and selection indicators
+            if (this.fleet) {
+                this.fleet.render(this.ctx);
+            }
+            
             this.renderProbes();
         }
         
