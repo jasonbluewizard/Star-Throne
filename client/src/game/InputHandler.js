@@ -376,4 +376,14 @@ export class InputHandler {
         this.dragStartPos = null;
         this.dragStartTime = null;
     }
+    
+    // Get current input state for game loop
+    getInputState() {
+        return {
+            mousePos: this.mousePos,
+            isDragging: this.isDragging,
+            selectedTerritory: this.inputFSM ? this.inputFSM.selectedTerritory : null,
+            currentState: this.inputFSM ? this.inputFSM.currentState : 'Default'
+        };
+    }
 }
