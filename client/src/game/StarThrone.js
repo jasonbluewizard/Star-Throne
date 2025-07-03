@@ -448,7 +448,11 @@ export default class StarThrone {
         this.setupEventListeners();
         this.gameMap = new GameMap(2000, 1500, this.config); // Large map with advanced configuration
         this.gameMap.game = this; // Reference for AI animations
-        this.camera = new Camera(this.canvas.width, this.canvas.height);
+        
+        // Use logical dimensions for camera, not physical canvas dimensions
+        const logicalWidth = this.canvas.style.width ? parseInt(this.canvas.style.width) : window.innerWidth;
+        const logicalHeight = this.canvas.style.height ? parseInt(this.canvas.style.height) : window.innerHeight;
+        this.camera = new Camera(logicalWidth, logicalHeight);
         
         // Update camera map boundaries to match actual expanded map size
         this.camera.mapWidth = this.gameMap.width;
@@ -1108,8 +1112,16 @@ export default class StarThrone {
         // Create canvas element
         const canvasElement = document.createElement('canvas');
         canvasElement.id = 'gameCanvas';
-        canvasElement.width = window.innerWidth;
-        canvasElement.height = window.innerHeight;
+        
+        // Get device pixel ratio for crisp rendering on high-DPI displays
+        const dpr = window.devicePixelRatio || 1;
+        const rect = { width: window.innerWidth, height: window.innerHeight };
+        
+        // Set canvas size with DPI scaling
+        canvasElement.width = rect.width * dpr;
+        canvasElement.height = rect.height * dpr;
+        canvasElement.style.width = rect.width + 'px';
+        canvasElement.style.height = rect.height + 'px';
         canvasElement.style.display = 'block';
         canvasElement.style.background = '#1a1a2e';
         canvasElement.style.position = 'fixed';
@@ -1117,7 +1129,7 @@ export default class StarThrone {
         canvasElement.style.left = '0';
         canvasElement.style.zIndex = '1';
         
-        console.log('Creating canvas:', canvasElement.width, 'x', canvasElement.height);
+        console.log(`Creating canvas: ${rect.width}x${rect.height} (${canvasElement.width}x${canvasElement.height} with DPR ${dpr})`);
         
         // Append to root without destroying React content
         const root = document.getElementById('root');
@@ -1141,6 +1153,12 @@ export default class StarThrone {
             console.error('Failed to get 2D context!');
             return;
         }
+        
+        // Scale context to match device pixel ratio for crisp rendering
+        this.ctx.scale(dpr, dpr);
+        
+        // Store DPI ratio for resize handling
+        this.devicePixelRatio = dpr;
         
         console.log('Canvas setup complete');
         
@@ -1220,17 +1238,28 @@ export default class StarThrone {
     handleResize() {
         if (!this.canvas) return;
         
-        this.canvas.width = window.innerWidth;
-        this.canvas.height = window.innerHeight;
+        // Get device pixel ratio for crisp rendering on high-DPI displays
+        const dpr = this.devicePixelRatio || window.devicePixelRatio || 1;
+        const rect = { width: window.innerWidth, height: window.innerHeight };
+        
+        // Set canvas size with DPI scaling
+        this.canvas.width = rect.width * dpr;
+        this.canvas.height = rect.height * dpr;
+        this.canvas.style.width = rect.width + 'px';
+        this.canvas.style.height = rect.height + 'px';
+        
+        // Re-scale context after resize
+        this.ctx.scale(dpr, dpr);
         
         if (this.camera) {
-            this.camera.setViewportSize(this.canvas.width, this.canvas.height);
+            // Camera uses logical pixels, not physical pixels
+            this.camera.setViewportSize(rect.width, rect.height);
         }
         
         // Invalidate canvas rect cache after resize
         this.invalidateCanvasRectCache();
         
-        console.log('Resized canvas to:', this.canvas.width, 'x', this.canvas.height);
+        console.log(`Resized canvas: ${rect.width}x${rect.height} (${this.canvas.width}x${this.canvas.height} with DPR ${dpr})`);
     }
     
     /**
@@ -1947,8 +1976,11 @@ export default class StarThrone {
         // Cache connections to avoid duplicate rendering
         const drawnConnections = new Set();
         
-        this.visibleTerritories.forEach(territory => {
-            territory.neighbors.forEach(neighborId => {
+        // Safety check for visible territories
+        if (!this.visibleTerritories || this.visibleTerritories.size === 0) {
+            // Fall back to all territories if culling system isn't ready
+            this.gameMap.territories.forEach(territory => {
+                territory.neighbors.forEach(neighborId => {
                 const neighbor = this.gameMap.territories[neighborId];
                 if (!neighbor) return;
                 
@@ -1980,7 +2012,47 @@ export default class StarThrone {
                 this.ctx.lineTo(neighbor.x, neighbor.y);
                 this.ctx.stroke();
             });
-        });
+            });
+        } else {
+            // Use visible territories for optimized rendering
+            this.visibleTerritories.forEach(territoryId => {
+                const territory = this.gameMap.territories[territoryId];
+                if (!territory) return;
+                
+                territory.neighbors.forEach(neighborId => {
+                    const neighbor = this.gameMap.territories[neighborId];
+                    if (!neighbor) return;
+                    
+                    // Create unique connection ID (smaller ID first)
+                    const connectionId = territory.id < neighborId 
+                        ? `${territory.id}-${neighborId}` 
+                        : `${neighborId}-${territory.id}`;
+                    
+                    if (drawnConnections.has(connectionId)) return;
+                    drawnConnections.add(connectionId);
+                    
+                    // Skip connections to/from colonizable planets
+                    if (territory.isColonizable || neighbor.isColonizable) {
+                        return;
+                    }
+                    
+                    // Set color based on ownership
+                    if (territory.ownerId !== null && 
+                        neighbor.ownerId !== null && 
+                        territory.ownerId === neighbor.ownerId) {
+                        const owner = this.players[territory.ownerId];
+                        this.ctx.strokeStyle = owner ? owner.color : '#666677';
+                    } else {
+                        this.ctx.strokeStyle = '#666677';
+                    }
+                    
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(territory.x, territory.y);
+                    this.ctx.lineTo(neighbor.x, neighbor.y);
+                    this.ctx.stroke();
+                });
+            });
+        }
         
         this.ctx.globalAlpha = 1;
     }
