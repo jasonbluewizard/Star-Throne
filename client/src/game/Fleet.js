@@ -49,6 +49,10 @@ export class Fleet {
             // RMB on friendly system while having selection - attempt fleet transfer
             console.log(`Fleet: Attempting transfer from ${this.selectedTerritory.id} to ${territory.id}`);
             return this.attemptFleetTransfer(this.selectedTerritory, territory);
+        } else if (isRightClick && this.selectedTerritory && !isPlayerTerritory) {
+            // RMB on enemy territory with selection - launch probe attack
+            console.log(`Fleet: Launching probe attack from ${this.selectedTerritory.id} to ${territory.id}`);
+            return this.launchProbeAttack(this.selectedTerritory, territory);
         } else if (!isRightClick) {
             // LMB on any system - handle selection
             return this.handleSelection(territory, isPlayerTerritory);
@@ -105,6 +109,36 @@ export class Fleet {
         }
     }
     
+    /**
+     * Launch probe attack on enemy/colonizable territory
+     */
+    launchProbeAttack(fromTerritory, toTerritory) {
+        const humanPlayer = this.game.players.find(p => p.type === 'human');
+        if (!humanPlayer) return false;
+
+        // Check if fromTerritory has enough ships (need at least 10 for probe)
+        if (fromTerritory.armies < 10) {
+            console.log(`Fleet: Not enough armies for probe (${fromTerritory.armies} < 10)`);
+            return false;
+        }
+
+        console.log(`Fleet: Launching probe from territory ${fromTerritory.id} to ${toTerritory.id}`);
+        
+        // Use the game's existing probe launch system
+        if (this.game.launchProbe) {
+            const success = this.game.launchProbe(humanPlayer.id, fromTerritory.id, toTerritory.id);
+            if (success) {
+                console.log(`Fleet: Probe launched successfully`);
+                return true;
+            } else {
+                console.log(`Fleet: Probe launch failed`);
+                return false;
+            }
+        }
+        
+        return false;
+    }
+
     /**
      * Attempt to transfer fleet between friendly territories
      */
