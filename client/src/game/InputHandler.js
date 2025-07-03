@@ -103,7 +103,7 @@ export class InputHandler {
         
         // Update hovered territory for tooltips
         const worldPos = this.game.camera.screenToWorld(newMousePos.x, newMousePos.y);
-        const hoveredTerritory = this.game.gameMap.getTerritoryAtPosition(worldPos.x, worldPos.y);
+        const hoveredTerritory = this.game.gameMap.findTerritoryAt(worldPos.x, worldPos.y);
         this.game.hoveredTerritory = hoveredTerritory;
         
         this.lastMousePos = newMousePos;
