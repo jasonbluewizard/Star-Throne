@@ -527,10 +527,10 @@ export default class MapGenerator {
      * Build territory objects with proper initialization
      */
     static buildTerritories(points, connections) {
-        const territories = {};
+        const territories = [];
         
         for (let i = 0; i < points.length; i++) {
-            territories[i] = {
+            territories.push({
                 id: i,
                 x: points[i].x,
                 y: points[i].y,
@@ -555,7 +555,7 @@ export default class MapGenerator {
                 
                 // Floating text
                 floatingText: null
-            };
+            });
         }
         
         return territories;
