@@ -430,12 +430,6 @@ Changelog:
   * Complete documentation of discovery system, camera controls, input handling, and multiplayer architecture
   * Technical decision rationales and component interaction patterns for AI examination
   * Structured for external AI analysis with clear section headers and code annotations
-- January 2, 2025. Fleet system visual animations implementation:
-  * Fixed critical rendering bug: Fleet.render() was not being called due to duplicate render methods in StarThrone.js
-  * Fleet ship animations now visible: glowing cyan triangular ships zip along warp lanes in 800ms
-  * Enhanced ship visuals: larger ships (6px) with glow effects, directional orientation, and clear fleet numbers
-  * Fleet system fully operational: LMB selection, RMB ship transfers (50%), RMB probe launches working
-  * Cleaned up duplicate render methods from incomplete modularization for better code organization
 - January 2, 2025. CRITICAL throne star capture and deselection fixes:
   * Centralized throne star capture logic in CombatSystem.js for consistent detection
   * Fixed human player type detection using player.type === 'human' instead of ID comparison

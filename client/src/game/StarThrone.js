@@ -1539,7 +1539,83 @@ export default class StarThrone {
         }
     }
     
-
+    render() {
+        if (!this.ctx || !this.canvas) {
+            console.error('No canvas context available for rendering');
+            return;
+        }
+        
+        const renderStart = performance.now();
+        
+        // Update visible territories for culling
+        this.updateVisibleTerritories();
+        
+        // Clear canvas with space background
+        this.ctx.fillStyle = '#001122';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Render parallax starfield behind everything via AnimationSystem (before camera transform)
+        if (this.animationSystem) {
+            this.animationSystem.renderStaticBackground(this.ctx);
+        }
+        
+        // Save context for camera transform
+        this.ctx.save();
+        
+        // Apply camera transformation
+        this.camera.applyTransform(this.ctx);
+        
+        // Render game world with Level of Detail (LOD) optimizations
+        const lodLevel = this.getLODLevel();
+        
+        this.renderNebulas();
+        this.renderTerritories();
+        
+        // Render connections based on LOD level
+        if (lodLevel >= 2) {
+            this.renderConnections();
+        }
+        
+        // Render supply routes for operational and tactical view
+        if (lodLevel >= 2) {
+            this.renderSupplyRoutes();
+        }
+        
+        this.renderDragPreview();
+        this.renderProportionalDragUI();
+        this.renderTransferPreview();
+        
+        // Ship animations and probes for tactical view
+        if (lodLevel >= 2) {
+            // Use AnimationSystem for ship animations
+            if (this.animationSystem) {
+                this.animationSystem.renderShipAnimations(this.ctx, this.camera);
+            }
+            
+            // Render Fleet transfer animations and selection indicators
+            if (this.fleet) {
+                this.fleet.render(this.ctx);
+            }
+            
+            this.renderProbes();
+        }
+        
+        // Use DiscoverySystem for floating discovery texts
+        if (this.discoverySystem) {
+            this.discoverySystem.renderFloatingDiscoveries(this.ctx, this.camera);
+        }
+        this.renderArmies();
+        this.renderFloatingTexts();
+        
+        // Restore context
+        this.ctx.restore();
+        
+        // Render UI (not affected by camera)
+        this.renderUI();
+        
+        // Track performance
+        this.performanceStats.renderTime = performance.now() - renderStart;
+    }
     
     /**
      * Get Level of Detail based on camera zoom level
@@ -2163,12 +2239,6 @@ export default class StarThrone {
         
         // Render ship animations
         this.renderShipAnimations();
-        
-        // Render Fleet transfer animations and selection indicators
-        if (this.fleet) {
-            console.log(`StarThrone: Calling fleet.render() in active render method`);
-            this.fleet.render(this.ctx);
-        }
         
         // Proportional drag interface handled by InputHandler
         
