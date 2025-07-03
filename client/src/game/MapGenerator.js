@@ -118,8 +118,8 @@ export default class MapGenerator {
      */
     static generateInitialPoints(mapSize, layout, numPlayers) {
         const points = [];
-        const baseWidth = 2800;  // Increased from 2000 for better spacing
-        const baseHeight = 2100; // Increased from 1500 for better spacing
+        const baseWidth = 1800;  // Reduced for closer planets
+        const baseHeight = 1400; // Reduced for closer planets
         
         // Scale dimensions based on map size
         const scale = Math.sqrt(mapSize / 80); // 80 is our reference size
@@ -283,16 +283,62 @@ export default class MapGenerator {
     }
     
     /**
-     * Organic layout: Natural scattered distribution using improved Poisson sampling
+     * Organic layout: Natural scattered distribution with galaxy boundaries
      */
     static generateOrganicLayout(points, mapSize, width, height) {
-        const minDistance = Math.sqrt((width * height) / mapSize) * 0.8;
-        const maxAttempts = 30;
+        const minDistance = Math.sqrt((width * height) / mapSize) * 0.6; // Closer together
+        const maxAttempts = 50;
+        const centerX = width / 2;
+        const centerY = height / 2;
         
-        // Start with a random point
+        // Generate organic galaxy boundary using multiple sine waves
+        const boundaryFunction = (angle) => {
+            const baseRadius = Math.min(width, height) * 0.45;
+            const roughness1 = Math.sin(angle * 3) * 0.15;
+            const roughness2 = Math.sin(angle * 7) * 0.08;
+            const roughness3 = Math.sin(angle * 13) * 0.05;
+            const roughness4 = Math.sin(angle * 19) * 0.03;
+            
+            return baseRadius * (1 + roughness1 + roughness2 + roughness3 + roughness4);
+        };
+        
+        // Check if point is within organic galaxy boundary
+        const isWithinGalaxy = (x, y) => {
+            const dx = x - centerX;
+            const dy = y - centerY;
+            const distance = Math.hypot(dx, dy);
+            const angle = Math.atan2(dy, dx);
+            const maxDistance = boundaryFunction(angle);
+            
+            // Add some fuzziness to the boundary for more natural edges
+            const fuzziness = Math.random() * 0.1 - 0.05;
+            return distance <= maxDistance * (1 + fuzziness);
+        };
+        
+        // Generate density clusters for natural star formation
+        const numClusters = Math.floor(mapSize / 15) + 3;
+        const densityClusters = [];
+        
+        for (let i = 0; i < numClusters; i++) {
+            const angle = Math.random() * 2 * Math.PI;
+            const distance = Math.random() * Math.min(width, height) * 0.3;
+            const clusterX = centerX + distance * Math.cos(angle);
+            const clusterY = centerY + distance * Math.sin(angle);
+            
+            if (isWithinGalaxy(clusterX, clusterY)) {
+                densityClusters.push({
+                    x: clusterX,
+                    y: clusterY,
+                    strength: 0.3 + Math.random() * 0.4,
+                    radius: 100 + Math.random() * 150
+                });
+            }
+        }
+        
+        // Start with central point
         points.push({
-            x: Math.random() * width,
-            y: Math.random() * height
+            x: centerX + (Math.random() - 0.5) * 100,
+            y: centerY + (Math.random() - 0.5) * 100
         });
         
         const activeList = [0];
@@ -304,29 +350,29 @@ export default class MapGenerator {
             let found = false;
             for (let attempts = 0; attempts < maxAttempts; attempts++) {
                 const angle = Math.random() * 2 * Math.PI;
-                const radius = minDistance + Math.random() * minDistance;
+                const radius = minDistance * (0.8 + Math.random() * 0.4); // Variable spacing
                 const candidate = {
                     x: activePoint.x + radius * Math.cos(angle),
                     y: activePoint.y + radius * Math.sin(angle)
                 };
                 
-                if (candidate.x >= 0 && candidate.x < width && 
-                    candidate.y >= 0 && candidate.y < height) {
-                    
-                    let valid = true;
-                    for (const existing of points) {
-                        if (Math.hypot(existing.x - candidate.x, existing.y - candidate.y) < minDistance) {
-                            valid = false;
-                            break;
-                        }
-                    }
-                    
-                    if (valid) {
-                        points.push(candidate);
-                        activeList.push(points.length - 1);
-                        found = true;
+                // Check galaxy boundary
+                if (!isWithinGalaxy(candidate.x, candidate.y)) continue;
+                
+                // Check minimum distance
+                let valid = true;
+                for (const existing of points) {
+                    if (Math.hypot(existing.x - candidate.x, existing.y - candidate.y) < minDistance) {
+                        valid = false;
                         break;
                     }
+                }
+                
+                if (valid) {
+                    points.push(candidate);
+                    activeList.push(points.length - 1);
+                    found = true;
+                    break;
                 }
             }
             
@@ -335,12 +381,49 @@ export default class MapGenerator {
             }
         }
         
-        // Fill remaining points with random placement if needed
-        while (points.length < mapSize) {
-            points.push({
-                x: Math.random() * width,
-                y: Math.random() * height
-            });
+        // Use density-based sampling for remaining points
+        let attempts = 0;
+        while (points.length < mapSize && attempts < mapSize * 10) {
+            const candidate = {
+                x: centerX + (Math.random() - 0.5) * width * 0.8,
+                y: centerY + (Math.random() - 0.5) * height * 0.8
+            };
+            
+            attempts++;
+            
+            // Check galaxy boundary
+            if (!isWithinGalaxy(candidate.x, candidate.y)) continue;
+            
+            // Calculate density probability based on clusters
+            let densityProbability = 0.3; // Base probability
+            for (const cluster of densityClusters) {
+                const distanceToCluster = Math.hypot(candidate.x - cluster.x, candidate.y - cluster.y);
+                if (distanceToCluster < cluster.radius) {
+                    const influence = Math.exp(-distanceToCluster / cluster.radius);
+                    densityProbability += cluster.strength * influence;
+                }
+            }
+            
+            // Apply galactic bar density (higher towards center)
+            const distanceFromCenter = Math.hypot(candidate.x - centerX, candidate.y - centerY);
+            const centerDensity = Math.exp(-distanceFromCenter / (Math.min(width, height) * 0.2));
+            densityProbability += centerDensity * 0.4;
+            
+            // Roll for placement
+            if (Math.random() > densityProbability) continue;
+            
+            // Check minimum distance
+            let valid = true;
+            for (const existing of points) {
+                if (Math.hypot(existing.x - candidate.x, existing.y - candidate.y) < minDistance * 0.7) {
+                    valid = false;
+                    break;
+                }
+            }
+            
+            if (valid) {
+                points.push(candidate);
+            }
         }
         
         return points;
@@ -477,8 +560,8 @@ export default class MapGenerator {
      * Add extra connections for strategic depth (optional)
      */
     static addExtraConnections(points, connections, edges) {
-        const maxExtraConnections = Math.floor(points.length * 0.15); // 15% extra connections
-        const territoryRadius = 25;
+        const maxExtraConnections = Math.floor(points.length * 0.12); // 12% extra connections
+        const territoryRadius = 20; // Reduced for closer planets
         let extraAdded = 0;
         
         // Sort remaining edges by length

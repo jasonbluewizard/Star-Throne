@@ -7,7 +7,7 @@ export class Camera {
         this.viewportHeight = viewportHeight;
         
         // Strategic zoom constraints - Supreme Commander style
-        this.minZoom = 0.05;  // Allow extreme zoom out to see entire galaxy
+        this.minZoom = 0.02;  // Allow extreme zoom out to see entire galaxy
         this.maxZoom = 8.0;   // Allow tactical close-up
         
         // Smooth movement with inertial panning
@@ -27,9 +27,9 @@ export class Camera {
         this.edgePanBorder = 20;
         this.edgePanEnabled = true;
         
-        // Pan constraints (map boundaries)
-        this.mapWidth = 2000;
-        this.mapHeight = 1500;
+        // Pan constraints (map boundaries) - updated for closer planets
+        this.mapWidth = 1800;
+        this.mapHeight = 1400;
         this.boundaryPadding = 100;
     }
     
