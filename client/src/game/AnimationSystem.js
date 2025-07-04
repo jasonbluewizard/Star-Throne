@@ -15,12 +15,12 @@ export class AnimationSystem {
         
         // Initialize pool
         for (let i = 0; i < this.maxPoolSize; i++) {
-            this.shipAnimationPool.push(this.createBasicAnimationObject());
+            this.shipAnimationPool.push(this.createShipAnimation());
         }
     }
 
     // Object pool management for ship animations
-    createBasicAnimationObject() {
+    createShipAnimation() {
         return {
             from: { x: 0, y: 0 },
             to: { x: 0, y: 0 },
@@ -30,8 +30,7 @@ export class AnimationSystem {
             isAttack: false,
             isActive: false,
             segments: null, // For multi-hop animations
-            currentSegment: 0,
-            fleetSize: 0 // Fleet count to display on ship
+            currentSegment: 0
         };
     }
 
@@ -41,10 +40,8 @@ export class AnimationSystem {
             animation.isActive = true;
             return animation;
         }
-        // Pool exhausted, create new animation object
-        const newAnimation = this.createBasicAnimationObject();
-        newAnimation.isActive = true;
-        return newAnimation;
+        // Pool exhausted, create new one
+        return this.createShipAnimation();
     }
 
     returnToPool(animation) {
@@ -59,7 +56,7 @@ export class AnimationSystem {
     }
 
     // Create ship animation for attacks/transfers
-    createShipAnimation(fromTerritory, toTerritory, fleetSize, color, isAttack = false) {
+    createBasicShipAnimation(fromTerritory, toTerritory, color, isAttack = false) {
         const animation = this.getPooledShipAnimation();
         
         animation.from = { x: fromTerritory.x, y: fromTerritory.y };
@@ -70,7 +67,6 @@ export class AnimationSystem {
         animation.isAttack = isAttack;
         animation.segments = null;
         animation.currentSegment = 0;
-        animation.fleetSize = fleetSize;
         
         this.shipAnimations.push(animation);
         return animation;
@@ -176,25 +172,6 @@ export class AnimationSystem {
             ctx.moveTo(screenPos.x, screenPos.y);
             ctx.lineTo(trailScreenPos.x, trailScreenPos.y);
             ctx.stroke();
-            
-            // Draw fleet count label if available
-            if (animation.fleetSize && animation.fleetSize > 0) {
-                ctx.globalAlpha = 1.0;
-                ctx.fillStyle = '#ffffff';
-                ctx.strokeStyle = '#000000';
-                ctx.lineWidth = 2;
-                ctx.font = 'bold 12px Arial';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                
-                const labelText = animation.fleetSize.toString();
-                const labelX = screenPos.x;
-                const labelY = screenPos.y - 10; // Position above the ship
-                
-                // Draw text outline for better visibility
-                ctx.strokeText(labelText, labelX, labelY);
-                ctx.fillText(labelText, labelX, labelY);
-            }
             
             ctx.restore();
         }

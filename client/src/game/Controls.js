@@ -242,7 +242,18 @@ export default class Controls {
     territory.reinforcementFlash = 800; // Flash duration in ms
     territory.flashColor = '#44ff44'; // Green reinforcement color
 
-    // No floating text for reinforcements as requested by user
+    // Add floating text showing ships being sent
+    if (this.game.floatingTexts) {
+      this.game.floatingTexts.push({
+        x: territory.x + Math.random() * 40 - 20,
+        y: territory.y - 25,
+        text: `-${fleetSize}`,
+        color: '#44ff44',
+        timer: 2000,
+        duration: 2000,
+        opacity: 1
+      });
+    }
 
     console.log(`Reinforcement flash added to territory ${territory.id}: sending ${fleetSize} ships`);
   }
@@ -287,7 +298,18 @@ export default class Controls {
     territory.reinforcementArrivedFlash = 600; // Flash duration
     territory.flashColor = '#88ff88'; // Light green arrival flash
     
-    // No floating text for reinforcements as requested by user
+    // Add floating text showing ships received
+    if (this.game.floatingTexts) {
+      this.game.floatingTexts.push({
+        x: territory.x + Math.random() * 40 - 20,
+        y: territory.y - 25,
+        text: `+${fleetSize}`,
+        color: '#44ff44',
+        timer: 2000,
+        duration: 2000,
+        opacity: 1
+      });
+    }
   }
 
   /**

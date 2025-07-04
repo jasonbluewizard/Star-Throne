@@ -281,28 +281,7 @@ export class SupplySystem {
     }
     
     renderSupplyRoutes(ctx, territories) {
-        // Calculate throughput for each destination (how many sources feed into each target)
-        const destinationThroughput = new Map();
-        this.supplyRoutes.forEach(route => {
-            if (route.active) {
-                const count = destinationThroughput.get(route.to) || 0;
-                destinationThroughput.set(route.to, count + 1);
-            }
-        });
-        
-        // Debug logging for high-throughput destinations (only log once per second to avoid spam)
-        if (Date.now() % 1000 < 50) {
-            destinationThroughput.forEach((count, destinationId) => {
-                if (count > 1) {
-                    const territory = territories[destinationId];
-                    if (territory) {
-                        console.log(`High throughput destination: Territory ${destinationId} receiving from ${count} sources (${territory.armySize} armies)`);
-                    }
-                }
-            });
-        }
-        
-        // Render active supply routes with throughput-based animation speed
+        // Render active supply routes with animated arrows
         this.supplyRoutes.forEach(route => {
             if (!route.active) return;
             
@@ -312,37 +291,20 @@ export class SupplySystem {
             if (fromTerritory && toTerritory && route.path && route.path.length > 1) {
                 ctx.save();
                 
-                // Calculate animation speed based on throughput
-                const throughput = destinationThroughput.get(route.to) || 1;
-                const baseSpeed = 0.02;
-                const speedMultiplier = Math.min(throughput * 0.75, 4.0); // Cap at 4x speed
-                const animationSpeed = baseSpeed * speedMultiplier;
-                
-                // Draw route path with animated dashes - color and intensity based on throughput
-                const routeActive = fromTerritory.armySize > 5; // Route is active if source has armies
+                // Draw route path with animated dashes - color based on activity
+                const routeActive = fromTerritory.armySize > 10; // Route is active if source has armies
                 if (routeActive) {
-                    // Higher throughput routes get brighter colors
-                    const intensity = Math.min(throughput / 3, 1.0);
-                    const red = Math.floor(0 * 255);
-                    const green = Math.floor((128 + intensity * 127));
-                    const blue = Math.floor((128 + intensity * 127));
-                    ctx.strokeStyle = `rgb(${red}, ${green}, ${blue})`; // Cyan to bright cyan
-                    ctx.globalAlpha = 0.7 + (intensity * 0.3); // 0.7 to 1.0 alpha
+                    ctx.strokeStyle = '#00ffff'; // Bright cyan for active routes
+                    ctx.globalAlpha = 0.9;
                 } else {
                     ctx.strokeStyle = '#006666'; // Dimmed cyan for inactive routes
-                    ctx.globalAlpha = 0.3;
+                    ctx.globalAlpha = 0.5;
                 }
+                ctx.lineWidth = 3;
                 
-                // Thicker lines for higher throughput
-                ctx.lineWidth = 2 + Math.min(throughput * 0.5, 3);
-                
-                // Shorter dashes for higher throughput (creates faster visual effect)
-                const dashLength = Math.max(6 - throughput, 3);
-                const gapLength = Math.max(8 - throughput, 4);
-                
-                // Animate dashes flowing faster with higher throughput
-                const animationOffset = (Date.now() * animationSpeed) % (dashLength + gapLength);
-                ctx.setLineDash([dashLength, gapLength]);
+                // Animate dashes flowing in the direction of ship movement
+                const animationOffset = (Date.now() * 0.02) % 20;
+                ctx.setLineDash([8, 12]);
                 ctx.lineDashOffset = -animationOffset;
                 
                 // Draw path segments using territory IDs to get coordinates

@@ -82,7 +82,19 @@ export default class StarThrone {
         };
         this.showPerformancePanel = false; // Toggle with P key
         
-        // Legacy ship animation arrays removed - now handled by AnimationSystem module
+        // Ship movement animations
+        this.shipAnimations = [];
+        this.shipAnimationPool = []; // Reuse objects to reduce garbage collection
+        
+        // Pre-populate animation pool with multi-hop support
+        for (let i = 0; i < 20; i++) {
+            this.shipAnimationPool.push({
+                fromX: 0, fromY: 0, toX: 0, toY: 0,
+                progress: 0, duration: 0, startTime: 0,
+                isAttack: false, playerColor: '#ffffff', id: 0,
+                path: null, currentSegment: 0, isMultiHop: false
+            });
+        }
         this.leaderboardMinimized = false;
         this.minimapMinimized = true; // Default minimap to off
         
@@ -817,28 +829,116 @@ export default class StarThrone {
     
     // REMOVED: Second duplicate processDiscovery function - logic moved to GameUtils.js
     
-    // Create ship movement animation - delegated to AnimationSystem
+    // Create ship movement animation
     createShipAnimation(fromTerritory, toTerritory, isAttack = false, fleetSize = 0) {
-        if (this.animationSystem) {
-            const player = this.players[fromTerritory.ownerId];
-            const playerColor = player ? player.color : (isAttack ? '#ff4444' : '#44ff44');
-            this.animationSystem.createShipAnimation(fromTerritory, toTerritory, fleetSize, playerColor);
+        // Use object pooling to reduce garbage collection
+        let animation = this.shipAnimationPool.pop();
+        if (!animation) {
+            animation = {
+                fromX: 0, fromY: 0, toX: 0, toY: 0,
+                progress: 0, duration: 0, startTime: 0,
+                isAttack: false, playerColor: '#ffffff', id: 0,
+                path: null, currentSegment: 0, isMultiHop: false,
+                fleetSize: 0
+            };
         }
+        
+        const player = this.players[fromTerritory.ownerId];
+        const playerColor = player ? player.color : '#ffffff';
+        
+        // Reset animation properties
+        animation.fromX = fromTerritory.x;
+        animation.fromY = fromTerritory.y;
+        animation.toX = toTerritory.x;
+        animation.toY = toTerritory.y;
+        animation.progress = 0;
+        animation.duration = 1000 / this.config.gameSpeed;
+        animation.startTime = Date.now();
+        animation.isAttack = isAttack;
+        animation.playerColor = playerColor;
+        animation.id = Math.random();
+        animation.path = null;
+        animation.currentSegment = 0;
+        animation.isMultiHop = false;
+        animation.fleetSize = fleetSize;
+        
+        this.shipAnimations.push(animation);
     }
 
-    // Create multi-hop ship animation following supply route path - delegated to AnimationSystem
+    // Create multi-hop ship animation following supply route path
     createSupplyRouteAnimation(path, playerColor) {
         if (!path || path.length < 2) return;
         
-        if (this.animationSystem) {
-            // Convert path to from/to animation for now (multi-hop can be added to AnimationSystem later)
-            const fromTerritory = path[0];
-            const toTerritory = path[path.length - 1];
-            this.animationSystem.createShipAnimation(fromTerritory, toTerritory, 0, playerColor);
+        let animation = this.shipAnimationPool.pop();
+        if (!animation) {
+            animation = {
+                fromX: 0, fromY: 0, toX: 0, toY: 0,
+                progress: 0, duration: 0, startTime: 0,
+                isAttack: false, playerColor: '#ffffff', id: 0,
+                path: null, currentSegment: 0, isMultiHop: false
+            };
         }
+        
+        // Set up multi-hop animation
+        animation.path = path;
+        animation.currentSegment = 0;
+        animation.isMultiHop = true;
+        animation.playerColor = playerColor;
+        animation.isAttack = false;
+        animation.id = Math.random();
+        
+        // Start with first segment
+        this.initializeAnimationSegment(animation);
+        
+        this.shipAnimations.push(animation);
     }
 
-    // Legacy ship animation methods removed - now handled by AnimationSystem module
+    // Initialize animation segment for multi-hop
+    initializeAnimationSegment(animation) {
+        if (!animation.path || animation.currentSegment >= animation.path.length - 1) {
+            return false;
+        }
+        
+        const fromTerritory = animation.path[animation.currentSegment];
+        const toTerritory = animation.path[animation.currentSegment + 1];
+        
+        animation.fromX = fromTerritory.x;
+        animation.fromY = fromTerritory.y;
+        animation.toX = toTerritory.x;
+        animation.toY = toTerritory.y;
+        animation.progress = 0;
+        animation.duration = 800 / this.config.gameSpeed; // Faster per-segment animation
+        animation.startTime = Date.now();
+        
+        return true;
+    }
+    
+    // Update ship animations
+    updateShipAnimations(deltaTime) {
+        const currentTime = Date.now();
+        
+        // Optimize with object pooling and manual iteration
+        for (let i = this.shipAnimations.length - 1; i >= 0; i--) {
+            const animation = this.shipAnimations[i];
+            animation.progress = (currentTime - animation.startTime) / animation.duration;
+            
+            if (animation.progress >= 1) {
+                if (animation.isMultiHop && animation.path) {
+                    // Move to next segment in multi-hop animation
+                    animation.currentSegment++;
+                    
+                    if (this.initializeAnimationSegment(animation)) {
+                        // Continue to next segment
+                        continue;
+                    }
+                }
+                
+                // Return completed animation to pool for reuse
+                this.shipAnimationPool.push(animation);
+                this.shipAnimations.splice(i, 1);
+            }
+        }
+    }
     
     // Update probes
     updateProbes(deltaTime) {
@@ -912,7 +1012,41 @@ export default class StarThrone {
         console.log(`Planet ${planet.id} colonized successfully! Discovery: ${discovery.name}`);
     }
     
-    // Legacy renderShipAnimations method removed - now handled by AnimationSystem module
+    // Render ship animations
+    renderShipAnimations() {
+        this.shipAnimations.forEach(animation => {
+            const progress = Math.min(1, animation.progress);
+            const eased = this.easeInOutQuad(progress);
+            
+            const x = animation.fromX + (animation.toX - animation.fromX) * eased;
+            const y = animation.fromY + (animation.toY - animation.fromY) * eased;
+            
+            // Draw ship using player's color
+            this.ctx.save();
+            this.ctx.fillStyle = animation.playerColor;
+            this.ctx.shadowColor = animation.playerColor;
+            this.ctx.shadowBlur = 8;
+            
+            this.ctx.beginPath();
+            this.ctx.arc(x, y, 4, 0, Math.PI * 2);
+            this.ctx.fill();
+            
+            // Add trail effect
+            const trailLength = 5;
+            for (let i = 1; i <= trailLength; i++) {
+                const trailProgress = Math.max(0, eased - (i * 0.1));
+                const trailX = animation.fromX + (animation.toX - animation.fromX) * trailProgress;
+                const trailY = animation.fromY + (animation.toY - animation.fromY) * trailProgress;
+                
+                this.ctx.globalAlpha = (trailLength - i) / trailLength * 0.5;
+                this.ctx.beginPath();
+                this.ctx.arc(trailX, trailY, 2, 0, Math.PI * 2);
+                this.ctx.fill();
+            }
+            
+            this.ctx.restore();
+        });
+    }
     
     // Render probes
     renderProbes() {
@@ -1454,8 +1588,9 @@ export default class StarThrone {
         // Process any pending throttled mouse events
         this.processPendingMouseEvent();
         
-        // Update probes and floating discovery texts with normal delta time (speed applied internally)
+        // Update ship animations and probes with normal delta time (speed applied internally)
         try {
+            this.updateShipAnimations(deltaTime);
             this.updateProbes(deltaTime);
             this.updateFloatingDiscoveryTexts(deltaTime);
         } catch (error) {
@@ -2304,10 +2439,8 @@ export default class StarThrone {
         // Render probes
         this.renderProbes();
         
-        // Render ship animations using AnimationSystem
-        if (this.animationSystem) {
-            this.animationSystem.renderShipAnimations(this.ctx, this.camera);
-        }
+        // Render ship animations
+        this.renderShipAnimations();
         
         // Proportional drag interface handled by InputHandler
         
