@@ -792,11 +792,6 @@ export class GameUI {
     }
     
     renderTooltip(ctx, gameData) {
-        // Debug logging for tooltip rendering
-        if (gameData.hoveredTerritory && gameData.mousePos) {
-            console.log(`Rendering tooltip for territory ${gameData.hoveredTerritory.id} at mouse position`, gameData.mousePos);
-        }
-        
         if (!gameData.hoveredTerritory || !gameData.mousePos) {
             return;
         }
