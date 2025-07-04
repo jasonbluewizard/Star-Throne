@@ -74,6 +74,13 @@ export class InputHandler {
     }
     
     handleMouseMove(e) {
+        // Debug: Check if mouse events are reaching the handler
+        if (!this.mouseEventCounter) this.mouseEventCounter = 0;
+        this.mouseEventCounter++;
+        if (this.mouseEventCounter % 30 === 0) { // Log every 30th event to avoid spam
+            console.log(`Mouse move event received (${this.mouseEventCounter} total)`);
+        }
+        
         const rect = this.canvas.getBoundingClientRect();
         const newMousePos = {
             x: e.clientX - rect.left,
@@ -107,6 +114,16 @@ export class InputHandler {
         const hoveredTerritory = this.game.findTerritoryAt(newMousePos.x, newMousePos.y);
         this.hoveredTerritory = hoveredTerritory;
         this.game.hoveredTerritory = hoveredTerritory;
+        
+        // Debug logging for mouseover tracking
+        if (hoveredTerritory !== this.lastHoveredTerritory) {
+            if (hoveredTerritory) {
+                console.log(`Hovering over territory ${hoveredTerritory.id} (${hoveredTerritory.ownerId ? 'owned' : 'neutral'})`);
+            } else {
+                console.log('Mouse left territory');
+            }
+            this.lastHoveredTerritory = hoveredTerritory;
+        }
         
         this.lastMousePos = newMousePos;
         this.mousePos = newMousePos;
