@@ -2300,9 +2300,12 @@ export default class StarThrone {
         const zoomLevel = this.camera.getZoomLevel();
         const currentZoom = this.camera.zoom;
         
-        // Debug logging to understand zoom levels and territory access
-        if (Math.random() < 0.01) { // Log occasionally to avoid spam
-            console.log(`renderArmies: zoomLevel=${zoomLevel}, currentZoom=${currentZoom.toFixed(2)}, supplySystem exists: ${!!this.supplySystem}`);
+        // DEBUG: Force logging to see current zoom level
+        if (Date.now() % 2000 < 100) { // Log every 2 seconds briefly
+            console.log(`DEBUG renderArmies: zoomLevel=${zoomLevel}, currentZoom=${currentZoom.toFixed(2)}, supplySystem exists: ${!!this.supplySystem}`);
+            if (this.supplySystem) {
+                console.log(`Active routes: ${this.supplySystem.supplyRoutes.filter(r => r.active).map(r => `${r.from}→${r.to}`).join(', ')}`);
+            }
         }
         
         this.ctx.save();
