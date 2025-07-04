@@ -216,139 +216,44 @@ export class SupplySystem {
     }
     
     processSupplyRoutes(deltaTime) {
+        // Supply routes now redirect army generation instead of transferring armies
+        // This method now mainly validates routes but doesn't transfer armies
+        
         // Throttle processing to every 90 frames
         this.routeProcessingFrame++;
         if (this.routeProcessingFrame < 90) return;
         this.routeProcessingFrame = 0;
         
-        const currentTime = Date.now();
-        console.log(`Processing ${this.supplyRoutes.length} supply routes`);
-        
+        // Just validate that routes are still valid
         for (const route of this.supplyRoutes) {
-            if (!route.active) {
-                console.log(`Route ${route.id} is inactive`);
-                continue;
-            }
-            
-            // Check transfer cooldown
-            if (currentTime - route.lastTransfer < route.transferCooldown) {
-                console.log(`Route ${route.id} on cooldown for ${route.transferCooldown - (currentTime - route.lastTransfer)}ms`);
-                continue;
-            }
+            if (!route.active) continue;
             
             const fromTerritory = this.game.gameMap.territories[route.from];
             const toTerritory = this.game.gameMap.territories[route.to];
             
             if (!fromTerritory || !toTerritory) {
                 console.log(`Route ${route.id} missing territories`);
-                continue;
-            }
-            
-            // Check if transfer is needed and beneficial
-            if (this.shouldTransferArmies(fromTerritory, toTerritory)) {
-                this.executeSupplyTransfer(route, fromTerritory, toTerritory);
-                route.lastTransfer = currentTime;
+                route.active = false;
             }
         }
     }
     
-    shouldTransferArmies(fromTerritory, toTerritory) {
-        const minGarrison = GAME_CONSTANTS.SUPPLY_ROUTE.MIN_GARRISON ?? 0;
-        // Ship if we have anything above the garrison size
-        const shouldTransfer = fromTerritory.armySize > minGarrison;
-        
-        if (shouldTransfer) {
-            console.log(`✓ Supply transfer approved: ${fromTerritory.id}(${fromTerritory.armySize}) -> ${toTerritory.id} (garrison: ${minGarrison})`);
-        }
-        
-        return shouldTransfer;
-    }
-    
-    executeSupplyTransfer(route, fromTerritory, toTerritory) {
-        const minGarrison = GAME_CONSTANTS.SUPPLY_ROUTE.MIN_GARRISON ?? 0;
-        const transferAmount = fromTerritory.armySize - minGarrison;
-        
-        // Nothing to send? Abort.
-        if (transferAmount <= 0) return;
-        
-        // Calculate delivery delay based on path length
-        const hopsCount = route.path.length - 1;
-        const deliveryDelay = hopsCount * GAME_CONSTANTS.SUPPLY_ROUTE.DELAY_PER_HOP;
-        
-        // Immediate deduction from source
-        fromTerritory.armySize -= transferAmount;
-        
-        // Schedule delayed delivery
-        this.createDelayedSupplyTransfer(toTerritory, transferAmount, deliveryDelay, route);
-        
-        // Create multi-hop ship animation
-        this.createSupplyRouteAnimation(route, transferAmount);
-        
-        console.log(`Supply transfer: ${transferAmount} armies via ${hopsCount} hop${hopsCount > 1 ? 's' : ''} (${deliveryDelay}ms delay)`);
-    }
-    
-    createDelayedSupplyTransfer(toTerritory, amount, delay, route) {
-        setTimeout(() => {
-            // Verify territory still exists and is owned
-            if (toTerritory && toTerritory.ownerId === this.game.humanPlayer?.id) {
-                toTerritory.armySize += amount;
-                
-                // Visual feedback
-                toTerritory.floatingText = {
-                    text: `+${amount}`,
-                    color: '#00ffff',
-                    startTime: Date.now(),
-                    duration: 2000,
-                    endTime: Date.now() + 2000
-                };
-                
-                console.log(`Supply delivery: +${amount} armies to territory ${toTerritory.id}`);
-            }
-        }, delay);
-    }
-    
-    createSupplyRouteAnimation(route, amount) {
-        if (!route.path || route.path.length < 2) return;
-        
-        const player = this.game.humanPlayer;
-        if (!player) return;
-        
-        // Create multi-segment animation following the supply route path
-        const segments = [];
-        for (let i = 0; i < route.path.length - 1; i++) {
-            const fromTerritory = this.game.gameMap.territories[route.path[i]];
-            const toTerritory = this.game.gameMap.territories[route.path[i + 1]];
-            
-            if (fromTerritory && toTerritory) {
-                segments.push({
-                    from: { x: fromTerritory.x, y: fromTerritory.y },
-                    to: { x: toTerritory.x, y: toTerritory.y }
-                });
-            }
-        }
-        
-        const totalDuration = segments.length * 800; // 800ms per segment
-        
-        // Get start and end territory objects
-        const startTerritory = this.game.gameMap.territories[route.path[0]];
-        const endTerritory = this.game.gameMap.territories[route.path[route.path.length - 1]];
-        
-        if (startTerritory && endTerritory && this.game.animationSystem) {
-            // Create supply route object for animation system
-            const supplyRouteForAnimation = {
-                from: startTerritory,
-                to: endTerritory,
-                path: route.path.map(id => this.game.gameMap.territories[id]).filter(t => t),
-                segments: segments
-            };
-            
-            this.game.animationSystem.createSupplyRouteAnimation(supplyRouteForAnimation, player.color);
-            console.log(`Created supply route animation with ${segments.length} segments`);
-        }
-    }
+    // Supply routes now redirect army generation instead of transferring armies
+    // The old transfer-based methods are no longer needed
     
     generateRouteId() {
         return `route_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+    
+    // Check if a territory is redirecting its army generation via supply route
+    isSupplySource(territoryId) {
+        return this.supplyRoutes.some(route => route.active && route.from === territoryId);
+    }
+    
+    // Get the destination territory for a supply source
+    getSupplyDestination(territoryId) {
+        const route = this.supplyRoutes.find(route => route.active && route.from === territoryId);
+        return route ? route.to : null;
     }
     
     // Public interface

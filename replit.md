@@ -581,6 +581,15 @@ Changelog:
    * Modernized error handling: updated AIManager, EventSystem, and InputStateMachine to use centralized logging
    * Console output optimization: production builds now show only essential game events (discoveries, throne captures)
    * Error handling consistency: all modules now respect DEBUG_MODE flag for toggling development vs production logging
+- January 3, 2025. Supply route system overhaul - Army generation redirection implementation:
+   * Completely redesigned supply routes from army transfer system to army generation redirection
+   * Source territories stop growing armies when supplying - armies generate directly at destination instead
+   * Maintains constant fleet levels at source while accelerating growth at destination
+   * Enhanced Territory.js generateArmies() method with supply route detection and redirection logic
+   * Added SupplySystem helper methods: isSupplySource() and getSupplyDestination() for territory queries
+   * Visual feedback system shows cyan floating text (+X armies) at destination when supply routes activate
+   * Removed old transfer-based logic (shouldTransferArmies, executeSupplyTransfer) for cleaner codebase
+   * Supply routes now provide true logistics chains instead of fleet balancing mechanics
 
 ## User Preferences
 
