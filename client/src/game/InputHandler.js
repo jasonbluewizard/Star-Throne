@@ -196,11 +196,15 @@ export class InputHandler {
     }
     
     handleTerritoryClick(territory, clickType = 'left') {
-        /* Right‑click always cancels/clears routes for ANY owned star –
-           throne stars included – no extra filters. */
+        /* Right‑click cancels supply routes for ANY owned star –
+           but only if there are routes to cancel, otherwise pass through to normal actions */
         if (clickType === 'right' && territory.ownerId === this.game.humanPlayer?.id) {
-            this.game.supplySystem.stopSupplyRoutesFromTerritory(territory.id);
-            return true;
+            const routesToCancel = this.game.supplySystem.supplyRoutes.filter(route => route.from === territory.id);
+            if (routesToCancel.length > 0) {
+                this.game.supplySystem.stopSupplyRoutesFromTerritory(territory.id);
+                return true; // Handled - don't process as normal right-click
+            }
+            // No routes to cancel, let it pass through to normal right-click handling
         }
         
         // Handle left clicks through the FSM
