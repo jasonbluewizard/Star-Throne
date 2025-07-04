@@ -117,33 +117,7 @@ canvas {
   }
 }
 
-/* Simple star movement animations */
-@keyframes moveHorizontal {
-  from {
-    transform: translateX(-20px);
-  }
-  to {
-    transform: translateX(calc(100vw + 20px));
-  }
-}
-
-@keyframes moveVertical {
-  from {
-    transform: translateY(-20px);
-  }
-  to {
-    transform: translateY(calc(100vh + 20px));
-  }
-}
-
-@keyframes starTwinkle {
-  0%, 100% {
-    opacity: 0.3;
-  }
-  50% {
-    opacity: 1;
-  }
-}
+/* Removed simple star movement animations - now using 3D canvas tunnel effect */
 
 /* Updated gentler badge animation with pulsing */
 @keyframes gentleFloatAndPulse {

@@ -1,11 +1,119 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 interface TitleScreenProps {
   onEnterGame: () => void;
 }
 
+interface TunnelStar {
+  x: number;
+  y: number;
+  z: number;
+  size: number;
+  brightness: number;
+  speed: number;
+}
+
 const TitleScreen: React.FC<TitleScreenProps> = ({ onEnterGame }) => {
   const [showClickPrompt, setShowClickPrompt] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const starsRef = useRef<TunnelStar[]>([]);
+  const animationRef = useRef<number>();
+
+  // Initialize tunnel stars
+  useEffect(() => {
+    const stars: TunnelStar[] = [];
+    for (let i = 0; i < 200; i++) {
+      stars.push({
+        x: (Math.random() - 0.5) * 2000,
+        y: (Math.random() - 0.5) * 2000,
+        z: Math.random() * 1000,
+        size: Math.random() * 3 + 1,
+        brightness: Math.random() * 0.8 + 0.2,
+        speed: Math.random() * 2 + 1
+      });
+    }
+    starsRef.current = stars;
+  }, []);
+
+  // Animate tunnel effect
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const resizeCanvas = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    const animate = () => {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+
+      starsRef.current.forEach((star) => {
+        // Move star forward
+        star.z -= star.speed;
+
+        // Reset star if it goes behind viewer
+        if (star.z <= 0) {
+          star.x = (Math.random() - 0.5) * 2000;
+          star.y = (Math.random() - 0.5) * 2000;
+          star.z = 1000;
+        }
+
+        // Project 3D position to 2D screen
+        const scale = 200 / star.z;
+        const x2d = centerX + star.x * scale;
+        const y2d = centerY + star.y * scale;
+
+        // Calculate star size based on distance (closer = bigger)
+        const size = star.size * scale * 2;
+        const opacity = star.brightness * Math.min(1, scale * 2);
+
+        // Only draw if star is on screen
+        if (x2d >= -size && x2d <= canvas.width + size && 
+            y2d >= -size && y2d <= canvas.height + size) {
+          ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+          ctx.beginPath();
+          ctx.arc(x2d, y2d, Math.max(0.5, size), 0, Math.PI * 2);
+          ctx.fill();
+
+          // Add trail effect for fast-moving stars
+          if (scale > 0.5) {
+            const prevScale = 200 / (star.z + star.speed);
+            const prevX = centerX + star.x * prevScale;
+            const prevY = centerY + star.y * prevScale;
+            
+            ctx.strokeStyle = `rgba(255, 255, 255, ${opacity * 0.3})`;
+            ctx.lineWidth = Math.max(0.5, size * 0.5);
+            ctx.beginPath();
+            ctx.moveTo(prevX, prevY);
+            ctx.lineTo(x2d, y2d);
+            ctx.stroke();
+          }
+        }
+      });
+
+      animationRef.current = requestAnimationFrame(animate);
+    };
+
+    animate();
+
+    return () => {
+      window.removeEventListener('resize', resizeCanvas);
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     // Show click prompt after animations complete
@@ -18,53 +126,17 @@ const TitleScreen: React.FC<TitleScreenProps> = ({ onEnterGame }) => {
 
   return (
     <div className="fixed inset-0 bg-black flex items-center justify-center overflow-hidden">
-      {/* Simple streaming starfield */}
-      <div className="absolute inset-0 overflow-hidden">
-        {[...Array(100)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute rounded-full bg-white animate-pulse"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              width: `${Math.random() * 3 + 1}px`,
-              height: `${Math.random() * 3 + 1}px`,
-              animationDelay: `${Math.random() * 3}s`,
-              animationDuration: `${Math.random() * 2 + 2}s`,
-              opacity: Math.random() * 0.8 + 0.2,
-            }}
-          />
-        ))}
-        
-        {/* Moving stars for tunnel effect */}
-        {[...Array(50)].map((_, i) => {
-          const isHorizontal = i % 2 === 0;
-          const speed = Math.random() * 5 + 3;
-          
-          return (
-            <div
-              key={`moving-${i}`}
-              className="absolute rounded-full bg-white"
-              style={{
-                width: `${Math.random() * 2 + 1}px`,
-                height: `${Math.random() * 2 + 1}px`,
-                left: isHorizontal ? '-10px' : `${Math.random() * 100}%`,
-                top: isHorizontal ? `${Math.random() * 100}%` : '-10px',
-                animation: isHorizontal 
-                  ? `moveHorizontal ${speed}s linear infinite`
-                  : `moveVertical ${speed}s linear infinite`,
-                opacity: 0.6,
-                animationDelay: `${Math.random() * 5}s`,
-              }}
-            />
-          );
-        })}
-      </div>
+      {/* 3D Tunnel starfield canvas */}
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 w-full h-full"
+        style={{ zIndex: 1 }}
+      />
 
       {/* Main content container */}
       <div 
-        className="relative z-10 flex flex-col items-center justify-center min-h-screen"
-        style={{ perspective: '1000px' }}
+        className="relative flex flex-col items-center justify-center min-h-screen"
+        style={{ perspective: '1000px', zIndex: 10 }}
       >
         {/* Badge - zooms up from the void */}
         <div 
