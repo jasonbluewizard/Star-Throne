@@ -2741,7 +2741,12 @@ export default class StarThrone {
         
         if (fromTerritory.armySize < probeCost) {
             console.log('Not enough fleet power to launch probe! Need 10 fleet power.');
-            return;
+            return false;
+        }
+        
+        if (!toTerritory.isColonizable) {
+            console.log('Target territory is not colonizable!');
+            return false;
         }
         
         // Create probe with gameMap and game references for nebula detection and discovery bonuses
@@ -2776,6 +2781,7 @@ export default class StarThrone {
         }, EVENT_PRIORITY.MEDIUM);
         
         console.log(`Probe launched from territory ${fromTerritory.id} to colonizable planet ${toTerritory.id}`);
+        return true;
     }
     
     launchAIProbe(fromTerritory, toTerritory, player) {
