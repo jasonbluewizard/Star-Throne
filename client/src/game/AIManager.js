@@ -74,7 +74,7 @@ export class AIManager {
             'Orion', 'Phoenix', 'Quill', 'Raven', 'Storm', 'Tala', 'Vega', 'Wren',
             'Astra', 'Bolt', 'Cosmo', 'Drift', 'Ember', 'Flash', 'Ghost', 'Hawk',
             'Comet', 'Viper', 'Titan', 'Cipher', 'Razor', 'Surge', 'Pulse', 'Void',
-            'Nexus', 'Frost', 'Blitz', 'Omega', 'Saber', 'Nova', 'Zephyr', 'Apex',
+            'Nexus', 'Frost', 'Blitz', 'Omega', 'Saber', 'Vortex', 'Zephyr', 'Apex',
             'Rogue', 'Spark', 'Flare', 'Shadow', 'Rebel', 'Quantum', 'Vector', 'Cyber'
         ];
 

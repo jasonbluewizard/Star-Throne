@@ -478,8 +478,9 @@ export default class StarThrone {
         this.aiManager = new AIManager(this);
         this.controls = new Controls(this);
         
-        // Make game instance globally accessible for Territory rendering
-        window.game = this;
+        // TODO: Remove global reference (use dependency injection instead)
+        // window.game = this;  // (global game reference deprecated)
+        window.game = this; // Temporary global access - to be replaced with dependency injection
         
         // Auto-detect optimal performance profile
         this.performanceManager.detectOptimalProfile();
@@ -1255,7 +1256,7 @@ export default class StarThrone {
         
         if (this.camera) {
             // Camera uses logical pixels, not physical pixels
-            this.camera.setViewportSize(rect.width, rect.height);
+            this.camera.updateViewport(rect.width, rect.height);
         }
         
         // Invalidate canvas rect cache after resize
@@ -1645,9 +1646,7 @@ export default class StarThrone {
         if (this.frameCount % 45 === 0) { // Every 45 frames (~0.75 seconds)
             this.supplySystem.validateSupplyRoutes();
         }
-        if (this.frameCount % 90 === 0) { // Every 90 frames (~1.5 seconds)
-            this.supplySystem.processSupplyRoutes(deltaTime);
-        }
+        // (Removed redundant 90-frame check; supply logic now in Territory.generateArmies())
         
         // Check for player elimination (throttled)
         if (this.frameCount % 20 === 0) {

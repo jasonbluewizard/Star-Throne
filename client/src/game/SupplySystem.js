@@ -6,7 +6,7 @@
  */
 
 import { GAME_CONSTANTS } from '../../../common/gameConstants';
-import { PathfindingService } from './PathfindingService.js';
+// Removed PathfindingService import (unused; using injected game.pathfindingService)
 
 export class SupplySystem {
     constructor(game) {
@@ -106,12 +106,7 @@ export class SupplySystem {
         return true;
     }
     
-    findExistingRoute(fromId, toId) {
-        return this.supplyRoutes.find(route => 
-            (route.from === fromId && route.to === toId) ||
-            (route.from === toId && route.to === fromId)
-        );
-    }
+    // Removed unused: findExistingRoute (no other code calls this)
     
     findPathBetweenTerritories(fromTerritory, toTerritory) {
         const humanPlayerId = this.game.humanPlayer?.id;
@@ -219,25 +214,8 @@ export class SupplySystem {
     
     processSupplyRoutes(deltaTime) {
         // Supply routes now redirect army generation instead of transferring armies
-        // This method now mainly validates routes but doesn't transfer armies
-        
-        // Throttle processing to every 90 frames
-        this.routeProcessingFrame++;
-        if (this.routeProcessingFrame < 90) return;
-        this.routeProcessingFrame = 0;
-        
-        // Just validate that routes are still valid
-        for (const route of this.supplyRoutes) {
-            if (!route.active) continue;
-            
-            const fromTerritory = this.game.gameMap.territories[route.from];
-            const toTerritory = this.game.gameMap.territories[route.to];
-            
-            if (!fromTerritory || !toTerritory) {
-                console.log(`Route ${route.id} missing territories`);
-                route.active = false;
-            }
-        }
+        // Validation is handled in validateSupplyRoutes() method called from main game loop
+        // This method is no longer needed but kept for interface compatibility
     }
     
     // Supply routes now redirect army generation instead of transferring armies
@@ -263,9 +241,7 @@ export class SupplySystem {
         return this.supplyRoutes.filter(route => route.active);
     }
     
-    getSupplyRouteCount() {
-        return this.supplyRoutes.length;
-    }
+    // Removed unused: getSupplyRouteCount (simply this.supplyRoutes.length)
     
     removeSupplyRoute(routeId) {
         const index = this.supplyRoutes.findIndex(route => route.id === routeId);
@@ -277,10 +253,7 @@ export class SupplySystem {
         return false;
     }
     
-    removeAllSupplyRoutes() {
-        this.supplyRoutes = [];
-        console.log('All supply routes cleared');
-    }
+    // Removed unused: removeAllSupplyRoutes (no callers found)
     
     renderSupplyRoutes(ctx, territories) {
         // Render active supply routes with animated arrows
