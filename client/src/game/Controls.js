@@ -242,18 +242,7 @@ export default class Controls {
     territory.reinforcementFlash = 800; // Flash duration in ms
     territory.flashColor = '#44ff44'; // Green reinforcement color
 
-    // Add floating text showing ships being sent
-    if (this.game.floatingTexts) {
-      this.game.floatingTexts.push({
-        x: territory.x + Math.random() * 40 - 20,
-        y: territory.y - 25,
-        text: `-${fleetSize}`,
-        color: '#44ff44',
-        timer: 2000,
-        duration: 2000,
-        opacity: 1
-      });
-    }
+    // No floating text for reinforcements as requested by user
 
     console.log(`Reinforcement flash added to territory ${territory.id}: sending ${fleetSize} ships`);
   }
