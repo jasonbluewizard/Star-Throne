@@ -96,20 +96,20 @@ export class AIManager {
             'Lieutenant', 'Sergeant', 'Marshal', 'Commodore', 'Warlord', 'Chief'
         ];
 
-        // Determine name format: 25% clan format, 75% varied formats
-        const nameFormat = Math.random();
+        // Use deterministic distribution based on index for consistent variety
+        const nameType = index % 8; // Cycle through 8 patterns for variety
         const firstName = firstNames[index % firstNames.length];
         
-        if (nameFormat < 0.25) {
-            // Clan format: [ClanName] FirstName
-            const clan = clanNames[Math.floor(index / firstNames.length) % clanNames.length];
+        if (nameType === 0 || nameType === 1) {
+            // 25% clan format: [ClanName] FirstName
+            const clan = clanNames[Math.floor(index / 3) % clanNames.length]; // Better clan distribution
             return `[${clan}] ${firstName}`;
-        } else if (nameFormat < 0.50) {
-            // Military rank format: Rank FirstName
-            const rank = militaryRanks[index % militaryRanks.length];
+        } else if (nameType === 2 || nameType === 3) {
+            // 25% military rank format: Rank FirstName
+            const rank = militaryRanks[Math.floor(index / 2) % militaryRanks.length];
             return `${rank} ${firstName}`;
         } else {
-            // Simple first name only
+            // 50% simple first name only
             return firstName;
         }
     }
