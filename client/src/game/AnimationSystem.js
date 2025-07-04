@@ -41,8 +41,19 @@ export class AnimationSystem {
             animation.isActive = true;
             return animation;
         }
-        // Pool exhausted, create new one
-        return this.createShipAnimation();
+        // Pool exhausted, create new raw animation object
+        return {
+            from: { x: 0, y: 0 },
+            to: { x: 0, y: 0 },
+            progress: 0,
+            duration: 1000,
+            color: '#ffffff',
+            isAttack: false,
+            isActive: true,
+            segments: null,
+            currentSegment: 0,
+            fleetSize: 0
+        };
     }
 
     returnToPool(animation) {
