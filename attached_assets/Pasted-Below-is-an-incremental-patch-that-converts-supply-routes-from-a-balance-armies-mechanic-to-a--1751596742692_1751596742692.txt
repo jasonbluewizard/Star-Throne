@@ -1,0 +1,73 @@
+Below is an **incremental patch** that converts supply routes from a “balance armies” mechanic to a **true one‑way logistics line**:
+
+---
+
+### 1  gameConstants.ts – add a garrison constant and (optionally) drop the threshold
+
+```diff
+ export const GAME_CONSTANTS = {
+     SUPPLY_ROUTE: {
+         TRANSFER_INTERVAL: 3000,        // ms between automatic sends
+-        ARMY_DIFFERENCE_THRESHOLD: 5,   // ❌ no longer used
+         DELAY_PER_HOP: 2000,            // animation / delivery latency
+         MAX_ROUTES_PER_PLAYER: 20,
++        /**  How many armies the source keeps back each tick.
++         *   0 = ship everything.  Raise to 1‑2 if you want a token garrison.  */
++        MIN_GARRISON: 0
+     }
+ };
+```
+
+*(If other code still reads `ARMY_DIFFERENCE_THRESHOLD`, either delete the line or leave it but ignore it.)*
+
+---
+
+### 2  SupplySystem.js – always ship everything that is above the garrison
+
+#### 2.1  `shouldTransferArmies`
+
+Replace the old difference/threshold test  with:
+
+```diff
+shouldTransferArmies(fromTerritory, toTerritory) {
+-    const armyDifference = fromTerritory.armySize - toTerritory.armySize;
+-    const threshold      = GAME_CONSTANTS.SUPPLY_ROUTE.ARMY_DIFFERENCE_THRESHOLD;
+-    return armyDifference >= threshold;
++    const minGarrison = GAME_CONSTANTS.SUPPLY_ROUTE.MIN_GARRISON ?? 0;
++    // Ship if we have anything above the garrison size
++    return fromTerritory.armySize > minGarrison;
+}
+```
+
+#### 2.2  `executeSupplyTransfer`
+
+Change the amount that is moved :
+
+```diff
+-const transferAmount = Math.floor((from.armySize - to.armySize) / 2);
++const minGarrison   = GAME_CONSTANTS.SUPPLY_ROUTE.MIN_GARRISON ?? 0;
++const transferAmount = fromTerritory.armySize - minGarrison;
++
++// Nothing to send?  Abort.
++if (transferAmount <= 0) return;
+```
+
+The remainder of the function (hop count, delay, animation, logs) stays intact.
+
+---
+
+### 3  (Recommended) shorten the cooldown if you want a steadier stream
+
+The route will now empty the source every `TRANSFER_INTERVAL` milliseconds.
+If you’d rather see smaller, more frequent lumps in transit, drop `TRANSFER_INTERVAL` to e.g. **1000 ms**.
+
+---
+
+### 4  Behavior after the patch
+
+* Every tick the source star will send **all available armies** (above `MIN_GARRISON`) along the supply path.
+* Newly‑generated armies accumulate for up to `TRANSFER_INTERVAL` and then depart in the next convoy.
+* The dotted cyan route line and ship animations continue to work because no other logic changed.
+* If you later want the original “equalise to within N units” logic, just restore the old `shouldTransferArmies` body and bring `ARMY_DIFFERENCE_THRESHOLD` back.
+
+With these two small edits the supply system becomes a pure logistics chain rather than a balancing mechanism.
