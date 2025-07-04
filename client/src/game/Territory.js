@@ -353,7 +353,14 @@ export class Territory {
                 ctx.font = 'bold 12px Arial';
                 ctx.textAlign = 'center';
                 
-                const displayText = this.armySize.toString();
+                let displayText = this.armySize.toString();
+                
+                // Add black dot indicator for reinforcing stars
+                // Access supply system through global game reference
+                if (window.game?.supplySystem?.isSupplySource(this.id)) {
+                    displayText = `● ${displayText}`;
+                }
+                
                 ctx.strokeText(displayText, this.x, this.y + 4);
                 ctx.fillText(displayText, this.x, this.y + 4);
             }

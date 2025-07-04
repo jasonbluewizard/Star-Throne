@@ -478,6 +478,9 @@ export default class StarThrone {
         this.aiManager = new AIManager(this);
         this.controls = new Controls(this);
         
+        // Make game instance globally accessible for Territory rendering
+        window.game = this;
+        
         // Auto-detect optimal performance profile
         this.performanceManager.detectOptimalProfile();
         
@@ -2300,16 +2303,7 @@ export default class StarThrone {
         const zoomLevel = this.camera.getZoomLevel();
         const currentZoom = this.camera.zoom;
         
-        // DEBUG: Always log to diagnose the issue
-        console.log(`DIAGNOSTIC: zoomLevel=${zoomLevel}, currentZoom=${currentZoom.toFixed(2)}, supplySystem=${!!this.supplySystem}`);
-        if (this.supplySystem && this.supplySystem.supplyRoutes.length > 0) {
-            const activeRoutes = this.supplySystem.supplyRoutes.filter(r => r.active);
-            console.log(`Active supply routes: ${activeRoutes.map(r => `${r.from}→${r.to}`).join(', ')}`);
-            
-            // Test specific territories
-            console.log(`Star 79 isSupplySource: ${this.supplySystem.isSupplySource(79)}`);
-            console.log(`Star 66 isSupplySource: ${this.supplySystem.isSupplySource(66)}`);
-        }
+        // Supply system is now handled by Territory.js render method
         
         this.ctx.save();
         
