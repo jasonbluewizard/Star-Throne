@@ -24,12 +24,14 @@ export class SupplySystem {
             return false;
         }
         
-        // Check if route already exists
-        const existingRoute = this.findExistingRoute(fromTerritory.id, toTerritory.id);
-        if (existingRoute) {
-            console.log('Supply route already exists between these territories');
-            return false;
-        }
+        /*────────  NEW  ────────*
+         * A source star may supply ONE destination at a time.
+         * If the source already has a route, remove / replace it.          */
+        this.supplyRoutes = this.supplyRoutes.filter(r => {
+            const keep = r.from !== fromTerritory.id;
+            if (!keep) console.log(`SupplySystem: replacing route ${r.id} from ${r.from}`);
+            return keep;
+        });
         
         // Check if pathfinding service exists
         if (!this.game.pathfindingService) {
@@ -302,8 +304,12 @@ export class SupplySystem {
                 }
                 ctx.lineWidth = 3;
                 
-                // Animate dashes flowing in the direction of ship movement
-                const animationOffset = (Date.now() * 0.02) % 20;
+                /* Dynamic dash speed : faster when more lines converge */
+                const currentTime   = Date.now();
+                const inboundCount  = this.supplyRoutes.filter(r =>
+                      r.active && r.to === route.to).length;
+                const speedFactor   = Math.min(inboundCount, 6); // cap at 6 ×
+                const animationOffset = (currentTime * (0.02 * speedFactor)) % 20;
                 ctx.setLineDash([8, 12]);
                 ctx.lineDashOffset = -animationOffset;
                 
@@ -323,6 +329,28 @@ export class SupplySystem {
                 }
                 
                 ctx.restore();
+                
+                /* White pulsing highlight while either end is hovered */
+                const hoveredId = this.game.inputHandler?.hoveredTerritory?.id;
+                if (hoveredId === route.from || hoveredId === route.to) {
+                    const pulse = 0.5 + 0.5 * Math.sin(currentTime * 0.006);
+                    ctx.save();
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth   = 4;
+                    ctx.globalAlpha = pulse;
+                    ctx.setLineDash([]);   // solid white pulse
+                    ctx.beginPath();
+                    for (let i = 0; i < route.path.length - 1; i++) {
+                        const c = territories[route.path[i]];
+                        const n = territories[route.path[i + 1]];
+                        if (c && n) {
+                            if (i === 0) ctx.moveTo(c.x, c.y);
+                            ctx.lineTo(n.x, n.y);
+                        }
+                    }
+                    ctx.stroke();
+                    ctx.restore();
+                }
             }
         });
     }

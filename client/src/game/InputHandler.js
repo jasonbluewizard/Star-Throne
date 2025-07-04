@@ -10,6 +10,7 @@ import { InputStateMachine } from './InputStateMachine.js';
 export class InputHandler {
     constructor(game) {
         this.game = game;
+        this.hoveredTerritory = null;
         this.canvas = game.canvas;
         
         // Simplified input state
@@ -101,9 +102,10 @@ export class InputHandler {
         // Update edge panning
         this.game.camera.updateEdgePanning(newMousePos.x, newMousePos.y, 16);
         
-        // Update hovered territory for tooltips
+        // Update hovered territory for tooltips and supply route highlighting
         const worldPos = this.game.camera.screenToWorld(newMousePos.x, newMousePos.y);
-        const hoveredTerritory = this.game.gameMap.findTerritoryAt(worldPos.x, worldPos.y);
+        const hoveredTerritory = this.game.findTerritoryAt(newMousePos.x, newMousePos.y);
+        this.hoveredTerritory = hoveredTerritory;
         this.game.hoveredTerritory = hoveredTerritory;
         
         this.lastMousePos = newMousePos;
@@ -160,21 +162,60 @@ export class InputHandler {
             return;
         }
         
-        if (button === 0) { // Left click
-            this.inputFSM.handleInput('leftClick', {
-                territory: territory,
-                worldPos: worldPos,
-                screenPos: this.mousePos
-            });
-        } else if (button === 2) { // Right click
-            this.inputFSM.handleInput('rightClick', {
-                territory: territory,
-                worldPos: worldPos,
-                screenPos: this.mousePos
-            });
+        if (territory) {
+            // Use the new handleTerritoryClick method which has improved right-click cancel logic
+            const clickType = button === 0 ? 'left' : 'right';
+            const handled = this.handleTerritoryClick(territory, clickType);
+            if (handled && clickType === 'right') {
+                return; // Right-click was handled by supply route cancellation
+            }
+            if (!handled && clickType === 'right') {
+                // Fallback to FSM for right-click actions
+                this.inputFSM.handleInput('rightClick', {
+                    territory: territory,
+                    worldPos: worldPos,
+                    screenPos: this.mousePos
+                });
+            }
+        } else {
+            // No territory clicked, handle empty space
+            if (button === 0) { // Left click
+                this.inputFSM.handleInput('leftClick', {
+                    territory: territory,
+                    worldPos: worldPos,
+                    screenPos: this.mousePos
+                });
+            } else if (button === 2) { // Right click
+                this.inputFSM.handleInput('rightClick', {
+                    territory: territory,
+                    worldPos: worldPos,
+                    screenPos: this.mousePos
+                });
+            }
         }
     }
     
+    handleTerritoryClick(territory, clickType = 'left') {
+        /* Right‑click always cancels/clears routes for ANY owned star –
+           throne stars included – no extra filters. */
+        if (clickType === 'right' && territory.ownerId === this.game.humanPlayer?.id) {
+            this.game.supplySystem.stopSupplyRoutesFromTerritory(territory.id);
+            return true;
+        }
+        
+        // Handle left clicks through the FSM
+        if (clickType === 'left') {
+            this.inputFSM.handleInput('leftClick', {
+                territory: territory,
+                worldPos: this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y),
+                screenPos: this.mousePos
+            });
+            return true;
+        }
+        
+        return false;
+    }
+
     handleDoubleClick(territory) {
         console.log(`handleDoubleClick called for territory ${territory.id}, owned by player ${territory.ownerId}`);
         
