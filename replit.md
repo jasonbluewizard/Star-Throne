@@ -590,6 +590,17 @@ Changelog:
    * Visual feedback system shows cyan floating text (+X armies) at destination when supply routes activate
    * Removed old transfer-based logic (shouldTransferArmies, executeSupplyTransfer) for cleaner codebase
    * Supply routes now provide true logistics chains instead of fleet balancing mechanics
+- January 4, 2025. Enhanced game over screen and 3D title screen effects:
+   * Dramatically improved game over screen readability with 95% opaque overlay and high contrast text
+   * Enlarged "Game Over!" title to 64px with red shadow effects for maximum visibility
+   * Redesigned leaderboard with larger text, better spacing, and color-coded player rankings
+   * Enhanced restart button with glow effects, larger size (280x60), and "PLAY AGAIN" text
+   * Limited leaderboard display to top 10 players for cleaner presentation
+   * Implemented stunning 3D tunnel starfield effect for title screen backdrop
+   * Replaced simple HTML stars with dynamic canvas-based perspective projection system
+   * Added 200 moving stars with motion trails creating immersive space travel effect
+   * Stars properly recycle and reset for continuous tunnel motion experience
+   * Cleaned up unused CSS animations while preserving badge and wordmark entrance effects
 
 ## User Preferences
 
