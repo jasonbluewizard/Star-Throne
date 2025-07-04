@@ -162,63 +162,31 @@ export class InputHandler {
             return;
         }
         
-        if (territory) {
-            // Use the new handleTerritoryClick method which has improved right-click cancel logic
-            const clickType = button === 0 ? 'left' : 'right';
-            const handled = this.handleTerritoryClick(territory, clickType);
-            if (handled && clickType === 'right') {
-                return; // Right-click was handled by supply route cancellation
+        if (button === 0) { // Left click
+            this.inputFSM.handleInput('leftClick', {
+                territory: territory,
+                worldPos: worldPos,
+                screenPos: this.mousePos
+            });
+        } else if (button === 2) { // Right click
+            // Check for supply route cancellation first (only if territory exists and is owned)
+            if (territory && territory.ownerId === this.game.humanPlayer?.id) {
+                const routesToCancel = this.game.supplySystem.supplyRoutes.filter(route => route.from === territory.id);
+                if (routesToCancel.length > 0) {
+                    this.game.supplySystem.stopSupplyRoutesFromTerritory(territory.id);
+                    return; // Supply route cancelled, don't process further
+                }
             }
-            if (!handled && clickType === 'right') {
-                // Fallback to FSM for right-click actions
-                this.inputFSM.handleInput('rightClick', {
-                    territory: territory,
-                    worldPos: worldPos,
-                    screenPos: this.mousePos
-                });
-            }
-        } else {
-            // No territory clicked, handle empty space
-            if (button === 0) { // Left click
-                this.inputFSM.handleInput('leftClick', {
-                    territory: territory,
-                    worldPos: worldPos,
-                    screenPos: this.mousePos
-                });
-            } else if (button === 2) { // Right click
-                this.inputFSM.handleInput('rightClick', {
-                    territory: territory,
-                    worldPos: worldPos,
-                    screenPos: this.mousePos
-                });
-            }
+            
+            // No supply routes to cancel, proceed with normal right-click behavior
+            this.inputFSM.handleInput('rightClick', {
+                territory: territory,
+                worldPos: worldPos,
+                screenPos: this.mousePos
+            });
         }
     }
     
-    handleTerritoryClick(territory, clickType = 'left') {
-        /* Right‑click cancels supply routes for ANY owned star –
-           but only if there are routes to cancel, otherwise pass through to normal actions */
-        if (clickType === 'right' && territory.ownerId === this.game.humanPlayer?.id) {
-            const routesToCancel = this.game.supplySystem.supplyRoutes.filter(route => route.from === territory.id);
-            if (routesToCancel.length > 0) {
-                this.game.supplySystem.stopSupplyRoutesFromTerritory(territory.id);
-                return true; // Handled - don't process as normal right-click
-            }
-            // No routes to cancel, let it pass through to normal right-click handling
-        }
-        
-        // Handle left clicks through the FSM
-        if (clickType === 'left') {
-            this.inputFSM.handleInput('leftClick', {
-                territory: territory,
-                worldPos: this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y),
-                screenPos: this.mousePos
-            });
-            return true;
-        }
-        
-        return false;
-    }
 
     handleDoubleClick(territory) {
         console.log(`handleDoubleClick called for territory ${territory.id}, owned by player ${territory.ownerId}`);
