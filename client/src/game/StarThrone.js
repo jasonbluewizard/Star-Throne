@@ -2321,7 +2321,12 @@ export default class StarThrone {
                     }
                     
                     if (owner && territory.armySize >= 10) { // Only show significant fleets
-                        const armyText = territory.armySize >= 100 ? `${Math.floor(territory.armySize / 10)}0+` : territory.armySize.toString();
+                        let armyText = territory.armySize >= 100 ? `${Math.floor(territory.armySize / 10)}0+` : territory.armySize.toString();
+                        
+                        // Add black dot indicator for reinforcing stars
+                        if (this.supplySystem?.isSupplySource(territory.id)) {
+                            armyText = `● ${armyText}`;
+                        }
                         
                         // Simplified text rendering for performance
                         this.ctx.fillStyle = '#ffffff';
@@ -2346,7 +2351,12 @@ export default class StarThrone {
                     }
                     
                     if (owner) {
-                        const armyText = territory.armySize.toString();
+                        let armyText = territory.armySize.toString();
+                        
+                        // Add black dot indicator for reinforcing stars
+                        if (this.supplySystem?.isSupplySource(territory.id)) {
+                            armyText = `● ${armyText}`;
+                        }
                         
                         // White outline for readability
                         this.ctx.strokeStyle = '#ffffff';
@@ -2376,7 +2386,12 @@ export default class StarThrone {
                     }
                     
                     if (owner) {
-                        const armyText = territory.armySize.toString();
+                        let armyText = territory.armySize.toString();
+                        
+                        // Add black dot indicator for reinforcing stars
+                        if (this.supplySystem?.isSupplySource(territory.id)) {
+                            armyText = `● ${armyText}`;
+                        }
                         
                         // High-contrast text with thick outline
                         this.ctx.strokeStyle = '#ffffff';

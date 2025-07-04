@@ -410,11 +410,8 @@ export class Renderer {
         // Check if this star is reinforcing another star
         const isReinforcingSource = this.game?.supplySystem?.isSupplySource(territory.id);
         
-        // Force show dot for testing on territory 79 since we know it has supply routes
-        const forceShow = territory.id === 79;
-        
         let text = territory.armySize.toString();
-        if (isReinforcingSource || forceShow) {
+        if (isReinforcingSource) {
             text = `● ${text}`; // Add black dot indicator for reinforcing stars
         }
         
