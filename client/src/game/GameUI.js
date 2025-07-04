@@ -128,39 +128,60 @@ export class GameUI {
     }
     
     renderEndGameUI(ctx, gameData) {
-        // Semi-transparent overlay
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        // Full opaque overlay for maximum readability
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.95)';
         ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // Game Over title
-        ctx.fillStyle = this.textColor;
-        ctx.font = 'bold 48px Arial';
+        // Game Over title with dramatic shadow effect
+        ctx.font = 'bold 64px Arial';
         ctx.textAlign = 'center';
+        
+        // Title shadow
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
+        ctx.fillText('Game Over!', this.canvas.width / 2 + 4, this.canvas.height / 2 - 146);
+        
+        // Main title
+        ctx.fillStyle = '#ffffff';
         ctx.fillText('Game Over!', this.canvas.width / 2, this.canvas.height / 2 - 150);
         
         // Final leaderboard
         this.renderFinalLeaderboard(ctx, gameData);
         
-        // Mobile-friendly restart button
-        const buttonWidth = 200;
-        const buttonHeight = 50;
+        // Larger, more prominent restart button
+        const buttonWidth = 280;
+        const buttonHeight = 60;
         const buttonX = this.canvas.width / 2 - buttonWidth / 2;
-        const buttonY = this.canvas.height - 100;
+        const buttonY = this.canvas.height - 120;
+        
+        // Button shadow
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(buttonX + 4, buttonY + 4, buttonWidth, buttonHeight);
         
         // Restart button background
-        ctx.fillStyle = this.accentColor;
+        ctx.fillStyle = '#00ddff';
         ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);
         
-        // Button border
-        ctx.strokeStyle = this.textColor;
-        ctx.lineWidth = 2;
+        // Button border with glow effect
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 3;
         ctx.strokeRect(buttonX, buttonY, buttonWidth, buttonHeight);
         
-        // Button text
-        ctx.fillStyle = this.textColor;
-        ctx.font = 'bold 20px Arial';
+        // Inner glow
+        ctx.strokeStyle = '#00ddff';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(buttonX + 2, buttonY + 2, buttonWidth - 4, buttonHeight - 4);
+        
+        // Button text with shadow
+        ctx.font = 'bold 24px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText('Tap to Restart', this.canvas.width / 2, buttonY + 32);
+        
+        // Text shadow
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillText('PLAY AGAIN', this.canvas.width / 2 + 2, buttonY + 40);
+        
+        // Main text
+        ctx.fillStyle = '#000000';
+        ctx.fillText('PLAY AGAIN', this.canvas.width / 2, buttonY + 38);
         
         // Store button area for touch detection
         this.restartButton = {
@@ -1005,64 +1026,108 @@ export class GameUI {
     }
     
     renderFinalLeaderboard(ctx, gameData) {
-        const startX = this.canvas.width / 2 - 200;
+        const startX = this.canvas.width / 2 - 250;
         const startY = this.canvas.height / 2 - 50;
-        const width = 400;
-        const itemHeight = 30;
+        const width = 500;
+        const itemHeight = 35;
         
-        // Sort all players by score
-        const sortedPlayers = [...gameData.players].sort((a, b) => b.score - a.score);
-        const height = 60 + sortedPlayers.length * itemHeight;
+        // Sort all players by score and show only top 10 for better readability
+        const sortedPlayers = [...gameData.players]
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 10);
+        const height = 80 + sortedPlayers.length * itemHeight;
         
-        // Background
-        ctx.fillStyle = this.bgColor;
+        // Background with shadow
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.fillRect(startX + 4, startY + 4, width, height);
+        
+        // Main background
+        ctx.fillStyle = 'rgba(0, 20, 40, 0.95)';
         ctx.fillRect(startX, startY, width, height);
         
-        // Title
-        ctx.fillStyle = this.accentColor;
-        ctx.font = 'bold 20px Arial';
+        // Border
+        ctx.strokeStyle = '#00ddff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(startX, startY, width, height);
+        
+        // Title with shadow
+        ctx.font = 'bold 28px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText('Final Results', startX + width / 2, startY + 30);
+        
+        // Title shadow
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillText('Final Results', startX + width / 2 + 2, startY + 42);
+        
+        // Main title
+        ctx.fillStyle = '#00ddff';
+        ctx.fillText('Final Results', startX + width / 2, startY + 40);
         
         // Player entries
         sortedPlayers.forEach((player, index) => {
-            const y = startY + 60 + index * itemHeight;
+            const y = startY + 80 + index * itemHeight;
             const isHuman = player === gameData.humanPlayer;
             const isWinner = index === 0 && !player.isEliminated;
             
-            // Background for winner
+            // Background for winner or human player
             if (isWinner) {
-                ctx.fillStyle = 'rgba(68, 255, 68, 0.2)';
-                ctx.fillRect(startX + 5, y - 20, width - 10, itemHeight - 5);
+                ctx.fillStyle = 'rgba(68, 255, 68, 0.15)';
+                ctx.fillRect(startX + 5, y - 22, width - 10, itemHeight - 2);
+            } else if (isHuman) {
+                ctx.fillStyle = 'rgba(0, 221, 255, 0.1)';
+                ctx.fillRect(startX + 5, y - 22, width - 10, itemHeight - 2);
             }
             
-            // Rank
-            ctx.fillStyle = isWinner ? this.successColor : this.textColor;
-            ctx.font = isHuman ? 'bold 16px Arial' : '16px Arial';
+            // Rank with shadow
+            ctx.font = 'bold 18px Arial';
             ctx.textAlign = 'left';
+            
+            // Rank shadow
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            ctx.fillText(`${index + 1}.`, startX + 22, y + 2);
+            
+            // Main rank
+            ctx.fillStyle = isWinner ? '#44ff44' : '#ffffff';
             ctx.fillText(`${index + 1}.`, startX + 20, y);
             
-            // Player color
+            // Player color indicator (larger)
             ctx.fillStyle = player.color;
-            ctx.fillRect(startX + 50, y - 10, 15, 15);
+            ctx.fillRect(startX + 60, y - 12, 20, 20);
             
-            // Player name
-            ctx.fillStyle = isHuman ? this.accentColor : (isWinner ? this.successColor : this.textColor);
-            ctx.fillText(player.name, startX + 75, y);
+            // Player name with shadow
+            ctx.font = isHuman ? 'bold 18px Arial' : '18px Arial';
             
-            // Stats
-            ctx.fillStyle = this.textColor;
-            ctx.font = '14px Arial';
+            // Name shadow
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            ctx.fillText(player.name, startX + 92, y + 2);
+            
+            // Main name
+            ctx.fillStyle = isHuman ? '#00ddff' : (isWinner ? '#44ff44' : '#ffffff');
+            ctx.fillText(player.name, startX + 90, y);
+            
+            // Stats with shadow
+            ctx.font = '16px Arial';
             ctx.textAlign = 'right';
-            ctx.fillText(`${player.territories.length} territories`, startX + width - 120, y - 5);
-            ctx.fillText(`${player.score} points`, startX + width - 120, y + 10);
+            
+            // Stats shadow
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            ctx.fillText(`${player.territories.length} territories`, startX + width - 102, y - 3);
+            ctx.fillText(`${player.score} points`, startX + width - 102, y + 15);
+            
+            // Main stats
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(`${player.territories.length} territories`, startX + width - 100, y - 5);
+            ctx.fillText(`${player.score} points`, startX + width - 100, y + 13);
             
             // Status
             if (player.isEliminated) {
-                ctx.fillStyle = this.warningColor;
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                ctx.fillText('Eliminated', startX + width - 22, y + 2);
+                ctx.fillStyle = '#ff4444';
                 ctx.fillText('Eliminated', startX + width - 20, y);
             } else if (isWinner) {
-                ctx.fillStyle = this.successColor;
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                ctx.fillText('Winner!', startX + width - 22, y + 2);
+                ctx.fillStyle = '#44ff44';
                 ctx.fillText('Winner!', startX + width - 20, y);
             }
         });
