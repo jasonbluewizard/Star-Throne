@@ -66,7 +66,7 @@ export class SupplySystem {
             return false;
         }
         
-        // Create new supply route with garrison level stored at creation
+        // Create new supply route
         const route = {
             id: this.generateRouteId(),
             from: fromTerritory.id,
@@ -75,17 +75,15 @@ export class SupplySystem {
             active: true,
             lastTransfer: 0,
             transferCooldown: GAME_CONSTANTS.SUPPLY_ROUTE.TRANSFER_INTERVAL,
-            createdTime: Date.now(),
-            garrisonLevel: fromTerritory.armySize, // Remember the garrison level at creation
-            maxTransferRate: 5 // Maximum 5 fleets per second
+            createdTime: Date.now()
         };
         
         this.supplyRoutes.push(route);
         
-        console.log(`Supply route created: ${fromTerritory.id} → ${toTerritory.id} (${path.length} hops, garrison: ${route.garrisonLevel})`);
+        console.log(`Supply route created: ${fromTerritory.id} → ${toTerritory.id} (${path.length} hops)`);
         
         // Visual feedback
-        this.game.showMessage(`Reinforcement route established: garrison ${route.garrisonLevel}, excess fleets will transfer`, 2000);
+        this.game.showMessage(`Supply route established: ${path.length - 1} hop${path.length > 2 ? 's' : ''}`, 2000);
         
         return true;
     }
@@ -220,16 +218,15 @@ export class SupplySystem {
     }
     
     processSupplyRoutes(deltaTime) {
-        // New system: Transfer excess fleets beyond garrison level
-        // Up to 5 fleets per second when source has more than its garrison level
+        // Supply routes now redirect army generation instead of transferring armies
+        // This method now mainly validates routes but doesn't transfer armies
         
-        // Throttle processing to every 15 frames (about 4 times per second)
+        // Throttle processing to every 90 frames
         this.routeProcessingFrame++;
-        if (this.routeProcessingFrame < 15) return;
+        if (this.routeProcessingFrame < 90) return;
         this.routeProcessingFrame = 0;
         
-        const now = Date.now();
-        
+        // Just validate that routes are still valid
         for (const route of this.supplyRoutes) {
             if (!route.active) continue;
             
@@ -239,44 +236,6 @@ export class SupplySystem {
             if (!fromTerritory || !toTerritory) {
                 console.log(`Route ${route.id} missing territories`);
                 route.active = false;
-                continue;
-            }
-            
-            // Check if enough time has passed since last transfer (200ms for 5 per second)
-            if (now - route.lastTransfer < 200) continue;
-            
-            // Calculate excess fleets beyond garrison level
-            const excessFleets = fromTerritory.armySize - route.garrisonLevel;
-            
-            if (excessFleets > 0) {
-                // Transfer 1 fleet (up to 5 per second due to 200ms cooldown)
-                const transferAmount = Math.min(1, excessFleets);
-                
-                // Execute transfer
-                fromTerritory.armySize -= transferAmount;
-                toTerritory.armySize += transferAmount;
-                
-                // Update last transfer time
-                route.lastTransfer = now;
-                
-                // Visual feedback
-                this.game.showFloatingText(
-                    fromTerritory.x, 
-                    fromTerritory.y - 30, 
-                    `-${transferAmount}`, 
-                    '#00FFFF', 
-                    1000
-                );
-                
-                this.game.showFloatingText(
-                    toTerritory.x, 
-                    toTerritory.y - 30, 
-                    `+${transferAmount}`, 
-                    '#00FFFF', 
-                    1000
-                );
-                
-                console.log(`Reinforcement route: ${transferAmount} armies transferred from star ${route.from} to star ${route.to} (garrison: ${route.garrisonLevel}, had: ${fromTerritory.armySize + transferAmount})`);
             }
         }
     }
