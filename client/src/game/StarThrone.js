@@ -2542,7 +2542,7 @@ export default class StarThrone {
                 players: this.players,
                 humanPlayer: this.humanPlayer,
                 selectedTerritory: inputState.selectedTerritory,
-                hoveredTerritory: this.hoveredTerritory,
+                hoveredTerritory: this.inputHandler ? this.inputHandler.hoveredTerritory : null,
                 mousePos: this.inputHandler ? this.inputHandler.mousePos : { x: 0, y: 0 },
                 fps: this.fps,
                 currentPlayers: this.currentPlayers,
