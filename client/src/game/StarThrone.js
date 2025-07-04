@@ -2393,6 +2393,11 @@ export default class StarThrone {
                             armyText = `● ${armyText}`;
                         }
                         
+                        // Debug logging for specific territories
+                        if (territory.id === 79) {
+                            console.log(`Star 79 tactical view: supplySystem exists: ${!!this.supplySystem}, isSupplySource: ${this.supplySystem?.isSupplySource(territory.id)}, text: "${armyText}"`);
+                        }
+                        
                         // High-contrast text with thick outline
                         this.ctx.strokeStyle = '#ffffff';
                         this.ctx.lineWidth = 3;

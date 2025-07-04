@@ -111,7 +111,7 @@ export class Territory {
                 if (destinationTerritory && destinationTerritory.ownerId === this.ownerId) {
                     // Redirect army generation to destination
                     destinationTerritory.armySize += armiesGenerated;
-                    console.log(`Supply route: ${armiesGenerated} armies redirected from ${this.id} to ${destinationId}`);
+                    console.log(`Reinforcement route: ${armiesGenerated} armies redirected from star ${this.id} to star ${destinationId}`);
                     
                     // Create visual effect showing the transfer
                     if (destinationTerritory.floatingText) {
