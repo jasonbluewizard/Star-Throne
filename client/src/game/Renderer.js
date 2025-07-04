@@ -8,10 +8,11 @@
 import { GAME_CONSTANTS } from '../../../common/gameConstants';
 
 export class Renderer {
-    constructor(canvas, camera) {
+    constructor(canvas, camera, game = null) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
         this.camera = camera;
+        this.game = game;
         
         // Performance tracking
         this.visibleTerritories = 0;
@@ -406,7 +407,14 @@ export class Renderer {
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
         
-        const text = territory.armySize.toString();
+        // Check if this territory is a supply source
+        const isSupplySource = this.game?.supplySystem?.isSupplySource(territory.id);
+        
+        let text = territory.armySize.toString();
+        if (isSupplySource) {
+            text = `● ${text}`; // Add black dot indicator for supply sources
+        }
+        
         this.ctx.strokeText(text, territory.x, territory.y);
         this.ctx.fillText(text, territory.x, territory.y);
     }

@@ -466,7 +466,7 @@ export default class StarThrone {
         
         // Initialize modular systems
         this.inputHandler = new InputHandler(this);
-        this.renderer = new Renderer(this.canvas, this.camera);
+        this.renderer = new Renderer(this.canvas, this.camera, this);
         this.combatSystem = new CombatSystem(this);
         this.supplySystem = new SupplySystem(this);
         this.pathfindingService = new PathfindingService(this);
