@@ -410,6 +410,11 @@ export class Renderer {
         // Check if this territory is a supply source
         const isSupplySource = this.game?.supplySystem?.isSupplySource(territory.id);
         
+        // Debug logging for supply source detection
+        if (territory.id === 79 || territory.id === 72) {
+            console.log(`Territory ${territory.id}: isSupplySource = ${isSupplySource}, supplySystem exists: ${!!this.game?.supplySystem}`);
+        }
+        
         let text = territory.armySize.toString();
         if (isSupplySource) {
             text = `● ${text}`; // Add black dot indicator for supply sources
