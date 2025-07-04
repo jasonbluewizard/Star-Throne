@@ -844,7 +844,7 @@ export class GameUI {
                     outgoingRoutes.forEach(route => {
                         const targetTerritory = gameData.territories[route.to];
                         if (targetTerritory) {
-                            tooltipLines.push(`Supplying territory ${route.to}`);
+                            tooltipLines.push(`Reinforcing star ${route.to}`);
                         }
                     });
                 }

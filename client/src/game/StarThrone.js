@@ -2300,9 +2300,21 @@ export default class StarThrone {
         const zoomLevel = this.camera.getZoomLevel();
         const currentZoom = this.camera.zoom;
         
+        // Debug logging to understand zoom levels and territory access
+        if (Math.random() < 0.01) { // Log occasionally to avoid spam
+            console.log(`renderArmies: zoomLevel=${zoomLevel}, currentZoom=${currentZoom.toFixed(2)}, supplySystem exists: ${!!this.supplySystem}`);
+        }
+        
         this.ctx.save();
         
-        const territories = this.visibleTerritories || Object.values(this.gameMap.territories);
+        // Handle territories: visibleTerritories is a Set of IDs, convert to objects
+        let territories;
+        if (this.visibleTerritories && this.visibleTerritories.size > 0) {
+            territories = Array.from(this.visibleTerritories).map(id => this.gameMap.territories[id]).filter(t => t);
+        } else {
+            territories = Object.values(this.gameMap.territories);
+        }
+        
         const playersLookup = {}; // Cache player lookups
         
         // Strategic View (zoomed out) - Show simplified information
