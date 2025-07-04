@@ -111,24 +111,9 @@ export class Territory {
                 if (destinationTerritory && destinationTerritory.ownerId === this.ownerId) {
                     // Redirect army generation to destination
                     destinationTerritory.armySize += armiesGenerated;
-                    console.log(`Reinforcement route: ${armiesGenerated} armies redirected from star ${this.id} to star ${destinationId}`);
+                    // Supply route redirection (logging disabled for cleaner console output)
                     
-                    // Create visual effect showing the transfer
-                    if (destinationTerritory.floatingText) {
-                        // Add to existing floating text
-                        const existingAmount = parseInt(destinationTerritory.floatingText.text.replace('+', '')) || 0;
-                        destinationTerritory.floatingText.text = `+${existingAmount + armiesGenerated}`;
-                        destinationTerritory.floatingText.startTime = Date.now();
-                        destinationTerritory.floatingText.endTime = Date.now() + 2000;
-                    } else {
-                        destinationTerritory.floatingText = {
-                            text: `+${armiesGenerated}`,
-                            color: '#00ffff', // Cyan for supply route
-                            startTime: Date.now(),
-                            duration: 2000,
-                            endTime: Date.now() + 2000
-                        };
-                    }
+                    // Visual feedback disabled to prevent text spam on heavily reinforced territories
                 } else {
                     // Route broken, generate locally
                     this.armySize += armiesGenerated;

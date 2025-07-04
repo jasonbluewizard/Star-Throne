@@ -367,8 +367,17 @@ export class CombatSystem {
         throneTerritory.isThronestar = false;
         
         // Add dramatic floating text
-        this.game.addFloatingText(throneTerritory.x, throneTerritory.y, 
-            `THRONE CAPTURED!`, '#FFD700', 5000);
+        const floatingText = {
+            x: throneTerritory.x,
+            y: throneTerritory.y - 30,
+            text: 'THRONE CAPTURED!',
+            color: '#FFD700',
+            startTime: Date.now(),
+            duration: 5000
+        };
+        
+        if (!this.game.floatingTexts) this.game.floatingTexts = [];
+        this.game.floatingTexts.push(floatingText);
         
         // Check if this was a human player
         if (oldOwner.type === 'human') {
