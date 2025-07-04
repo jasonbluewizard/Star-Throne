@@ -72,7 +72,7 @@ export class SupplySystem {
             path: path,
             active: true,
             lastTransfer: 0,
-            transferCooldown: GAME_CONSTANTS.SUPPLY_ROUTE_TRANSFER_COOLDOWN,
+            transferCooldown: GAME_CONSTANTS.SUPPLY_ROUTE.TRANSFER_INTERVAL,
             createdTime: Date.now()
         };
         
@@ -253,28 +253,27 @@ export class SupplySystem {
     }
     
     shouldTransferArmies(fromTerritory, toTerritory) {
-        // Transfer threshold - only if source has significantly more armies
-        const transferThreshold = GAME_CONSTANTS.SUPPLY_ROUTE_MIN_ARMY_DIFFERENCE;
-        const armyDifference = fromTerritory.armySize - toTerritory.armySize;
+        const minGarrison = GAME_CONSTANTS.SUPPLY_ROUTE.MIN_GARRISON ?? 0;
+        // Ship if we have anything above the garrison size
+        const shouldTransfer = fromTerritory.armySize > minGarrison;
         
-        console.log(`Supply check: ${fromTerritory.id}(${fromTerritory.armySize}) -> ${toTerritory.id}(${toTerritory.armySize}), diff: ${armyDifference}, threshold: ${transferThreshold}`);
-        
-        const shouldTransfer = armyDifference >= transferThreshold && fromTerritory.armySize > 10;
         if (shouldTransfer) {
-            console.log(`✓ Supply transfer approved: ${fromTerritory.id} -> ${toTerritory.id}`);
+            console.log(`✓ Supply transfer approved: ${fromTerritory.id}(${fromTerritory.armySize}) -> ${toTerritory.id} (garrison: ${minGarrison})`);
         }
         
         return shouldTransfer;
     }
     
     executeSupplyTransfer(route, fromTerritory, toTerritory) {
-        const transferAmount = Math.floor(fromTerritory.armySize / GAME_CONSTANTS.SUPPLY_ROUTE_TRANSFER_DIVISOR);
+        const minGarrison = GAME_CONSTANTS.SUPPLY_ROUTE.MIN_GARRISON ?? 0;
+        const transferAmount = fromTerritory.armySize - minGarrison;
         
-        if (transferAmount < 1) return;
+        // Nothing to send? Abort.
+        if (transferAmount <= 0) return;
         
         // Calculate delivery delay based on path length
         const hopsCount = route.path.length - 1;
-        const deliveryDelay = hopsCount * GAME_CONSTANTS.SUPPLY_ROUTE_DELAY_PER_HOP_MS;
+        const deliveryDelay = hopsCount * GAME_CONSTANTS.SUPPLY_ROUTE.DELAY_PER_HOP;
         
         // Immediate deduction from source
         fromTerritory.armySize -= transferAmount;

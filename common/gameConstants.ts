@@ -38,7 +38,16 @@ export const GAME_CONSTANTS = {
     TRANSFER_AMOUNT_DIVISOR: 2,
 
     // Supply Route System
-    SUPPLY_ROUTE_MIN_ARMY_DIFFERENCE: 5,
+    SUPPLY_ROUTE: {
+        TRANSFER_INTERVAL: 3000,        // ms between automatic sends
+        DELAY_PER_HOP: 2000,            // animation / delivery latency
+        MAX_ROUTES_PER_PLAYER: 20,
+        /** How many armies the source keeps back each tick.
+         *  0 = ship everything. Raise to 1-2 if you want a token garrison. */
+        MIN_GARRISON: 0
+    },
+    // Legacy constants for backward compatibility
+    SUPPLY_ROUTE_MIN_ARMY_DIFFERENCE: 5,  // No longer used but kept for compatibility
     SUPPLY_ROUTE_TRANSFER_DIVISOR: 4,
     SUPPLY_ROUTE_DELAY_PER_HOP_MS: 2000,
     SUPPLY_ROUTE_LINE_WIDTH: 2,
