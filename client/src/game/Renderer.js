@@ -410,9 +410,15 @@ export class Renderer {
         // Check if this star is reinforcing another star
         const isReinforcingSource = this.game?.supplySystem?.isSupplySource(territory.id);
         
+        // Debug logging for specific territories
+        if (territory.id === 79 || territory.id === 66) {
+            console.log(`RENDERER DEBUG Star ${territory.id}: game=${!!this.game}, supplySystem=${!!this.game?.supplySystem}, isSupplySource=${isReinforcingSource}`);
+        }
+        
         let text = territory.armySize.toString();
         if (isReinforcingSource) {
             text = `● ${text}`; // Add black dot indicator for reinforcing stars
+            console.log(`RENDERER: Added black dot to star ${territory.id}, text="${text}"`);
         }
         
         this.ctx.strokeText(text, territory.x, territory.y);
