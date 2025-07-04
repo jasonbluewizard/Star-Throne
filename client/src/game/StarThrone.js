@@ -2439,8 +2439,10 @@ export default class StarThrone {
         // Render probes
         this.renderProbes();
         
-        // Render ship animations
-        this.renderShipAnimations();
+        // Render ship animations using AnimationSystem
+        if (this.animationSystem) {
+            this.animationSystem.renderShipAnimations(this.ctx, this.camera);
+        }
         
         // Proportional drag interface handled by InputHandler
         

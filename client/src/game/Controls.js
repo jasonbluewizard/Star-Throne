@@ -298,18 +298,7 @@ export default class Controls {
     territory.reinforcementArrivedFlash = 600; // Flash duration
     territory.flashColor = '#88ff88'; // Light green arrival flash
     
-    // Add floating text showing ships received
-    if (this.game.floatingTexts) {
-      this.game.floatingTexts.push({
-        x: territory.x + Math.random() * 40 - 20,
-        y: territory.y - 25,
-        text: `+${fleetSize}`,
-        color: '#44ff44',
-        timer: 2000,
-        duration: 2000,
-        opacity: 1
-      });
-    }
+    // No floating text for reinforcements as requested by user
   }
 
   /**
