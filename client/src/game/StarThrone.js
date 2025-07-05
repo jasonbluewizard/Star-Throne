@@ -44,6 +44,7 @@ export default class StarThrone {
         this.gameTimer = 10 * 60 * 1000; // 10 minutes
         this.maxPlayers = 100;
         this.currentPlayers = 0;
+        this.gameInitialized = false; // Prevent early win condition checks
         
         // Home system flashing
         this.homeSystemFlashStart = null;
@@ -1323,6 +1324,9 @@ export default class StarThrone {
         // Start home system flashing for player identification
         this.homeSystemFlashStart = Date.now();
         
+        // Mark game as fully initialized to allow win condition checks
+        this.gameInitialized = true;
+        
         console.log(`Game started with ${this.players.length} players (${this.config.playerName} + ${this.config.aiCount} AI) and ${Object.keys(this.gameMap.territories).length} territories`);
     }
     
@@ -1649,8 +1653,8 @@ export default class StarThrone {
             this.checkPlayerElimination();
         }
         
-        // Check win conditions (throttled)
-        if (this.frameCount % 30 === 0) {
+        // Check win conditions (throttled) - only after game is properly initialized
+        if (this.gameInitialized && this.frameCount % 30 === 0) {
             this.checkWinConditions();
         }
         
