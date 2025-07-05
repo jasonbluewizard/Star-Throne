@@ -635,6 +635,12 @@ Changelog:
      - Friendly aliens providing instant fleet bonuses
    * Discovery system integrated into CombatSystem for automatic triggering during territorial conquest
    * Streamlined gameplay removing exploration phase while maintaining strategic discovery elements
+- January 5, 2025. Critical bug fixes - game initialization and throne star duplication:
+   * Fixed missing init() call in App.tsx that was preventing game from starting (black screen issue)
+   * Identified and resolved throne star duplication bug where every player was getting 2 throne stars
+   * Added automatic throne star audit system that detects and fixes duplicate throne stars on startup
+   * Enhanced error handling and debugging for game initialization process
+   * All players now correctly have exactly one throne star each as intended
 
 ## User Preferences
 

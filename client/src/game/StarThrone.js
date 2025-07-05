@@ -444,10 +444,15 @@ export default class StarThrone {
     }
     
     init() {
-        this.setupCanvas();
-        this.setupEventListeners();
-        this.gameMap = new GameMap(2000, 1500, this.config); // Large map with advanced configuration
-        this.gameMap.game = this; // Reference for AI animations
+        try {
+            console.log('StarThrone.init() started');
+            this.setupCanvas();
+            console.log('Canvas setup complete');
+            this.setupEventListeners();
+            console.log('Event listeners setup complete');
+            this.gameMap = new GameMap(2000, 1500, this.config); // Large map with advanced configuration
+            console.log('GameMap created');
+            this.gameMap.game = this; // Reference for AI animations
         
         // Use logical dimensions for camera, not physical canvas dimensions
         const logicalWidth = this.canvas.style.width ? parseInt(this.canvas.style.width) : window.innerWidth;
@@ -1443,6 +1448,8 @@ export default class StarThrone {
     }
     
     distributeStartingTerritories() {
+        console.log(`🎯 STARTING distributeStartingTerritories() - called at ${new Date().toISOString()}`);
+        
         // Since all territories are now colonizable, manually colonize starting territories
         const allTerritories = Object.values(this.gameMap.territories);
         const usedTerritories = [];

@@ -202,7 +202,9 @@ export class CombatSystem {
             if (wasNeutral && this.game.discoverySystem) {
                 const discovery = this.game.discoverySystem.processDiscovery(battle.defendingTerritory, battle.attacker);
                 if (discovery) {
-                    console.log(`🔍 Discovery on conquered planet ${battle.defendingTerritory.id}: ${discovery.name}`);
+                    console.log(`🔍 Discovery on conquered planet ${battle.defendingTerritory.id}: ${discovery.name || discovery.id}`);
+                } else {
+                    console.log(`🔍 No discovery on conquered planet ${battle.defendingTerritory.id}`);
                 }
             }
             

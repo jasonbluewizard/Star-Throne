@@ -35,7 +35,8 @@ function App() {
       // Make game globally accessible for mobile zoom buttons
       (window as any).game = gameRef.current;
       // Initialize the game
-      gameRef.current.init();
+      console.log('About to initialize game...');
+      await gameRef.current.init();
       console.log('Single-player Star Throne game initialized with config:', gameConfig);
     } catch (error) {
       console.error('Failed to initialize single-player game:', error);
