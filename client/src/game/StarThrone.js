@@ -1661,6 +1661,12 @@ export default class StarThrone {
             this.throneStarValidationTimer = 0;
         }
         
+        // MANUAL DEBUG: Run validation every 60 frames for debugging
+        if (this.frameCount % 60 === 0) {
+            console.log(`🔍 DEBUG: AI players: ${this.players.filter(p => p.type === 'ai').length}, Human players: ${this.players.filter(p => p.type === 'human').length}, Total: ${this.players.length}`);
+            this.validateThroneStars();
+        }
+        
         // Check for player elimination (throttled)
         if (this.frameCount % 20 === 0) {
             this.checkPlayerElimination();
@@ -3458,6 +3464,8 @@ export default class StarThrone {
      * Validates throne star assignments and fixes double throne star bugs
      */
     validateThroneStars() {
+        console.log('🔍 THRONE VALIDATION: Starting validation...');
+        
         // Count throne stars per player
         const playerThroneCount = new Map();
         
@@ -3465,19 +3473,27 @@ export default class StarThrone {
             playerThroneCount.set(player.id, 0);
         }
         
-        // Count throne stars
+        // Count throne stars and log what we find
+        const allThrones = [];
         for (const territory of Object.values(this.gameMap.territories)) {
-            if (territory.isThronestar && territory.ownerId !== null) {
-                const currentCount = playerThroneCount.get(territory.ownerId) || 0;
-                playerThroneCount.set(territory.ownerId, currentCount + 1);
+            if (territory.isThronestar) {
+                allThrones.push({id: territory.id, owner: territory.ownerId});
+                if (territory.ownerId !== null) {
+                    const currentCount = playerThroneCount.get(territory.ownerId) || 0;
+                    playerThroneCount.set(territory.ownerId, currentCount + 1);
+                }
             }
         }
         
+        console.log(`🔍 THRONE VALIDATION: Found ${allThrones.length} throne stars:`, allThrones);
+        console.log(`🔍 THRONE VALIDATION: Player throne counts:`, Array.from(playerThroneCount.entries()));
+        
         // Fix players with multiple throne stars
+        let fixed = false;
         for (const [playerId, throneCount] of playerThroneCount.entries()) {
             if (throneCount > 1) {
                 const player = this.players.find(p => p.id === playerId);
-                console.log(`🔧 FIXING: Player ${player ? player.name : playerId} has ${throneCount} throne stars - removing extras`);
+                console.log(`🔧 FIXING: Player ${player ? player.name : playerId} (ID: ${playerId}) has ${throneCount} throne stars - removing extras`);
                 
                 // Find all throne stars for this player
                 const playerThrones = [];
@@ -3487,12 +3503,19 @@ export default class StarThrone {
                     }
                 }
                 
+                console.log(`🔧 Found throne territories for player ${playerId}:`, playerThrones.map(t => t.id));
+                
                 // Keep the first throne star, remove the rest
                 for (let i = 1; i < playerThrones.length; i++) {
                     playerThrones[i].isThronestar = false;
                     console.log(`🔧 Removed throne star flag from territory ${playerThrones[i].id}`);
+                    fixed = true;
                 }
             }
+        }
+        
+        if (!fixed) {
+            console.log('🔍 THRONE VALIDATION: No fixes needed, all players have single throne stars');
         }
     }
 }
