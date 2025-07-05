@@ -86,10 +86,15 @@ export const GAME_CONSTANTS = {
 
     // Performance Throttling
     FPS_UPDATE_INTERVAL_MS: 1000,
-    VISIBLE_TERRITORIES_UPDATE_INTERVAL_MS: 100,
-    AI_UPDATE_PLAYERS_PER_FRAME_DIVISOR: 3,
-    SUPPLY_ROUTE_VALIDATION_FRAME_INTERVAL: 30,
-    SUPPLY_ROUTE_PROCESSING_FRAME_INTERVAL: 60,
+    VISIBLE_TERRITORIES_UPDATE_INTERVAL_MS: 150, // Increased for large maps
+    AI_UPDATE_PLAYERS_PER_FRAME_DIVISOR: 4, // More aggressive batching for large maps
+    SUPPLY_ROUTE_VALIDATION_FRAME_INTERVAL: 45,
+    SUPPLY_ROUTE_PROCESSING_FRAME_INTERVAL: 90,
+    
+    // LOD Rendering Thresholds
+    LOD_STRATEGIC_ZOOM_THRESHOLD: 0.3, // Below this zoom, use strategic rendering
+    LOD_TACTICAL_ZOOM_THRESHOLD: 1.5,  // Above this zoom, use tactical rendering
+    LOD_MAX_VISIBLE_TERRITORIES: 150,  // Limit rendered territories at any zoom level
 
     // Input & Controls
     DRAG_THRESHOLD_PIXELS_MOUSE: 5,
