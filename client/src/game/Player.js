@@ -111,12 +111,7 @@ export class Player {
         
         if (ownedTerritories.length === 0) return;
         
-        // 20% chance to consider probe colonization (reduced for performance)
-        if (Math.random() < 0.2) {
-            if (this.considerProbeColonization(ownedTerritories, gameMap)) {
-                return; // Probe launched, skip regular attack this turn
-            }
-        }
+        // DISABLED: Old probe colonization system removed - now using direct attacks on neutral territories
         
         // Limit AI actions per update to reduce computational load
         const maxActions = Math.min(2, Math.ceil(ownedTerritories.length / 5));
@@ -146,12 +141,16 @@ export class Player {
             if (actionsPerformed >= maxActions) break;
             
             const targets = this.findAttackTargets(territory, gameMap)
-                .filter(target => target.ownerId !== null && target.ownerId !== this.id)
+                .filter(target => target.ownerId !== this.id) // Include neutral territories (ownerId === null)
                 .sort((a, b) => b.armySize - a.armySize)
                 .slice(0, 3); // Limit target evaluation
             
             if (targets.length > 0) {
-                const target = targets[0];
+                // Prioritize neutral territories first, then strong enemies
+                const neutralTargets = targets.filter(t => t.ownerId === null);
+                const enemyTargets = targets.filter(t => t.ownerId !== null);
+                
+                const target = neutralTargets.length > 0 ? neutralTargets[0] : enemyTargets[0];
                 if (territory.armySize > target.armySize) {
                     this.executeAttack(territory, target, gameMap);
                     actionsPerformed++;
@@ -183,14 +182,34 @@ export class Player {
     }
     
     executeExpansionistStrategy(attackableTerritories, gameMap) {
-        // Prioritize neutral territories
+        // Prioritize neutral territories with smart target selection
+        const expansionTargets = [];
+        
         for (const territory of attackableTerritories) {
+            if (territory.armySize < 10) continue; // Need sufficient army to attack
+            
             const neutralTargets = this.findAttackTargets(territory, gameMap)
                 .filter(target => target.ownerId === null);
             
-            if (neutralTargets.length > 0) {
-                const target = neutralTargets[Math.floor(Math.random() * neutralTargets.length)];
-                this.executeAttack(territory, target, gameMap);
+            neutralTargets.forEach(target => {
+                const winChance = this.calculateWinChance(territory, target);
+                if (winChance > 0.4) { // More aggressive with neutrals - 40% win chance
+                    expansionTargets.push({
+                        from: territory,
+                        to: target,
+                        winChance: winChance,
+                        strategicValue: this.calculateStrategicValue(target, gameMap)
+                    });
+                }
+            });
+        }
+        
+        if (expansionTargets.length > 0) {
+            // Sort by combined win chance and strategic value
+            expansionTargets.sort((a, b) => (b.winChance * b.strategicValue) - (a.winChance * a.strategicValue));
+            const bestTarget = expansionTargets[0];
+            if (bestTarget && bestTarget.from && bestTarget.to) {
+                this.executeAttack(bestTarget.from, bestTarget.to, gameMap);
                 return;
             }
         }
@@ -215,7 +234,9 @@ export class Player {
                 if (!target) return;
                 
                 const winChance = this.calculateWinChance(territory, target);
-                if (winChance > 0.6) {
+                // More aggressive with neutral territories, stricter with enemy territories
+                const threshold = target.ownerId === null ? 0.4 : 0.6;
+                if (winChance > threshold) {
                     allTargets.push({
                         from: territory,
                         to: target,
@@ -243,7 +264,7 @@ export class Player {
         
         return territory.neighbors
             .map(id => gameMap.territories[id])
-            .filter(neighbor => neighbor && neighbor !== null && neighbor !== undefined && !neighbor.isColonizable);
+            .filter(neighbor => neighbor && neighbor !== null && neighbor !== undefined);
     }
     
     calculateWinChance(attackingTerritory, defendingTerritory) {
