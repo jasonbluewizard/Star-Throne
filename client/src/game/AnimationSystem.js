@@ -54,6 +54,45 @@ export class AnimationSystem {
             this.shipAnimationPool.push(animation);
         }
     }
+    
+    // FOG OF WAR: Check if ship animation should be visible
+    shouldRenderAnimation(animation) {
+        const humanPlayerId = this.game.humanPlayer?.id;
+        if (!humanPlayerId) return true; // Show all if no human player
+        
+        // Find the territories this animation is traveling between
+        let fromTerritory, toTerritory;
+        
+        if (animation.segments && animation.segments.length > 0) {
+            // Multi-hop animation - check current segment
+            const currentSegment = animation.currentSegment || 0;
+            if (currentSegment < animation.segments.length) {
+                // Find territories by coordinates
+                fromTerritory = this.findTerritoryByCoords(animation.segments[currentSegment].from);
+                toTerritory = this.findTerritoryByCoords(animation.segments[currentSegment].to);
+            }
+        } else {
+            // Single hop animation
+            fromTerritory = this.findTerritoryByCoords(animation.from);
+            toTerritory = this.findTerritoryByCoords(animation.to);
+        }
+        
+        if (!fromTerritory || !toTerritory) return true; // Safe fallback
+        
+        // Animation is visible if the warp lane between territories is visible
+        // (At least one end must be owned by human player)
+        return fromTerritory.ownerId === humanPlayerId || toTerritory.ownerId === humanPlayerId;
+    }
+    
+    // Helper to find territory by coordinates
+    findTerritoryByCoords(coords) {
+        for (const territory of Object.values(this.game.gameMap.territories)) {
+            if (Math.abs(territory.x - coords.x) < 1 && Math.abs(territory.y - coords.y) < 1) {
+                return territory;
+            }
+        }
+        return null;
+    }
 
     // Create ship animation for attacks/transfers
     createBasicShipAnimation(fromTerritory, toTerritory, color, isAttack = false) {
@@ -138,6 +177,11 @@ export class AnimationSystem {
     // Render ship animations
     renderShipAnimations(ctx, camera) {
         for (const animation of this.shipAnimations) {
+            // FOG OF WAR: Check if animation should be visible
+            if (!this.shouldRenderAnimation(animation)) {
+                continue;
+            }
+            
             const t = Math.min(animation.progress / animation.duration, 1.0);
             const currentX = animation.from.x + (animation.to.x - animation.from.x) * t;
             const currentY = animation.from.y + (animation.to.y - animation.from.y) * t;

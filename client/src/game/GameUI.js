@@ -851,23 +851,48 @@ export class GameUI {
                 tooltipLines.push(`Select owned territory first`);
             }
         } else {
-            tooltipLines.push(`${ownerName}`);
-            tooltipLines.push(`${territory.armySize} Fleets`);
+            // FOG OF WAR: Check if this is a mysterious territory
+            const humanPlayerId = gameData.humanPlayer?.id;
+            const isNeutralMystery = territory.ownerId === null && !territory.neighbors.some(neighborId => {
+                const neighbor = gameData.territories?.[neighborId];
+                return neighbor && neighbor.ownerId === humanPlayerId;
+            });
             
-            if (territory.isThronestar) {
-                tooltipLines.push(`👑 Throne Star`);
-            }
+            const isEnemyMystery = territory.ownerId !== null && territory.ownerId !== humanPlayerId && !territory.neighbors.some(neighborId => {
+                const neighbor = gameData.territories?.[neighborId];
+                return neighbor && neighbor.ownerId === humanPlayerId;
+            });
             
-            // Show supply route information if this territory is supplying another
-            if (gameData.supplySystem && gameData.supplySystem.supplyRoutes) {
-                const outgoingRoutes = gameData.supplySystem.supplyRoutes.filter(route => route.from === territory.id);
-                if (outgoingRoutes.length > 0) {
-                    outgoingRoutes.forEach(route => {
-                        const targetTerritory = gameData.territories[route.to];
-                        if (targetTerritory) {
-                            tooltipLines.push(`Reinforcing star ${route.to}`);
-                        }
-                    });
+            const isMysteriousTerritory = isNeutralMystery || isEnemyMystery;
+            
+            if (isMysteriousTerritory && territory.ownerId !== null) {
+                // Mysterious enemy territory - only show player name
+                tooltipLines.push(`${ownerName}`);
+                tooltipLines.push(`Unknown forces`);
+            } else if (isNeutralMystery) {
+                // Mysterious neutral territory - show as unexplored
+                tooltipLines.push(`Unexplored System`);
+                tooltipLines.push(`Unknown garrison`);
+            } else {
+                // Visible territory - show full information
+                tooltipLines.push(`${ownerName}`);
+                tooltipLines.push(`${territory.armySize} Fleets`);
+                
+                if (territory.isThronestar) {
+                    tooltipLines.push(`👑 Throne Star`);
+                }
+                
+                // Show supply route information if this territory is supplying another
+                if (gameData.supplySystem && gameData.supplySystem.supplyRoutes) {
+                    const outgoingRoutes = gameData.supplySystem.supplyRoutes.filter(route => route.from === territory.id);
+                    if (outgoingRoutes.length > 0) {
+                        outgoingRoutes.forEach(route => {
+                            const targetTerritory = gameData.territories[route.to];
+                            if (targetTerritory) {
+                                tooltipLines.push(`Reinforcing star ${route.to}`);
+                            }
+                        });
+                    }
                 }
             }
             

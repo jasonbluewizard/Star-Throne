@@ -181,17 +181,38 @@ export class Territory {
         // Optimize rendering with batch operations
         ctx.save();
         
-        // Add hover glow effect
+        // FOG OF WAR: Check if this is a mysterious territory
+        const humanPlayerId = gameData?.humanPlayer?.id;
+        const isNeutralMystery = this.ownerId === null && !this.neighbors.some(neighborId => {
+            const neighbor = gameData?.gameMap?.territories?.[neighborId];
+            return neighbor && neighbor.ownerId === humanPlayerId;
+        });
+        
+        const isEnemyMystery = this.ownerId !== null && this.ownerId !== humanPlayerId && !this.neighbors.some(neighborId => {
+            const neighbor = gameData?.gameMap?.territories?.[neighborId];
+            return neighbor && neighbor.ownerId === humanPlayerId;
+        });
+        
+        const isMysteriousTerritory = isNeutralMystery || isEnemyMystery;
+        
+        // Adjust rendering for mysterious territories
+        const renderRadius = isMysteriousTerritory ? this.radius * 0.8 : this.radius;
+        const renderAlpha = isMysteriousTerritory ? 0.6 : 1.0;
+        
+        // Add hover glow effect (reduced for mysterious territories)
         if (isHovered && !isSelected) {
             ctx.shadowColor = '#ffffff';
-            ctx.shadowBlur = 15;
+            ctx.shadowBlur = isMysteriousTerritory ? 8 : 15;
             ctx.shadowOffsetX = 0;
             ctx.shadowOffsetY = 0;
         }
         
+        // Apply mystery transparency
+        ctx.globalAlpha = renderAlpha;
+        
         // Draw territory circle and border in single operation
         ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.arc(this.x, this.y, renderRadius, 0, Math.PI * 2);
         ctx.fillStyle = fillColor;
         ctx.fill();
         
@@ -261,8 +282,8 @@ export class Territory {
             this.renderHumanFlag(ctx);
         }
         
-        // Draw crown for throne star territories
-        if (this.isThronestar && this.ownerId !== null) {
+        // Draw crown for throne star territories (only if not mysterious)
+        if (this.isThronestar && this.ownerId !== null && !isMysteriousTerritory) {
             this.renderCrown(ctx);
         }
         
@@ -305,13 +326,23 @@ export class Territory {
                 ctx.arc(this.x, this.y, this.radius + 2, 0, Math.PI * 2);
                 ctx.stroke();
                 ctx.setLineDash([]);
+            } else if (!isAdjacentToPlayer) {
+                // Mysterious neutral territory - yellow question mark with smaller, translucent appearance
+                ctx.fillStyle = '#ffff00'; // Yellow text for mystery
+                ctx.strokeStyle = 'rgba(255, 255, 0, 0.8)'; // Yellow outline
+                ctx.lineWidth = 2;
+                ctx.font = 'bold 16px Arial';
+                
+                const displayText = '?';
+                ctx.strokeText(displayText, this.x, this.y + 4);
+                ctx.fillText(displayText, this.x, this.y + 4);
             } else {
-                // Neutral territory - show army count only if adjacent to player territory
+                // Visible neutral territory - show army count normally
                 ctx.fillStyle = '#000000'; // Black text
                 ctx.strokeStyle = '#ffffff'; // White outline for contrast
                 ctx.lineWidth = 2;
                 
-                const displayText = isAdjacentToPlayer ? this.armySize.toString() : '?';
+                const displayText = this.armySize.toString();
                 ctx.strokeText(displayText, this.x, this.y + 4);
                 ctx.fillText(displayText, this.x, this.y + 4);
             }
@@ -325,8 +356,8 @@ export class Territory {
             ctx.fillText(`T${this.id}`, this.x, this.y - this.radius - 8);
         }
         
-        // Draw army count for owned territories with probe flash effect
-        if (this.ownerId !== null) {
+        // Draw army count for owned territories with probe flash effect (only if not mysterious)
+        if (this.ownerId !== null && !isMysteriousTerritory) {
             const player = players[this.ownerId];
             if (player) {
                 // Check for probe flash effect
@@ -387,6 +418,9 @@ export class Territory {
         if (isSelected && this.ownerId !== null) {
             this.renderPotentialTargets(ctx, players);
         }
+        
+        // Restore alpha for subsequent rendering
+        ctx.globalAlpha = 1.0;
         
         ctx.restore();
     }

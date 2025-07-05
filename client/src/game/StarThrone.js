@@ -2291,6 +2291,15 @@ export default class StarThrone {
             for (let i = 0; i < territories.length; i++) {
                 const territory = territories[i];
                 if (territory.ownerId !== null) {
+                    // FOG OF WAR: Check if this is a mysterious enemy territory
+                    const isEnemyMystery = territory.ownerId !== this.humanPlayer?.id && !territory.neighbors.some(neighborId => {
+                        const neighbor = this.gameMap.territories[neighborId];
+                        return neighbor && neighbor.ownerId === this.humanPlayer?.id;
+                    });
+                    
+                    // Skip army numbers for mysterious enemy territories
+                    if (isEnemyMystery) continue;
+                    
                     // Use cached player lookup
                     let owner = playersLookup[territory.ownerId];
                     if (!owner) {
@@ -2321,6 +2330,15 @@ export default class StarThrone {
             for (let i = 0; i < territories.length; i++) {
                 const territory = territories[i];
                 if (territory.ownerId !== null && territory.armySize > 0) {
+                    // FOG OF WAR: Check if this is a mysterious enemy territory
+                    const isEnemyMystery = territory.ownerId !== this.humanPlayer?.id && !territory.neighbors.some(neighborId => {
+                        const neighbor = this.gameMap.territories[neighborId];
+                        return neighbor && neighbor.ownerId === this.humanPlayer?.id;
+                    });
+                    
+                    // Skip army numbers for mysterious enemy territories
+                    if (isEnemyMystery) continue;
+                    
                     // Use cached player lookup
                     let owner = playersLookup[territory.ownerId];
                     if (!owner) {
@@ -2356,6 +2374,15 @@ export default class StarThrone {
             for (let i = 0; i < territories.length; i++) {
                 const territory = territories[i];
                 if (territory.ownerId !== null && territory.armySize > 0) {
+                    // FOG OF WAR: Check if this is a mysterious enemy territory
+                    const isEnemyMystery = territory.ownerId !== this.humanPlayer?.id && !territory.neighbors.some(neighborId => {
+                        const neighbor = this.gameMap.territories[neighborId];
+                        return neighbor && neighbor.ownerId === this.humanPlayer?.id;
+                    });
+                    
+                    // Skip army numbers for mysterious enemy territories
+                    if (isEnemyMystery) continue;
+                    
                     // Use cached player lookup
                     let owner = playersLookup[territory.ownerId];
                     if (!owner) {
