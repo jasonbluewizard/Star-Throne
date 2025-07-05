@@ -1341,6 +1341,9 @@ export default class StarThrone {
             }
         }
         
+        // Audit throne stars to fix any duplicates
+        this.auditThroneStars();
+        
         // Update player stats
         this.players.forEach(player => player.updateStats());
     }
@@ -1351,6 +1354,40 @@ export default class StarThrone {
             [array[i], array[j]] = [array[j], array[i]];
         }
         return array;
+    }
+    
+    /**
+     * Audit and fix throne star duplicates
+     */
+    auditThroneStars() {
+        console.log('🔍 Starting throne star audit...');
+        
+        // Check each player for multiple throne stars
+        for (const player of this.players) {
+            const playerThroneStars = [];
+            
+            // Find all throne stars owned by this player
+            for (const territory of Object.values(this.gameMap.territories)) {
+                if (territory.ownerId === player.id && territory.isThronestar) {
+                    playerThroneStars.push(territory);
+                }
+            }
+            
+            console.log(`👑 Player ${player.name} (ID: ${player.id}) has ${playerThroneStars.length} throne stars`);
+            
+            // Fix duplicates - keep only the first one
+            if (playerThroneStars.length > 1) {
+                console.log(`🚨 FIXING: Player ${player.name} has multiple throne stars! Keeping only the first one.`);
+                
+                for (let i = 1; i < playerThroneStars.length; i++) {
+                    const extraThrone = playerThroneStars[i];
+                    extraThrone.isThronestar = false;
+                    console.log(`🔧 Removing throne star status from territory ${extraThrone.id}`);
+                }
+            }
+        }
+        
+        console.log('✅ Throne star audit completed');
     }
     
     gameLoop(currentTime = 0) {
