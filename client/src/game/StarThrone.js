@@ -49,6 +49,9 @@ export default class StarThrone {
         // Persistent star lane discovery system
         this.discoveredLanes = new Set(); // Stores "id1-id2" strings for permanently visible lanes
         
+        // Throne star validation timer
+        this.throneStarValidationTimer = 0;
+        
         // Home system flashing
         this.homeSystemFlashStart = null;
         this.homeSystemFlashDuration = 3000; // 3 seconds
@@ -1636,6 +1639,13 @@ export default class StarThrone {
             this.supplySystem.validateSupplyRoutes();
         }
         // (Removed redundant 90-frame check; supply logic now in Territory.generateArmies())
+        
+        // Validate throne stars every 5 seconds to fix double throne bugs
+        this.throneStarValidationTimer += deltaTime;
+        if (this.throneStarValidationTimer >= 5000) {
+            this.validateThroneStars();
+            this.throneStarValidationTimer = 0;
+        }
         
         // Check for player elimination (throttled)
         if (this.frameCount % 20 === 0) {
@@ -3428,5 +3438,47 @@ export default class StarThrone {
         // Regenerate map and restart
         this.gameMap = new GameMap(2000, 1500, this.config); // Pass config to maintain connection distances
         this.startGame();
+    }
+    
+    /**
+     * Validates throne star assignments and fixes double throne star bugs
+     */
+    validateThroneStars() {
+        // Count throne stars per player
+        const playerThroneCount = new Map();
+        
+        for (const player of this.players) {
+            playerThroneCount.set(player.id, 0);
+        }
+        
+        // Count throne stars
+        for (const territory of Object.values(this.gameMap.territories)) {
+            if (territory.isThronestar && territory.ownerId !== null) {
+                const currentCount = playerThroneCount.get(territory.ownerId) || 0;
+                playerThroneCount.set(territory.ownerId, currentCount + 1);
+            }
+        }
+        
+        // Fix players with multiple throne stars
+        for (const [playerId, throneCount] of playerThroneCount.entries()) {
+            if (throneCount > 1) {
+                const player = this.players[playerId];
+                console.log(`🔧 FIXING: Player ${player ? player.name : playerId} has ${throneCount} throne stars - removing extras`);
+                
+                // Find all throne stars for this player
+                const playerThrones = [];
+                for (const territory of Object.values(this.gameMap.territories)) {
+                    if (territory.isThronestar && territory.ownerId === playerId) {
+                        playerThrones.push(territory);
+                    }
+                }
+                
+                // Keep the first throne star, remove the rest
+                for (let i = 1; i < playerThrones.length; i++) {
+                    playerThrones[i].isThronestar = false;
+                    console.log(`🔧 Removed throne star flag from territory ${playerThrones[i].id}`);
+                }
+            }
+        }
     }
 }

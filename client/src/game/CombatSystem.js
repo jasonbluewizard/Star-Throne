@@ -189,15 +189,18 @@ export class CombatSystem {
             
             // Check for throne star capture before changing ownership
             const isThroneCapture = battle.defendingTerritory.isThronestar;
+            console.log(`🏰 THRONE CHECK: Territory ${battle.defendingTerritory.id} isThronestar: ${isThroneCapture}, defender: ${oldOwner ? oldOwner.name : 'neutral'}`);
             
             // Transfer territory
             battle.defendingTerritory.ownerId = battle.attackingTerritory.ownerId;
             battle.defendingTerritory.armySize = survivingAttackers;
             
             // Handle throne star capture
-            if (isThroneCapture) {
+            if (isThroneCapture && oldOwner) {
                 console.log(`🏆 THRONE STAR CAPTURED! ${battle.attacker.name} captures throne from ${oldOwner.name}`);
                 this.handleThroneStarCapture(battle.attacker, oldOwner, battle.defendingTerritory);
+            } else if (isThroneCapture && !oldOwner) {
+                console.log(`🏰 THRONE STAR: Territory ${battle.defendingTerritory.id} is a throne star but was neutral - not triggering capture`);
             }
             
             // DISCOVERY: Trigger discovery when conquering neutral territory
