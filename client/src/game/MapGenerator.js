@@ -129,6 +129,8 @@ export default class MapGenerator {
         const width = baseWidth * scale;
         const height = baseHeight * scale;
         
+        console.log(`🗺️ Map generation area: ${Math.round(width)} x ${Math.round(height)} (scale: ${scale.toFixed(2)})`);
+        
         switch (layout) {
             case 'clusters':
                 return this.generateClusterLayout(points, mapSize, width, height, numPlayers);
@@ -296,11 +298,11 @@ export default class MapGenerator {
         
         // Generate organic galaxy boundary using multiple sine waves
         const boundaryFunction = (angle) => {
-            const baseRadius = Math.min(width, height) * 0.42; // Use more of the available space
-            const roughness1 = Math.sin(angle * 3) * 0.15;
-            const roughness2 = Math.sin(angle * 7) * 0.08;
-            const roughness3 = Math.sin(angle * 13) * 0.05;
-            const roughness4 = Math.sin(angle * 19) * 0.03;
+            const baseRadius = Math.min(width, height) * 0.48; // Use much more of the available space
+            const roughness1 = Math.sin(angle * 3) * 0.12;
+            const roughness2 = Math.sin(angle * 7) * 0.06;
+            const roughness3 = Math.sin(angle * 13) * 0.04;
+            const roughness4 = Math.sin(angle * 19) * 0.02;
             
             return baseRadius * (1 + roughness1 + roughness2 + roughness3 + roughness4);
         };
@@ -324,7 +326,7 @@ export default class MapGenerator {
         
         for (let i = 0; i < numClusters; i++) {
             const angle = Math.random() * 2 * Math.PI;
-            const distance = Math.random() * Math.min(width, height) * 0.3;
+            const distance = Math.random() * Math.min(width, height) * 0.4;
             const clusterX = centerX + distance * Math.cos(angle);
             const clusterY = centerY + distance * Math.sin(angle);
             
@@ -388,8 +390,8 @@ export default class MapGenerator {
         let attempts = 0;
         while (points.length < mapSize && attempts < mapSize * 10) {
             const candidate = {
-                x: centerX + (Math.random() - 0.5) * width * 0.8,
-                y: centerY + (Math.random() - 0.5) * height * 0.8
+                x: centerX + (Math.random() - 0.5) * width * 0.95,
+                y: centerY + (Math.random() - 0.5) * height * 0.95
             };
             
             attempts++;
