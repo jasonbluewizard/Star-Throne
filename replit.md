@@ -610,6 +610,13 @@ Changelog:
    * Fixed critical game initialization bug causing immediate "Game Over" on startup
    * Corrected import path errors in StarThrone.js that were causing unhandled rejections
    * Streamlined gameplay by removing exploration phase - focus on direct territorial conquest
+- January 5, 2025. Fog of war system implementation for enhanced strategic gameplay:
+   * Star lanes only visible when at least one end is owned by the human player
+   * Neutral garrison numbers hidden unless territory is adjacent to player-owned systems
+   * Shows "?" instead of army counts for unexplored neutral territories beyond player control
+   * Maintains normal display for territories adjacent to controlled systems for tactical awareness
+   * Creates strategic depth by limiting intelligence about distant regions while preserving immediate tactical information
+   * Core attack mechanics remain fully functional for direct territorial conquest
 
 ## User Preferences
 
