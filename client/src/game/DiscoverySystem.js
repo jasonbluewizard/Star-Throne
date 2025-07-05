@@ -196,7 +196,7 @@ export class DiscoverySystem {
                 break;
         }
         
-        return true; // Colonization succeeds
+        return discovery; // Return the discovery object
     }
 
     // Add floating discovery announcement above territory
