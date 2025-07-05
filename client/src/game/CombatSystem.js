@@ -35,6 +35,8 @@ export class CombatSystem {
         const attacker = this.game.players[attackingTerritory.ownerId];
         const defender = defendingTerritory.ownerId ? this.game.players[defendingTerritory.ownerId] : null; // Neutral territories have no defender player
         
+        console.log(`🎯 ATTACK DEBUG: Territory ${attackingTerritory.id} owned by player ID ${attackingTerritory.ownerId}, player name: ${attacker ? attacker.name : 'NOT FOUND'}`);
+        
         if (!attacker) {
             return { success: false, reason: 'Invalid attacker' };
         }
