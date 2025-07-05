@@ -1297,9 +1297,11 @@ export default class StarThrone {
             this.log('Spatial index built for optimized territory lookups', 'info');
 
             // Create players: 1 human + configured AI count
-            const totalPlayers = 1 + this.config.aiCount;
-            console.log(`🔍 PLAYER COUNT DEBUG: config.aiCount = ${this.config.aiCount}, totalPlayers = ${totalPlayers}, maxPlayers = ${this.maxPlayers}`);
-            this.createPlayers(Math.min(totalPlayers, this.maxPlayers));
+            const requestedAI = this.config.aiCount || GAME_CONSTANTS.DEFAULT_SINGLE_PLAYER_AI_COUNT;
+            const totalPlayers = 1 + requestedAI;
+            const actualPlayers = Math.min(totalPlayers, 20); // Hard cap at 20 total players for performance
+            console.log(`🔍 PLAYER COUNT DEBUG: config.aiCount = ${this.config.aiCount}, requestedAI = ${requestedAI}, totalPlayers = ${totalPlayers}, actualPlayers = ${actualPlayers}`);
+            this.createPlayers(actualPlayers);
             
             // Update human player name from config
             if (this.humanPlayer) {
@@ -1385,6 +1387,11 @@ export default class StarThrone {
 
     createPlayers(numPlayers) {
         console.log(`🔍 CREATE PLAYERS DEBUG: Creating ${numPlayers} total players (1 human + ${numPlayers-1} AI)`);
+        
+        // Clear any existing players to prevent duplicates
+        this.players = [];
+        this.humanPlayer = null;
+        
         // Expanded unique color palette - no duplicates
         const baseColors = [
             '#ff4444', '#44ff44', '#4444ff', '#ffff44', '#ff44ff', 
@@ -1397,7 +1404,7 @@ export default class StarThrone {
             '#ffdd44', '#ddff44', '#44ddff', '#ff44dd', '#ddff88', '#dd44ff'
         ];
         
-        // Create human player with distinctive bright cyan color
+        // Create exactly one human player with distinctive bright cyan color
         this.humanPlayer = new Player(0, 'You', '#00ffff', 'human');
         this.players.push(this.humanPlayer);
         this.initializePlayerDiscoveries(this.humanPlayer.id);
