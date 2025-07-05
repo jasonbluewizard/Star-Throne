@@ -736,7 +736,11 @@ export default class StarThrone {
             playerName: player.name
         });
         
-        console.log(`🔍 Discovery on planet ${territory.id}: ${discovery.name} - ${discovery.description}`);
+        // Reduce console spam on massive maps
+        const totalTerritories = Object.keys(this.gameMap.territories).length;
+        if (totalTerritories < GAME_CONSTANTS.AI_MASSIVE_MAP_THRESHOLD || Math.random() < 0.1) {
+            console.log(`🔍 Discovery on planet ${territory.id}: ${discovery.name} - ${discovery.description}`);
+        }
         
         // Add floating discovery text above the planet
         this.addFloatingDiscoveryText(territory, discovery, playerId);
@@ -983,7 +987,11 @@ export default class StarThrone {
         
         // If probe was lost to hostile aliens, colonization fails
         if (!colonizationSuccessful) {
-            console.log(`Colonization of planet ${planet.id} failed due to hostile encounter!`);
+            // Reduce console spam on massive maps
+            const totalTerritories = Object.keys(this.gameMap.territories).length;
+            if (totalTerritories < GAME_CONSTANTS.AI_MASSIVE_MAP_THRESHOLD || Math.random() < 0.1) {
+                console.log(`Colonization of planet ${planet.id} failed due to hostile encounter!`);
+            }
             return;
         }
         
@@ -1013,7 +1021,11 @@ export default class StarThrone {
         // Update player stats
         player.updateStats();
         
-        console.log(`Planet ${planet.id} colonized successfully! Discovery: ${discovery.name}`);
+        // Reduce console spam on massive maps
+        const totalTerritories = Object.keys(this.gameMap.territories).length;
+        if (totalTerritories < GAME_CONSTANTS.AI_MASSIVE_MAP_THRESHOLD || Math.random() < 0.1) {
+            console.log(`Planet ${planet.id} colonized successfully! Discovery: ${discovery.name}`);
+        }
     }
     
     // Render ship animations

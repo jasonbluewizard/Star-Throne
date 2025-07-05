@@ -90,6 +90,13 @@ export const GAME_CONSTANTS = {
     AI_UPDATE_PLAYERS_PER_FRAME_DIVISOR: 3,
     SUPPLY_ROUTE_VALIDATION_FRAME_INTERVAL: 30,
     SUPPLY_ROUTE_PROCESSING_FRAME_INTERVAL: 60,
+    
+    // AI Performance (Map Size Adaptive)
+    AI_LARGE_MAP_THRESHOLD: 200, // Maps above this size get performance optimizations
+    AI_MASSIVE_MAP_THRESHOLD: 350, // Maps above this size get aggressive throttling
+    AI_PROBE_LAUNCH_CHANCE_NORMAL: 0.20, // 20% chance on normal maps
+    AI_PROBE_LAUNCH_CHANCE_LARGE: 0.10,  // 10% chance on large maps
+    AI_PROBE_LAUNCH_CHANCE_MASSIVE: 0.05, // 5% chance on massive maps
 
     // Input & Controls
     DRAG_THRESHOLD_PIXELS_MOUSE: 5,

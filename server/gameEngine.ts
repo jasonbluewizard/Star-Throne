@@ -226,8 +226,15 @@ export class GameEngine {
     private updateAI(deltaTime: number): void {
         const aiPlayers = Object.values(this.gameState.players).filter(p => p.type === 'ai' && !p.isEliminated);
         
-        // Speed-adjusted AI decision making
-        const decisionChance = (deltaTime * this.gameSpeed) / GAME_CONSTANTS.AI_DECISION_INTERVAL_MS;
+        // Map size adaptive AI decision frequency
+        const totalTerritories = Object.keys(this.gameState.territories).length;
+        let decisionChance = (deltaTime * this.gameSpeed) / GAME_CONSTANTS.AI_DECISION_INTERVAL_MS;
+        
+        if (totalTerritories >= GAME_CONSTANTS.AI_MASSIVE_MAP_THRESHOLD) {
+          decisionChance *= 0.1; // 90% slower on massive maps (500+ territories)
+        } else if (totalTerritories >= GAME_CONSTANTS.AI_LARGE_MAP_THRESHOLD) {
+          decisionChance *= 0.3; // 70% slower on large maps (200+ territories)
+        }
         
         aiPlayers.forEach(player => {
             if (Math.random() < decisionChance) {
@@ -243,16 +250,26 @@ export class GameEngine {
 
         if (ownedTerritories.length === 0) return;
 
+        // Map size adaptive AI throttling
+        const totalTerritories = Object.keys(this.gameState.territories).length;
+        let probeChance = GAME_CONSTANTS.AI_PROBE_LAUNCH_CHANCE_NORMAL;
+        
+        if (totalTerritories >= GAME_CONSTANTS.AI_MASSIVE_MAP_THRESHOLD) {
+          probeChance = GAME_CONSTANTS.AI_PROBE_LAUNCH_CHANCE_MASSIVE;
+        } else if (totalTerritories >= GAME_CONSTANTS.AI_LARGE_MAP_THRESHOLD) {
+          probeChance = GAME_CONSTANTS.AI_PROBE_LAUNCH_CHANCE_LARGE;
+        }
+
         // Simple AI: try to expand or attack
         const actionTerritory = ownedTerritories.find(t => t.armySize >= GAME_CONSTANTS.PROBE_MIN_ARMY_TO_LAUNCH);
         if (!actionTerritory) return;
 
-        // Try to launch probe to colonizable neighbor
+        // Try to launch probe to colonizable neighbor (with map-size throttling)
         const colonizableNeighbor = actionTerritory.neighbors
             .map(id => this.gameState.territories[id])
             .find(t => t && t.isColonizable);
 
-        if (colonizableNeighbor) {
+        if (colonizableNeighbor && Math.random() < probeChance) {
             this.launchProbe(player.id, actionTerritory.id, colonizableNeighbor.id);
             return;
         }
