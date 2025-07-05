@@ -876,7 +876,31 @@ export class GameUI {
             } else {
                 // Visible territory - show full information
                 tooltipLines.push(`${ownerName}`);
-                tooltipLines.push(`${territory.armySize} Fleets`);
+                
+                // Calculate generation rate including supply bonuses
+                let generationRate = 0;
+                let fleetDisplay = `${territory.armySize} Fleets`;
+                
+                if (territory.ownerId !== null) {
+                    // Base generation rate (1 fleet per 3 seconds = 0.33/s)
+                    generationRate = 1000 / (territory.armyGenerationRate || 3000);
+                    
+                    // Add supply route bonuses
+                    if (gameData.supplySystem && gameData.supplySystem.supplyRoutes) {
+                        const incomingRoutes = gameData.supplySystem.supplyRoutes.filter(route => route.to === territory.id);
+                        generationRate += incomingRoutes.length * (1000 / 3000); // Each supply route adds base rate
+                    }
+                    
+                    // Format generation rate with proper precision
+                    if (generationRate > 0) {
+                        const rateText = generationRate >= 1 ? 
+                            `+${generationRate.toFixed(1)}/s` : 
+                            `+${generationRate.toFixed(2)}/s`;
+                        fleetDisplay += ` (${rateText})`;
+                    }
+                }
+                
+                tooltipLines.push(fleetDisplay);
                 
                 if (territory.isThronestar) {
                     tooltipLines.push(`👑 Throne Star`);

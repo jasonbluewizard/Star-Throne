@@ -617,6 +617,14 @@ Changelog:
    * Maintains normal display for territories adjacent to controlled systems for tactical awareness
    * Creates strategic depth by limiting intelligence about distant regions while preserving immediate tactical information
    * Core attack mechanics remain fully functional for direct territorial conquest
+- January 5, 2025. Comprehensive fog of war system completion and fleet generation tooltip enhancement:
+   * Hidden army numbers for mysterious territories across all zoom levels (strategic, operational, tactical)
+   * Limited tooltip information showing only player name or "unknown forces" for disconnected enemies
+   * Hidden throne crown icons for mysterious enemy territories not connected by visible warp lanes
+   * Invisible ship animations on hidden warp lanes between disconnected territories
+   * Enhanced visual effects for mysterious territories (smaller, translucent, yellow "?" markers)
+   * Fleet generation rate display in tooltips showing "+X/s" including supply route bonuses
+   * Comprehensive fog of war creates strategic depth while preserving core attack and exploration mechanics
 
 ## User Preferences
 
