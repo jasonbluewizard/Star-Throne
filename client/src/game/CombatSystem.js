@@ -200,9 +200,12 @@ export class CombatSystem {
             
             // DISCOVERY: Trigger discovery when conquering neutral territory
             if (wasNeutral && this.game.discoverySystem) {
+                console.log(`🔬 Processing discovery for ${battle.attacker.name} conquering neutral planet ${battle.defendingTerritory.id}`);
                 const discovery = this.game.discoverySystem.processDiscovery(battle.defendingTerritory, battle.attacker);
                 if (discovery) {
                     console.log(`🔍 Discovery on conquered planet ${battle.defendingTerritory.id}: ${discovery.name}`);
+                } else {
+                    console.log(`🔍 No discovery on conquered planet ${battle.defendingTerritory.id}: Standard planet`);
                 }
             }
             
@@ -375,6 +378,7 @@ export class CombatSystem {
         }
         
         // Destroy the captured throne star (prevent multiple thrones in one empire)
+        console.log(`🔥 Destroying captured throne star ${throneTerritory.id} to prevent multiple thrones`);
         throneTerritory.isThronestar = false;
         
         // Add dramatic floating text

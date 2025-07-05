@@ -129,6 +129,7 @@ export class DiscoverySystem {
         // Apply discovery effects
         switch (discovery.id) {
             case 'precursor_weapons':
+                // Apply effect to all players
                 if (isHumanPlayer) {
                     this.discoveries.precursorWeapons++;
                     this.addFloatingDiscovery(territory, discovery);
