@@ -124,8 +124,14 @@ export default class MapGenerator {
         const baseWidth = 1800;  // Reduced for closer planets
         const baseHeight = 1400; // Reduced for closer planets
         
-        // Scale dimensions based on map size
-        const scale = Math.sqrt(mapSize / 80); // 80 is our reference size
+        // Scale dimensions based on map size with more conservative scaling for large maps
+        let scale = Math.sqrt(mapSize / 80); // 80 is our reference size
+        
+        // Cap the scaling to prevent massive maps that break rendering
+        if (mapSize > 200) {
+            scale = Math.min(scale, 2.0); // Max 2x scaling regardless of territory count
+        }
+        
         const width = baseWidth * scale;
         const height = baseHeight * scale;
         
@@ -437,7 +443,10 @@ export default class MapGenerator {
      */
     static applyForceRelaxation(points, layout) {
         const iterations = layout === 'organic' ? 8 : 5; // More iterations for organic
-        const repulsionStrength = 2000;
+        // Scale repulsion strength based on territory count to maintain spacing
+        const baseRepulsion = 2000;
+        const densityFactor = Math.max(0.5, Math.min(2.0, 80 / points.length)); // Adjust for density
+        const repulsionStrength = baseRepulsion * densityFactor;
         const damping = 0.8;
         
         for (let iter = 0; iter < iterations; iter++) {
