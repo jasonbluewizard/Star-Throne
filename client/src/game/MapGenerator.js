@@ -106,11 +106,11 @@ export default class MapGenerator {
         // 6. ENSURE FULL CONNECTIVITY (CRITICAL FOR GAMEPLAY)
         this.ensureConnectivity(points, connections, edges);
         
-        // 7. BUILD TERRITORY OBJECTS
-        const territories = this.buildTerritories(points, connections);
-        
-        // 8. SET MAP DIMENSIONS
+        // 7. NORMALIZE COORDINATES AND SET MAP DIMENSIONS
         this.calculateMapDimensions(points);
+        
+        // 8. BUILD TERRITORY OBJECTS (with normalized coordinates)
+        const territories = this.buildTerritories(points, connections);
         
         console.log(`✨ Generated ${territories.length} territories with ${this.countConnections(connections)} warp lanes`);
         return territories;
@@ -675,11 +675,21 @@ export default class MapGenerator {
         const minY = Math.min(...ys);
         const maxY = Math.max(...ys);
         
+        // Normalize all points to start from origin with proper margin
         const margin = 200;
+        const offsetX = minX - margin;
+        const offsetY = minY - margin;
+        
+        // Shift all points to start from margin offset
+        for (const point of points) {
+            point.x -= offsetX;
+            point.y -= offsetY;
+        }
+        
         this.mapWidth = maxX - minX + margin * 2;
         this.mapHeight = maxY - minY + margin * 2;
         
-        console.log(`📐 Map dimensions: ${this.mapWidth} x ${this.mapHeight}`);
+        console.log(`📐 Map dimensions: ${this.mapWidth} x ${this.mapHeight} (normalized from ${minX}-${maxX}, ${minY}-${maxY})`);
     }
     
     /**
