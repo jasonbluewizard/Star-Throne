@@ -1,20 +1,23 @@
-import { GameMap } from './GameMap';
-import { Player } from './Player';
-import { GameUI } from './GameUI';
-import { Camera } from './Camera';
-import { Probe } from './Probe';
-import { InputHandler } from './InputHandler';
-import { Renderer } from './Renderer';
-import { CombatSystem } from './CombatSystem';
-import { SupplySystem } from './SupplySystem';
-import { GameUtils } from './utils';
+import { GameMap } from './GameMap.js';
+import { Player } from './Player.js';
+import { GameUI } from './GameUI.js';
+import { Camera } from './Camera.js';
+import { Probe } from './Probe.js';
+import { InputHandler } from './InputHandler.js';
+import { Renderer } from './Renderer.js';
+import { CombatSystem } from './CombatSystem.js';
+import { SupplySystem } from './SupplySystem.js';
+import { PathfindingService } from './PathfindingService.js';
+import { GameUtils } from './utils.js';
 import { GAME_CONSTANTS } from '../../../common/gameConstants';
-import { gameEvents, GAME_EVENTS, EVENT_PRIORITY, EventHelpers } from './EventSystem';
-import { PerformanceManager } from './PerformanceManager';
-import { PerformanceOverlay } from './PerformanceOverlay';
-import { DiscoverySystem } from './DiscoverySystem';
-import { AnimationSystem } from './AnimationSystem';
-import { UIManager } from './UIManager';
+import { gameEvents, GAME_EVENTS, EVENT_PRIORITY, EventHelpers } from './EventSystem.js';
+import { PerformanceManager } from './PerformanceManager.js';
+import { PerformanceOverlay } from './PerformanceOverlay.js';
+import { DiscoverySystem } from './DiscoverySystem.js';
+import { AnimationSystem } from './AnimationSystem.js';
+import { UIManager } from './UIManager.js';
+import { AIManager } from './AIManager.js';
+import Controls from './Controls.js';
 
 export default class StarThrone {
     constructor(config = {}) {
@@ -41,6 +44,7 @@ export default class StarThrone {
         this.gameTimer = 10 * 60 * 1000; // 10 minutes
         this.maxPlayers = 100;
         this.currentPlayers = 0;
+        this.gameInitialized = false; // Prevent early win condition checks
         
         // Home system flashing
         this.homeSystemFlashStart = null;
@@ -51,10 +55,12 @@ export default class StarThrone {
         this.renderer = null;
         this.combatSystem = null;
         this.supplySystem = null;
+        this.pathfindingService = null;
         this.performanceManager = null;
         this.discoverySystem = null;
         this.animationSystem = null;
         this.uiManager = null;
+        this.controls = null;
         
         // Legacy properties for backward compatibility
         this.hoveredTerritory = null;
@@ -66,8 +72,9 @@ export default class StarThrone {
         this.lastFpsUpdate = 0;
         
         // Performance optimizations
-        this.visibleTerritories = [];
+        this.visibleTerritories = new Set();
         this.lastVisibilityUpdate = 0;
+        this.cullingBatchIndex = 0; // For incremental visibility processing
         this.performanceStats = {
             frameTime: 0,
             renderTime: 0,
@@ -100,8 +107,7 @@ export default class StarThrone {
         this.floatingDiscoveryTexts = [];
         this.discoveryLog = []; // Recent discovery announcements for panel display
         
-        // Ship funneling system
-        this.supplyRoutes = new Map(); // territoryId -> { targetId, path, delay }
+        // Legacy drag variables (kept for compatibility)
         this.dragStart = null;
         this.dragEnd = null;
         this.isDraggingForSupplyRoute = false;
@@ -150,6 +156,16 @@ export default class StarThrone {
         this.logThrottles = new Map(); // Track throttled log messages
         this.lastLogTimes = new Map(); // Track last log timestamp per message type
         
+        // DOM optimization: Cache layout measurements
+        this.cachedCanvasRect = null;
+        this.canvasRectUpdateTime = 0;
+        this.canvasRectCacheDuration = 1000; // Cache for 1 second
+        
+        // Input throttling for performance
+        this.lastMouseMoveTime = 0;
+        this.mouseMoveThrottleMs = 16; // ~60 FPS, one event per frame
+        this.pendingMouseEvent = null;
+        
         this.init();
         this.loadBackgroundImage();
     }
@@ -177,6 +193,72 @@ export default class StarThrone {
                 console.log(message);
             }
         }
+    }
+    
+    /**
+     * Get cached canvas bounding rectangle with automatic cache invalidation
+     * Prevents expensive getBoundingClientRect() calls on every mouse event
+     */
+    getCachedCanvasRect() {
+        const now = Date.now();
+        
+        // Return cached rect if still valid
+        if (this.cachedCanvasRect && (now - this.canvasRectUpdateTime) < this.canvasRectCacheDuration) {
+            return this.cachedCanvasRect;
+        }
+        
+        // Update cache with fresh measurement
+        if (this.canvas) {
+            this.cachedCanvasRect = this.canvas.getBoundingClientRect();
+            this.canvasRectUpdateTime = now;
+        }
+        
+        return this.cachedCanvasRect;
+    }
+    
+    /**
+     * Invalidate canvas rect cache on window resize or scroll
+     */
+    invalidateCanvasRectCache() {
+        this.cachedCanvasRect = null;
+        this.canvasRectUpdateTime = 0;
+    }
+    
+    /**
+     * Throttled mouse event processing - limits to one event per frame
+     * @param {MouseEvent} event - Raw mouse event
+     * @param {Function} handler - Event handler function
+     */
+    handleThrottledMouseEvent(event, handler) {
+        const now = Date.now();
+        
+        // Store the latest event for processing
+        this.pendingMouseEvent = { event, handler, timestamp: now };
+        
+        // Only process if enough time has passed (throttle to ~60 FPS)
+        if (now - this.lastMouseMoveTime >= this.mouseMoveThrottleMs) {
+            this.processPendingMouseEvent();
+        }
+    }
+    
+    /**
+     * Process the most recent pending mouse event
+     */
+    processPendingMouseEvent() {
+        if (!this.pendingMouseEvent) return;
+        
+        const { event, handler } = this.pendingMouseEvent;
+        this.lastMouseMoveTime = Date.now();
+        
+        // Get cached canvas rect to avoid expensive DOM measurement
+        const rect = this.getCachedCanvasRect();
+        if (rect) {
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            handler(x, y, event);
+        }
+        
+        this.pendingMouseEvent = null;
     }
     
     loadBackgroundImage() {
@@ -366,7 +448,11 @@ export default class StarThrone {
         this.setupEventListeners();
         this.gameMap = new GameMap(2000, 1500, this.config); // Large map with advanced configuration
         this.gameMap.game = this; // Reference for AI animations
-        this.camera = new Camera(this.canvas.width, this.canvas.height);
+        
+        // Use logical dimensions for camera, not physical canvas dimensions
+        const logicalWidth = this.canvas.style.width ? parseInt(this.canvas.style.width) : window.innerWidth;
+        const logicalHeight = this.canvas.style.height ? parseInt(this.canvas.style.height) : window.innerHeight;
+        this.camera = new Camera(logicalWidth, logicalHeight);
         
         // Update camera map boundaries to match actual expanded map size
         this.camera.mapWidth = this.gameMap.width;
@@ -381,14 +467,21 @@ export default class StarThrone {
         
         // Initialize modular systems
         this.inputHandler = new InputHandler(this);
-        this.renderer = new Renderer(this.canvas, this.camera);
+        this.renderer = new Renderer(this.canvas, this.camera, this);
         this.combatSystem = new CombatSystem(this);
         this.supplySystem = new SupplySystem(this);
+        this.pathfindingService = new PathfindingService(this);
         this.performanceManager = new PerformanceManager(this);
         this.performanceOverlay = new PerformanceOverlay(this.canvas, this.performanceManager);
         this.discoverySystem = new DiscoverySystem(this);
         this.animationSystem = new AnimationSystem(this);
         this.uiManager = new UIManager(this);
+        this.aiManager = new AIManager(this);
+        this.controls = new Controls(this);
+        
+        // TODO: Remove global reference (use dependency injection instead)
+        // window.game = this;  // (global game reference deprecated)
+        window.game = this; // Temporary global access - to be replaced with dependency injection
         
         // Auto-detect optimal performance profile
         this.performanceManager.detectOptimalProfile();
@@ -742,7 +835,7 @@ export default class StarThrone {
     // REMOVED: Second duplicate processDiscovery function - logic moved to GameUtils.js
     
     // Create ship movement animation
-    createShipAnimation(fromTerritory, toTerritory, isAttack = false) {
+    createShipAnimation(fromTerritory, toTerritory, isAttack = false, fleetSize = 0) {
         // Use object pooling to reduce garbage collection
         let animation = this.shipAnimationPool.pop();
         if (!animation) {
@@ -750,7 +843,8 @@ export default class StarThrone {
                 fromX: 0, fromY: 0, toX: 0, toY: 0,
                 progress: 0, duration: 0, startTime: 0,
                 isAttack: false, playerColor: '#ffffff', id: 0,
-                path: null, currentSegment: 0, isMultiHop: false
+                path: null, currentSegment: 0, isMultiHop: false,
+                fleetSize: 0
             };
         }
         
@@ -771,6 +865,7 @@ export default class StarThrone {
         animation.path = null;
         animation.currentSegment = 0;
         animation.isMultiHop = false;
+        animation.fleetSize = fleetSize;
         
         this.shipAnimations.push(animation);
     }
@@ -878,20 +973,6 @@ export default class StarThrone {
         }
         
         console.log(`Probe colonizing planet ${planet.id} for player ${player.name}`);
-        
-        // Trigger discovery event before colonization
-        const discovery = this.selectRandomDiscovery();
-        const discoveryResult = GameUtils.processDiscovery(discovery.id, player.id, planet.id, this.playerDiscoveries, this);
-        const colonizationSuccessful = discoveryResult.success;
-        
-        // Always log the discovery for UI display (both success and failure)
-        this.logDiscoveryForUI(planet, player.id, discovery);
-        
-        // If probe was lost to hostile aliens, colonization fails
-        if (!colonizationSuccessful) {
-            console.log(`Colonization of planet ${planet.id} failed due to hostile encounter!`);
-            return;
-        }
         
         // Set ownership - discovery might have already set army size
         planet.ownerId = player.id;
@@ -1021,17 +1102,33 @@ export default class StarThrone {
         // Create canvas element
         const canvasElement = document.createElement('canvas');
         canvasElement.id = 'gameCanvas';
-        canvasElement.width = window.innerWidth;
-        canvasElement.height = window.innerHeight;
+        
+        // Get device pixel ratio for crisp rendering on high-DPI displays
+        const dpr = window.devicePixelRatio || 1;
+        const rect = { width: window.innerWidth, height: window.innerHeight };
+        
+        // Set canvas size with DPI scaling
+        canvasElement.width = rect.width * dpr;
+        canvasElement.height = rect.height * dpr;
+        canvasElement.style.width = rect.width + 'px';
+        canvasElement.style.height = rect.height + 'px';
         canvasElement.style.display = 'block';
         canvasElement.style.background = '#1a1a2e';
+        canvasElement.style.position = 'fixed';
+        canvasElement.style.top = '0';
+        canvasElement.style.left = '0';
+        canvasElement.style.zIndex = '1';
         
-        console.log('Creating canvas:', canvasElement.width, 'x', canvasElement.height);
+        console.log(`Creating canvas: ${rect.width}x${rect.height} (${canvasElement.width}x${canvasElement.height} with DPR ${dpr})`);
         
-        // Replace the root div content
+        // Append to root without destroying React content
         const root = document.getElementById('root');
         if (root) {
-            root.innerHTML = '';
+            // Check if canvas already exists
+            const existingCanvas = document.getElementById('gameCanvas');
+            if (existingCanvas) {
+                existingCanvas.remove();
+            }
             root.appendChild(canvasElement);
             console.log('Canvas appended to root');
         } else {
@@ -1046,6 +1143,12 @@ export default class StarThrone {
             console.error('Failed to get 2D context!');
             return;
         }
+        
+        // Scale context to match device pixel ratio for crisp rendering
+        this.ctx.scale(dpr, dpr);
+        
+        // Store DPI ratio for resize handling
+        this.devicePixelRatio = dpr;
         
         console.log('Canvas setup complete');
         
@@ -1074,6 +1177,13 @@ export default class StarThrone {
         this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
         this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e), { passive: false });
         this.canvas.addEventListener('touchcancel', (e) => this.handleTouchEnd(e), { passive: false });
+        
+        // Window events for DOM optimization
+        window.addEventListener('resize', this.handleResize.bind(this));
+        window.addEventListener('scroll', this.invalidateCanvasRectCache.bind(this));
+        
+        // Initialize canvas rect cache
+        this.getCachedCanvasRect();
         
         // Also add document-level listeners to catch events outside canvas
         document.addEventListener('touchmove', (e) => {
@@ -1110,6 +1220,56 @@ export default class StarThrone {
         
         // Prevent context menu
         this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    }
+    
+    /**
+     * Handle window resize events with DOM cache invalidation
+     */
+    handleResize() {
+        if (!this.canvas) return;
+        
+        // Get device pixel ratio for crisp rendering on high-DPI displays
+        const dpr = this.devicePixelRatio || window.devicePixelRatio || 1;
+        const rect = { width: window.innerWidth, height: window.innerHeight };
+        
+        // Set canvas size with DPI scaling
+        this.canvas.width = rect.width * dpr;
+        this.canvas.height = rect.height * dpr;
+        this.canvas.style.width = rect.width + 'px';
+        this.canvas.style.height = rect.height + 'px';
+        
+        // Re-scale context after resize
+        this.ctx.scale(dpr, dpr);
+        
+        if (this.camera) {
+            // Camera uses logical pixels, not physical pixels
+            this.camera.updateViewport(rect.width, rect.height);
+        }
+        
+        // Invalidate canvas rect cache after resize
+        this.invalidateCanvasRectCache();
+        
+        console.log(`Resized canvas: ${rect.width}x${rect.height} (${this.canvas.width}x${this.canvas.height} with DPR ${dpr})`);
+    }
+    
+    /**
+     * Throttled mouse move handler - called via the throttling system
+     * @param {number} x - Canvas-relative X coordinate
+     * @param {number} y - Canvas-relative Y coordinate
+     * @param {MouseEvent} event - Original mouse event
+     */
+    handleMouseMoveThrottled(x, y, event) {
+        // Update mouse position for other systems
+        this.mousePos = { x, y };
+        
+        // Update hovered territory without expensive DOM operations
+        const worldPos = this.camera.screenToWorld(x, y);
+        this.updateHoveredTerritory(worldPos.x, worldPos.y);
+        
+        // Handle camera edge panning for desktop
+        if (!this.isDragging && !this.isMultiTouch) {
+            this.camera.updateEdgePanning(x, y, 16); // 16ms frame time approximation
+        }
     }
     
     startGame() {
@@ -1149,6 +1309,9 @@ export default class StarThrone {
         
         // Start home system flashing for player identification
         this.homeSystemFlashStart = Date.now();
+        
+        // Mark game as fully initialized to allow win condition checks
+        this.gameInitialized = true;
         
         console.log(`Game started with ${this.players.length} players (${this.config.playerName} + ${this.config.aiCount} AI) and ${Object.keys(this.gameMap.territories).length} territories`);
     }
@@ -1241,7 +1404,7 @@ export default class StarThrone {
             usedColors.add(playerColor);
             
             // Generate human-like name with clan designation
-            const aiName = GameUtils.generateAIName(i - 1);
+            const aiName = AIManager.generateAIName(i - 1);
             const aiPlayer = new Player(i, aiName, playerColor, 'ai');
             this.players.push(aiPlayer);
             this.initializePlayerDiscoveries(aiPlayer.id);
@@ -1285,7 +1448,7 @@ export default class StarThrone {
         const usedTerritories = [];
         const minDistance = 200; // Minimum distance between starting territories
         
-        console.log(`Available territories for distribution: ${allTerritories.length} (all are colonizable planets)`);
+        console.log(`Available territories for distribution: ${allTerritories.length} (all have neutral garrisons)`);
         
         // Give each player exactly one starting territory with spacing
         for (let i = 0; i < this.players.length; i++) {
@@ -1315,9 +1478,8 @@ export default class StarThrone {
             }
             
             if (bestTerritory) {
-                // Manually colonize this territory for the player
+                // Colonize this territory for the player (defeating the neutral garrison)
                 bestTerritory.ownerId = player.id;
-                bestTerritory.isColonizable = false; // Make it a normal territory
                 bestTerritory.armySize = GAME_CONSTANTS.INITIAL_STARTING_ARMY_SIZE;
                 bestTerritory.isThronestar = true; // Mark as throne star
                 
@@ -1327,9 +1489,6 @@ export default class StarThrone {
                 if (player.id === 0) { // Human player ID
                     console.log(`👤 HUMAN PLAYER starting territory ${bestTerritory.id} initialized with ${bestTerritory.armySize} armies`);
                 }
-                
-                // Reveal connections for starting territories
-                bestTerritory.revealConnections();
                 
                 player.territories.push(bestTerritory.id);
                 player.totalArmies += bestTerritory.armySize;
@@ -1372,6 +1531,9 @@ export default class StarThrone {
             this.performanceStats.frameTime = performance.now() - frameStart;
         } catch (error) {
             console.error('Game loop error:', error);
+            console.error('Error message:', error.message);
+            console.error('Error stack:', error.stack);
+            console.error('Game state:', this.gameState);
             // Continue running to prevent complete game halt
         }
         
@@ -1398,14 +1560,6 @@ export default class StarThrone {
             return;
         }
         
-        // High-performance AI processing: Staggered updates across 4 frames
-        // Process only 1/4 of AI players per frame for 4x performance improvement
-        const aiPlayers = this.players.filter(p => p.type !== 'human' && !p.isEliminated);
-        const playersPerFrame = Math.ceil(aiPlayers.length / 4);
-        const frameOffset = this.frameCount % 4;
-        const startIndex = frameOffset * playersPerFrame;
-        const endIndex = Math.min(startIndex + playersPerFrame, aiPlayers.length);
-        
         // Always update human player every frame for responsiveness
         const humanPlayer = this.players.find(p => p.type === 'human');
         if (humanPlayer && !humanPlayer.isEliminated) {
@@ -1416,17 +1570,13 @@ export default class StarThrone {
             }
         }
         
-        // Update subset of AI players this frame
-        for (let i = startIndex; i < endIndex; i++) {
-            if (i < aiPlayers.length) {
-                const player = aiPlayers[i];
-                try {
-                    player.update(deltaTime, this.gameMap, this.config.gameSpeed, this);
-                } catch (error) {
-                    console.error(`Error updating AI player ${player.name}:`, error);
-                }
-            }
+        // Delegate AI updates to AIManager for performance and organization
+        if (this.aiManager) {
+            this.aiManager.updateAI(deltaTime);
         }
+        
+        // Process any pending throttled mouse events
+        this.processPendingMouseEvent();
         
         // Update ship animations and probes with normal delta time (speed applied internally)
         try {
@@ -1435,6 +1585,17 @@ export default class StarThrone {
             this.updateFloatingDiscoveryTexts(deltaTime);
         } catch (error) {
             console.error('Error updating animations:', error);
+        }
+        
+        // Update combat system for delayed battles
+        if (this.combatSystem) {
+            try {
+                this.combatSystem.update(deltaTime);
+            } catch (error) {
+                console.error('Combat system error:', error);
+                console.error('Combat system error message:', error.message);
+                console.error('Combat system error stack:', error.stack);
+            }
         }
         
         // Update modular UI systems
@@ -1446,6 +1607,9 @@ export default class StarThrone {
         }
         if (this.animationSystem) {
             this.animationSystem.update(deltaTime);
+        }
+        if (this.controls) {
+            this.controls.update(deltaTime);
         }
         
         // Process event queue for event-driven architecture
@@ -1464,21 +1628,19 @@ export default class StarThrone {
             }
         }
         
-        // Throttled heavy operations for better performance
+        // Throttled heavy operations for better performance - use SupplySystem module
         if (this.frameCount % 45 === 0) { // Every 45 frames (~0.75 seconds)
-            this.validateSupplyRoutes();
+            this.supplySystem.validateSupplyRoutes();
         }
-        if (this.frameCount % 90 === 0) { // Every 90 frames (~1.5 seconds)
-            this.processSupplyRoutes(this.config.gameSpeed);
-        }
+        // (Removed redundant 90-frame check; supply logic now in Territory.generateArmies())
         
         // Check for player elimination (throttled)
         if (this.frameCount % 20 === 0) {
             this.checkPlayerElimination();
         }
         
-        // Check win conditions (throttled)
-        if (this.frameCount % 30 === 0) {
+        // Check win conditions (throttled) - only after game is properly initialized
+        if (this.gameInitialized && this.frameCount % 30 === 0) {
             this.checkWinConditions();
         }
         
@@ -1495,9 +1657,12 @@ export default class StarThrone {
     }
     
     checkPlayerElimination() {
+        let playersEliminated = false;
+        
         this.players.forEach(player => {
             if (!player.isEliminated && player.territories.length === 0) {
                 player.isEliminated = true;
+                playersEliminated = true;
                 console.log(`Player ${player.name} has been eliminated!`);
                 
                 if (player === this.humanPlayer) {
@@ -1506,6 +1671,11 @@ export default class StarThrone {
                 }
             }
         });
+        
+        // Invalidate AI player cache if any players were eliminated
+        if (playersEliminated && this.aiManager) {
+            this.aiManager.invalidatePlayerCache();
+        }
     }
     
     checkWinConditions() {
@@ -1555,14 +1725,16 @@ export default class StarThrone {
         this.ctx.fillStyle = '#001122';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
+        // Render parallax starfield behind everything via AnimationSystem (before camera transform)
+        if (this.animationSystem) {
+            this.animationSystem.renderStaticBackground(this.ctx);
+        }
+        
         // Save context for camera transform
         this.ctx.save();
         
         // Apply camera transformation
         this.camera.applyTransform(this.ctx);
-        
-        // Render parallax starfield behind everything
-        this.renderParallaxStarfield();
         
         // Render game world with Level of Detail (LOD) optimizations
         const lodLevel = this.getLODLevel();
@@ -1586,11 +1758,17 @@ export default class StarThrone {
         
         // Ship animations and probes for tactical view
         if (lodLevel >= 2) {
-            this.renderShipAnimations();
+            // Use AnimationSystem for ship animations
+            if (this.animationSystem) {
+                this.animationSystem.renderShipAnimations(this.ctx, this.camera);
+            }
             this.renderProbes();
         }
         
-        this.renderFloatingDiscoveryTexts();
+        // Use DiscoverySystem for floating discovery texts
+        if (this.discoverySystem) {
+            this.discoverySystem.renderFloatingDiscoveries(this.ctx, this.camera);
+        }
         this.renderArmies();
         this.renderFloatingTexts();
         
@@ -1618,27 +1796,49 @@ export default class StarThrone {
     }
     
     updateVisibleTerritories() {
-        // Optimized visibility culling with cached bounds
-        if (Date.now() - this.lastVisibilityUpdate < GAME_CONSTANTS.VISIBLE_TERRITORIES_UPDATE_INTERVAL_MS) return;
-        this.lastVisibilityUpdate = Date.now();
+        // Enhanced viewport culling with incremental processing for smooth performance
+        const now = Date.now();
+        const updateInterval = GAME_CONSTANTS.VISIBLE_TERRITORIES_UPDATE_INTERVAL_MS;
+        
+        // Adaptive interval based on performance - increase on slower devices
+        const adaptiveInterval = this.fps < 30 ? updateInterval * 1.5 : updateInterval;
+        
+        if (now - this.lastVisibilityUpdate < adaptiveInterval) return;
+        this.lastVisibilityUpdate = now;
         
         const bounds = this.camera.getViewBounds();
         const margin = GAME_CONSTANTS.TERRITORY_VISIBILITY_PADDING;
         
-        this.visibleTerritories = [];
+        // Initialize visibility tracking as Set for O(1) lookups
+        if (!this.visibleTerritories || !this.visibleTerritories.has) {
+            this.visibleTerritories = new Set();
+        }
+        
+        this.visibleTerritories.clear();
         const territories = Object.values(this.gameMap.territories);
         
-        for (let i = 0; i < territories.length; i++) {
+        // Incremental processing: split territory checks across multiple frames on large maps
+        const batchSize = territories.length > 200 ? Math.ceil(territories.length / 3) : territories.length;
+        const startIndex = (this.cullingBatchIndex || 0) % territories.length;
+        const endIndex = Math.min(startIndex + batchSize, territories.length);
+        
+        // Process current batch
+        for (let i = startIndex; i < endIndex; i++) {
             const territory = territories[i];
             if (territory.x + territory.radius >= bounds.left - margin &&
                 territory.x - territory.radius <= bounds.right + margin &&
                 territory.y + territory.radius >= bounds.top - margin &&
                 territory.y - territory.radius <= bounds.bottom + margin) {
-                this.visibleTerritories.push(territory);
+                this.visibleTerritories.add(territory.id);
             }
         }
         
-        this.performanceStats.visibleTerritories = this.visibleTerritories.length;
+        // Update batch index for next frame (if processing incrementally)
+        if (batchSize < territories.length) {
+            this.cullingBatchIndex = endIndex >= territories.length ? 0 : endIndex;
+        }
+        
+        this.performanceStats.visibleTerritories = this.visibleTerritories.size;
     }
     
     // Render parallax starfield with multiple depth layers
@@ -1744,13 +1944,17 @@ export default class StarThrone {
         const selectedTerritory = inputState.selectedTerritory;
         
         // Render only visible territories
-        this.visibleTerritories.forEach(territory => {
-            territory.render(this.ctx, this.players, selectedTerritory, {
-                humanPlayer: this.humanPlayer,
-                homeSystemFlashStart: this.homeSystemFlashStart,
-                homeSystemFlashDuration: this.homeSystemFlashDuration
-            }, this.hoveredTerritory);
-        });
+        for (const territoryId of this.visibleTerritories) {
+            const territory = this.gameMap.territories[territoryId];
+            if (territory) {
+                territory.render(this.ctx, this.players, selectedTerritory, {
+                    humanPlayer: this.humanPlayer,
+                    homeSystemFlashStart: this.homeSystemFlashStart,
+                    homeSystemFlashDuration: this.homeSystemFlashDuration,
+                    gameMap: this.gameMap // Include game map for fog of war logic
+                }, this.hoveredTerritory);
+            }
+        }
     }
     
     renderConnections() {
@@ -1760,7 +1964,12 @@ export default class StarThrone {
         // Cache connections to avoid duplicate rendering
         const drawnConnections = new Set();
         
-        this.visibleTerritories.forEach(territory => {
+        // Use visible territories for optimized rendering
+        const territoriesToCheck = this.visibleTerritories && this.visibleTerritories.size > 0 
+            ? Array.from(this.visibleTerritories).map(id => this.gameMap.territories[id]).filter(t => t)
+            : Object.values(this.gameMap.territories);
+        
+        territoriesToCheck.forEach(territory => {
             territory.neighbors.forEach(neighborId => {
                 const neighbor = this.gameMap.territories[neighborId];
                 if (!neighbor) return;
@@ -1773,8 +1982,12 @@ export default class StarThrone {
                 if (drawnConnections.has(connectionId)) return;
                 drawnConnections.add(connectionId);
                 
-                // Skip connections to/from colonizable planets
-                if (territory.isColonizable || neighbor.isColonizable) {
+                // FOG OF WAR: Only show star lanes if at least one end is owned by the human player
+                const territoryOwnedByPlayer = territory.ownerId === this.humanPlayer?.id;
+                const neighborOwnedByPlayer = neighbor.ownerId === this.humanPlayer?.id;
+                
+                if (!territoryOwnedByPlayer && !neighborOwnedByPlayer) {
+                    // Neither territory is owned by player - don't show this connection
                     return;
                 }
                 
@@ -1799,51 +2012,8 @@ export default class StarThrone {
     }
     
     renderSupplyRoutes() {
-        // Render active supply routes with animated arrows
-        this.supplyRoutes.forEach((route, fromId) => {
-            const fromTerritory = this.gameMap.territories[fromId];
-            const toTerritory = this.gameMap.territories[route.targetId];
-            
-            if (fromTerritory && toTerritory && route.path && route.path.length > 1) {
-                this.ctx.save();
-                
-                // Draw route path with animated dashes - color based on activity
-                const routeActive = fromTerritory.armySize > 10; // Route is active if source has armies
-                if (routeActive) {
-                    this.ctx.strokeStyle = '#00ffff'; // Bright cyan for active routes
-                    this.ctx.globalAlpha = 0.9;
-                } else {
-                    this.ctx.strokeStyle = '#006666'; // Dimmed cyan for inactive routes
-                    this.ctx.globalAlpha = 0.5;
-                }
-                this.ctx.lineWidth = 3;
-                
-                // Calculate direction-based animation offset
-                const fromPos = route.path[0];
-                const toPos = route.path[route.path.length - 1];
-                const direction = Math.atan2(toPos.y - fromPos.y, toPos.x - fromPos.x);
-                
-                // Animate dashes flowing in the direction of ship movement
-                const animationOffset = (Date.now() * 0.02) % 20;
-                this.ctx.setLineDash([8, 12]);
-                this.ctx.lineDashOffset = -animationOffset;
-                
-                // Draw path segments
-                for (let i = 0; i < route.path.length - 1; i++) {
-                    const current = route.path[i];
-                    const next = route.path[i + 1];
-                    
-                    this.ctx.beginPath();
-                    this.ctx.moveTo(current.x, current.y);
-                    this.ctx.lineTo(next.x, next.y);
-                    this.ctx.stroke();
-                }
-                
-                // Remove arrow graphics - just show the animated path
-                
-                this.ctx.restore();
-            }
-        });
+        // Delegate to SupplySystem module for rendering
+        this.supplySystem.renderSupplyRoutes(this.ctx, this.gameMap.territories);
     }
     
     getTransferPercentage(event) {
@@ -2085,9 +2255,18 @@ export default class StarThrone {
         const zoomLevel = this.camera.getZoomLevel();
         const currentZoom = this.camera.zoom;
         
+        // Supply system is now handled by Territory.js render method
+        
         this.ctx.save();
         
-        const territories = this.visibleTerritories || Object.values(this.gameMap.territories);
+        // Handle territories: visibleTerritories is a Set of IDs, convert to objects
+        let territories;
+        if (this.visibleTerritories && this.visibleTerritories.size > 0) {
+            territories = Array.from(this.visibleTerritories).map(id => this.gameMap.territories[id]).filter(t => t);
+        } else {
+            territories = Object.values(this.gameMap.territories);
+        }
+        
         const playersLookup = {}; // Cache player lookups
         
         // Strategic View (zoomed out) - Show simplified information
@@ -2098,6 +2277,15 @@ export default class StarThrone {
             for (let i = 0; i < territories.length; i++) {
                 const territory = territories[i];
                 if (territory.ownerId !== null) {
+                    // FOG OF WAR: Check if this is a mysterious enemy territory
+                    const isEnemyMystery = territory.ownerId !== this.humanPlayer?.id && !territory.neighbors.some(neighborId => {
+                        const neighbor = this.gameMap.territories[neighborId];
+                        return neighbor && neighbor.ownerId === this.humanPlayer?.id;
+                    });
+                    
+                    // Skip army numbers for mysterious enemy territories
+                    if (isEnemyMystery) continue;
+                    
                     // Use cached player lookup
                     let owner = playersLookup[territory.ownerId];
                     if (!owner) {
@@ -2106,7 +2294,12 @@ export default class StarThrone {
                     }
                     
                     if (owner && territory.armySize >= 10) { // Only show significant fleets
-                        const armyText = territory.armySize >= 100 ? `${Math.floor(territory.armySize / 10)}0+` : territory.armySize.toString();
+                        let armyText = territory.armySize >= 100 ? `${Math.floor(territory.armySize / 10)}0+` : territory.armySize.toString();
+                        
+                        // Add black dot indicator for reinforcing stars
+                        if (this.supplySystem?.isSupplySource(territory.id)) {
+                            armyText = `● ${armyText}`;
+                        }
                         
                         // Simplified text rendering for performance
                         this.ctx.fillStyle = '#ffffff';
@@ -2123,6 +2316,15 @@ export default class StarThrone {
             for (let i = 0; i < territories.length; i++) {
                 const territory = territories[i];
                 if (territory.ownerId !== null && territory.armySize > 0) {
+                    // FOG OF WAR: Check if this is a mysterious enemy territory
+                    const isEnemyMystery = territory.ownerId !== this.humanPlayer?.id && !territory.neighbors.some(neighborId => {
+                        const neighbor = this.gameMap.territories[neighborId];
+                        return neighbor && neighbor.ownerId === this.humanPlayer?.id;
+                    });
+                    
+                    // Skip army numbers for mysterious enemy territories
+                    if (isEnemyMystery) continue;
+                    
                     // Use cached player lookup
                     let owner = playersLookup[territory.ownerId];
                     if (!owner) {
@@ -2131,7 +2333,12 @@ export default class StarThrone {
                     }
                     
                     if (owner) {
-                        const armyText = territory.armySize.toString();
+                        let armyText = territory.armySize.toString();
+                        
+                        // Add black dot indicator for reinforcing stars
+                        if (this.supplySystem?.isSupplySource(territory.id)) {
+                            armyText = `● ${armyText}`;
+                        }
                         
                         // White outline for readability
                         this.ctx.strokeStyle = '#ffffff';
@@ -2153,6 +2360,15 @@ export default class StarThrone {
             for (let i = 0; i < territories.length; i++) {
                 const territory = territories[i];
                 if (territory.ownerId !== null && territory.armySize > 0) {
+                    // FOG OF WAR: Check if this is a mysterious enemy territory
+                    const isEnemyMystery = territory.ownerId !== this.humanPlayer?.id && !territory.neighbors.some(neighborId => {
+                        const neighbor = this.gameMap.territories[neighborId];
+                        return neighbor && neighbor.ownerId === this.humanPlayer?.id;
+                    });
+                    
+                    // Skip army numbers for mysterious enemy territories
+                    if (isEnemyMystery) continue;
+                    
                     // Use cached player lookup
                     let owner = playersLookup[territory.ownerId];
                     if (!owner) {
@@ -2161,7 +2377,17 @@ export default class StarThrone {
                     }
                     
                     if (owner) {
-                        const armyText = territory.armySize.toString();
+                        let armyText = territory.armySize.toString();
+                        
+                        // Add black dot indicator for reinforcing stars
+                        if (this.supplySystem?.isSupplySource(territory.id)) {
+                            armyText = `● ${armyText}`;
+                        }
+                        
+                        // Debug logging for specific territories
+                        if (territory.id === 79) {
+                            console.log(`Star 79 tactical view: supplySystem exists: ${!!this.supplySystem}, isSupplySource: ${this.supplySystem?.isSupplySource(territory.id)}, text: "${armyText}"`);
+                        }
                         
                         // High-contrast text with thick outline
                         this.ctx.strokeStyle = '#ffffff';
@@ -2186,15 +2412,19 @@ export default class StarThrone {
         this.ctx.fillStyle = '#0a0a1a';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // Render background galaxy image with parallax
-        this.renderBackgroundImage();
+        // Render background galaxy image with parallax via UIManager (before camera transform)
+        if (this.uiManager) {
+            this.uiManager.renderBackgroundImage(this.ctx, this.camera);
+        }
+        
+        // Render parallax starfield with movement via AnimationSystem (before camera transform)
+        if (this.animationSystem) {
+            this.animationSystem.renderStaticBackground(this.ctx);
+        }
         
         // Apply camera transformations for background elements
         this.ctx.save();
         this.camera.applyTransform(this.ctx);
-        
-        // Render parallax starfield with movement
-        this.renderParallaxStarfield();
         
         // Render nebulas with proper depth
         this.renderNebulas();
@@ -2323,7 +2553,7 @@ export default class StarThrone {
                 players: this.players,
                 humanPlayer: this.humanPlayer,
                 selectedTerritory: inputState.selectedTerritory,
-                hoveredTerritory: this.hoveredTerritory,
+                hoveredTerritory: this.inputHandler ? this.inputHandler.hoveredTerritory : null,
                 mousePos: this.inputHandler ? this.inputHandler.mousePos : { x: 0, y: 0 },
                 fps: this.fps,
                 currentPlayers: this.currentPlayers,
@@ -2347,8 +2577,17 @@ export default class StarThrone {
                 showBonusPanel: this.showBonusPanel,
                 inputState: inputState,
                 messageText: this.messageText,
-                messageTimer: this.messageTimer
+                messageTimer: this.messageTimer,
+                combatSystem: this.combatSystem,
+                supplySystem: this.supplySystem,
+                territories: this.gameMap.territories
             });
+        }
+        
+        // Render UI components via UIManager (notifications, messages)
+        if (this.uiManager) {
+            this.uiManager.renderNotifications(this.ctx);
+            this.uiManager.renderMessage(this.ctx);
         }
     }
     
@@ -2513,7 +2752,12 @@ export default class StarThrone {
         
         if (fromTerritory.armySize < probeCost) {
             console.log('Not enough fleet power to launch probe! Need 10 fleet power.');
-            return;
+            return false;
+        }
+        
+        if (!toTerritory.isColonizable) {
+            console.log('Target territory is not colonizable!');
+            return false;
         }
         
         // Create probe with gameMap and game references for nebula detection and discovery bonuses
@@ -2548,6 +2792,7 @@ export default class StarThrone {
         }, EVENT_PRIORITY.MEDIUM);
         
         console.log(`Probe launched from territory ${fromTerritory.id} to colonizable planet ${toTerritory.id}`);
+        return true;
     }
     
     launchAIProbe(fromTerritory, toTerritory, player) {
@@ -2575,7 +2820,7 @@ export default class StarThrone {
         // Trigger visual feedback
         fromTerritory.triggerProbeFlash();
         
-        console.log(`AI ${player.name} launched probe from territory ${fromTerritory.id} to colonizable planet ${toTerritory.id}`);
+
     }
     
     transferFleet(fromTerritory, toTerritory) {
@@ -2603,26 +2848,17 @@ export default class StarThrone {
         }
     }
     
-    // Supply route system
-    createSupplyRoute(fromTerritory, toTerritory) {
-        // Find path between territories through owned network
-        const path = this.findPathBetweenTerritories(fromTerritory, toTerritory);
-        
-        if (path && path.length > 1) {
-            const delayPerHop = 2000; // 2 seconds per intervening planet
-            const totalDelay = (path.length - 2) * delayPerHop; // Don't count start and end
-            
-            this.supplyRoutes.set(fromTerritory.id, {
-                targetId: toTerritory.id,
-                path: path,
-                delay: totalDelay,
-                lastValidation: Date.now()
-            });
-            
-            console.log(`Supply route created: ${fromTerritory.id} → ${toTerritory.id} (${path.length - 1} hops, ${totalDelay}ms delay)`);
-            console.log('Path:', path.map(t => t.id).join(' → '));
-        } else {
-            console.log('No valid path found between territories');
+    // Supply route system - delegate to SupplySystem module
+    async createSupplyRoute(fromTerritory, toTerritory) {
+        try {
+            const result = await this.supplySystem.createSupplyRoute(fromTerritory, toTerritory);
+            if (result) {
+                console.log(`Supply route created: ${fromTerritory.id} → ${toTerritory.id}`);
+            }
+            return result;
+        } catch (error) {
+            console.error('Failed to create supply route:', error);
+            return false;
         }
     }
     
@@ -2743,42 +2979,112 @@ export default class StarThrone {
     }
     
     findTerritoryAt(x, y) {
-        // Use optimized spatial indexing from GameMap (60% performance improvement)
+        // Viewport culling optimization: only check visible territories for hover detection
+        if (this.visibleTerritories && this.visibleTerritories.size > 0) {
+            for (const territoryId of this.visibleTerritories) {
+                const territory = this.gameMap.territories[territoryId];
+                if (!territory) continue;
+                
+                const distance = Math.sqrt((x - territory.x) ** 2 + (y - territory.y) ** 2);
+                if (distance <= territory.radius) {
+                    return territory;
+                }
+            }
+            return null;
+        }
+        
+        // Fallback to spatial indexing if visibility culling not available
         return this.gameMap.findTerritoryAt(x, y);
     }
     
     // Core fleet command execution with percentage control
-    executeFleetCommand(fromTerritory, toTerritory, fleetPercentage) {
+    executeFleetCommand(fromTerritory, toTerritory, fleetPercentage, commandType = 'auto', path = null) {
         if (!fromTerritory || !toTerritory || fromTerritory.ownerId !== this.humanPlayer?.id) {
             return;
         }
         
-        // Validate warp lane connectivity (except for colonizable planets which can be probed)
-        if (!toTerritory.isColonizable && !fromTerritory.neighbors.includes(toTerritory.id)) {
-            console.log(`Cannot send fleet: No warp lane from ${fromTerritory.id} to ${toTerritory.id}`);
+        // Calculate ships to send - hardcoded 50% for new system
+        const availableShips = Math.max(0, fromTerritory.armySize - 1);
+        const shipsToSend = Math.max(1, Math.floor(availableShips * 0.5));
+        
+        // Visual feedback - show number flying off
+        this.showFleetCommandFeedback(fromTerritory, shipsToSend, 0.5);
+        
+        // Handle different command types
+        switch (commandType) {
+            case 'multi-hop-transfer':
+                if (path && path.length > 1) {
+                    this.executeMultiHopTransfer(fromTerritory, toTerritory, shipsToSend, path);
+                    console.log(`Multi-hop transfer: ${shipsToSend} ships from ${fromTerritory.id} to ${toTerritory.id} via path: ${path.join(' -> ')}`);
+                } else {
+                    console.error('Multi-hop transfer requires valid path');
+                }
+                break;
+                
+            case 'transfer':
+                if (toTerritory.ownerId === this.humanPlayer?.id) {
+                    this.combatSystem.transferArmies(fromTerritory, toTerritory);
+                    this.createShipAnimation(fromTerritory, toTerritory, false, shipsToSend);
+                    console.log(`Direct transfer: ${shipsToSend} ships from ${fromTerritory.id} to ${toTerritory.id}`);
+                }
+                break;
+                
+            case 'attack':
+                if (toTerritory.ownerId !== this.humanPlayer?.id && !toTerritory.isColonizable) {
+                    this.combatSystem.attackTerritory(fromTerritory, toTerritory);
+                    this.createShipAnimation(fromTerritory, toTerritory, true, shipsToSend);
+                    console.log(`Attack: ${shipsToSend} ships from ${fromTerritory.id} to ${toTerritory.id}`);
+                }
+                break;
+                
+            case 'auto':
+            default:
+                // Legacy auto-detection mode
+                if (toTerritory.ownerId === this.humanPlayer?.id) {
+                    this.combatSystem.transferArmies(fromTerritory, toTerritory);
+                    this.createShipAnimation(fromTerritory, toTerritory, false, shipsToSend);
+                } else if (toTerritory.isColonizable) {
+                    this.launchProbe(fromTerritory, toTerritory);
+                } else {
+                    this.combatSystem.attackTerritory(fromTerritory, toTerritory);
+                    this.createShipAnimation(fromTerritory, toTerritory, true, shipsToSend);
+                }
+                break;
+        }
+    }
+    
+    executeMultiHopTransfer(fromTerritory, toTerritory, shipsToSend, path) {
+        // Validate path
+        if (!path || path.length < 2) {
+            console.error('Invalid path for multi-hop transfer');
             return;
         }
         
-        // Calculate ships to send based on percentage
-        const availableShips = Math.max(0, fromTerritory.armySize - 1); // Always leave at least 1
-        const shipsToSend = Math.max(1, Math.floor(availableShips * fleetPercentage));
+        // Execute transfer on source territory
+        fromTerritory.armySize -= shipsToSend;
         
-        // Visual feedback - show number flying off
-        this.showFleetCommandFeedback(fromTerritory, shipsToSend, fleetPercentage);
+        // Create multi-hop animation following the path
+        this.createSupplyRouteAnimation(path.map(id => this.gameMap.territories[id]), this.humanPlayer.color);
         
-        if (toTerritory.ownerId === this.humanPlayer?.id) {
-            // Transfer to own territory with specific amount
-            this.transferFleetWithAmount(fromTerritory, toTerritory, shipsToSend);
-            console.log(`Fleet transfer: ${shipsToSend} ships (${Math.round(fleetPercentage * 100)}%) from ${fromTerritory.id} to ${toTerritory.id}`);
-        } else if (toTerritory.isColonizable) {
-            // Probe colonizable territory
-            this.launchProbe(fromTerritory, toTerritory);
-            console.log(`Probe launched from ${fromTerritory.id} to colonizable ${toTerritory.id}`);
-        } else {
-            // Attack enemy territory with specific amount
-            this.attackTerritoryWithAmount(fromTerritory, toTerritory, shipsToSend);
-            console.log(`Attack: ${shipsToSend} ships (${Math.round(fleetPercentage * 100)}%) from ${fromTerritory.id} to ${toTerritory.id}`);
-        }
+        // Calculate delivery delay based on path length (2 seconds per hop)
+        const deliveryDelay = (path.length - 1) * 2000;
+        
+        // Schedule delivery to destination
+        setTimeout(() => {
+            if (toTerritory.ownerId === this.humanPlayer?.id) {
+                toTerritory.armySize += shipsToSend;
+                
+                // Add visual feedback
+                toTerritory.floatingText = {
+                    text: `+${shipsToSend}`,
+                    startTime: Date.now(),
+                    duration: 2000,
+                    startY: toTerritory.y
+                };
+                
+                console.log(`Multi-hop transfer completed: ${shipsToSend} ships delivered to territory ${toTerritory.id}`);
+            }
+        }, deliveryDelay);
     }
     
     // Visual feedback for fleet commands
