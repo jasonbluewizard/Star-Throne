@@ -46,6 +46,9 @@ export default class StarThrone {
         this.currentPlayers = 0;
         this.gameInitialized = false; // Prevent early win condition checks
         
+        // Persistent star lane discovery system
+        this.discoveredLanes = new Set(); // Stores "id1-id2" strings for permanently visible lanes
+        
         // Home system flashing
         this.homeSystemFlashStart = null;
         this.homeSystemFlashDuration = 3000; // 3 seconds
@@ -1982,13 +1985,22 @@ export default class StarThrone {
                 if (drawnConnections.has(connectionId)) return;
                 drawnConnections.add(connectionId);
                 
-                // FOG OF WAR: Only show star lanes if at least one end is owned by the human player
+                // FOG OF WAR: Show star lanes if either:
+                // 1. At least one end is owned by the human player (current visibility)
+                // 2. The lane was previously discovered (permanent knowledge)
                 const territoryOwnedByPlayer = territory.ownerId === this.humanPlayer?.id;
                 const neighborOwnedByPlayer = neighbor.ownerId === this.humanPlayer?.id;
+                const laneDiscovered = this.discoveredLanes.has(connectionId);
                 
-                if (!territoryOwnedByPlayer && !neighborOwnedByPlayer) {
-                    // Neither territory is owned by player - don't show this connection
+                if (!territoryOwnedByPlayer && !neighborOwnedByPlayer && !laneDiscovered) {
+                    // Neither territory is owned by player AND lane not previously discovered
                     return;
+                }
+                
+                // Add newly visible lanes to permanent discovery
+                if ((territoryOwnedByPlayer || neighborOwnedByPlayer) && !laneDiscovered) {
+                    this.discoveredLanes.add(connectionId);
+                    console.log(`🗺️ Star lane discovered: ${territory.id} ↔ ${neighborId}`);
                 }
                 
                 // Set color based on ownership

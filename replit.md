@@ -635,6 +635,13 @@ Changelog:
      - Friendly aliens providing instant fleet bonuses
    * Discovery system integrated into CombatSystem for automatic triggering during territorial conquest
    * Streamlined gameplay removing exploration phase while maintaining strategic discovery elements
+- January 5, 2025. Permanent star lane discovery system implementation:
+   * Star lanes remain permanently visible once discovered, creating persistent galactic maps
+   * Discovered connections stored in discoveredLanes Set using "id1-id2" format for permanent tracking
+   * Fog of war now shows lanes if either currently controlled OR previously discovered
+   * Knowledge accumulates over time - losing territories doesn't erase star lane intelligence
+   * Enhanced strategic depth by building permanent understanding of galactic geography
+   * Console logging shows "🗺️ Star lane discovered" messages when new connections are mapped
 
 ## User Preferences
 

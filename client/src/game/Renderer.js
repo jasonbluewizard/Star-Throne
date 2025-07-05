@@ -225,14 +225,23 @@ export class Renderer {
                 if (renderedConnections.has(connectionKey)) continue;
                 renderedConnections.add(connectionKey);
                 
-                // FOG OF WAR: Only show star lanes if at least one end is owned by the human player
+                // FOG OF WAR: Show star lanes if either:
+                // 1. At least one end is owned by the human player (current visibility)
+                // 2. The lane was previously discovered (permanent knowledge)
                 const humanPlayerId = this.game?.humanPlayer?.id;
                 const territoryOwnedByPlayer = territory.ownerId === humanPlayerId;
                 const neighborOwnedByPlayer = neighbor.ownerId === humanPlayerId;
+                const laneDiscovered = this.game?.discoveredLanes?.has(connectionKey);
                 
-                if (!territoryOwnedByPlayer && !neighborOwnedByPlayer) {
-                    // Neither territory is owned by player - don't show this connection
+                if (!territoryOwnedByPlayer && !neighborOwnedByPlayer && !laneDiscovered) {
+                    // Neither territory is owned by player AND lane not previously discovered
                     continue;
+                }
+                
+                // Add newly visible lanes to permanent discovery
+                if ((territoryOwnedByPlayer || neighborOwnedByPlayer) && !laneDiscovered && this.game?.discoveredLanes) {
+                    this.game.discoveredLanes.add(connectionKey);
+                    console.log(`🗺️ Star lane discovered: ${territory.id} ↔ ${neighborId}`);
                 }
                 
                 // Color connections between same-owned territories
