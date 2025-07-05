@@ -276,10 +276,17 @@ export class Territory {
             this.renderExplosion(ctx);
         }
         
-        // Draw army count for neutral territories or "?" for colonizable
+        // Draw army count for neutral territories with fog of war
         if (this.ownerId === null) {
             ctx.font = 'bold 14px Arial';
             ctx.textAlign = 'center';
+            
+            // FOG OF WAR: Check if adjacent to player-owned territory
+            const humanPlayerId = gameData?.humanPlayer?.id;
+            const isAdjacentToPlayer = this.neighbors.some(neighborId => {
+                const neighbor = gameData?.gameMap?.territories?.[neighborId];
+                return neighbor && neighbor.ownerId === humanPlayerId;
+            });
             
             if (this.isColonizable) {
                 // Simple yellow question mark for colonizable planets
@@ -299,12 +306,12 @@ export class Territory {
                 ctx.stroke();
                 ctx.setLineDash([]);
             } else {
-                // Regular neutral territory styling
+                // Neutral territory - show army count only if adjacent to player territory
                 ctx.fillStyle = '#000000'; // Black text
                 ctx.strokeStyle = '#ffffff'; // White outline for contrast
                 ctx.lineWidth = 2;
                 
-                const displayText = this.armySize.toString();
+                const displayText = isAdjacentToPlayer ? this.armySize.toString() : '?';
                 ctx.strokeText(displayText, this.x, this.y + 4);
                 ctx.fillText(displayText, this.x, this.y + 4);
             }

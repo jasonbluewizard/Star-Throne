@@ -1964,7 +1964,8 @@ export default class StarThrone {
                 territory.render(this.ctx, this.players, selectedTerritory, {
                     humanPlayer: this.humanPlayer,
                     homeSystemFlashStart: this.homeSystemFlashStart,
-                    homeSystemFlashDuration: this.homeSystemFlashDuration
+                    homeSystemFlashDuration: this.homeSystemFlashDuration,
+                    gameMap: this.gameMap // Include game map for fog of war logic
                 }, this.hoveredTerritory);
             }
         }
@@ -1995,12 +1996,12 @@ export default class StarThrone {
                 if (drawnConnections.has(connectionId)) return;
                 drawnConnections.add(connectionId);
                 
-                // NEW VISIBILITY RULE: Only show star lanes if at least one end is controlled by a player
-                const territoryControlled = territory.ownerId !== null;
-                const neighborControlled = neighbor.ownerId !== null;
+                // FOG OF WAR: Only show star lanes if at least one end is owned by the human player
+                const territoryOwnedByPlayer = territory.ownerId === this.humanPlayer?.id;
+                const neighborOwnedByPlayer = neighbor.ownerId === this.humanPlayer?.id;
                 
-                if (!territoryControlled && !neighborControlled) {
-                    // Both territories are neutral - don't show this connection
+                if (!territoryOwnedByPlayer && !neighborOwnedByPlayer) {
+                    // Neither territory is owned by player - don't show this connection
                     return;
                 }
                 
