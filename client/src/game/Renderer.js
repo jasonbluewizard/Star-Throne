@@ -203,7 +203,7 @@ export class Renderer {
         }
     }
     
-    renderConnections(gameMap) {
+    renderConnections(gameMap, players = []) {
         this.ctx.save();
         this.ctx.strokeStyle = GAME_CONSTANTS.CONNECTION_COLOR;
         this.ctx.lineWidth = 1;
@@ -224,6 +224,15 @@ export class Renderer {
                 
                 if (renderedConnections.has(connectionKey)) continue;
                 renderedConnections.add(connectionKey);
+                
+                // NEW VISIBILITY RULE: Only show star lanes if at least one end is controlled by a player
+                const territoryControlled = territory.ownerId !== null;
+                const neighborControlled = neighbor.ownerId !== null;
+                
+                if (!territoryControlled && !neighborControlled) {
+                    // Both territories are neutral - don't show this connection
+                    continue;
+                }
                 
                 // Color connections between same-owned territories
                 if (territory.ownerId && territory.ownerId === neighbor.ownerId) {
@@ -299,13 +308,8 @@ export class Renderer {
                 this.renderThroneStarCrown(territory);
             }
             
-            // Render colonizable planet indicator
-            if (territory.isColonizable) {
-                this.renderColonizableIndicator(territory);
-            }
-            
-            // Render army count
-            if (showNumbers && !territory.isColonizable) {
+            // Render army count for all territories (no more colonizable planets)
+            if (showNumbers) {
                 this.renderArmyCount(territory);
             }
             

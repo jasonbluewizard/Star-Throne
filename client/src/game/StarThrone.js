@@ -1458,7 +1458,7 @@ export default class StarThrone {
         const usedTerritories = [];
         const minDistance = 200; // Minimum distance between starting territories
         
-        console.log(`Available territories for distribution: ${allTerritories.length} (all are colonizable planets)`);
+        console.log(`Available territories for distribution: ${allTerritories.length} (all have neutral garrisons)`);
         
         // Give each player exactly one starting territory with spacing
         for (let i = 0; i < this.players.length; i++) {
@@ -1488,9 +1488,8 @@ export default class StarThrone {
             }
             
             if (bestTerritory) {
-                // Manually colonize this territory for the player
+                // Colonize this territory for the player (defeating the neutral garrison)
                 bestTerritory.ownerId = player.id;
-                bestTerritory.isColonizable = false; // Make it a normal territory
                 bestTerritory.armySize = GAME_CONSTANTS.INITIAL_STARTING_ARMY_SIZE;
                 bestTerritory.isThronestar = true; // Mark as throne star
                 
@@ -1500,9 +1499,6 @@ export default class StarThrone {
                 if (player.id === 0) { // Human player ID
                     console.log(`👤 HUMAN PLAYER starting territory ${bestTerritory.id} initialized with ${bestTerritory.armySize} armies`);
                 }
-                
-                // Reveal connections for starting territories
-                bestTerritory.revealConnections();
                 
                 player.territories.push(bestTerritory.id);
                 player.totalArmies += bestTerritory.armySize;
@@ -1977,11 +1973,13 @@ export default class StarThrone {
         // Cache connections to avoid duplicate rendering
         const drawnConnections = new Set();
         
-        // Safety check for visible territories
-        if (!this.visibleTerritories || this.visibleTerritories.size === 0) {
-            // Fall back to all territories if culling system isn't ready
-            this.gameMap.territories.forEach(territory => {
-                territory.neighbors.forEach(neighborId => {
+        // Use visible territories for optimized rendering
+        const territoriesToCheck = this.visibleTerritories && this.visibleTerritories.size > 0 
+            ? Array.from(this.visibleTerritories).map(id => this.gameMap.territories[id]).filter(t => t)
+            : this.gameMap.territories;
+        
+        territoriesToCheck.forEach(territory => {
+            territory.neighbors.forEach(neighborId => {
                 const neighbor = this.gameMap.territories[neighborId];
                 if (!neighbor) return;
                 
@@ -1993,8 +1991,12 @@ export default class StarThrone {
                 if (drawnConnections.has(connectionId)) return;
                 drawnConnections.add(connectionId);
                 
-                // Skip connections to/from colonizable planets
-                if (territory.isColonizable || neighbor.isColonizable) {
+                // NEW VISIBILITY RULE: Only show star lanes if at least one end is controlled by a player
+                const territoryControlled = territory.ownerId !== null;
+                const neighborControlled = neighbor.ownerId !== null;
+                
+                if (!territoryControlled && !neighborControlled) {
+                    // Both territories are neutral - don't show this connection
                     return;
                 }
                 
@@ -2013,47 +2015,7 @@ export default class StarThrone {
                 this.ctx.lineTo(neighbor.x, neighbor.y);
                 this.ctx.stroke();
             });
-            });
-        } else {
-            // Use visible territories for optimized rendering
-            this.visibleTerritories.forEach(territoryId => {
-                const territory = this.gameMap.territories[territoryId];
-                if (!territory) return;
-                
-                territory.neighbors.forEach(neighborId => {
-                    const neighbor = this.gameMap.territories[neighborId];
-                    if (!neighbor) return;
-                    
-                    // Create unique connection ID (smaller ID first)
-                    const connectionId = territory.id < neighborId 
-                        ? `${territory.id}-${neighborId}` 
-                        : `${neighborId}-${territory.id}`;
-                    
-                    if (drawnConnections.has(connectionId)) return;
-                    drawnConnections.add(connectionId);
-                    
-                    // Skip connections to/from colonizable planets
-                    if (territory.isColonizable || neighbor.isColonizable) {
-                        return;
-                    }
-                    
-                    // Set color based on ownership
-                    if (territory.ownerId !== null && 
-                        neighbor.ownerId !== null && 
-                        territory.ownerId === neighbor.ownerId) {
-                        const owner = this.players[territory.ownerId];
-                        this.ctx.strokeStyle = owner ? owner.color : '#666677';
-                    } else {
-                        this.ctx.strokeStyle = '#666677';
-                    }
-                    
-                    this.ctx.beginPath();
-                    this.ctx.moveTo(territory.x, territory.y);
-                    this.ctx.lineTo(neighbor.x, neighbor.y);
-                    this.ctx.stroke();
-                });
-            });
-        }
+        });
         
         this.ctx.globalAlpha = 1;
     }

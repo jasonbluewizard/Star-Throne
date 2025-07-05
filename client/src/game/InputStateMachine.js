@@ -317,24 +317,25 @@ class TerritorySelectedState extends BaseState {
                 break;
                 
             case 'neutral':
-                // Cannot send fleets to neutral stars
-                this.showFeedback("Cannot send fleets to neutral star", sourceStar.x, sourceStar.y);
-                console.log(`Cannot target neutral territory ${targetStar.id}`);
+                if (isAdjacent) {
+                    // Adjacent neutral star with garrison - attack directly (no probe needed)
+                    const attackingArmies = Math.floor((sourceStar.armySize - 1) * 0.5);
+                    if (attackingArmies > 0) {
+                        const result = this.game.combatSystem.attackTerritory(sourceStar, targetStar, attackingArmies);
+                        this.game.createShipAnimation(sourceStar, targetStar, true, attackingArmies);
+                        console.log(`Attacked neutral garrison ${targetStar.id} from ${sourceStar.id}`);
+                    }
+                } else {
+                    // Non-adjacent neutral star - show error feedback
+                    this.showFeedback("Target not in range", sourceStar.x, sourceStar.y);
+                    console.log(`Neutral territory ${targetStar.id} not in range from ${sourceStar.id}`);
+                }
                 break;
                 
             case 'colonizable':
-                // Launch probe to colonizable planet
-                if (sourceStar.armySize >= 11) { // Need at least 11 armies (probe costs 10, leave 1)
-                    const success = this.game.launchProbe(sourceStar, targetStar);
-                    if (success) {
-                        console.log(`Probe launched from ${sourceStar.id} to colonizable planet ${targetStar.id}`);
-                    } else {
-                        this.showFeedback("Probe launch failed", sourceStar.x, sourceStar.y);
-                    }
-                } else {
-                    this.showFeedback("Need 11+ armies to launch probe", sourceStar.x, sourceStar.y);
-                    console.log(`Insufficient armies to launch probe from ${sourceStar.id}`);
-                }
+                // Colonizable planets should no longer exist with the new system, but keep for safety
+                this.showFeedback("Invalid target type", sourceStar.x, sourceStar.y);
+                console.log(`Deprecated colonizable target: ${targetStar.id}`);
                 break;
                 
             default:

@@ -92,16 +92,16 @@ export class GameMap {
         this.width = MapGenerator.mapWidth;
         this.height = MapGenerator.mapHeight;
         
-        // Convert generated territories to our game format - ALL are colonizable requiring probes
+        // Convert generated territories to our game format - ALL have neutral garrisons
         generatedTerritories.forEach((territory, index) => {
-            // Modify territory to be colonizable (probe required)
-            territory.isColonizable = true;
-            territory.hiddenArmySize = Math.floor(Math.random() * 50) + 1;
-            territory.armySize = 0; // Unknown until colonized
+            // Set up neutral garrison (1-30 armies visible)
+            territory.isColonizable = false;
+            territory.armySize = Math.floor(Math.random() * 30) + 1; // Visible garrison size
+            territory.ownerId = null; // Neutral until captured
             
-            // Convert neighbors array to hidden neighbors (invisible until colonized)
-            territory.hiddenNeighbors = territory.neighbors.slice();
-            territory.neighbors = []; // Hide connections until colonized
+            // All connections are visible from the start (no hidden neighbors)
+            // territory.neighbors already set by MapGenerator - keep them visible
+            territory.hiddenNeighbors = []; // No hidden connections with new visibility system
             
             this.territories[index] = territory;
             
@@ -345,8 +345,8 @@ export class GameMap {
             
             for (let k = 0; k < connections; k++) {
                 const neighbor = closeNeighbors[k].territory;
-                territory.addHiddenNeighbor(neighbor.id);
-                neighbor.addHiddenNeighbor(territory.id);
+                territory.addNeighbor(neighbor.id);
+                neighbor.addNeighbor(territory.id);
             }
         }
         
@@ -368,8 +368,8 @@ export class GameMap {
             if (bridgeTargets.length > 0) {
                 bridgeTargets.sort((a, b) => a.distance - b.distance);
                 const neighbor = bridgeTargets[0].territory;
-                territory.addHiddenNeighbor(neighbor.id);
-                neighbor.addHiddenNeighbor(territory.id);
+                territory.addNeighbor(neighbor.id);
+                neighbor.addNeighbor(territory.id);
             }
         }
     }
@@ -397,8 +397,8 @@ export class GameMap {
             
             for (let k = 0; k < connections; k++) {
                 const neighbor = neighbors[k].territory;
-                territory.addHiddenNeighbor(neighbor.id);
-                neighbor.addHiddenNeighbor(territory.id);
+                territory.addNeighbor(neighbor.id);
+                neighbor.addNeighbor(territory.id);
             }
         }
     }
@@ -432,8 +432,8 @@ export class GameMap {
             
             for (let k = 0; k < connections; k++) {
                 const neighbor = coreNeighbors[k].territory;
-                territory.addHiddenNeighbor(neighbor.id);
-                neighbor.addHiddenNeighbor(territory.id);
+                territory.addNeighbor(neighbor.id);
+                neighbor.addNeighbor(territory.id);
             }
         }
         
@@ -456,8 +456,8 @@ export class GameMap {
             
             for (let k = 0; k < connections; k++) {
                 const neighbor = radialNeighbors[k].territory;
-                territory.addHiddenNeighbor(neighbor.id);
-                neighbor.addHiddenNeighbor(territory.id);
+                territory.addNeighbor(neighbor.id);
+                neighbor.addNeighbor(territory.id);
             }
         }
     }
@@ -485,8 +485,8 @@ export class GameMap {
             
             for (let k = 0; k < connections; k++) {
                 const neighbor = neighbors[k].territory;
-                territory.addHiddenNeighbor(neighbor.id);
-                neighbor.addHiddenNeighbor(territory.id);
+                territory.addNeighbor(neighbor.id);
+                neighbor.addNeighbor(territory.id);
             }
         }
     }
@@ -520,8 +520,8 @@ export class GameMap {
                 
                 for (let k = 0; k < connections; k++) {
                     const neighbor = systemNeighbors[k].territory;
-                    territory.addHiddenNeighbor(neighbor.id);
-                    neighbor.addHiddenNeighbor(territory.id);
+                    territory.addNeighbor(neighbor.id);
+                    neighbor.addNeighbor(territory.id);
                 }
             }
         });
@@ -532,8 +532,8 @@ export class GameMap {
             const leftTerr = leftSystem[Math.floor(Math.random() * leftSystem.length)];
             const rightTerr = rightSystem[Math.floor(Math.random() * rightSystem.length)];
             
-            leftTerr.addHiddenNeighbor(rightTerr.id);
-            rightTerr.addHiddenNeighbor(leftTerr.id);
+            leftTerr.addNeighbor(rightTerr.id);
+            rightTerr.addNeighbor(leftTerr.id);
         }
     }
     
@@ -653,14 +653,9 @@ export class GameMap {
                     to: neighbor
                 });
                 
-                // If either territory is colonizable, make it a hidden connection
-                if (territory.isColonizable || neighbor.isColonizable) {
-                    territory.addHiddenNeighbor(neighbor.id);
-                    neighbor.addHiddenNeighbor(territory.id);
-                } else {
-                    territory.addNeighbor(neighbor.id);
-                    neighbor.addNeighbor(territory.id);
-                }
+                // All connections are now regular neighbors (no hidden connections)
+                territory.addNeighbor(neighbor.id);
+                neighbor.addNeighbor(territory.id);
             }
         }
         

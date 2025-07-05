@@ -5,15 +5,17 @@ export class Territory {
         this.y = y;
         this.radius = radius;
         this.neighbors = [];
-        this.hiddenNeighbors = []; // Connections revealed after colonization
+        this.hiddenNeighbors = []; // Legacy - no longer used with new visibility system
         this.ownerId = null; // null for neutral, or player ID
-        this.armySize = 0;
-        this.isColonizable = isColonizable; // Special planets requiring probe colonization
+        
+        // All territories start with neutral garrisons (1-30 armies)
+        this.armySize = Math.floor(Math.random() * 30) + 1;
+        this.isColonizable = false; // No longer needed with new visibility system
         
         // Visual properties
         this.baseColor = '#444444';
-        this.neutralColor = isColonizable ? '#222222' : '#666666'; // Much darker for colonizable
-        this.strokeColor = isColonizable ? '#444444' : '#888888'; // Different stroke for colonizable
+        this.neutralColor = '#666666'; // Standard neutral color
+        this.strokeColor = '#888888'; // Standard stroke for all territories
         
         // Animation
         this.pulsePhase = Math.random() * Math.PI * 2;
