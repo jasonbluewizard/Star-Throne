@@ -121,8 +121,8 @@ export default class MapGenerator {
      */
     static generateInitialPoints(mapSize, layout, numPlayers) {
         const points = [];
-        const baseWidth = 1800;  // Reduced for closer planets
-        const baseHeight = 1400; // Reduced for closer planets
+        const baseWidth = 2400;  // Increased for better distribution
+        const baseHeight = 1800; // Increased for better distribution
         
         // Scale dimensions based on map size
         const scale = Math.sqrt(mapSize / 80); // 80 is our reference size
@@ -296,7 +296,7 @@ export default class MapGenerator {
         
         // Generate organic galaxy boundary using multiple sine waves
         const boundaryFunction = (angle) => {
-            const baseRadius = Math.min(width, height) * 0.45;
+            const baseRadius = Math.min(width, height) * 0.42; // Use more of the available space
             const roughness1 = Math.sin(angle * 3) * 0.15;
             const roughness2 = Math.sin(angle * 7) * 0.08;
             const roughness3 = Math.sin(angle * 13) * 0.05;
