@@ -457,10 +457,23 @@ export default class StarThrone {
         this.camera.mapWidth = this.gameMap.width;
         this.camera.mapHeight = this.gameMap.height;
         
-        // Center camera on map and set appropriate zoom
+        // Center camera on map and set appropriate zoom based on map size
         this.camera.centerOn(this.gameMap.width / 2, this.gameMap.height / 2); // Center of expanded map
-        this.camera.targetZoom = 0.25; // Zoom out further to see more territories
-        this.camera.zoom = 0.25;
+        
+        // Adaptive zoom based on territory count for optimal view
+        const territoryCount = Object.keys(this.gameMap.territories).length;
+        let initialZoom = 0.25; // Default for small maps
+        
+        if (territoryCount >= 400) {
+            initialZoom = 0.08; // Much lower zoom for massive maps (400+ territories)
+        } else if (territoryCount >= 200) {
+            initialZoom = 0.15; // Lower zoom for large maps (200-399 territories)
+        } else if (territoryCount >= 100) {
+            initialZoom = 0.20; // Moderate zoom for medium maps (100-199 territories)
+        }
+        
+        this.camera.targetZoom = initialZoom;
+        this.camera.zoom = initialZoom;
         
         this.ui = new GameUI(this.canvas, this.camera);
         
