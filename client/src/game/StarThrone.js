@@ -1407,6 +1407,7 @@ export default class StarThrone {
         // Create exactly one human player with distinctive bright cyan color
         this.humanPlayer = new Player(0, 'You', '#00ffff', 'human');
         this.players.push(this.humanPlayer);
+        console.log(`🔍 HUMAN PLAYER CREATED: ID=${this.humanPlayer.id}, type=${this.humanPlayer.type}, total players now: ${this.players.length}`);
         this.initializePlayerDiscoveries(this.humanPlayer.id);
         
         // Create AI players with unique colors and human-like names
@@ -1634,6 +1635,7 @@ export default class StarThrone {
         }
         if (this.discoverySystem) {
             this.discoverySystem.updateFloatingDiscoveries();
+            this.discoverySystem.updateTopDiscoveryAnnouncements();
         }
         if (this.animationSystem) {
             this.animationSystem.update(deltaTime);
@@ -2641,6 +2643,11 @@ export default class StarThrone {
         if (this.uiManager) {
             this.uiManager.renderNotifications(this.ctx);
             this.uiManager.renderMessage(this.ctx);
+        }
+        
+        // Render top discovery bar
+        if (this.discoverySystem) {
+            this.discoverySystem.renderTopDiscoveryBar(this.ctx);
         }
     }
     

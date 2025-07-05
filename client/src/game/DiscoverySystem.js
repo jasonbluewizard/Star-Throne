@@ -22,6 +22,9 @@ export class DiscoverySystem {
         
         // Recent discovery log for UI panel
         this.recentDiscoveries = [];
+        
+        // Top discovery bar announcements
+        this.topDiscoveryAnnouncements = [];
     }
 
     // Define discovery types and their probabilities
@@ -134,6 +137,7 @@ export class DiscoverySystem {
                     this.discoveries.precursorWeapons++;
                     this.addFloatingDiscovery(territory, discovery);
                     this.addRecentDiscovery(discovery);
+                    this.addTopDiscoveryAnnouncement(discovery);
                 }
                 break;
                 
@@ -142,6 +146,7 @@ export class DiscoverySystem {
                     this.discoveries.precursorDrive++;
                     this.addFloatingDiscovery(territory, discovery);
                     this.addRecentDiscovery(discovery);
+                    this.addTopDiscoveryAnnouncement(discovery);
                 }
                 break;
                 
@@ -150,6 +155,7 @@ export class DiscoverySystem {
                     this.discoveries.precursorShield++;
                     this.addFloatingDiscovery(territory, discovery);
                     this.addRecentDiscovery(discovery);
+                    this.addTopDiscoveryAnnouncement(discovery);
                 }
                 break;
                 
@@ -158,6 +164,7 @@ export class DiscoverySystem {
                     this.discoveries.precursorNanotechnology++;
                     this.addFloatingDiscovery(territory, discovery);
                     this.addRecentDiscovery(discovery);
+                    this.addTopDiscoveryAnnouncement(discovery);
                 }
                 break;
                 
@@ -168,6 +175,7 @@ export class DiscoverySystem {
                     this.discoveries.factoryPlanets.push(territory.id);
                     this.addFloatingDiscovery(territory, discovery);
                     this.addRecentDiscovery(discovery);
+                    this.addTopDiscoveryAnnouncement(discovery);
                 }
                 break;
                 
@@ -177,6 +185,7 @@ export class DiscoverySystem {
                     this.discoveries.richMinerals++;
                     this.addFloatingDiscovery(territory, discovery);
                     this.addRecentDiscovery(discovery);
+                    this.addTopDiscoveryAnnouncement(discovery);
                 }
                 break;
                 
@@ -186,6 +195,7 @@ export class DiscoverySystem {
                     this.discoveries.friendlyAliens++;
                     this.addFloatingDiscovery(territory, discovery);
                     this.addRecentDiscovery(discovery);
+                    this.addTopDiscoveryAnnouncement(discovery);
                 }
                 break;
                 
@@ -193,6 +203,7 @@ export class DiscoverySystem {
                 if (isHumanPlayer) {
                     this.addFloatingDiscovery(territory, discovery);
                     this.addRecentDiscovery(discovery);
+                    this.addTopDiscoveryAnnouncement(discovery);
                 }
                 break;
         }
@@ -233,6 +244,21 @@ export class DiscoverySystem {
         // Keep only last 3 discoveries
         if (this.recentDiscoveries.length > 3) {
             this.recentDiscoveries = this.recentDiscoveries.slice(0, 3);
+        }
+    }
+
+    // Add to top discovery bar
+    addTopDiscoveryAnnouncement(discovery) {
+        this.topDiscoveryAnnouncements.push({
+            ...discovery,
+            createdAt: Date.now(),
+            duration: 4000, // 4 seconds
+            opacity: 1.0
+        });
+
+        // Keep only last 1 announcement
+        if (this.topDiscoveryAnnouncements.length > 1) {
+            this.topDiscoveryAnnouncements = this.topDiscoveryAnnouncements.slice(-1);
         }
     }
 
@@ -318,6 +344,63 @@ export class DiscoverySystem {
         };
         this.floatingDiscoveries = [];
         this.recentDiscoveries = [];
+    }
+
+    // Update top discovery bar animations
+    updateTopDiscoveryAnnouncements() {
+        const now = Date.now();
+        this.topDiscoveryAnnouncements = this.topDiscoveryAnnouncements.filter(discovery => {
+            const age = now - discovery.createdAt;
+            if (age > discovery.duration) {
+                return false; // Remove expired
+            }
+            
+            // Fade out in last 1000ms
+            if (age > discovery.duration - 1000) {
+                discovery.opacity = (discovery.duration - age) / 1000;
+            }
+            
+            return true;
+        });
+    }
+
+    // Render top discovery bar
+    renderTopDiscoveryBar(ctx) {
+        if (this.topDiscoveryAnnouncements.length === 0) return;
+
+        const discovery = this.topDiscoveryAnnouncements[0];
+        const centerX = ctx.canvas.width / 2;
+        const topY = 40;
+
+        ctx.save();
+        ctx.globalAlpha = discovery.opacity;
+        
+        // Background bar
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.roundRect(centerX - 200, topY - 20, 400, 40, 8);
+        ctx.fill();
+        
+        // Border
+        ctx.strokeStyle = discovery.color;
+        ctx.lineWidth = 2;
+        ctx.roundRect(centerX - 200, topY - 20, 400, 40, 8);
+        ctx.stroke();
+        
+        // Icon
+        ctx.font = '24px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(discovery.icon, centerX - 120, topY);
+        
+        // Text
+        ctx.font = 'bold 16px Arial';
+        ctx.fillStyle = discovery.color;
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 1;
+        ctx.strokeText(`${discovery.name} Discovered!`, centerX + 20, topY);
+        ctx.fillText(`${discovery.name} Discovered!`, centerX + 20, topY);
+        
+        ctx.restore();
     }
 
     // Get discoveries for UI display
