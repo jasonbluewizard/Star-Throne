@@ -1322,6 +1322,10 @@ export default class StarThrone {
         // Mark game as fully initialized to allow win condition checks
         this.gameInitialized = true;
         
+        // Run immediate throne star validation to fix any double throne issues
+        console.log('🕐 Running initial throne star validation...');
+        this.validateThroneStars();
+        
         console.log(`Game started with ${this.players.length} players (${this.config.playerName} + ${this.config.aiCount} AI) and ${Object.keys(this.gameMap.territories).length} territories`);
     }
     
@@ -1646,6 +1650,7 @@ export default class StarThrone {
         // Validate throne stars every 5 seconds to fix double throne bugs
         this.throneStarValidationTimer += deltaTime;
         if (this.throneStarValidationTimer >= 5000) {
+            console.log('🕐 Running throne star validation...');
             this.validateThroneStars();
             this.throneStarValidationTimer = 0;
         }
