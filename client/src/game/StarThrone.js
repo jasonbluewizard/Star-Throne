@@ -1484,6 +1484,7 @@ export default class StarThrone {
                 bestTerritory.isThronestar = true; // Mark as throne star
                 
                 console.log(`🏠 Starting territory ${bestTerritory.id} for ${player.name}: ${GAME_CONSTANTS.INITIAL_STARTING_ARMY_SIZE} armies`);
+                console.log(`👑 THRONE STAR DEBUG: Territory ${bestTerritory.id} set as throne for player ${player.id} (${player.name})`);
                 
                 // Debug: Track army changes for human player
                 if (player.id === 0) { // Human player ID
@@ -1500,10 +1501,49 @@ export default class StarThrone {
             }
         }
         
+        // DEBUG: Audit and fix any duplicate throne stars
+        this.auditThroneStars();
+        
         // Update player stats
         this.players.forEach(player => player.updateStats());
     }
     
+    auditThroneStars() {
+        const throneStars = Object.values(this.gameMap.territories).filter(t => t.isThronestar);
+        console.log(`👑 THRONE STAR AUDIT: Found ${throneStars.length} throne stars total`);
+        
+        // Group throne stars by owner
+        const thronesByOwner = {};
+        throneStars.forEach(throne => {
+            if (!thronesByOwner[throne.ownerId]) {
+                thronesByOwner[throne.ownerId] = [];
+            }
+            thronesByOwner[throne.ownerId].push(throne);
+        });
+        
+        // Check for players with multiple throne stars and fix
+        Object.keys(thronesByOwner).forEach(ownerId => {
+            const thrones = thronesByOwner[ownerId];
+            const owner = this.players[ownerId];
+            
+            console.log(`👑 Player ${owner ? owner.name : 'UNKNOWN'} (ID: ${ownerId}) has ${thrones.length} throne stars`);
+            
+            if (thrones.length > 1) {
+                console.log(`🚨 FIXING: Player ${owner.name} has multiple throne stars! Keeping only the first one.`);
+                
+                // Keep only the first throne (based on player.throneStarId if available)
+                const correctThrone = thrones.find(t => t.id === owner.throneStarId) || thrones[0];
+                
+                thrones.forEach(throne => {
+                    if (throne.id !== correctThrone.id) {
+                        console.log(`🔧 Removing throne star status from territory ${throne.id}`);
+                        throne.isThronestar = false;
+                    }
+                });
+            }
+        });
+    }
+
     shuffleArray(array) {
         for (let i = array.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
