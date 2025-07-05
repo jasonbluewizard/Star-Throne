@@ -1298,6 +1298,7 @@ export default class StarThrone {
 
             // Create players: 1 human + configured AI count
             const totalPlayers = 1 + this.config.aiCount;
+            console.log(`🔍 PLAYER COUNT DEBUG: config.aiCount = ${this.config.aiCount}, totalPlayers = ${totalPlayers}, maxPlayers = ${this.maxPlayers}`);
             this.createPlayers(Math.min(totalPlayers, this.maxPlayers));
             
             // Update human player name from config
@@ -1383,6 +1384,7 @@ export default class StarThrone {
     }
 
     createPlayers(numPlayers) {
+        console.log(`🔍 CREATE PLAYERS DEBUG: Creating ${numPlayers} total players (1 human + ${numPlayers-1} AI)`);
         // Expanded unique color palette - no duplicates
         const baseColors = [
             '#ff4444', '#44ff44', '#4444ff', '#ffff44', '#ff44ff', 
@@ -1430,6 +1432,8 @@ export default class StarThrone {
         }
         
         this.currentPlayers = this.players.length;
+        console.log(`🔍 CREATED PLAYERS: Total ${this.players.length} players`);
+        console.log(`🔍 PLAYER BREAKDOWN: Human: ${this.players.filter(p => p.type === 'human').length}, AI: ${this.players.filter(p => p.type === 'ai').length}`);
     }
     
     initializePlayerDiscoveries(playerId) {
