@@ -403,6 +403,24 @@ export class InputHandler {
 
                 }
                 break;
+            case 'g':
+            case 'G':
+                // G key - Galaxy view (zoom out to see entire map)
+                const territoryCount = Object.keys(this.game.gameMap.territories).length;
+                let galaxyZoom = 0.25; // Default for small maps
+                
+                if (territoryCount >= 400) {
+                    galaxyZoom = 0.03; // Ultra wide view for massive maps
+                } else if (territoryCount >= 200) {
+                    galaxyZoom = 0.08; // Wide view for large maps
+                } else if (territoryCount >= 100) {
+                    galaxyZoom = 0.15; // Medium view for medium maps
+                }
+                
+                // Center on map and zoom out
+                this.game.camera.centerOn(this.game.gameMap.width / 2, this.game.gameMap.height / 2);
+                this.game.camera.targetZoom = galaxyZoom;
+                break;
         }
     }
     
