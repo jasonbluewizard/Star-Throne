@@ -113,6 +113,9 @@ export default class StarThrone {
         this.floatingDiscoveryTexts = [];
         this.discoveryLog = []; // Recent discovery announcements for panel display
         
+        // Discovery system - Map of playerId -> discovery object
+        this.playerDiscoveries = new Map();
+        
         // Legacy drag variables (kept for compatibility)
         this.dragStart = null;
         this.dragEnd = null;
@@ -3462,7 +3465,7 @@ export default class StarThrone {
         // Fix players with multiple throne stars
         for (const [playerId, throneCount] of playerThroneCount.entries()) {
             if (throneCount > 1) {
-                const player = this.players[playerId];
+                const player = this.players.find(p => p.id === playerId);
                 console.log(`🔧 FIXING: Player ${player ? player.name : playerId} has ${throneCount} throne stars - removing extras`);
                 
                 // Find all throne stars for this player

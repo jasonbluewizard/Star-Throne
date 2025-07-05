@@ -549,10 +549,24 @@ export class GameUI {
     
     renderDiscoveryPanel(ctx, gameData) {
         // Only show human player's discoveries
-        if (!gameData.playerDiscoveries || !gameData.humanPlayer) return;
+        if (!gameData.playerDiscoveries || !gameData.humanPlayer) {
+            console.log('🔍 DEBUG: No playerDiscoveries or humanPlayer', {
+                playerDiscoveries: !!gameData.playerDiscoveries,
+                humanPlayer: !!gameData.humanPlayer
+            });
+            return;
+        }
         
         const discoveries = gameData.playerDiscoveries.get(gameData.humanPlayer.id);
-        if (!discoveries) return;
+        if (!discoveries) {
+            console.log('🔍 DEBUG: No discoveries for human player', {
+                humanPlayerId: gameData.humanPlayer.id,
+                playerDiscoveriesKeys: Array.from(gameData.playerDiscoveries.keys())
+            });
+            return;
+        }
+        
+        console.log('🔍 DEBUG: Human player discoveries found:', discoveries);
         
         // Count active discoveries (with safety checks)
         let discoveryCount = 0;
