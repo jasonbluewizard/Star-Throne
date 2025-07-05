@@ -1967,7 +1967,7 @@ export default class StarThrone {
         // Use visible territories for optimized rendering
         const territoriesToCheck = this.visibleTerritories && this.visibleTerritories.size > 0 
             ? Array.from(this.visibleTerritories).map(id => this.gameMap.territories[id]).filter(t => t)
-            : this.gameMap.territories;
+            : Object.values(this.gameMap.territories);
         
         territoriesToCheck.forEach(territory => {
             territory.neighbors.forEach(neighborId => {
