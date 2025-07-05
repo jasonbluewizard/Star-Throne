@@ -129,7 +129,7 @@ const TitleScreen: React.FC<TitleScreenProps> = ({ onEnterGame }) => {
       {/* 3D Tunnel starfield canvas */}
       <canvas
         ref={canvasRef}
-        className="absolute inset-0 w-full h-full"
+        className="absolute inset-0 w-full h-full pointer-events-none"
         style={{ zIndex: 1 }}
       />
 
