@@ -592,8 +592,8 @@ Changelog:
    * Map descriptions updated: "Gigantic - Universe conquest" for 400-500 territory maps
    * Confirmed stable gameplay on 500-territory maps with 89 AI opponents without performance degradation
    * CRITICAL FIX: Disabled incremental viewport culling system that was causing territory flickering on massive maps
-   * Adaptive camera zoom implementation: 5% initial zoom for 400+ territory maps (previously 25%) for proper galaxy view
-   * Added 'G' key shortcut for instant galaxy view with ultra-wide 3% zoom on massive maps
+   * Adaptive camera zoom implementation: 15% initial zoom for 400+ territory maps (previously 25%) for readable territory display
+   * Added 'G' key shortcut for instant galaxy view with 12% zoom on massive maps for optimal territory visibility
 - January 3, 2025. Supply route system overhaul - Army generation redirection implementation:
    * Completely redesigned supply routes from army transfer system to army generation redirection
    * Source territories stop growing armies when supplying - armies generate directly at destination instead

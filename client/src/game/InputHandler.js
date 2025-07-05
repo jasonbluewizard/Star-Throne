@@ -410,11 +410,11 @@ export class InputHandler {
                 let galaxyZoom = 0.25; // Default for small maps
                 
                 if (territoryCount >= 400) {
-                    galaxyZoom = 0.03; // Ultra wide view for massive maps
+                    galaxyZoom = 0.12; // Wide view for massive maps
                 } else if (territoryCount >= 200) {
-                    galaxyZoom = 0.08; // Wide view for large maps
+                    galaxyZoom = 0.15; // Wide view for large maps
                 } else if (territoryCount >= 100) {
-                    galaxyZoom = 0.15; // Medium view for medium maps
+                    galaxyZoom = 0.18; // Medium view for medium maps
                 }
                 
                 // Center on map and zoom out

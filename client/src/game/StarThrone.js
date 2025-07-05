@@ -465,11 +465,11 @@ export default class StarThrone {
         let initialZoom = 0.25; // Default for small maps
         
         if (territoryCount >= 400) {
-            initialZoom = 0.05; // Extreme zoom out for massive maps (400+ territories)
+            initialZoom = 0.15; // Balanced zoom for massive maps (400+ territories)
         } else if (territoryCount >= 200) {
-            initialZoom = 0.12; // Lower zoom for large maps (200-399 territories)
+            initialZoom = 0.18; // Lower zoom for large maps (200-399 territories)
         } else if (territoryCount >= 100) {
-            initialZoom = 0.18; // Moderate zoom for medium maps (100-199 territories)
+            initialZoom = 0.22; // Moderate zoom for medium maps (100-199 territories)
         }
         
         this.camera.targetZoom = initialZoom;
