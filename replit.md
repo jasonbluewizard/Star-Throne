@@ -581,22 +581,6 @@ Changelog:
    * Modernized error handling: updated AIManager, EventSystem, and InputStateMachine to use centralized logging
    * Console output optimization: production builds now show only essential game events (discoveries, throne captures)
    * Error handling consistency: all modules now respect DEBUG_MODE flag for toggling development vs production logging
-- January 5, 2025. Massive galactic conquest optimization implementation:
-   * Successfully increased maximum map size to 500 territories for ultimate galactic conquest scenarios
-   * Implemented map size-based AI throttling system: 90% reduction in AI activity on 350+ territory maps
-   * Added performance thresholds: 200+ territories = large maps, 350+ territories = massive maps
-   * Reduced console logging spam by 90% on massive maps to prevent visual overload and strobing effects
-   * AI probe colonization frequency scaled dynamically: 20% on normal maps, 5% on large maps, 2% on massive maps
-   * AI decision frequency adaptive scaling: normal speed on small maps, 70% slower on large maps, 90% slower on massive maps
-   * Fixed import path issues that caused black screen after performance optimizations
-   * Map descriptions updated: "Gigantic - Universe conquest" for 400-500 territory maps
-   * Confirmed stable gameplay on 500-territory maps with 89 AI opponents without performance degradation
-   * CRITICAL FIX: Disabled incremental viewport culling system that was causing territory flickering on massive maps
-   * Adaptive camera zoom implementation: 15% initial zoom for 400+ territory maps (previously 25%) for readable territory display
-   * Added 'G' key shortcut for instant galaxy view with 12% zoom on massive maps for optimal territory visibility
-   * Fixed territory cramping issue: increased base map dimensions from 1800x1400 to 2400x1800 for better territory distribution
-   * Enhanced organic galaxy boundary to use 42% of available space instead of cramping territories into small area
-   * Added territory centering logic to MapGenerator to properly distribute territories across full map bounds
 - January 3, 2025. Supply route system overhaul - Army generation redirection implementation:
    * Completely redesigned supply routes from army transfer system to army generation redirection
    * Source territories stop growing armies when supplying - armies generate directly at destination instead

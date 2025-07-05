@@ -67,9 +67,7 @@ export function GameConfigScreen({ onStartGame, onBack }: GameConfigScreenProps)
     if (size <= 50) return 'Small - Quick skirmishes';
     if (size <= 80) return 'Medium - Balanced exploration';
     if (size <= 120) return 'Large - Epic campaigns';
-    if (size <= 200) return 'Massive - Ultimate challenge';
-    if (size <= 350) return 'Enormous - Galaxy-scale warfare';
-    return 'Gigantic - Universe conquest';
+    return 'Massive - Ultimate challenge';
   };
 
   const getAIDescription = (count: number) => {
@@ -129,7 +127,7 @@ export function GameConfigScreen({ onStartGame, onBack }: GameConfigScreenProps)
             <Slider
               value={mapSize}
               onValueChange={setMapSize}
-              max={500}
+              max={150}
               min={30}
               step={10}
               className="w-full"

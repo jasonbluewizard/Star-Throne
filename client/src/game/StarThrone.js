@@ -9,7 +9,7 @@ import { CombatSystem } from './CombatSystem.js';
 import { SupplySystem } from './SupplySystem.js';
 import { PathfindingService } from './PathfindingService.js';
 import { GameUtils } from './utils.js';
-import { GAME_CONSTANTS } from '../../../common/gameConstants';
+import { GAME_CONSTANTS } from '../../../common/gameConstants.ts';
 import { gameEvents, GAME_EVENTS, EVENT_PRIORITY, EventHelpers } from './EventSystem.js';
 import { PerformanceManager } from './PerformanceManager.js';
 import { PerformanceOverlay } from './PerformanceOverlay.js';
@@ -457,23 +457,10 @@ export default class StarThrone {
         this.camera.mapWidth = this.gameMap.width;
         this.camera.mapHeight = this.gameMap.height;
         
-        // Center camera on map and set appropriate zoom based on map size
+        // Center camera on map and set appropriate zoom
         this.camera.centerOn(this.gameMap.width / 2, this.gameMap.height / 2); // Center of expanded map
-        
-        // Adaptive zoom based on territory count for optimal view
-        const territoryCount = Object.keys(this.gameMap.territories).length;
-        let initialZoom = 0.25; // Default for small maps
-        
-        if (territoryCount >= 400) {
-            initialZoom = 0.15; // Balanced zoom for massive maps (400+ territories)
-        } else if (territoryCount >= 200) {
-            initialZoom = 0.18; // Lower zoom for large maps (200-399 territories)
-        } else if (territoryCount >= 100) {
-            initialZoom = 0.22; // Moderate zoom for medium maps (100-199 territories)
-        }
-        
-        this.camera.targetZoom = initialZoom;
-        this.camera.zoom = initialZoom;
+        this.camera.targetZoom = 0.25; // Zoom out further to see more territories
+        this.camera.zoom = 0.25;
         
         this.ui = new GameUI(this.canvas, this.camera);
         
@@ -749,11 +736,7 @@ export default class StarThrone {
             playerName: player.name
         });
         
-        // Reduce console spam on massive maps
-        const totalTerritories = Object.keys(this.gameMap.territories).length;
-        if (totalTerritories < GAME_CONSTANTS.AI_MASSIVE_MAP_THRESHOLD || Math.random() < 0.1) {
-            console.log(`🔍 Discovery on planet ${territory.id}: ${discovery.name} - ${discovery.description}`);
-        }
+        console.log(`🔍 Discovery on planet ${territory.id}: ${discovery.name} - ${discovery.description}`);
         
         // Add floating discovery text above the planet
         this.addFloatingDiscoveryText(territory, discovery, playerId);
@@ -1000,11 +983,7 @@ export default class StarThrone {
         
         // If probe was lost to hostile aliens, colonization fails
         if (!colonizationSuccessful) {
-            // Reduce console spam on massive maps
-            const totalTerritories = Object.keys(this.gameMap.territories).length;
-            if (totalTerritories < GAME_CONSTANTS.AI_MASSIVE_MAP_THRESHOLD || Math.random() < 0.1) {
-                console.log(`Colonization of planet ${planet.id} failed due to hostile encounter!`);
-            }
+            console.log(`Colonization of planet ${planet.id} failed due to hostile encounter!`);
             return;
         }
         
@@ -1034,11 +1013,7 @@ export default class StarThrone {
         // Update player stats
         player.updateStats();
         
-        // Reduce console spam on massive maps
-        const totalTerritories = Object.keys(this.gameMap.territories).length;
-        if (totalTerritories < GAME_CONSTANTS.AI_MASSIVE_MAP_THRESHOLD || Math.random() < 0.1) {
-            console.log(`Planet ${planet.id} colonized successfully! Discovery: ${discovery.name}`);
-        }
+        console.log(`Planet ${planet.id} colonized successfully! Discovery: ${discovery.name}`);
     }
     
     // Render ship animations
@@ -1856,40 +1831,25 @@ export default class StarThrone {
         this.visibleTerritories.clear();
         const territories = Object.values(this.gameMap.territories);
         
-        // On massive maps, disable incremental processing to prevent jittering
-        const totalTerritories = territories.length;
-        const useBatching = totalTerritories > 200 && totalTerritories < 400; // Only batch on large maps, not massive
+        // Incremental processing: split territory checks across multiple frames on large maps
+        const batchSize = territories.length > 200 ? Math.ceil(territories.length / 3) : territories.length;
+        const startIndex = (this.cullingBatchIndex || 0) % territories.length;
+        const endIndex = Math.min(startIndex + batchSize, territories.length);
         
-        if (useBatching) {
-            // Incremental processing for large maps only
-            const batchSize = Math.ceil(territories.length / 3);
-            const startIndex = (this.cullingBatchIndex || 0) % territories.length;
-            const endIndex = Math.min(startIndex + batchSize, territories.length);
-            
-            // Process current batch
-            for (let i = startIndex; i < endIndex; i++) {
-                const territory = territories[i];
-                if (territory.x + territory.radius >= bounds.left - margin &&
-                    territory.x - territory.radius <= bounds.right + margin &&
-                    territory.y + territory.radius >= bounds.top - margin &&
-                    territory.y - territory.radius <= bounds.bottom + margin) {
-                    this.visibleTerritories.add(territory.id);
-                }
+        // Process current batch
+        for (let i = startIndex; i < endIndex; i++) {
+            const territory = territories[i];
+            if (territory.x + territory.radius >= bounds.left - margin &&
+                territory.x - territory.radius <= bounds.right + margin &&
+                territory.y + territory.radius >= bounds.top - margin &&
+                territory.y - territory.radius <= bounds.bottom + margin) {
+                this.visibleTerritories.add(territory.id);
             }
-            
-            // Update batch index for next frame
+        }
+        
+        // Update batch index for next frame (if processing incrementally)
+        if (batchSize < territories.length) {
             this.cullingBatchIndex = endIndex >= territories.length ? 0 : endIndex;
-        } else {
-            // Process all territories at once for massive maps to prevent jittering
-            for (let i = 0; i < territories.length; i++) {
-                const territory = territories[i];
-                if (territory.x + territory.radius >= bounds.left - margin &&
-                    territory.x - territory.radius <= bounds.right + margin &&
-                    territory.y + territory.radius >= bounds.top - margin &&
-                    territory.y - territory.radius <= bounds.bottom + margin) {
-                    this.visibleTerritories.add(territory.id);
-                }
-            }
         }
         
         this.performanceStats.visibleTerritories = this.visibleTerritories.size;

@@ -121,15 +121,13 @@ export default class MapGenerator {
      */
     static generateInitialPoints(mapSize, layout, numPlayers) {
         const points = [];
-        const baseWidth = 2400;  // Increased for better distribution
-        const baseHeight = 1800; // Increased for better distribution
+        const baseWidth = 1800;  // Reduced for closer planets
+        const baseHeight = 1400; // Reduced for closer planets
         
         // Scale dimensions based on map size
         const scale = Math.sqrt(mapSize / 80); // 80 is our reference size
         const width = baseWidth * scale;
         const height = baseHeight * scale;
-        
-        console.log(`🗺️ Map generation area: ${Math.round(width)} x ${Math.round(height)} (scale: ${scale.toFixed(2)})`);
         
         switch (layout) {
             case 'clusters':
@@ -298,11 +296,11 @@ export default class MapGenerator {
         
         // Generate organic galaxy boundary using multiple sine waves
         const boundaryFunction = (angle) => {
-            const baseRadius = Math.min(width, height) * 0.48; // Use much more of the available space
-            const roughness1 = Math.sin(angle * 3) * 0.12;
-            const roughness2 = Math.sin(angle * 7) * 0.06;
-            const roughness3 = Math.sin(angle * 13) * 0.04;
-            const roughness4 = Math.sin(angle * 19) * 0.02;
+            const baseRadius = Math.min(width, height) * 0.45;
+            const roughness1 = Math.sin(angle * 3) * 0.15;
+            const roughness2 = Math.sin(angle * 7) * 0.08;
+            const roughness3 = Math.sin(angle * 13) * 0.05;
+            const roughness4 = Math.sin(angle * 19) * 0.03;
             
             return baseRadius * (1 + roughness1 + roughness2 + roughness3 + roughness4);
         };
@@ -326,7 +324,7 @@ export default class MapGenerator {
         
         for (let i = 0; i < numClusters; i++) {
             const angle = Math.random() * 2 * Math.PI;
-            const distance = Math.random() * Math.min(width, height) * 0.4;
+            const distance = Math.random() * Math.min(width, height) * 0.3;
             const clusterX = centerX + distance * Math.cos(angle);
             const clusterY = centerY + distance * Math.sin(angle);
             
@@ -390,8 +388,8 @@ export default class MapGenerator {
         let attempts = 0;
         while (points.length < mapSize && attempts < mapSize * 10) {
             const candidate = {
-                x: centerX + (Math.random() - 0.5) * width * 0.95,
-                y: centerY + (Math.random() - 0.5) * height * 0.95
+                x: centerX + (Math.random() - 0.5) * width * 0.8,
+                y: centerY + (Math.random() - 0.5) * height * 0.8
             };
             
             attempts++;
@@ -651,7 +649,7 @@ export default class MapGenerator {
     }
     
     /**
-     * Calculate map dimensions and center territories for optimal display
+     * Calculate map dimensions for camera positioning
      */
     static calculateMapDimensions(points) {
         if (points.length === 0) {
@@ -672,23 +670,7 @@ export default class MapGenerator {
         this.mapWidth = maxX - minX + margin * 2;
         this.mapHeight = maxY - minY + margin * 2;
         
-        // Center all territories within the map bounds
-        const centerX = this.mapWidth / 2;
-        const centerY = this.mapHeight / 2;
-        const currentCenterX = (minX + maxX) / 2;
-        const currentCenterY = (minY + maxY) / 2;
-        
-        const offsetX = centerX - currentCenterX;
-        const offsetY = centerY - currentCenterY;
-        
-        // Apply centering offset to all points
-        for (const point of points) {
-            point.x += offsetX;
-            point.y += offsetY;
-        }
-        
         console.log(`📐 Map dimensions: ${this.mapWidth} x ${this.mapHeight}`);
-        console.log(`🎯 Centered ${points.length} territories with offset (${Math.round(offsetX)}, ${Math.round(offsetY)})`);
     }
     
     /**
