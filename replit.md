@@ -601,6 +601,15 @@ Changelog:
    * Added 200 moving stars with motion trails creating immersive space travel effect
    * Stars properly recycle and reset for continuous tunnel motion experience
    * Cleaned up unused CSS animations while preserving badge and wordmark entrance effects
+- January 5, 2025. New starmap visibility system implementation:
+   * Replaced colonizable planet system with neutral garrison mechanics (1-30 armies per territory)
+   * Implemented dynamic star lane visibility - connections only appear when at least one end is player-controlled
+   * Removed probe-based exploration - players can now directly attack any connected neutral territory
+   * Updated input handling to allow direct attacks on connected neutrals without probe requirements
+   * Eliminated colonizable planet visualization (yellow question marks, dark backgrounds)
+   * Fixed critical game initialization bug causing immediate "Game Over" on startup
+   * Corrected import path errors in StarThrone.js that were causing unhandled rejections
+   * Streamlined gameplay by removing exploration phase - focus on direct territorial conquest
 
 ## User Preferences
 

@@ -192,14 +192,14 @@ export class PathfindingService {
             return 'invalid';
         }
 
-        // Check for colonizable planets first
+        // Check for colonizable planets first (legacy system - should be removed)
         if (territory.isColonizable) {
             return 'colonizable';
         }
 
         if (territory.ownerId === playerId) {
             return 'friendly';
-        } else if (territory.ownerId === 0) {
+        } else if (territory.ownerId === null || territory.ownerId === 0) {
             return 'neutral';
         } else {
             return 'enemy';
