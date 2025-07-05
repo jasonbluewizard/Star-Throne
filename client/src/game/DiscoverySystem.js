@@ -27,15 +27,7 @@ export class DiscoverySystem {
     // Define discovery types and their probabilities
     getDiscoveryTypes() {
         return [
-            {
-                id: 'hostile_aliens',
-                name: 'Hostile Aliens',
-                description: 'Hostile alien life destroys your probe!',
-                probability: 0.15,
-                type: 'negative',
-                color: '#ff4444',
-                icon: '👽'
-            },
+
             {
                 id: 'standard_planet',
                 name: 'Standard Planet',
@@ -111,7 +103,7 @@ export class DiscoverySystem {
         ];
     }
 
-    // Process discovery when probe reaches planet
+    // Process discovery when conquering neutral territory
     processDiscovery(territory, player) {
         const discoveryTypes = this.getDiscoveryTypes();
         const random = Math.random();
@@ -136,15 +128,6 @@ export class DiscoverySystem {
         
         // Apply discovery effects
         switch (discovery.id) {
-            case 'hostile_aliens':
-                // Probe destroyed, colonization fails
-                if (isHumanPlayer) {
-                    this.discoveries.hostileAliens++;
-                    this.addFloatingDiscovery(territory, discovery);
-                    this.addRecentDiscovery(discovery);
-                }
-                return false; // Colonization fails
-                
             case 'precursor_weapons':
                 if (isHumanPlayer) {
                     this.discoveries.precursorWeapons++;

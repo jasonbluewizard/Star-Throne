@@ -183,6 +183,7 @@ export class CombatSystem {
             // Territory captured
             const oldOwner = battle.defender;
             const survivingAttackers = Math.max(1, battle.attackersRemaining);
+            const wasNeutral = !oldOwner; // Check if this was a neutral territory
             
             // Check for throne star capture before changing ownership
             const isThroneCapture = battle.defendingTerritory.isThronestar;
@@ -195,6 +196,14 @@ export class CombatSystem {
             if (isThroneCapture) {
                 console.log(`🏆 THRONE STAR CAPTURED! ${battle.attacker.name} captures throne from ${oldOwner.name}`);
                 this.handleThroneStarCapture(battle.attacker, oldOwner, battle.defendingTerritory);
+            }
+            
+            // DISCOVERY: Trigger discovery when conquering neutral territory
+            if (wasNeutral && this.game.discoverySystem) {
+                const discovery = this.game.discoverySystem.processDiscovery(battle.defendingTerritory, battle.attacker);
+                if (discovery) {
+                    console.log(`🔍 Discovery on conquered planet ${battle.defendingTerritory.id}: ${discovery.name}`);
+                }
             }
             
             // Add floating combat text

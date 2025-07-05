@@ -974,20 +974,6 @@ export default class StarThrone {
         
         console.log(`Probe colonizing planet ${planet.id} for player ${player.name}`);
         
-        // Trigger discovery event before colonization
-        const discovery = this.selectRandomDiscovery();
-        const discoveryResult = GameUtils.processDiscovery(discovery.id, player.id, planet.id, this.playerDiscoveries, this);
-        const colonizationSuccessful = discoveryResult.success;
-        
-        // Always log the discovery for UI display (both success and failure)
-        this.logDiscoveryForUI(planet, player.id, discovery);
-        
-        // If probe was lost to hostile aliens, colonization fails
-        if (!colonizationSuccessful) {
-            console.log(`Colonization of planet ${planet.id} failed due to hostile encounter!`);
-            return;
-        }
-        
         // Set ownership - discovery might have already set army size
         planet.ownerId = player.id;
         if (planet.armySize === 0 || planet.armySize === planet.hiddenArmySize) {

@@ -625,6 +625,16 @@ Changelog:
    * Enhanced visual effects for mysterious territories (smaller, translucent, yellow "?" markers)
    * Fleet generation rate display in tooltips showing "+X/s" including supply route bonuses
    * Comprehensive fog of war creates strategic depth while preserving core attack and exploration mechanics
+- January 5, 2025. Discovery system overhaul - conquest-based discoveries implementation:
+   * Removed probe-based discovery system in favor of conquest-based discovery triggers
+   * Discoveries now trigger when conquering neutral territories through direct attack
+   * Eliminated "hostile aliens" discovery type (no longer relevant for direct conquest)
+   * Random discoveries occur during successful neutral territory capture including:
+     - Precursor technologies (weapons, drive, shield, nanotech) providing empire-wide bonuses
+     - Factory complexes and mineral deposits enhancing planet-specific production
+     - Friendly aliens providing instant fleet bonuses
+   * Discovery system integrated into CombatSystem for automatic triggering during territorial conquest
+   * Streamlined gameplay removing exploration phase while maintaining strategic discovery elements
 
 ## User Preferences
 
