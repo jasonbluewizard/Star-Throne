@@ -197,6 +197,15 @@ export class DiscoverySystem {
                 break;
         }
         
+        // For human player, also update the global discovery stats for UI display
+        if (isHumanPlayer) {
+            // Map internal discovery ID to the key used in playerDiscoveries map
+            let discoveryType = discovery.id;
+            if (discoveryType === 'factory_complex') discoveryType = 'precursor_factory'; 
+            if (discoveryType === 'rich_minerals')   discoveryType = 'mineral_deposits';
+            // Increment the corresponding value in the player's discovery record
+            GameUtils.processDiscovery(discoveryType, player.id, territory.id, this.game.playerDiscoveries, this.game);
+        }
         return discovery; // Return the discovery object
     }
 

@@ -1284,49 +1284,55 @@ export default class StarThrone {
     startGame() {
         console.log('Starting Star Throne game with config:', this.config);
         
-        // Generate territories using configured map size
-        this.gameMap.generateTerritories(this.config.mapSize);
-        
-        // Build spatial index for O(1) territory lookups (60% performance improvement)
-        this.gameMap.buildSpatialIndex();
-        this.log('Spatial index built for optimized territory lookups', 'info');
-        
-        // Create players: 1 human + configured AI count
-        const totalPlayers = 1 + this.config.aiCount;
-        this.createPlayers(Math.min(totalPlayers, this.maxPlayers));
-        
-        // Update human player name from config
-        if (this.humanPlayer) {
-            this.humanPlayer.name = this.config.playerName;
-        }
-        
-        // Distribute initial territories
-        this.distributeStartingTerritories();
-        
-        // Center camera on human player's starting territory
-        if (this.humanPlayer && this.humanPlayer.territories.length > 0) {
-            const startTerritory = this.gameMap.territories[this.humanPlayer.territories[0]];
-            this.camera.centerOn(startTerritory.x, startTerritory.y);
-        }
-        
-        this.gameState = 'playing';
-        
-        // Initialize modular systems after map generation
+        // Initialize background and defer map generation to avoid blocking UI
         this.animationSystem.initializeStarfield();
         this.animationSystem.preRenderStaticBackground();
         this.uiManager.loadBackgroundImage();
+        this.showMessage('Generating galaxy map, please wait...', 10000);  // Show loading text
         
-        // Start home system flashing for player identification
-        this.homeSystemFlashStart = Date.now();
-        
-        // Mark game as fully initialized to allow win condition checks
-        this.gameInitialized = true;
-        
-        // Run immediate throne star validation to fix any double throne issues
-        console.log('🕐 Running initial throne star validation...');
-        this.validateThroneStars();
-        
-        console.log(`Game started with ${this.players.length} players (${this.config.playerName} + ${this.config.aiCount} AI) and ${Object.keys(this.gameMap.territories).length} territories`);
+        setTimeout(() => {
+            // Generate territories off the main UI thread (after a brief delay)
+            this.gameMap.generateTerritories(this.config.mapSize);
+            this.gameMap.buildSpatialIndex();
+            this.log('Spatial index built for optimized territory lookups', 'info');
+
+            // Create players: 1 human + configured AI count
+            const totalPlayers = 1 + this.config.aiCount;
+            this.createPlayers(Math.min(totalPlayers, this.maxPlayers));
+            
+            // Update human player name from config
+            if (this.humanPlayer) {
+                this.humanPlayer.name = this.config.playerName;
+            }
+            
+            // Distribute initial territories to give each player a throne star
+            this.distributeStartingTerritories();
+
+            // Center camera on the human player's starting system
+            if (this.humanPlayer && this.humanPlayer.territories.length > 0) {
+                const startId = this.humanPlayer.territories[0];
+                const startTerritory = this.gameMap.territories[startId];
+                this.camera.centerOn(startTerritory.x, startTerritory.y);
+            }
+
+            this.gameState = 'playing';  // Now enter the main playing state
+            
+            // Re-initialize starfield with final map size and redraw background
+            this.animationSystem.starfield.initialized = false;
+            this.animationSystem.initializeStarfield();
+            this.animationSystem.preRenderStaticBackground();
+            
+            // Start home system flashing for player identification
+            this.homeSystemFlashStart = Date.now();
+            
+            this.gameInitialized = true;
+            console.log('🕐 Running initial throne star validation...');
+            this.validateThroneStars();
+            console.log(`Game started with ${this.players.length} players (${this.config.playerName} + ${this.config.aiCount} AI) and ${Object.keys(this.gameMap.territories).length} territories`);
+            
+            // Hide loading message
+            this.hideMessage();
+        }, 0);
     }
     
     generateAIName(index) {
