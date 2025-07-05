@@ -33,11 +33,13 @@ export class CombatSystem {
         
         // Get player objects
         const attacker = this.game.players[attackingTerritory.ownerId];
-        const defender = this.game.players[defendingTerritory.ownerId];
+        const defender = defendingTerritory.ownerId ? this.game.players[defendingTerritory.ownerId] : null; // Neutral territories have no defender player
         
-        if (!attacker || !defender) {
-            return { success: false, reason: 'Invalid players' };
+        if (!attacker) {
+            return { success: false, reason: 'Invalid attacker' };
         }
+        
+        // For neutral territories, defender is null - that's okay
 
         // Deduct armies from attacking territory immediately
         attackingTerritory.armySize -= actualAttackers;
@@ -101,7 +103,7 @@ export class CombatSystem {
     startBattle(battle) {
         // Calculate combat odds based on discoveries
         const attackerBonus = this.calculateWeaponBonus(battle.attacker);
-        const defenderBonus = this.calculateDefenseBonus(battle.defender);
+        const defenderBonus = battle.defender ? this.calculateDefenseBonus(battle.defender) : 0; // Neutral territories have no defense bonus
         
         // Base 50/50 odds adjusted by bonuses
         const attackerWinChance = Math.max(0.1, Math.min(0.9, 0.5 + attackerBonus - defenderBonus));
@@ -267,7 +269,7 @@ export class CombatSystem {
      */
     calculateBattleOdds(attacker, defender) {
         const attackerBonus = this.calculateWeaponBonus(attacker);
-        const defenderBonus = this.calculateDefenseBonus(defender);
+        const defenderBonus = defender ? this.calculateDefenseBonus(defender) : 0; // Handle neutral territories
         
         // Base 50/50 odds adjusted by bonuses
         const attackerWinChance = Math.max(0.1, Math.min(0.9, 0.5 + attackerBonus - defenderBonus));
@@ -303,7 +305,7 @@ export class CombatSystem {
     resolveCombat(attackingArmies, defendingArmies, attacker, defender) {
         // Get discovery bonuses
         const attackerDiscoveries = this.game.playerDiscoveries?.get(attacker.id) || {};
-        const defenderDiscoveries = this.game.playerDiscoveries?.get(defender.id) || {};
+        const defenderDiscoveries = defender ? (this.game.playerDiscoveries?.get(defender.id) || {}) : {}; // Handle neutral territories
         
         // Calculate attack power with bonuses
         let attackBonus = 1.0;
