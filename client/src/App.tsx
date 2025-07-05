@@ -22,7 +22,7 @@ function App() {
 
   const initSinglePlayerGame = async (data: GameData) => {
     try {
-      const { default: StarThrone } = await import('./game/StarThrone.js');
+      const { default: StarThrone } = await import('./game/StarThrone');
       
       // Add mode flag to prevent WebSocket connection attempts
       const gameConfig = {
@@ -47,7 +47,7 @@ function App() {
   const initMultiplayerGame = async (data: GameData) => {
     try {
       // For now, we'll use the same game engine but prepare for multiplayer integration
-      const { default: StarThrone } = await import('./game/StarThrone.js');
+      const { default: StarThrone } = await import('./game/StarThrone');
       gameRef.current = new StarThrone(data);
       // Make game globally accessible for mobile zoom buttons
       (window as any).game = gameRef.current;
