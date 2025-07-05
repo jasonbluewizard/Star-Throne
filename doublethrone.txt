@@ -1,0 +1,651 @@
+# Star Throne Game - Critical Issues Documentation
+# Created: January 5, 2025
+# For Advanced AI Troubleshooting
+
+## CURRENT CRITICAL ISSUES
+
+### 1. DOUBLE THRONE STAR BUG
+**Problem**: Player has two throne stars (T3 and T79) instead of one
+**Expected**: Each player should have exactly one throne star (their starting territory)
+**Status**: Validation system added but not triggering properly
+**Impact**: Game balance broken, throne capture mechanics don't work correctly
+
+### 2. DISCOVERY SYSTEM UI NOT DISPLAYING
+**Problem**: Discoveries are processed correctly (see console logs) but UI panel doesn't show them
+**Evidence**: Console shows "🔬 Processing discovery" and "🔍 Discovery on conquered planet" but no UI
+**Debug Output**: "🔍 DEBUG: Human player discoveries found: {precursorWeapons:0,precursorDrive:0...}"
+**Status**: Data structure exists but UI rendering is broken
+
+### 3. 10-SECOND BLACK SCREEN ON STARTUP
+**Problem**: Game shows black screen for ~10 seconds before map appears
+**Impact**: Poor user experience, suggests performance bottleneck during initialization
+**Status**: Needs performance profiling of startup sequence
+
+## ARCHITECTURE OVERVIEW
+
+Star Throne is a real-time strategy game with:
+- React frontend with HTML5 Canvas rendering
+- Modular game systems (Combat, Discovery, Supply, Animation)
+- 80+ territories with procedural galaxy generation
+- Real-time AI players and human player interaction
+- Discovery system with empire bonuses and planet-specific effects
+
+## RELEVANT CODE MODULES
+
+### 1. MAIN GAME ENGINE (StarThrone.js)
+
+```javascript
+export default class StarThrone {
+    constructor(config = {}) {
+        // Game configuration
+        this.config = {
+            playerName: config.playerName || 'Player',
+            aiCount: config.aiCount || 19,
+            mapSize: config.mapSize || 80,
+            gameSpeed: config.gameSpeed || 1.0,
+            layout: config.layout || 'organic',
+            ...config
+        };
+        
+        // Game state
+        this.gameState = 'lobby';
+        this.gameTimer = 10 * 60 * 1000;
+        this.gameInitialized = false;
+        
+        // Discovery system - Map of playerId -> discovery object
+        this.playerDiscoveries = new Map();
+        
+        // Throne star validation timer
+        this.throneStarValidationTimer = 0;
+        
+        // Initialize game
+        this.init();
+    }
+    
+    init() {
+        this.setupCanvas();
+        this.setupEventListeners();
+        this.gameMap = new GameMap(2000, 1500, this.config);
+        this.camera = new Camera(logicalWidth, logicalHeight);
+        
+        // Initialize modular systems
+        this.inputHandler = new InputHandler(this);
+        this.renderer = new Renderer(this.canvas, this.camera, this);
+        this.combatSystem = new CombatSystem(this);
+        this.supplySystem = new SupplySystem(this);
+        this.discoverySystem = new DiscoverySystem(this);
+        this.animationSystem = new AnimationSystem(this);
+        this.uiManager = new UIManager(this);
+        this.aiManager = new AIManager(this);
+        
+        this.startGame();
+        this.gameLoop();
+    }
+    
+    startGame() {
+        console.log('Starting Star Throne game with config:', this.config);
+        
+        // Generate territories using configured map size
+        this.gameMap.generateTerritories(this.config.mapSize);
+        
+        // Build spatial index for O(1) territory lookups
+        this.gameMap.buildSpatialIndex();
+        
+        // Create players: 1 human + configured AI count
+        const totalPlayers = 1 + this.config.aiCount;
+        this.createPlayers(Math.min(totalPlayers, this.maxPlayers));
+        
+        // Distribute initial territories
+        this.distributeStartingTerritories();
+        
+        // Initialize modular systems after map generation
+        this.animationSystem.initializeStarfield();
+        this.animationSystem.preRenderStaticBackground();
+        this.uiManager.loadBackgroundImage();
+        
+        this.gameState = 'playing';
+        this.gameInitialized = true;
+        
+        // Run immediate throne star validation
+        console.log('🕐 Running initial throne star validation...');
+        this.validateThroneStars();
+    }
+    
+    createPlayers(numPlayers) {
+        // Create human player
+        this.humanPlayer = new Player(0, 'You', '#00ffff', 'human');
+        this.players.push(this.humanPlayer);
+        this.initializePlayerDiscoveries(this.humanPlayer.id);
+        
+        // Create AI players
+        for (let i = 1; i < numPlayers; i++) {
+            const aiName = AIManager.generateAIName(i - 1);
+            const aiPlayer = new Player(i, aiName, playerColor, 'ai');
+            this.players.push(aiPlayer);
+            this.initializePlayerDiscoveries(aiPlayer.id);
+        }
+    }
+    
+    initializePlayerDiscoveries(playerId) {
+        this.playerDiscoveries.set(playerId, {
+            // Empire-wide bonuses (levels stack)
+            precursorWeapons: 0,    // +10% attack per level
+            precursorDrive: 0,      // +20% probe/ship speed per level
+            precursorShield: 0,     // +10% defense per level
+            precursorNanotech: 0,   // +10% empire-wide generation per level
+            
+            // Planet-specific bonuses
+            factoryPlanets: new Set(), // Planets with 200% generation
+            friendlyAliens: 0,
+            richMinerals: 0,
+            voidStorms: 0,
+            ancientRuins: 0,
+            hostileAliens: 0
+        });
+    }
+    
+    distributeStartingTerritories() {
+        const shuffledTerritories = Object.values(this.gameMap.territories)
+            .filter(t => !t.isColonizable)
+            .sort(() => Math.random() - 0.5);
+        
+        // Assign one territory per player with maximum spacing
+        for (let i = 0; i < this.players.length && i < shuffledTerritories.length; i++) {
+            const player = this.players[i];
+            const territory = shuffledTerritories[i];
+            
+            // Colonize territory
+            territory.ownerId = player.id;
+            territory.armySize = 50; // Starting army size
+            player.territories.push(territory.id);
+            
+            // Mark as throne star
+            territory.isThronestar = true;
+            console.log(`👑 Assigned throne star territory ${territory.id} to player ${player.name} (ID: ${player.id})`);
+        }
+    }
+    
+    update(deltaTime) {
+        // Update game timer
+        this.gameTimer -= deltaTime;
+        if (this.gameTimer <= 0) {
+            this.endGame();
+            return;
+        }
+        
+        // Update human player
+        const humanPlayer = this.players.find(p => p.type === 'human');
+        if (humanPlayer && !humanPlayer.isEliminated) {
+            humanPlayer.update(deltaTime, this.gameMap, this.config.gameSpeed, this);
+        }
+        
+        // Delegate AI updates to AIManager
+        if (this.aiManager) {
+            this.aiManager.updateAI(deltaTime);
+        }
+        
+        // Update animations and systems
+        this.updateShipAnimations(deltaTime);
+        this.updateProbes(deltaTime);
+        
+        // Update modular systems
+        if (this.combatSystem) {
+            this.combatSystem.update(deltaTime);
+        }
+        if (this.uiManager) {
+            this.uiManager.update(deltaTime);
+        }
+        if (this.discoverySystem) {
+            this.discoverySystem.updateFloatingDiscoveries();
+        }
+        
+        // Validate throne stars every 5 seconds
+        this.throneStarValidationTimer += deltaTime;
+        if (this.throneStarValidationTimer >= 5000) {
+            console.log('🕐 Running throne star validation...');
+            this.validateThroneStars();
+            this.throneStarValidationTimer = 0;
+        }
+        
+        this.frameCount++;
+    }
+    
+    validateThroneStars() {
+        // Count throne stars per player
+        const playerThroneCount = new Map();
+        
+        for (const player of this.players) {
+            playerThroneCount.set(player.id, 0);
+        }
+        
+        // Count throne stars
+        for (const territory of Object.values(this.gameMap.territories)) {
+            if (territory.isThronestar && territory.ownerId !== null) {
+                const currentCount = playerThroneCount.get(territory.ownerId) || 0;
+                playerThroneCount.set(territory.ownerId, currentCount + 1);
+            }
+        }
+        
+        // Fix players with multiple throne stars
+        for (const [playerId, throneCount] of playerThroneCount.entries()) {
+            if (throneCount > 1) {
+                const player = this.players.find(p => p.id === playerId);
+                console.log(`🔧 FIXING: Player ${player ? player.name : playerId} has ${throneCount} throne stars - removing extras`);
+                
+                // Find all throne stars for this player
+                const playerThrones = [];
+                for (const territory of Object.values(this.gameMap.territories)) {
+                    if (territory.isThronestar && territory.ownerId === playerId) {
+                        playerThrones.push(territory);
+                    }
+                }
+                
+                // Keep the first throne star, remove the rest
+                for (let i = 1; i < playerThrones.length; i++) {
+                    playerThrones[i].isThronestar = false;
+                    console.log(`🔧 Removed throne star flag from territory ${playerThrones[i].id}`);
+                }
+            }
+        }
+    }
+    
+    renderUI() {
+        if (this.ui) {
+            const inputState = this.inputHandler ? this.inputHandler.getInputState() : {};
+            
+            this.ui.render(this.ctx, {
+                gameState: this.gameState,
+                gameTimer: this.gameTimer,
+                players: this.players,
+                humanPlayer: this.humanPlayer,
+                selectedTerritory: inputState.selectedTerritory,
+                hoveredTerritory: this.inputHandler ? this.inputHandler.hoveredTerritory : null,
+                mousePos: this.inputHandler ? this.inputHandler.mousePos : { x: 0, y: 0 },
+                fps: this.fps,
+                currentPlayers: this.currentPlayers,
+                maxPlayers: this.maxPlayers,
+                camera: this.camera,
+                territoryCount: Object.keys(this.gameMap.territories).length,
+                notifications: this.notifications,
+                playerDiscoveries: this.playerDiscoveries, // ← Critical data for UI
+                discoveryLog: this.discoveryLog,
+                showBonusPanel: this.showBonusPanel,
+                inputState: inputState,
+                messageText: this.messageText,
+                messageTimer: this.messageTimer,
+                combatSystem: this.combatSystem,
+                supplySystem: this.supplySystem,
+                territories: this.gameMap.territories
+            });
+        }
+    }
+}
+```
+
+### 2. DISCOVERY SYSTEM (DiscoverySystem.js)
+
+```javascript
+export class DiscoverySystem {
+    constructor(game) {
+        this.game = game;
+        this.discoveries = {
+            precursorWeapons: 0,
+            precursorDrive: 0,
+            precursorShield: 0,
+            precursorNanotechnology: 0,
+            factoryPlanets: [],
+            richMinerals: 0,
+            voidStorms: 0,
+            ancientRuins: 0,
+            hostileAliens: 0,
+            friendlyAliens: 0
+        };
+        
+        this.floatingDiscoveries = [];
+        this.recentDiscoveries = [];
+    }
+    
+    processDiscovery(discoveryType, playerId, territoryId) {
+        console.log(`🔬 Processing discovery for ${this.game.players.find(p => p.id === playerId)?.name || playerId} conquering neutral planet ${territoryId}`);
+        
+        const discovery = this.getRandomDiscovery();
+        console.log(`🔍 Discovery on conquered planet ${territoryId}: ${discovery.name}`);
+        
+        // Apply discovery effects
+        const result = GameUtils.processDiscovery(discovery.id, playerId, territoryId, this.game.playerDiscoveries, this.game);
+        
+        if (result.success) {
+            // Add to discovery log for UI display
+            this.game.discoveryLog.push({
+                discovery: discovery,
+                playerId: playerId,
+                territoryId: territoryId,
+                timestamp: Date.now()
+            });
+            
+            // Add floating discovery text if human player
+            const humanPlayer = this.game.players.find(p => p.type === 'human');
+            if (humanPlayer && playerId === humanPlayer.id) {
+                this.addFloatingDiscovery(territory, discovery);
+                this.addRecentDiscovery(discovery);
+            }
+        }
+        
+        return discovery;
+    }
+    
+    getRandomDiscovery() {
+        const discoveries = [
+            { id: 'precursor_weapons', name: 'Precursor Weapons', probability: 0.08, effect: 'attack_bonus' },
+            { id: 'precursor_drive', name: 'Precursor Drive System', probability: 0.08, effect: 'speed_bonus' },
+            { id: 'precursor_shield', name: 'Precursor Shield Matrix', probability: 0.08, effect: 'defense_bonus' },
+            { id: 'precursor_nanotech', name: 'Precursor Nanotech', probability: 0.08, effect: 'generation_bonus' },
+            { id: 'factory_complex', name: 'Precursor Factory Complex', probability: 0.06, effect: 'factory_planet' },
+            { id: 'friendly_aliens', name: 'Friendly Aliens', probability: 0.12, effect: 'extra_fleet' },
+            { id: 'mineral_deposits', name: 'Rich Mineral Deposits', probability: 0.15, effect: 'mineral_planet' },
+            { id: 'standard_planet', name: 'Standard Planet', probability: 0.35, effect: 'none' }
+        ];
+        
+        const random = Math.random();
+        let cumulative = 0;
+        
+        for (const discovery of discoveries) {
+            cumulative += discovery.probability;
+            if (random <= cumulative) {
+                return discovery;
+            }
+        }
+        
+        return discoveries[discoveries.length - 1]; // Fallback
+    }
+}
+```
+
+### 3. DISCOVERY UI RENDERING (GameUI.js)
+
+```javascript
+renderDiscoveryPanel(ctx, gameData) {
+    // Only show human player's discoveries
+    if (!gameData.playerDiscoveries || !gameData.humanPlayer) {
+        console.log('🔍 DEBUG: No playerDiscoveries or humanPlayer', {
+            playerDiscoveries: !!gameData.playerDiscoveries,
+            humanPlayer: !!gameData.humanPlayer
+        });
+        return;
+    }
+    
+    const discoveries = gameData.playerDiscoveries.get(gameData.humanPlayer.id);
+    if (!discoveries) {
+        console.log('🔍 DEBUG: No discoveries for human player', {
+            humanPlayerId: gameData.humanPlayer.id,
+            playerDiscoveriesKeys: Array.from(gameData.playerDiscoveries.keys())
+        });
+        return;
+    }
+    
+    console.log('🔍 DEBUG: Human player discoveries found:', discoveries);
+    
+    // Count active discoveries
+    let discoveryCount = 0;
+    if (discoveries && discoveries.precursorWeapons > 0) discoveryCount++;
+    if (discoveries && discoveries.precursorDrive > 0) discoveryCount++;
+    if (discoveries && discoveries.precursorShield > 0) discoveryCount++;
+    if (discoveries && discoveries.precursorNanotech > 0) discoveryCount++;
+    if (discoveries && discoveries.ancientRuins > 0) discoveryCount++;
+    if (discoveries && discoveries.friendlyAliens > 0) discoveryCount++;
+    if (discoveries && discoveries.richMinerals > 0) discoveryCount++;
+    
+    // Always show panel if player has any discoveries
+    if (discoveryCount === 0) {
+        const humanPlayer = gameData.humanPlayer;
+        if (!humanPlayer || humanPlayer.territories.length === 0) return;
+    }
+    
+    const x = 20;
+    const width = 280;
+    const lineHeight = 20;
+    const padding = 10;
+    const discoveryHeight = discoveryCount * lineHeight;
+    const titleHeight = 25;
+    const height = Math.max(80, titleHeight + discoveryHeight + padding * 2);
+    const y = this.canvas.height - height - 20; // Bottom left positioning
+    
+    // Background with transparency
+    ctx.fillStyle = 'rgba(0, 20, 40, 0.9)';
+    ctx.fillRect(x, y, width, height);
+    
+    // Border with discovery theme color
+    ctx.strokeStyle = '#4CAF50';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x, y, width, height);
+    
+    // Title
+    ctx.font = 'bold 14px Arial';
+    ctx.textAlign = 'left';
+    this.renderTextWithShadow(ctx, '🔬 Empire Discoveries', x + padding, y + 20, '#4CAF50');
+    
+    let currentY = y + 40;
+    ctx.font = '12px Arial';
+    
+    // Show empire-wide bonuses
+    if (discoveries && discoveries.precursorWeapons > 0) {
+        this.renderTextWithShadow(ctx, `⚔️ Weapons Lvl ${discoveries.precursorWeapons}: +${discoveries.precursorWeapons * 10}% Attack`, x + padding, currentY, '#FF6B6B');
+        currentY += lineHeight;
+    }
+    
+    if (discoveries && discoveries.precursorDrive > 0) {
+        this.renderTextWithShadow(ctx, `🚀 Drive Lvl ${discoveries.precursorDrive}: +${discoveries.precursorDrive * 20}% Speed`, x + padding, currentY, '#4ECDC4');
+        currentY += lineHeight;
+    }
+    
+    if (discoveries && discoveries.precursorShield > 0) {
+        this.renderTextWithShadow(ctx, `🛡️ Shield Lvl ${discoveries.precursorShield}: +${discoveries.precursorShield * 10}% Defense`, x + padding, currentY, '#45B7D1');
+        currentY += lineHeight;
+    }
+    
+    if (discoveries && discoveries.precursorNanotech > 0) {
+        this.renderTextWithShadow(ctx, `🔬 Nanotech Lvl ${discoveries.precursorNanotech}: +${discoveries.precursorNanotech * 10}% Generation`, x + padding, currentY, '#96CEB4');
+        currentY += lineHeight;
+    }
+    
+    if (discoveries && discoveries.friendlyAliens > 0) {
+        this.renderTextWithShadow(ctx, `👽 Friendly Aliens: +${discoveries.friendlyAliens * 50} Fleet Strength`, x + padding, currentY, '#9B59B6');
+        currentY += lineHeight;
+    }
+    
+    if (discoveries && discoveries.richMinerals > 0) {
+        this.renderTextWithShadow(ctx, `💎 Rich Minerals: ${discoveries.richMinerals} Worlds (+50% each)`, x + padding, currentY, '#F39C12');
+        currentY += lineHeight;
+    }
+}
+```
+
+### 4. DISCOVERY PROCESSING UTILITY (utils.js)
+
+```javascript
+static processDiscovery(discoveryType, playerId, territoryId, playerDiscoveries, game) {
+    // Get existing discoveries
+    let discoveries = playerDiscoveries.get(playerId);
+    if (!discoveries) {
+        console.error(`Discoveries not initialized for player ${playerId}`);
+        return { success: false, effectText: 'Discovery system error', icon: '❌' };
+    }
+    
+    let effectText = '';
+    let icon = '';
+    
+    switch (discoveryType) {
+        case 'precursor_weapons':
+            discoveries.precursorWeapons++;
+            effectText = `Precursor Weapons Cache discovered! +${discoveries.precursorWeapons * 10}% attack power`;
+            icon = '⚔️';
+            break;
+            
+        case 'precursor_drive':
+            discoveries.precursorDrive++;
+            effectText = `Precursor Drive System discovered! +${discoveries.precursorDrive * 20}% movement speed`;
+            icon = '🚀';
+            break;
+            
+        case 'precursor_shield':
+            discoveries.precursorShield++;
+            effectText = `Precursor Shield Matrix discovered! +${discoveries.precursorShield * 10}% defense`;
+            icon = '🛡️';
+            break;
+            
+        case 'precursor_nanotech':
+            discoveries.precursorNanotech++;
+            effectText = `Precursor Nanotech discovered! +${discoveries.precursorNanotech * 10}% army generation`;
+            icon = '🔬';
+            break;
+            
+        case 'friendly_aliens':
+            discoveries.friendlyAliens++;
+            const territory = game.gameMap.territories[territoryId];
+            if (territory) {
+                territory.armySize += 50; // Instant fleet bonus
+            }
+            effectText = `Friendly aliens join your empire! +50 fleet strength`;
+            icon = '👽';
+            break;
+            
+        case 'mineral_deposits':
+            discoveries.richMinerals++;
+            effectText = `Rich mineral deposits discovered! +50% army generation on this planet`;
+            icon = '💎';
+            break;
+            
+        case 'factory_complex':
+            discoveries.factoryPlanets.add(territoryId);
+            const factoryTerritory = game.gameMap.territories[territoryId];
+            if (factoryTerritory) {
+                factoryTerritory.hasFactory = true;
+            }
+            effectText = `Precursor factory complex discovered! +100% army generation on this planet`;
+            icon = '🏭';
+            break;
+            
+        case 'standard_planet':
+            effectText = `Standard colonization complete`;
+            icon = '🌍';
+            break;
+            
+        default:
+            effectText = `Unknown discovery`;
+            icon = '❓';
+    }
+    
+    return { success: true, effectText, icon };
+}
+```
+
+### 5. COMBAT SYSTEM WITH DISCOVERY TRIGGERS (CombatSystem.js)
+
+```javascript
+export class CombatSystem {
+    attackTerritory(fromTerritory, toTerritory, attackerPlayerId, fleetAmount) {
+        const attacker = this.game.players.find(p => p.id === attackerPlayerId);
+        
+        // Combat resolution
+        const attackSuccess = this.resolveCombat(fromTerritory, toTerritory, fleetAmount);
+        
+        if (attackSuccess && toTerritory.ownerId === null) {
+            // Successful conquest of neutral territory
+            this.conquestTerritory(toTerritory, attacker);
+            
+            // Trigger discovery for neutral territory conquest
+            if (this.game.discoverySystem) {
+                this.game.discoverySystem.processDiscovery('conquest', attacker.id, toTerritory.id);
+            }
+        }
+        
+        return attackSuccess;
+    }
+    
+    conquestTerritory(territory, newOwner) {
+        territory.ownerId = newOwner.id;
+        newOwner.territories.push(territory.id);
+        
+        // Check if territory is a throne star
+        console.log(`🏰 THRONE CHECK: Territory ${territory.id} isThronestar: ${territory.isThronestar}, defender: ${territory.ownerId ? this.game.players.find(p => p.id === territory.ownerId)?.name : 'neutral'}`);
+        
+        if (territory.isThronestar && territory.ownerId !== newOwner.id) {
+            // Throne star captured - trigger empire collapse
+            this.handleThroneCapture(territory, newOwner);
+        }
+    }
+    
+    handleThroneCapture(throneTerritory, conqueror) {
+        const defeatedPlayerId = throneTerritory.ownerId;
+        const defeatedPlayer = this.game.players.find(p => p.id === defeatedPlayerId);
+        
+        if (defeatedPlayer) {
+            console.log(`👑 THRONE CAPTURED! ${conqueror.name} captured ${defeatedPlayer.name}'s throne star!`);
+            
+            // Transfer all territories to conqueror
+            defeatedPlayer.territories.forEach(territoryId => {
+                const territory = this.game.gameMap.territories[territoryId];
+                if (territory && territory.id !== throneTerritory.id) {
+                    territory.ownerId = conqueror.id;
+                    conqueror.territories.push(territory.id);
+                }
+            });
+            
+            // Mark player as eliminated
+            defeatedPlayer.isEliminated = true;
+            defeatedPlayer.territories = [];
+            
+            // Destroy the captured throne star
+            throneTerritory.isThronestar = false;
+        }
+    }
+}
+```
+
+## SPECIFIC DEBUGGING QUESTIONS
+
+### Double Throne Star Issue:
+1. Why is `validateThroneStars()` not being called every 5 seconds?
+2. Is the `throneStarValidationTimer` being updated correctly in the game loop?
+3. Are there any errors preventing the validation function from executing?
+4. Could the throne star assignment in `distributeStartingTerritories()` be creating duplicates?
+
+### Discovery UI Issue:
+1. Why does the debug log show discoveries exist but the UI doesn't render them?
+2. Is there a data structure mismatch between initialization and processing?
+3. Are the discovery counts being incremented correctly in `GameUtils.processDiscovery()`?
+4. Is the `renderDiscoveryPanel()` being called from the main UI render loop?
+
+### Performance Issue:
+1. Which initialization step is causing the 10-second delay?
+2. Is it map generation, spatial indexing, or modular system initialization?
+3. Could the background image loading or starfield generation be blocking?
+
+## CONSOLE OUTPUT ANALYSIS
+
+Current console shows:
+- "🔬 Processing discovery" - Discovery system is working
+- "🔍 Discovery on conquered planet" - Discoveries are being triggered
+- "🔍 DEBUG: Human player discoveries found: {precursorWeapons:0...}" - Data exists but all values are 0
+- No "🕐 Running throne star validation" messages - Validation not triggering
+- No "🔧 FIXING" messages - No validation fixes being applied
+
+This suggests the discovery processing isn't actually incrementing the discovery values, and the throne star validation timer isn't working properly.
+
+## EXPECTED BEHAVIOR
+
+1. Throne stars should be validated every 5 seconds with console messages
+2. Discovery UI should show accumulated bonuses when territories are conquered
+3. Game should start within 2-3 seconds, not 10 seconds
+4. Each player should have exactly one throne star at all times
+
+## TECHNICAL CONTEXT
+
+- Game uses ES6 modules with custom event system
+- Canvas-based rendering at 60fps
+- Modular architecture with separate systems
+- Map generation uses Poisson disk sampling and Delaunay triangulation
+- Discovery system processes conquests of neutral territories
+- Throne star validation runs on a timer-based system
+
+Please analyze this code and identify the root causes of these three critical issues.
