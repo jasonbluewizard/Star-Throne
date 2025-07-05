@@ -649,7 +649,7 @@ export default class MapGenerator {
     }
     
     /**
-     * Calculate map dimensions for camera positioning
+     * Calculate map dimensions and center territories for optimal display
      */
     static calculateMapDimensions(points) {
         if (points.length === 0) {
@@ -670,7 +670,23 @@ export default class MapGenerator {
         this.mapWidth = maxX - minX + margin * 2;
         this.mapHeight = maxY - minY + margin * 2;
         
+        // Center all territories within the map bounds
+        const centerX = this.mapWidth / 2;
+        const centerY = this.mapHeight / 2;
+        const currentCenterX = (minX + maxX) / 2;
+        const currentCenterY = (minY + maxY) / 2;
+        
+        const offsetX = centerX - currentCenterX;
+        const offsetY = centerY - currentCenterY;
+        
+        // Apply centering offset to all points
+        for (const point of points) {
+            point.x += offsetX;
+            point.y += offsetY;
+        }
+        
         console.log(`📐 Map dimensions: ${this.mapWidth} x ${this.mapHeight}`);
+        console.log(`🎯 Centered ${points.length} territories with offset (${Math.round(offsetX)}, ${Math.round(offsetY)})`);
     }
     
     /**
