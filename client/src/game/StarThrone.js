@@ -1843,25 +1843,40 @@ export default class StarThrone {
         this.visibleTerritories.clear();
         const territories = Object.values(this.gameMap.territories);
         
-        // Incremental processing: split territory checks across multiple frames on large maps
-        const batchSize = territories.length > 200 ? Math.ceil(territories.length / 3) : territories.length;
-        const startIndex = (this.cullingBatchIndex || 0) % territories.length;
-        const endIndex = Math.min(startIndex + batchSize, territories.length);
+        // On massive maps, disable incremental processing to prevent jittering
+        const totalTerritories = territories.length;
+        const useBatching = totalTerritories > 200 && totalTerritories < 400; // Only batch on large maps, not massive
         
-        // Process current batch
-        for (let i = startIndex; i < endIndex; i++) {
-            const territory = territories[i];
-            if (territory.x + territory.radius >= bounds.left - margin &&
-                territory.x - territory.radius <= bounds.right + margin &&
-                territory.y + territory.radius >= bounds.top - margin &&
-                territory.y - territory.radius <= bounds.bottom + margin) {
-                this.visibleTerritories.add(territory.id);
+        if (useBatching) {
+            // Incremental processing for large maps only
+            const batchSize = Math.ceil(territories.length / 3);
+            const startIndex = (this.cullingBatchIndex || 0) % territories.length;
+            const endIndex = Math.min(startIndex + batchSize, territories.length);
+            
+            // Process current batch
+            for (let i = startIndex; i < endIndex; i++) {
+                const territory = territories[i];
+                if (territory.x + territory.radius >= bounds.left - margin &&
+                    territory.x - territory.radius <= bounds.right + margin &&
+                    territory.y + territory.radius >= bounds.top - margin &&
+                    territory.y - territory.radius <= bounds.bottom + margin) {
+                    this.visibleTerritories.add(territory.id);
+                }
             }
-        }
-        
-        // Update batch index for next frame (if processing incrementally)
-        if (batchSize < territories.length) {
+            
+            // Update batch index for next frame
             this.cullingBatchIndex = endIndex >= territories.length ? 0 : endIndex;
+        } else {
+            // Process all territories at once for massive maps to prevent jittering
+            for (let i = 0; i < territories.length; i++) {
+                const territory = territories[i];
+                if (territory.x + territory.radius >= bounds.left - margin &&
+                    territory.x - territory.radius <= bounds.right + margin &&
+                    territory.y + territory.radius >= bounds.top - margin &&
+                    territory.y - territory.radius <= bounds.bottom + margin) {
+                    this.visibleTerritories.add(territory.id);
+                }
+            }
         }
         
         this.performanceStats.visibleTerritories = this.visibleTerritories.size;

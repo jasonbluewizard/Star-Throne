@@ -320,9 +320,9 @@ export class GameEngine {
     let decisionChance = 0.01 * this.gameSpeed;
     
     if (totalTerritories >= GAME_CONSTANTS.AI_MASSIVE_MAP_THRESHOLD) {
-      decisionChance *= 0.1; // 90% slower on massive maps
+      decisionChance *= 0.01; // 99% slower on massive maps (almost stop AI activity)
     } else if (totalTerritories >= GAME_CONSTANTS.AI_LARGE_MAP_THRESHOLD) {
-      decisionChance *= 0.3; // 70% slower on large maps
+      decisionChance *= 0.05; // 95% slower on large maps
     }
     
     aiPlayers.forEach(player => {

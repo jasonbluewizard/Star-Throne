@@ -95,8 +95,8 @@ export const GAME_CONSTANTS = {
     AI_LARGE_MAP_THRESHOLD: 200, // Maps above this size get performance optimizations
     AI_MASSIVE_MAP_THRESHOLD: 350, // Maps above this size get aggressive throttling
     AI_PROBE_LAUNCH_CHANCE_NORMAL: 0.20, // 20% chance on normal maps
-    AI_PROBE_LAUNCH_CHANCE_LARGE: 0.10,  // 10% chance on large maps
-    AI_PROBE_LAUNCH_CHANCE_MASSIVE: 0.05, // 5% chance on massive maps
+    AI_PROBE_LAUNCH_CHANCE_LARGE: 0.02,  // 2% chance on large maps
+    AI_PROBE_LAUNCH_CHANCE_MASSIVE: 0.001, // 0.1% chance on massive maps (almost no probes)
 
     // Input & Controls
     DRAG_THRESHOLD_PIXELS_MOUSE: 5,
