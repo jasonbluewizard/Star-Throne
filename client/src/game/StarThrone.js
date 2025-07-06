@@ -2,7 +2,7 @@ import { GameMap } from './GameMap.js';
 import { Player } from './Player.js';
 import { GameUI } from './GameUI.js';
 import { Camera } from './Camera.js';
-import { Probe } from './Probe.js';
+// import { Probe } from './Probe.js'; // Disabled probe system (legacy)
 import { InputHandler } from './InputHandler.js';
 import { Renderer } from './Renderer.js';
 import { CombatSystem } from './CombatSystem.js';
@@ -106,8 +106,8 @@ export default class StarThrone {
         this.minimapMinimized = true; // Default minimap to off
         
         // Probe system
-        this.probes = [];
-        this.nextProbeId = 0;
+        // this.probes = []; // Probe system disabled (legacy)
+        // this.nextProbeId = 0; // Probe ID tracking disabled
         
         // Discovery announcements
         this.floatingDiscoveryTexts = [];
@@ -148,7 +148,7 @@ export default class StarThrone {
         this.discoveryLog = [];
         
         // Recent probe results for UI announcements
-        this.recentProbeResults = [];
+        // this.recentProbeResults = []; // Probe results tracking disabled
         
         // Notification system
         this.notifications = [];
@@ -751,20 +751,8 @@ export default class StarThrone {
         // Add floating discovery text above the planet
         this.addFloatingDiscoveryText(territory, discovery, playerId);
         
-        // Track probe result for UI announcements
-        this.recentProbeResults.push({
-            timestamp: Date.now(),
-            territoryId: territory.id,
-            playerId: playerId,
-            discoveryName: discovery.name,
-            success: discovery.effect !== 'probe_lost',
-            discovery: discovery
-        });
-        
-        // Keep only recent results (last 10)
-        if (this.recentProbeResults.length > 10) {
-            this.recentProbeResults.shift();
-        }
+        // Probe result tracking disabled (probe system inactive)
+        // this.recentProbeResults.push({ ... }); // No longer tracking probe results
     }
     
     // Process discovery when a planet is successfully colonized - MOVED TO UTILS.JS
@@ -954,18 +942,10 @@ export default class StarThrone {
         }
     }
     
-    // Update probes
+    // Update probes (disabled - probe system inactive)
     updateProbes(deltaTime) {
-        for (let i = this.probes.length - 1; i >= 0; i--) {
-            const probe = this.probes[i];
-            const reachedDestination = probe.update(deltaTime);
-            
-            if (reachedDestination) {
-                // Probe reached destination - colonize the planet
-                this.colonizePlanet(probe);
-                this.probes.splice(i, 1);
-            }
-        }
+        // Probe update logic disabled (no active probes)
+        // for (let i = this.probes.length - 1; i >= 0; i--) { ... }
     }
     
     // Colonize planet when probe arrives
@@ -1050,9 +1030,8 @@ export default class StarThrone {
     
     // Render probes
     renderProbes() {
-        this.probes.forEach(probe => {
-            probe.render(this.ctx);
-        });
+        // Probe rendering disabled (no active probes)
+        // this.probes.forEach(probe => { probe.render(this.ctx); });
     }
     
     renderFloatingDiscoveryTexts() {
@@ -1815,7 +1794,7 @@ export default class StarThrone {
             if (this.animationSystem) {
                 this.animationSystem.renderShipAnimations(this.ctx, this.camera);
             }
-            this.renderProbes();
+            // this.renderProbes(); // Probe rendering disabled
         }
         
         // Use DiscoverySystem for floating discovery texts
@@ -2507,8 +2486,8 @@ export default class StarThrone {
         // Render territories with fleet counts
         this.renderTerritories();
         
-        // Render probes
-        this.renderProbes();
+        // Render probes (disabled - no active probes)
+        // this.renderProbes();
         
         // Render ship animations
         this.renderShipAnimations();
@@ -2629,10 +2608,10 @@ export default class StarThrone {
                 updateTime: this.performanceStats.updateTime,
                 territoryCount: Object.keys(this.gameMap.territories).length,
                 visibleTerritories: this.performanceStats.visibleTerritories,
-                probeCount: this.probes.length,
+                // probeCount: this.probes.length, // Probe count disabled (no active probes)
                 notifications: this.notifications,
                 playerDiscoveries: this.playerDiscoveries,
-                recentProbeResults: this.recentProbeResults,
+                // recentProbeResults: this.recentProbeResults, // Probe results disabled
                 discoveryLog: this.discoveryLog,
                 showBonusPanel: this.showBonusPanel,
                 inputState: inputState,

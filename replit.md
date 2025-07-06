@@ -658,6 +658,15 @@ Changelog:
    * Enemy and neutral territories within nebula fields display purple question marks "?" instead of fleet counts
    * Enhanced strategic depth by hiding enemy fleet strengths only in nebula regions while preserving player's complete information
    * Nebula-based fog of war creates tactical uncertainty about enemy forces in specific galactic regions
+- January 6, 2025. Comprehensive probe system deactivation and code cleanup:
+   * Systematically disabled all probe-related functionality while preserving fog of war and exploration systems
+   * Commented out probe imports, initialization, and update logic in StarThrone.js
+   * Disabled probe flash effects and floating "-10" text in Territory.js rendering
+   * Removed probe notification UI components from GameUI.js
+   * Disabled probe rendering calls and probe count tracking from main game loop
+   * Preserved discovery system and nebula-based tactical fog of war mechanics
+   * Code optimization: removed unused probe variables and methods without breaking existing gameplay
+   * Clean codebase: all probe functionality disabled with clear comments for potential future reactivation
 
 ## User Preferences
 

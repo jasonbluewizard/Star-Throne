@@ -508,54 +508,7 @@ export class GameUI {
         }
     }
     
-    renderProbeNotification(ctx, gameData) {
-        // Show temporary probe notification above discovery panel for 3 seconds
-        const recentProbeResults = gameData.recentProbeResults || [];
-        const now = Date.now();
-        
-        // Get most recent probe result for human player within last 3 seconds
-        const latestProbe = recentProbeResults
-            .filter(result => result.playerId === gameData.humanPlayer?.id && (now - result.timestamp) < 3000)
-            .sort((a, b) => b.timestamp - a.timestamp)[0];
-        
-        if (!latestProbe) return;
-        
-        // Top center positioning
-        const width = 400;
-        const height = 50;
-        const x = (this.canvas.width - width) / 2;
-        const y = 20;
-        
-        // Background with transparency
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
-        ctx.fillRect(x, y, width, height);
-        
-        // Border with probe result color
-        const borderColor = latestProbe.success ? '#00ff88' : '#ff4444';
-        ctx.strokeStyle = borderColor;
-        ctx.lineWidth = 2;
-        ctx.strokeRect(x, y, width, height);
-        
-        // Probe notification text
-        ctx.fillStyle = borderColor;
-        ctx.font = 'bold 14px Arial';
-        ctx.textAlign = 'left';
-        
-        const probeText = latestProbe.success 
-            ? `✓ Probe succeeded: ${latestProbe.discoveryName}`
-            : `✗ Probe failed: ${latestProbe.discoveryName}`;
-            
-        ctx.fillText(probeText, x + 10, y + 25);
-        
-        // Fade out effect
-        const age = now - latestProbe.timestamp;
-        if (age > 2000) { // Start fading after 2 seconds
-            const fadeAlpha = 1 - ((age - 2000) / 1000); // Fade over 1 second
-            ctx.globalAlpha = Math.max(0, fadeAlpha);
-            ctx.fillText(probeText, x + 10, y + 25);
-            ctx.globalAlpha = 1; // Reset alpha
-        }
-    }
+    // Removed probe notification UI (probe functionality disabled)
     
     renderDiscoveryPanel(ctx, gameData) {
         // Only show human player's discoveries

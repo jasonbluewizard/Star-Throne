@@ -59,16 +59,17 @@ export class Territory {
         this.combatFlashTime = Date.now();
     }
     
-    triggerProbeFlash() {
-        this.probeFlashTime = Date.now();
-        this.floatingText = {
-            text: '-10',
-            startTime: Date.now(),
-            duration: 1000,
-            startY: this.y - this.radius - 10,
-            color: '#ff4444'
-        };
-    }
+    // triggerProbeFlash disabled (no probes active)
+    // triggerProbeFlash() {
+    //     this.probeFlashTime = Date.now();
+    //     this.floatingText = {
+    //         text: '-10',
+    //         startTime: Date.now(),
+    //         duration: 1000,
+    //         startY: this.y - this.radius - 10,
+    //         color: '#ff4444'
+    //     };
+    // }
     
     generateArmies(deltaTime, player, gameSpeed = 1.0, game = null) {
         // Neutral territories have fixed army sizes and don't generate armies
@@ -346,16 +347,10 @@ export class Territory {
                 // Always show fleet counts for player's own territories, even in nebulas
                 if (isPlayerOwned || !isInNebula) {
                     // Show army count normally for player territories or non-nebula territories
-                    const currentTime = Date.now();
-                    const isProbeFlashing = (currentTime - this.probeFlashTime) < this.probeFlashDuration;
-                    
+                    // Probe flash effect disabled: always use default color
+                    const isProbeFlashing = false; // (currentTime - this.probeFlashTime) < this.probeFlashDuration;
                     let textColor = '#000000'; // Default black text
-                    if (isProbeFlashing) {
-                        // Red flash effect for probe launch
-                        const flashProgress = (currentTime - this.probeFlashTime) / this.probeFlashDuration;
-                        const flashIntensity = Math.sin(flashProgress * Math.PI * 4) * 0.5 + 0.5;
-                        textColor = `rgb(${255 * flashIntensity}, 0, 0)`;
-                    }
+                    // if (isProbeFlashing) { ... } // Skip probe flash color change (always default)
                     
                     ctx.fillStyle = textColor;
                     ctx.strokeStyle = '#ffffff'; // White outline for better readability
@@ -387,8 +382,8 @@ export class Territory {
             }
         }
         
-        // Draw floating "-10" text for probe launches
-        if (this.floatingText) {
+        // Draw floating text (probe-related floating text disabled)
+        if (this.floatingText && !this.floatingText.text.includes('-10')) {
             const currentTime = Date.now();
             const elapsed = currentTime - this.floatingText.startTime;
             
