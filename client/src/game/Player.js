@@ -74,7 +74,7 @@ export class Player {
         });
         
         // Update stats
-        this.updateStats();
+        this.updateStats(gameMap);
         
         // AI logic
         if (this.type === 'ai' && !this.isEliminated) {
@@ -82,14 +82,16 @@ export class Player {
         }
     }
     
-    updateStats() {
-        this.totalArmies = this.territories.reduce((total, territoryId) => {
-            // Note: We'd need access to gameMap here, so this might need to be called differently
-            return total;
-        }, 0);
+    updateStats(gameMap = null) {
+        if (gameMap) {
+            this.totalArmies = this.territories.reduce((total, territoryId) => {
+                const territory = gameMap.territories[territoryId];
+                return total + (territory ? territory.armySize : 0);
+            }, 0);
+        }
         
-        // Calculate score based on territories and armies
-        this.score = this.territories.length * 100 + this.territoriesConquered * 50;
+        // Calculate score based on territories, armies, and conquests
+        this.score = this.territories.length * 100 + this.totalArmies + this.territoriesConquered * 50;
     }
     
     updateAI(deltaTime, gameMap) {

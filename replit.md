@@ -651,6 +651,10 @@ Changelog:
    * Lowered AI expansion requirements: 25% win chance threshold (was 40%) and 5 army minimum (was 10)
    * Made aggressive AI strategy attack with 80% army advantage instead of 100% for more decisive action
    * Removed minimap feature completely to simplify UI and eliminate M key toggle functionality
+   * Fixed leaderboard scoring system: now includes actual army counts plus territories and conquests for accurate rankings
+   * Implemented universal probe system: right-click any star while friendly star selected to launch probe (costs 10 armies)
+   * Added throne connectivity requirement: distant colonies won't generate armies until connected to throne star via owned territory chain
+   * Enhanced territory pathfinding using breadth-first search to validate throne star connectivity
 
 ## User Preferences
 

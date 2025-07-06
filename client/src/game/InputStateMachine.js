@@ -265,7 +265,22 @@ class TerritorySelectedState extends BaseState {
             return true;
         }
         
-        // Handle different target types
+        // NEW PROBE SYSTEM: Right-click any star to send probe (costs 10 armies)
+        if (sourceStar.armySize >= 11) { // Need 11+ armies (10 for probe + 1 to keep)
+            try {
+                await this.game.launchProbe(sourceStar.id, targetStar.id);
+                this.showFeedback(`Probe launched! (-10 armies)`, sourceStar.x, sourceStar.y);
+                return true;
+            } catch (error) {
+                this.showFeedback(`Probe failed: ${error.message}`, sourceStar.x, sourceStar.y);
+                return true;
+            }
+        } else {
+            this.showFeedback("Need 11+ armies to launch probe", sourceStar.x, sourceStar.y);
+            return true;
+        }
+        
+        // OLD SYSTEM (fallback for adjacent territories)
         switch (ownershipType) {
             case 'friendly':
                 if (isAdjacent) {
