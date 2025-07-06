@@ -680,6 +680,13 @@ Changelog:
    * Enhanced tooltip logic to detect supply route sources vs destinations
    * Destination territories show combined generation rate including incoming supply bonuses
    * Accurate tooltip information prevents strategic miscalculations about territory productivity
+- January 6, 2025. Map generation performance analysis and optimization plan:
+   * Identified 10-20 second black screen delay caused by sophisticated MapGenerator algorithms
+   * Performance bottlenecks: force-directed relaxation, Delaunay triangulation, MST with collision detection
+   * Map complexity scales exponentially: 80 territories (~5-8s), 150 territories (~10-15s), 200+ territories (~15-25s)
+   * Trade-off confirmed: beautiful strategically balanced galaxy layouts vs startup performance
+   * Future optimization plan: pre-generate map library with save/load format to eliminate startup delays
+   * Added loading message "Generating galaxy map, please wait..." to inform players during generation
 
 ## User Preferences
 
