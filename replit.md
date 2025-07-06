@@ -698,6 +698,11 @@ Changelog:
    * Green colored indicators positioned below territory circles for clear visibility
    * Visual feedback helps players quickly identify which territories are being reinforced
    * Complements existing "●" dot indicators on source territories sending reinforcements
+- January 6, 2025. Map boundaries expansion for better screen fit:
+   * Increased map height expansion from 40% to 60% for more vertical breathing room
+   * Reduced galaxy boundary radius from 85% to 75% of map area for additional padding
+   * Enhanced zoom-out capability to fit entire galaxy on single screen at maximum zoom level
+   * Improved map visibility with territories no longer cramped at top and bottom edges
 
 ## User Preferences
 

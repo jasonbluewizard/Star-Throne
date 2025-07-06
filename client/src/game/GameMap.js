@@ -4,7 +4,7 @@ import MapGenerator from './MapGenerator.js';
 export class GameMap {
     constructor(width, height, config = {}) {
         this.width = width * 1.4; // Expand width by 40%
-        this.height = height * 1.4; // Expand height by 40%
+        this.height = height * 1.6; // Expand height by 60% for more vertical space
         this.territories = {};
         this.nebulas = []; // Purple nebula clouds
         this.gridSize = 150; // Increased space between territory centers for less crowding
@@ -34,7 +34,7 @@ export class GameMap {
         const normalizedY = (y - centerY) / (this.height / 2);
         
         // Create organic galaxy shape using multiple sine waves for irregular edges
-        const baseRadius = 0.85; // Base galaxy size (85% of max)
+        const baseRadius = 0.75; // Base galaxy size (75% of max) for more padding
         
         // Use angle from center for perlin-like noise effect
         const angle = Math.atan2(normalizedY, normalizedX);
@@ -57,7 +57,7 @@ export class GameMap {
 
     // Helper function to get max radius at a specific angle for organic boundary
     getMaxRadiusAtAngle(angle) {
-        const baseRadius = 0.85; // Base galaxy size (85% of max)
+        const baseRadius = 0.75; // Base galaxy size (75% of max) for more padding
         
         // Create organic edge variation using the same formula as boundary check
         const edgeVariation = 
