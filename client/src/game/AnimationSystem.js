@@ -322,8 +322,8 @@ export class AnimationSystem {
                 screenPos.x, screenPos.y, 0,
                 screenPos.x, screenPos.y, screenRadius
             );
-            gradient.addColorStop(0, 'rgba(147, 112, 219, 0.4)');
-            gradient.addColorStop(0.7, 'rgba(147, 112, 219, 0.15)');
+            gradient.addColorStop(0, 'rgba(147, 112, 219, 0.08)');
+            gradient.addColorStop(0.7, 'rgba(147, 112, 219, 0.03)');
             gradient.addColorStop(1, 'rgba(147, 112, 219, 0)');
             
             ctx.fillStyle = gradient;
