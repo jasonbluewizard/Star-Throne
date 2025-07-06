@@ -857,11 +857,17 @@ export class GameUI {
                 // NEBULA FOG OF WAR: Check if territory is inside a nebula
                 const isInNebula = gameData?.gameMap?.isInNebula?.(territory.x, territory.y) || false;
                 const isPlayerOwned = territory.ownerId === humanPlayerId;
+                const isNeutral = territory.ownerId === null;
                 
-                // Hide fleet counts in nebulas for non-player territories
+                // Hide fleet counts in nebulas for non-player territories (including neutrals)
                 if (isInNebula && !isPlayerOwned) {
-                    // Territory in nebula - hide fleet count with purple question mark
-                    tooltipLines.push(`Unknown forces (nebula)`);
+                    if (isNeutral) {
+                        // Neutral territory in nebula - show question marks
+                        tooltipLines.push(`??? Fleets (nebula)`);
+                    } else {
+                        // Enemy territory in nebula - hide fleet count
+                        tooltipLines.push(`Unknown forces (nebula)`);
+                    }
                 } else {
                     // Calculate generation rate including supply bonuses
                     let generationRate = 0;

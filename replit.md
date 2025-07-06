@@ -687,6 +687,11 @@ Changelog:
    * Trade-off confirmed: beautiful strategically balanced galaxy layouts vs startup performance
    * Future optimization plan: pre-generate map library with save/load format to eliminate startup delays
    * Added loading message "Generating galaxy map, please wait..." to inform players during generation
+- January 6, 2025. Nebula fog of war tooltip fix for neutral territories:
+   * Fixed tooltip bug where neutral territories in nebulas still showed exact fleet counts
+   * Neutral territories in nebulas now display "??? Fleets (nebula)" instead of revealing army numbers
+   * Enhanced nebula fog of war system to properly distinguish between neutral and enemy territories
+   * Player-owned territories always show accurate fleet counts even when inside nebulas
 
 ## User Preferences
 
