@@ -259,6 +259,11 @@ export class GameUI {
                 return bCount - aCount;
             })
             .slice(0, 10); // Top 10
+            
+        // Debug: Log top 3 players occasionally
+        if (Math.random() < 0.1) {
+            console.log('🏆 Top 3 players:', sortedPlayers.slice(0, 3).map(p => `${p.name}: ${p.territories ? p.territories.length : 0} territories`));
+        }
         
         const height = 40 + sortedPlayers.length * itemHeight;
         
@@ -297,10 +302,11 @@ export class GameUI {
             const name = player.name.length > 10 ? player.name.substring(0, 10) + '...' : player.name;
             ctx.fillText(name, startX + 55, y);
             
-            // Territory count
+            // Territory count with safety check
             ctx.fillStyle = this.textColor;
             ctx.textAlign = 'right';
-            ctx.fillText(player.territories.length.toString(), startX + width - 10, y);
+            const territoryCount = player.territories ? player.territories.length : 0;
+            ctx.fillText(territoryCount.toString(), startX + width - 10, y);
         });
         
         // Eliminated count
