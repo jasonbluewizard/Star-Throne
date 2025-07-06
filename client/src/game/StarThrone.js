@@ -1299,7 +1299,7 @@ export default class StarThrone {
             // Create players: 1 human + configured AI count
             const requestedAI = this.config.aiCount || GAME_CONSTANTS.DEFAULT_SINGLE_PLAYER_AI_COUNT;
             const totalPlayers = 1 + requestedAI;
-            const actualPlayers = Math.min(totalPlayers, 20); // Hard cap at 20 total players for performance
+            const actualPlayers = totalPlayers; // Use full requested player count
             console.log(`🔍 PLAYER COUNT DEBUG: config.aiCount = ${this.config.aiCount}, requestedAI = ${requestedAI}, totalPlayers = ${totalPlayers}, actualPlayers = ${actualPlayers}`);
             this.createPlayers(actualPlayers);
             

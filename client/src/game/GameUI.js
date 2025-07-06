@@ -250,10 +250,10 @@ export class GameUI {
             return;
         }
         
-        // Sort players by score
+        // Sort players by territories controlled (stars)
         const sortedPlayers = gameData.players
             .filter(p => !p.isEliminated)
-            .sort((a, b) => b.score - a.score)
+            .sort((a, b) => b.territories.length - a.territories.length)
             .slice(0, 10); // Top 10
         
         const height = 40 + sortedPlayers.length * itemHeight;
@@ -1094,9 +1094,9 @@ export class GameUI {
         const width = 500;
         const itemHeight = 35;
         
-        // Sort all players by score and show only top 10 for better readability
+        // Sort all players by territories controlled and show only top 10 for better readability
         const sortedPlayers = [...gameData.players]
-            .sort((a, b) => b.score - a.score)
+            .sort((a, b) => b.territories.length - a.territories.length)
             .slice(0, 10);
         const height = 80 + sortedPlayers.length * itemHeight;
         
