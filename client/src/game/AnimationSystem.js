@@ -79,9 +79,9 @@ export class AnimationSystem {
         
         if (!fromTerritory || !toTerritory) return true; // Safe fallback
         
-        // Animation is visible if the warp lane between territories is visible
+        // SHOW ALL SHIP ANIMATIONS: Display all ship movements for better visibility
         // (At least one end must be owned by human player)
-        return fromTerritory.ownerId === humanPlayerId || toTerritory.ownerId === humanPlayerId;
+        return true; // Show all ship animations
     }
     
     // Helper to find territory by coordinates

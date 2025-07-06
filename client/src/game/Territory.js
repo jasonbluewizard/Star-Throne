@@ -282,8 +282,8 @@ export class Territory {
             this.renderHumanFlag(ctx);
         }
         
-        // Draw crown for throne star territories (only if not mysterious)
-        if (this.isThronestar && this.ownerId !== null && !isMysteriousTerritory) {
+        // Draw crown for throne star territories (SHOW ALL CROWNS)
+        if (this.isThronestar && this.ownerId !== null) {
             this.renderCrown(ctx);
         }
         

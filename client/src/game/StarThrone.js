@@ -2035,17 +2035,15 @@ export default class StarThrone {
                 if (drawnConnections.has(connectionId)) return;
                 drawnConnections.add(connectionId);
                 
-                // FOG OF WAR: Show star lanes if either:
-                // 1. At least one end is owned by the human player (current visibility)
-                // 2. The lane was previously discovered (permanent knowledge)
+                // SHOW ALL STAR LANES: Display all connections for better visibility
                 const territoryOwnedByPlayer = territory.ownerId === this.humanPlayer?.id;
                 const neighborOwnedByPlayer = neighbor.ownerId === this.humanPlayer?.id;
                 const laneDiscovered = this.discoveredLanes.has(connectionId);
                 
-                if (!territoryOwnedByPlayer && !neighborOwnedByPlayer && !laneDiscovered) {
-                    // Neither territory is owned by player AND lane not previously discovered
-                    return;
-                }
+                // Always show star lanes (removed fog of war restriction)
+                // if (!territoryOwnedByPlayer && !neighborOwnedByPlayer && !laneDiscovered) {
+                //     return;
+                // }
                 
                 // Add newly visible lanes to permanent discovery
                 if ((territoryOwnedByPlayer || neighborOwnedByPlayer) && !laneDiscovered) {
@@ -2346,7 +2344,7 @@ export default class StarThrone {
                     });
                     
                     // Skip army numbers for mysterious enemy territories
-                    if (isEnemyMystery) continue;
+                    // if (isEnemyMystery) continue; // SHOW ALL FLEET COUNTS
                     
                     // Use cached player lookup
                     let owner = playersLookup[territory.ownerId];
@@ -2385,7 +2383,7 @@ export default class StarThrone {
                     });
                     
                     // Skip army numbers for mysterious enemy territories
-                    if (isEnemyMystery) continue;
+                    // if (isEnemyMystery) continue; // SHOW ALL FLEET COUNTS
                     
                     // Use cached player lookup
                     let owner = playersLookup[territory.ownerId];
@@ -2429,7 +2427,7 @@ export default class StarThrone {
                     });
                     
                     // Skip army numbers for mysterious enemy territories
-                    if (isEnemyMystery) continue;
+                    // if (isEnemyMystery) continue; // SHOW ALL FLEET COUNTS
                     
                     // Use cached player lookup
                     let owner = playersLookup[territory.ownerId];
