@@ -30,7 +30,7 @@ export class Camera {
         // Pan constraints (map boundaries)
         this.mapWidth = 2000;
         this.mapHeight = 1500;
-        this.boundaryPadding = 100;
+        this.boundaryPadding = 200;
     }
     
     updateViewport(width, height) {

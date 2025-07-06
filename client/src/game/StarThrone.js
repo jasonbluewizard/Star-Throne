@@ -1295,6 +1295,11 @@ export default class StarThrone {
             this.gameMap.generateTerritories(this.config.mapSize);
             this.gameMap.buildSpatialIndex();
             this.log('Spatial index built for optimized territory lookups', 'info');
+            
+            // Update camera bounds after map generation with new dimensions
+            this.camera.mapWidth = this.gameMap.width;
+            this.camera.mapHeight = this.gameMap.height;
+            console.log(`🎥 Camera bounds updated: ${this.camera.mapWidth} x ${this.camera.mapHeight} with ${this.camera.boundaryPadding}px padding`);
 
             // Create players: 1 human + configured AI count
             const requestedAI = this.config.aiCount || GAME_CONSTANTS.DEFAULT_SINGLE_PLAYER_AI_COUNT;
@@ -1321,9 +1326,11 @@ export default class StarThrone {
             this.gameState = 'playing';  // Now enter the main playing state
             
             // Re-initialize starfield with final map size and redraw background
-            this.animationSystem.starfield.initialized = false;
-            this.animationSystem.initializeStarfield();
-            this.animationSystem.preRenderStaticBackground();
+            if (this.animationSystem && this.animationSystem.starfield) {
+                this.animationSystem.starfield.initialized = false;
+                this.animationSystem.initializeStarfield();
+                this.animationSystem.preRenderStaticBackground();
+            }
             
             // Start home system flashing for player identification
             this.homeSystemFlashStart = Date.now();
