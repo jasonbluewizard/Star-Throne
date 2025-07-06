@@ -23,7 +23,7 @@ export const GAME_CONSTANTS = {
     // Territory & Map Configuration
     TERRITORY_RADIUS: 25,
     CONNECTION_DISTANCE: 60, // Very short range connections for tactical gameplay
-    ARMY_GENERATION_RATE: 3000, // milliseconds per army
+    ARMY_GENERATION_RATE: 1500, // milliseconds per army - faster for more dynamic gameplay
 
     // Probe System
     PROBE_LAUNCH_COST_FLEET: 10,

@@ -253,7 +253,11 @@ export class GameUI {
         // Sort players by territories controlled (stars)
         const sortedPlayers = gameData.players
             .filter(p => !p.isEliminated)
-            .sort((a, b) => b.territories.length - a.territories.length)
+            .sort((a, b) => {
+                const aCount = a.territories ? a.territories.length : 0;
+                const bCount = b.territories ? b.territories.length : 0;
+                return bCount - aCount;
+            })
             .slice(0, 10); // Top 10
         
         const height = 40 + sortedPlayers.length * itemHeight;
