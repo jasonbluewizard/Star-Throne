@@ -1263,19 +1263,19 @@ export default class StarThrone {
     startGame() {
         console.log('Starting Star Throne game with config:', this.config);
         
-        // Initialize background and defer map generation to avoid blocking UI
+        // Initialize background systems immediately
         this.animationSystem.initializeStarfield();
         this.animationSystem.preRenderStaticBackground();
         this.uiManager.loadBackgroundImage();
-        this.showMessage('Generating galaxy map, please wait...', 10000);  // Show loading text
+        this.showMessage('Generating galaxy map, please wait...', 15000);
         
-        setTimeout(() => {
-            // Generate territories off the main UI thread (after a brief delay)
+        try {
+            // Generate map using the sophisticated algorithm
             this.gameMap.generateTerritories(this.config.mapSize);
             this.gameMap.buildSpatialIndex();
             this.log('Spatial index built for optimized territory lookups', 'info');
             
-            // Update camera bounds after map generation with new dimensions
+            // Update camera bounds after map generation
             this.camera.mapWidth = this.gameMap.width;
             this.camera.mapHeight = this.gameMap.height;
             console.log(`🎥 Camera bounds updated: ${this.camera.mapWidth} x ${this.camera.mapHeight} with ${this.camera.boundaryPadding}px padding`);
@@ -1283,9 +1283,8 @@ export default class StarThrone {
             // Create players: 1 human + configured AI count
             const requestedAI = this.config.aiCount || GAME_CONSTANTS.DEFAULT_SINGLE_PLAYER_AI_COUNT;
             const totalPlayers = 1 + requestedAI;
-            const actualPlayers = totalPlayers; // Use full requested player count
-            console.log(`🔍 PLAYER COUNT DEBUG: config.aiCount = ${this.config.aiCount}, requestedAI = ${requestedAI}, totalPlayers = ${totalPlayers}, actualPlayers = ${actualPlayers}`);
-            this.createPlayers(actualPlayers);
+            console.log(`🔍 PLAYER COUNT DEBUG: config.aiCount = ${this.config.aiCount}, requestedAI = ${requestedAI}, totalPlayers = ${totalPlayers}`);
+            this.createPlayers(totalPlayers);
             
             // Update human player name from config
             if (this.humanPlayer) {
@@ -1302,9 +1301,9 @@ export default class StarThrone {
                 this.camera.centerOn(startTerritory.x, startTerritory.y);
             }
 
-            this.gameState = 'playing';  // Now enter the main playing state
+            this.gameState = 'playing';
             
-            // Re-initialize starfield with final map size and redraw background
+            // Re-initialize starfield with final map size
             if (this.animationSystem && this.animationSystem.starfield) {
                 this.animationSystem.starfield.initialized = false;
                 this.animationSystem.initializeStarfield();
@@ -1321,8 +1320,13 @@ export default class StarThrone {
             
             // Hide loading message
             this.hideMessage();
-        }, 0);
+        } catch (error) {
+            console.error('Failed to generate galaxy map:', error);
+            this.showMessage('Map generation failed. Please try again.', 5000);
+        }
     }
+    
+
     
     generateAIName(index) {
         const firstNames = [

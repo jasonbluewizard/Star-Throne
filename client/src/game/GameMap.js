@@ -117,6 +117,76 @@ export class GameMap {
         this.generateNebulas();
     }
     
+    /**
+     * Fast map generation using simple algorithms to eliminate startup delay
+     */
+    generateTerritoriesFast(count) {
+        console.log(`⚡ Fast generating ${count} territories using simplified ${this.layout} layout...`);
+        
+        const territories = [];
+        const points = [];
+        
+        // Simple Poisson disk sampling without expensive algorithms
+        let attempts = 0;
+        const maxAttempts = count * 10; // Limit attempts to prevent infinite loops
+        
+        while (territories.length < count && attempts < maxAttempts) {
+            const x = Math.random() * this.width;
+            const y = Math.random() * this.height;
+            
+            // Check if position is valid (within bounds and min distance from others)
+            if (this.isValidPosition(x, y, points, this.gridSize * 0.8)) {
+                const territory = new Territory({
+                    id: territories.length,
+                    x: x,
+                    y: y,
+                    armySize: Math.floor(Math.random() * 30) + 1, // Neutral garrison
+                    ownerId: null,
+                    neighbors: [],
+                    hiddenNeighbors: []
+                });
+                
+                territories.push(territory);
+                points.push({ x, y });
+                this.territories[territory.id] = territory;
+                this.addToSpatialIndex(territory);
+            }
+            attempts++;
+        }
+        
+        // Simple connection algorithm - connect nearby territories
+        territories.forEach(territory => {
+            const nearbyTerritories = territories.filter(other => {
+                if (other.id === territory.id) return false;
+                const distance = Math.hypot(other.x - territory.x, other.y - territory.y);
+                return distance <= this.connectionDistance;
+            });
+            
+            // Connect to 2-4 nearest neighbors to ensure connectivity
+            nearbyTerritories
+                .sort((a, b) => {
+                    const distA = Math.hypot(a.x - territory.x, a.y - territory.y);
+                    const distB = Math.hypot(b.x - territory.x, b.y - territory.y);
+                    return distA - distB;
+                })
+                .slice(0, 3) // Connect to 3 closest neighbors
+                .forEach(neighbor => {
+                    if (!territory.neighbors.includes(neighbor.id)) {
+                        territory.neighbors.push(neighbor.id);
+                    }
+                    if (!neighbor.neighbors.includes(territory.id)) {
+                        neighbor.neighbors.push(territory.id);
+                    }
+                });
+        });
+        
+        console.log(`⚡ Fast generated ${territories.length} territories in simplified layout`);
+        console.log(`📐 Map dimensions: ${this.width} x ${this.height}`);
+        
+        // Generate fewer nebulas for faster startup
+        this.generateNebulas();
+    }
+    
     generateNebulas() {
         // Use configurable nebula count (0-20)
         const nebulaCount = this.nebulaCount;
