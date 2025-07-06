@@ -1976,8 +1976,8 @@ export default class StarThrone {
                 nebula.x, nebula.y, nebula.radius
             );
             
-            gradient.addColorStop(0, `rgba(147, 51, 234, ${Math.min(nebula.opacity * 0.15, 0.08)})`);
-            gradient.addColorStop(0.5, `rgba(147, 51, 234, ${Math.min(nebula.opacity * 0.09, 0.03)})`);
+            gradient.addColorStop(0, `rgba(147, 51, 234, ${nebula.opacity})`);
+            gradient.addColorStop(0.5, `rgba(147, 51, 234, ${nebula.opacity * 0.6})`);
             gradient.addColorStop(1, 'rgba(147, 51, 234, 0)');
             
             this.ctx.fillStyle = gradient;

@@ -297,13 +297,37 @@ export class Territory {
             this.renderExplosion(ctx);
         }
         
-        // Draw army count for neutral territories (show all except nebula-hidden)
+        // Draw army count for neutral territories with fog of war
         if (this.ownerId === null) {
             ctx.font = 'bold 14px Arial';
             ctx.textAlign = 'center';
             
-            if (isInNebula) {
-                // Territory inside nebula - show question mark for hidden army count
+            // FOG OF WAR: Check if adjacent to player-owned territory
+            const humanPlayerId = gameData?.humanPlayer?.id;
+            const isAdjacentToPlayer = this.neighbors.some(neighborId => {
+                const neighbor = gameData?.gameMap?.territories?.[neighborId];
+                return neighbor && neighbor.ownerId === humanPlayerId;
+            });
+            
+            if (this.isColonizable) {
+                // Simple yellow question mark for colonizable planets
+                ctx.fillStyle = '#ffff00'; // Yellow text
+                ctx.font = 'bold 16px Arial';
+                
+                const displayText = '?';
+                ctx.fillText(displayText, this.x, this.y + 5);
+                
+                // Subtle pulsing border effect (reduced intensity)
+                const pulseIntensity = 0.7 + 0.2 * Math.sin(Date.now() * 0.002 + this.pulsePhase);
+                ctx.strokeStyle = `rgba(255, 255, 0, ${pulseIntensity})`;
+                ctx.lineWidth = 1;
+                ctx.setLineDash([3, 3]);
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius + 2, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            } else if (!isAdjacentToPlayer) {
+                // Mysterious neutral territory - yellow question mark with smaller, translucent appearance
                 ctx.fillStyle = '#ffff00'; // Yellow text for mystery
                 ctx.strokeStyle = 'rgba(255, 255, 0, 0.8)'; // Yellow outline
                 ctx.lineWidth = 2;
@@ -313,7 +337,7 @@ export class Territory {
                 ctx.strokeText(displayText, this.x, this.y + 4);
                 ctx.fillText(displayText, this.x, this.y + 4);
             } else {
-                // Territory outside nebula - show army count normally
+                // Visible neutral territory - show army count normally
                 ctx.fillStyle = '#000000'; // Black text
                 ctx.strokeStyle = '#ffffff'; // White outline for contrast
                 ctx.lineWidth = 2;
@@ -332,9 +356,8 @@ export class Territory {
             ctx.fillText(`T${this.id}`, this.x, this.y - this.radius - 8);
         }
         
-        // Draw army count for owned territories with probe flash effect (hide if in nebula)
-        const isInNebula = gameData?.gameMap?.isInNebula?.(this.x, this.y) || false;
-        if (this.ownerId !== null && !isInNebula) {
+        // Draw army count for owned territories with probe flash effect (only if not mysterious)
+        if (this.ownerId !== null && !isMysteriousTerritory) {
             const player = players[this.ownerId];
             if (player) {
                 // Check for probe flash effect
