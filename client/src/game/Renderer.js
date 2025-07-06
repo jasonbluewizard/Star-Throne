@@ -376,7 +376,7 @@ export class Renderer {
     
     renderThroneStarCrown(territory) {
         const crownSize = 8;
-        const crownY = territory.y - territory.radius - 10;
+        const crownY = territory.y - territory.radius - 5; // Moved closer to star
         
         this.ctx.fillStyle = '#FFD700';
         this.ctx.strokeStyle = '#FFA500';
