@@ -330,7 +330,8 @@ export class Player {
         const result = gameMap.game?.combatSystem?.attackTerritory(attackingTerritory, defendingTerritory, attackingArmies);
         
         if (!result) {
-
+            console.log(`❌ AI Attack failed: ${this.name} attacking ${defendingTerritory.id} - combat system returned null/undefined`);
+            console.log(`Combat system available: ${!!gameMap.game?.combatSystem}, Game available: ${!!gameMap.game}`);
             return;
         }
         
