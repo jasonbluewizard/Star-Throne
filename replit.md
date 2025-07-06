@@ -651,6 +651,13 @@ Changelog:
    * Lowered AI expansion requirements: 25% win chance threshold (was 40%) and 5 army minimum (was 10)
    * Made aggressive AI strategy attack with 80% army advantage instead of 100% for more decisive action
    * Removed minimap feature completely to simplify UI and eliminate M key toggle functionality
+- January 6, 2025. Nebula-based fleet visibility system implementation:
+   * Fixed neutral planet red flashing bug by preventing combat flash effects on neutral territories
+   * Implemented selective fleet count visibility: players always see their own fleet numbers, but enemy/neutral territories in nebulas show "?" 
+   * Player-controlled territories always display fleet counts even when inside purple nebula clouds
+   * Enemy and neutral territories within nebula fields display purple question marks "?" instead of fleet counts
+   * Enhanced strategic depth by hiding enemy fleet strengths only in nebula regions while preserving player's complete information
+   * Nebula-based fog of war creates tactical uncertainty about enemy forces in specific galactic regions
 
 ## User Preferences
 

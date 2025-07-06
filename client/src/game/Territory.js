@@ -297,39 +297,18 @@ export class Territory {
             this.renderExplosion(ctx);
         }
         
-        // Draw army count for neutral territories with fog of war
+        // Draw army count for neutral territories - hide only if in nebula
         if (this.ownerId === null) {
             ctx.font = 'bold 14px Arial';
             ctx.textAlign = 'center';
             
-            // FOG OF WAR: Check if adjacent to player-owned territory
-            const humanPlayerId = gameData?.humanPlayer?.id;
-            const isAdjacentToPlayer = this.neighbors.some(neighborId => {
-                const neighbor = gameData?.gameMap?.territories?.[neighborId];
-                return neighbor && neighbor.ownerId === humanPlayerId;
-            });
+            // Check if territory is inside a nebula (hide fleet count if so)
+            const isInNebula = gameData?.gameMap?.isInNebula?.(this.x, this.y) || false;
             
-            if (this.isColonizable) {
-                // Simple yellow question mark for colonizable planets
-                ctx.fillStyle = '#ffff00'; // Yellow text
-                ctx.font = 'bold 16px Arial';
-                
-                const displayText = '?';
-                ctx.fillText(displayText, this.x, this.y + 5);
-                
-                // Subtle pulsing border effect (reduced intensity)
-                const pulseIntensity = 0.7 + 0.2 * Math.sin(Date.now() * 0.002 + this.pulsePhase);
-                ctx.strokeStyle = `rgba(255, 255, 0, ${pulseIntensity})`;
-                ctx.lineWidth = 1;
-                ctx.setLineDash([3, 3]);
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius + 2, 0, Math.PI * 2);
-                ctx.stroke();
-                ctx.setLineDash([]);
-            } else if (!isAdjacentToPlayer) {
-                // Mysterious neutral territory - yellow question mark with smaller, translucent appearance
-                ctx.fillStyle = '#ffff00'; // Yellow text for mystery
-                ctx.strokeStyle = 'rgba(255, 255, 0, 0.8)'; // Yellow outline
+            if (isInNebula) {
+                // Neutral territory in nebula - show purple question mark
+                ctx.fillStyle = '#9966ff'; // Purple text for nebula mystery
+                ctx.strokeStyle = 'rgba(153, 102, 255, 0.8)'; // Purple outline
                 ctx.lineWidth = 2;
                 ctx.font = 'bold 16px Arial';
                 
@@ -337,7 +316,7 @@ export class Territory {
                 ctx.strokeText(displayText, this.x, this.y + 4);
                 ctx.fillText(displayText, this.x, this.y + 4);
             } else {
-                // Visible neutral territory - show army count normally
+                // Neutral territory outside nebula - show army count normally
                 ctx.fillStyle = '#000000'; // Black text
                 ctx.strokeStyle = '#ffffff'; // White outline for contrast
                 ctx.lineWidth = 2;
@@ -356,38 +335,55 @@ export class Territory {
             ctx.fillText(`T${this.id}`, this.x, this.y - this.radius - 8);
         }
         
-        // Draw army count for owned territories with probe flash effect (only if not mysterious)
-        if (this.ownerId !== null && !isMysteriousTerritory) {
+        // Draw army count for owned territories - ALWAYS show player's own fleet counts
+        if (this.ownerId !== null) {
             const player = players[this.ownerId];
             if (player) {
-                // Check for probe flash effect
-                const currentTime = Date.now();
-                const isProbeFlashing = (currentTime - this.probeFlashTime) < this.probeFlashDuration;
+                const humanPlayerId = gameData?.humanPlayer?.id;
+                const isPlayerOwned = this.ownerId === humanPlayerId;
+                const isInNebula = gameData?.gameMap?.isInNebula?.(this.x, this.y) || false;
                 
-                let textColor = '#000000'; // Default black text
-                if (isProbeFlashing) {
-                    // Red flash effect for probe launch
-                    const flashProgress = (currentTime - this.probeFlashTime) / this.probeFlashDuration;
-                    const flashIntensity = Math.sin(flashProgress * Math.PI * 4) * 0.5 + 0.5;
-                    textColor = `rgb(${255 * flashIntensity}, 0, 0)`;
+                // Always show fleet counts for player's own territories, even in nebulas
+                if (isPlayerOwned || !isInNebula) {
+                    // Show army count normally for player territories or non-nebula territories
+                    const currentTime = Date.now();
+                    const isProbeFlashing = (currentTime - this.probeFlashTime) < this.probeFlashDuration;
+                    
+                    let textColor = '#000000'; // Default black text
+                    if (isProbeFlashing) {
+                        // Red flash effect for probe launch
+                        const flashProgress = (currentTime - this.probeFlashTime) / this.probeFlashDuration;
+                        const flashIntensity = Math.sin(flashProgress * Math.PI * 4) * 0.5 + 0.5;
+                        textColor = `rgb(${255 * flashIntensity}, 0, 0)`;
+                    }
+                    
+                    ctx.fillStyle = textColor;
+                    ctx.strokeStyle = '#ffffff'; // White outline for better readability
+                    ctx.lineWidth = 2;
+                    ctx.font = 'bold 12px Arial';
+                    ctx.textAlign = 'center';
+                    
+                    let displayText = this.armySize.toString();
+                    
+                    // Add black dot indicator for reinforcing stars
+                    if (window.game?.supplySystem?.isSupplySource(this.id)) {
+                        displayText = `● ${displayText}`;
+                    }
+                    
+                    ctx.strokeText(displayText, this.x, this.y + 4);
+                    ctx.fillText(displayText, this.x, this.y + 4);
+                } else {
+                    // Enemy territory in nebula - show purple question mark
+                    ctx.fillStyle = '#9966ff'; // Purple text for nebula mystery
+                    ctx.strokeStyle = 'rgba(153, 102, 255, 0.8)'; // Purple outline
+                    ctx.lineWidth = 2;
+                    ctx.font = 'bold 16px Arial';
+                    ctx.textAlign = 'center';
+                    
+                    const displayText = '?';
+                    ctx.strokeText(displayText, this.x, this.y + 4);
+                    ctx.fillText(displayText, this.x, this.y + 4);
                 }
-                
-                ctx.fillStyle = textColor;
-                ctx.strokeStyle = '#ffffff'; // White outline for better readability
-                ctx.lineWidth = 2;
-                ctx.font = 'bold 12px Arial';
-                ctx.textAlign = 'center';
-                
-                let displayText = this.armySize.toString();
-                
-                // Add black dot indicator for reinforcing stars
-                // Access supply system through global game reference
-                if (window.game?.supplySystem?.isSupplySource(this.id)) {
-                    displayText = `● ${displayText}`;
-                }
-                
-                ctx.strokeText(displayText, this.x, this.y + 4);
-                ctx.fillText(displayText, this.x, this.y + 4);
             }
         }
         
