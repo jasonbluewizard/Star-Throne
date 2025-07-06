@@ -105,12 +105,6 @@ export class Territory {
             const armiesGenerated = Math.floor(this.lastArmyGeneration / effectiveGenerationRate);
             this.lastArmyGeneration = this.lastArmyGeneration % effectiveGenerationRate;
             
-            // NEW: Check throne connectivity - distant colonies don't generate armies until connected
-            if (game && player && !this.isConnectedToThrone(player, game.gameMap)) {
-                // Territory not connected to throne star - no army generation
-                return;
-            }
-            
             // Check if this territory has an active supply route
             if (game && game.supplySystem && game.supplySystem.isSupplySource(this.id)) {
                 const destinationId = game.supplySystem.getSupplyDestination(this.id);
@@ -135,42 +129,6 @@ export class Territory {
                 player.totalArmies += armiesGenerated;
             }
         }
-    }
-    
-    // Check if this territory is connected to the player's throne star via owned territories
-    isConnectedToThrone(player, gameMap) {
-        if (!player || !player.throneStarId || !gameMap) return true; // Default to true if no throne system
-        
-        // If this IS the throne star, it's always connected
-        if (this.id === player.throneStarId) return true;
-        
-        // Use breadth-first search to find path to throne through owned territories
-        const visited = new Set();
-        const queue = [this.id];
-        visited.add(this.id);
-        
-        while (queue.length > 0) {
-            const currentId = queue.shift();
-            const currentTerritory = gameMap.territories[currentId];
-            
-            if (!currentTerritory) continue;
-            
-            // Found throne star!
-            if (currentId === player.throneStarId) return true;
-            
-            // Explore neighbors that are owned by the same player
-            for (const neighborId of currentTerritory.neighbors) {
-                if (visited.has(neighborId)) continue;
-                
-                const neighbor = gameMap.territories[neighborId];
-                if (neighbor && neighbor.ownerId === player.id) {
-                    visited.add(neighborId);
-                    queue.push(neighborId);
-                }
-            }
-        }
-        
-        return false; // No path to throne found
     }
     
     render(ctx, players, selectedTerritory, gameData, hoveredTerritory = null) {

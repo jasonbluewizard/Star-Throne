@@ -246,7 +246,7 @@ export class Renderer {
                 
                 // Color connections between same-owned territories
                 if (territory.ownerId && territory.ownerId === neighbor.ownerId) {
-                    const player = this.game.players.find(p => p.id === territory.ownerId);
+                    const player = this.findPlayerById(territory.ownerId);
                     this.ctx.strokeStyle = player?.color || GAME_CONSTANTS.CONNECTION_COLOR;
                     this.ctx.lineWidth = 2;
                     this.ctx.globalAlpha = 0.8;
@@ -346,8 +346,8 @@ export class Renderer {
         
         // Base color
         let fillColor = territory.baseColor;
-        if (territory.ownerId !== null) {
-            const player = this.game.players.find(p => p.id === territory.ownerId);
+        if (territory.ownerId) {
+            const player = this.findPlayerById(territory.ownerId);
             fillColor = player?.color || territory.baseColor;
         }
         
@@ -376,7 +376,7 @@ export class Renderer {
     
     renderThroneStarCrown(territory) {
         const crownSize = 8;
-        const crownY = territory.y - territory.radius - 5; // Moved closer to star
+        const crownY = territory.y - territory.radius - 10;
         
         this.ctx.fillStyle = '#FFD700';
         this.ctx.strokeStyle = '#FFA500';
