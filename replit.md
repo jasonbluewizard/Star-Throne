@@ -674,6 +674,12 @@ Changelog:
    * Enemy/neutral territories in nebulas display "Unknown forces (nebula)" instead of exact fleet counts
    * Maintains strategic depth by preventing information cheating through mouseover tooltips
    * Consistent with existing nebula-based fleet visibility system in territory rendering
+- January 6, 2025. Supply route tooltip generation rate fix:
+   * Fixed tooltip bug showing incorrect +0.33/s generation rate for supply route source territories
+   * Supply route sources now correctly display +0/s since armies are redirected to destination
+   * Enhanced tooltip logic to detect supply route sources vs destinations
+   * Destination territories show combined generation rate including incoming supply bonuses
+   * Accurate tooltip information prevents strategic miscalculations about territory productivity
 
 ## User Preferences
 

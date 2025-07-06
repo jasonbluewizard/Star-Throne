@@ -868,13 +868,22 @@ export class GameUI {
                     let fleetDisplay = `${territory.armySize} Fleets`;
                     
                     if (territory.ownerId !== null) {
-                        // Base generation rate (1 fleet per 3 seconds = 0.33/s)
-                        generationRate = 1000 / (territory.armyGenerationRate || 3000);
+                        // Check if this territory is a supply route source (redirects armies elsewhere)
+                        const isSupplySource = gameData.supplySystem && gameData.supplySystem.supplyRoutes && 
+                            gameData.supplySystem.supplyRoutes.some(route => route.from === territory.id);
                         
-                        // Add supply route bonuses
-                        if (gameData.supplySystem && gameData.supplySystem.supplyRoutes) {
-                            const incomingRoutes = gameData.supplySystem.supplyRoutes.filter(route => route.to === territory.id);
-                            generationRate += incomingRoutes.length * (1000 / 3000); // Each supply route adds base rate
+                        if (isSupplySource) {
+                            // Supply source territories redirect all armies, so they show +0/s generation
+                            generationRate = 0;
+                        } else {
+                            // Base generation rate (1 fleet per 3 seconds = 0.33/s)
+                            generationRate = 1000 / (territory.armyGenerationRate || 3000);
+                            
+                            // Add supply route bonuses for destinations
+                            if (gameData.supplySystem && gameData.supplySystem.supplyRoutes) {
+                                const incomingRoutes = gameData.supplySystem.supplyRoutes.filter(route => route.to === territory.id);
+                                generationRate += incomingRoutes.length * (1000 / 3000); // Each supply route adds base rate
+                            }
                         }
                         
                         // Format generation rate with proper precision
