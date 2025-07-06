@@ -5,7 +5,7 @@ export class GameUI {
         
         // UI state
         this.showLeaderboard = true;
-        this.showMinimap = true;
+        this.showMinimap = false;
         this.showStats = true;
         this.showHelp = false;
         

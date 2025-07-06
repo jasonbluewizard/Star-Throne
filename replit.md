@@ -642,6 +642,15 @@ Changelog:
    * Knowledge accumulates over time - losing territories doesn't erase star lane intelligence
    * Enhanced strategic depth by building permanent understanding of galactic geography
    * Console logging shows "🗺️ Star lane discovered" messages when new connections are mapped
+- January 6, 2025. Territory coordinate normalization and aggressive AI expansion improvements:
+   * Fixed coordinate system bug causing territories to appear crammed at bottom edge of maps
+   * Implemented proper territory normalization ensuring all territories start from origin (0,0) with margins
+   * Reordered map generation to normalize coordinates BEFORE creating territory objects
+   * Enhanced AI expansion aggressiveness: reduced think interval from 2-5s to 0.8-2s for faster decisions
+   * Increased AI actions per update from 2 to 4 maximum actions for more dynamic gameplay
+   * Lowered AI expansion requirements: 25% win chance threshold (was 40%) and 5 army minimum (was 10)
+   * Made aggressive AI strategy attack with 80% army advantage instead of 100% for more decisive action
+   * Removed minimap feature completely to simplify UI and eliminate M key toggle functionality
 
 ## User Preferences
 

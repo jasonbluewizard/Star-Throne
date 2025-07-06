@@ -98,7 +98,7 @@ export class Player {
         if (this.aiThinkTimer < this.aiThinkInterval) return;
         
         this.aiThinkTimer = 0;
-        this.aiThinkInterval = 2000 + Math.random() * 3000; // Slower AI thinking for performance
+        this.aiThinkInterval = 800 + Math.random() * 1200; // Much faster AI thinking for aggressive expansion
         
         // Cache territory lookups to reduce map access
         const ownedTerritories = [];
@@ -113,8 +113,8 @@ export class Player {
         
         // DISABLED: Old probe colonization system removed - now using direct attacks on neutral territories
         
-        // Limit AI actions per update to reduce computational load
-        const maxActions = Math.min(2, Math.ceil(ownedTerritories.length / 5));
+        // More aggressive AI actions for faster expansion
+        const maxActions = Math.min(4, Math.ceil(ownedTerritories.length / 3));
         
         // Select strategy-based action with performance limits
         switch (this.aiStrategy) {
@@ -151,7 +151,7 @@ export class Player {
                 const enemyTargets = targets.filter(t => t.ownerId !== null);
                 
                 const target = neutralTargets.length > 0 ? neutralTargets[0] : enemyTargets[0];
-                if (territory.armySize > target.armySize) {
+                if (territory.armySize > target.armySize * 0.8) { // Even more aggressive - attack with 80% chance
                     this.executeAttack(territory, target, gameMap);
                     actionsPerformed++;
                 }
@@ -186,14 +186,14 @@ export class Player {
         const expansionTargets = [];
         
         for (const territory of attackableTerritories) {
-            if (territory.armySize < 10) continue; // Need sufficient army to attack
+            if (territory.armySize < 5) continue; // Very low army requirement for aggressive expansion
             
             const neutralTargets = this.findAttackTargets(territory, gameMap)
                 .filter(target => target.ownerId === null);
             
             neutralTargets.forEach(target => {
                 const winChance = this.calculateWinChance(territory, target);
-                if (winChance > 0.4) { // More aggressive with neutrals - 40% win chance
+                if (winChance > 0.25) { // Very aggressive with neutrals - 25% win chance
                     expansionTargets.push({
                         from: territory,
                         to: target,

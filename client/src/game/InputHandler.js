@@ -372,8 +372,7 @@ export class InputHandler {
                 break;
             case 'm':
             case 'M':
-                this.game.minimapMinimized = !this.game.minimapMinimized;
-
+                // Minimap feature removed
                 break;
             case 'q':
             case 'Q':
