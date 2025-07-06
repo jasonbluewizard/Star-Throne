@@ -692,6 +692,12 @@ Changelog:
    * Neutral territories in nebulas now display "??? Fleets (nebula)" instead of revealing army numbers
    * Enhanced nebula fog of war system to properly distinguish between neutral and enemy territories
    * Player-owned territories always show accurate fleet counts even when inside nebulas
+- January 6, 2025. Supply route visual indicators implementation:
+   * Added "+" symbols underneath territories receiving supply route reinforcements
+   * Multiple reinforcements show multiple plus signs (e.g., "++" for 2 routes, "+++" for 3 routes)
+   * Green colored indicators positioned below territory circles for clear visibility
+   * Visual feedback helps players quickly identify which territories are being reinforced
+   * Complements existing "●" dot indicators on source territories sending reinforcements
 
 ## User Preferences
 

@@ -431,6 +431,36 @@ export class Renderer {
         
         this.ctx.strokeText(text, territory.x, territory.y);
         this.ctx.fillText(text, territory.x, territory.y);
+        
+        // Add + indicators below territories receiving reinforcements
+        this.renderSupplyRouteIndicators(territory);
+    }
+    
+    renderSupplyRouteIndicators(territory) {
+        if (!this.game?.supplySystem?.supplyRoutes) return;
+        
+        // Count incoming supply routes to this territory
+        const incomingRoutes = this.game.supplySystem.supplyRoutes.filter(route => route.to === territory.id);
+        const reinforcementCount = incomingRoutes.length;
+        
+        if (reinforcementCount > 0) {
+            // Create + symbols underneath the territory
+            const plusSymbols = '+'.repeat(reinforcementCount);
+            
+            // Position below the territory circle
+            const yOffset = territory.radius + 15;
+            
+            this.ctx.fillStyle = '#00ff00'; // Green color for reinforcement indicators
+            this.ctx.strokeStyle = 'black';
+            this.ctx.lineWidth = 1;
+            this.ctx.font = 'bold 12px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            
+            // Draw text with outline for visibility
+            this.ctx.strokeText(plusSymbols, territory.x, territory.y + yOffset);
+            this.ctx.fillText(plusSymbols, territory.x, territory.y + yOffset);
+        }
     }
     
     renderFloatingText(territory) {
