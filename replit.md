@@ -667,6 +667,13 @@ Changelog:
    * Preserved discovery system and nebula-based tactical fog of war mechanics
    * Code optimization: removed unused probe variables and methods without breaking existing gameplay
    * Clean codebase: all probe functionality disabled with clear comments for potential future reactivation
+- January 6, 2025. Nebula-based tooltip fog of war implementation:
+   * Fixed tooltip cheating exploit - removed fleet count display for territories inside nebula clouds
+   * Enhanced tooltip system with nebula detection using GameMap.isInNebula() function
+   * Player-owned territories always show fleet counts in tooltips, even when inside nebulas
+   * Enemy/neutral territories in nebulas display "Unknown forces (nebula)" instead of exact fleet counts
+   * Maintains strategic depth by preventing information cheating through mouseover tooltips
+   * Consistent with existing nebula-based fleet visibility system in territory rendering
 
 ## User Preferences
 

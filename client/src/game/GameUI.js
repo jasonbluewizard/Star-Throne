@@ -854,30 +854,40 @@ export class GameUI {
                 // Visible territory - show full information
                 tooltipLines.push(`${ownerName}`);
                 
-                // Calculate generation rate including supply bonuses
-                let generationRate = 0;
-                let fleetDisplay = `${territory.armySize} Fleets`;
+                // NEBULA FOG OF WAR: Check if territory is inside a nebula
+                const isInNebula = gameData?.gameMap?.isInNebula?.(territory.x, territory.y) || false;
+                const isPlayerOwned = territory.ownerId === humanPlayerId;
                 
-                if (territory.ownerId !== null) {
-                    // Base generation rate (1 fleet per 3 seconds = 0.33/s)
-                    generationRate = 1000 / (territory.armyGenerationRate || 3000);
+                // Hide fleet counts in nebulas for non-player territories
+                if (isInNebula && !isPlayerOwned) {
+                    // Territory in nebula - hide fleet count with purple question mark
+                    tooltipLines.push(`Unknown forces (nebula)`);
+                } else {
+                    // Calculate generation rate including supply bonuses
+                    let generationRate = 0;
+                    let fleetDisplay = `${territory.armySize} Fleets`;
                     
-                    // Add supply route bonuses
-                    if (gameData.supplySystem && gameData.supplySystem.supplyRoutes) {
-                        const incomingRoutes = gameData.supplySystem.supplyRoutes.filter(route => route.to === territory.id);
-                        generationRate += incomingRoutes.length * (1000 / 3000); // Each supply route adds base rate
+                    if (territory.ownerId !== null) {
+                        // Base generation rate (1 fleet per 3 seconds = 0.33/s)
+                        generationRate = 1000 / (territory.armyGenerationRate || 3000);
+                        
+                        // Add supply route bonuses
+                        if (gameData.supplySystem && gameData.supplySystem.supplyRoutes) {
+                            const incomingRoutes = gameData.supplySystem.supplyRoutes.filter(route => route.to === territory.id);
+                            generationRate += incomingRoutes.length * (1000 / 3000); // Each supply route adds base rate
+                        }
+                        
+                        // Format generation rate with proper precision
+                        if (generationRate > 0) {
+                            const rateText = generationRate >= 1 ? 
+                                `+${generationRate.toFixed(1)}/s` : 
+                                `+${generationRate.toFixed(2)}/s`;
+                            fleetDisplay += ` (${rateText})`;
+                        }
                     }
                     
-                    // Format generation rate with proper precision
-                    if (generationRate > 0) {
-                        const rateText = generationRate >= 1 ? 
-                            `+${generationRate.toFixed(1)}/s` : 
-                            `+${generationRate.toFixed(2)}/s`;
-                        fleetDisplay += ` (${rateText})`;
-                    }
+                    tooltipLines.push(fleetDisplay);
                 }
-                
-                tooltipLines.push(fleetDisplay);
                 
                 if (territory.isThronestar) {
                     tooltipLines.push(`👑 Throne Star`);
