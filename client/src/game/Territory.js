@@ -156,9 +156,9 @@ export class Territory {
             }
         }
         
-        // Add combat flash effect
+        // Add combat flash effect (only for owned territories)
         const currentTime = Date.now();
-        if (this.combatFlashTime > 0 && currentTime - this.combatFlashTime < this.combatFlashDuration) {
+        if (this.ownerId !== null && this.combatFlashTime > 0 && currentTime - this.combatFlashTime < this.combatFlashDuration) {
             const flashProgress = (currentTime - this.combatFlashTime) / this.combatFlashDuration;
             const flashIntensity = Math.sin(flashProgress * Math.PI * 6) * (1 - flashProgress);
             if (flashIntensity > 0 && this.combatFlashColor) {
