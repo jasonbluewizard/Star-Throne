@@ -195,6 +195,20 @@ export class CombatSystem {
             battle.defendingTerritory.ownerId = battle.attackingTerritory.ownerId;
             battle.defendingTerritory.armySize = survivingAttackers;
             
+            // Update player territories arrays
+            if (oldOwner) {
+                // Remove from old owner's territories
+                const index = oldOwner.territories.indexOf(battle.defendingTerritory.id);
+                if (index > -1) {
+                    oldOwner.territories.splice(index, 1);
+                }
+            }
+            
+            // Add to new owner's territories
+            if (!battle.attacker.territories.includes(battle.defendingTerritory.id)) {
+                battle.attacker.territories.push(battle.defendingTerritory.id);
+            }
+            
             // Handle throne star capture
             if (isThroneCapture && oldOwner) {
                 console.log(`🏆 THRONE STAR CAPTURED! ${battle.attacker.name} captures throne from ${oldOwner.name}`);
@@ -369,8 +383,14 @@ export class CombatSystem {
             if (territory.ownerId === oldOwner.id && territory.id !== throneTerritory.id) {
                 territory.ownerId = attacker.id;
                 transferredTerritories.push(territory);
+                
+                // Update player territories arrays
+                attacker.territories.push(territory.id);
             }
         }
+        
+        // Clear old owner's territories array (they've lost everything)
+        oldOwner.territories = [];
         
         console.log(`Transferred ${transferredTerritories.length} territories to ${attacker.name}`);
         
