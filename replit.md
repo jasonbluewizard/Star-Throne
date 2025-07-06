@@ -703,6 +703,11 @@ Changelog:
    * Reduced galaxy boundary radius from 85% to 75% of map area for additional padding
    * Enhanced zoom-out capability to fit entire galaxy on single screen at maximum zoom level
    * Improved map visibility with territories no longer cramped at top and bottom edges
+- January 6, 2025. Control enhancement: H key now centers camera on player's throne star for quick navigation:
+   * H key now snaps camera directly to player's throne star (golden crown territory)
+   * Provides instant navigation back to home base from anywhere on the galaxy map
+   * Fallback to first owned territory if throne star is not found
+   * Quick strategic repositioning for defensive or expansion planning
 
 ## User Preferences
 

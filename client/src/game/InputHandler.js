@@ -395,11 +395,18 @@ export class InputHandler {
                 break;
             case 'h':
             case 'H':
-                // H key - Frame all human player territories
-                if (this.game.humanPlayer && this.game.humanPlayer.territories.length > 0) {
-                    const playerTerritories = this.game.humanPlayer.territories.map(id => this.game.gameMap.territories[id]);
-                    this.game.camera.frameRegion(playerTerritories);
-
+                // H key - Center camera on player's throne star
+                if (this.game.humanPlayer && this.game.humanPlayer.throneStarId !== undefined) {
+                    const throneTerritory = this.game.gameMap.territories[this.game.humanPlayer.throneStarId];
+                    if (throneTerritory) {
+                        this.game.camera.focusOnTerritory(throneTerritory);
+                    }
+                } else if (this.game.humanPlayer && this.game.humanPlayer.territories.length > 0) {
+                    // Fallback: focus on first territory if no throne star found
+                    const firstTerritory = this.game.gameMap.territories[this.game.humanPlayer.territories[0]];
+                    if (firstTerritory) {
+                        this.game.camera.focusOnTerritory(firstTerritory);
+                    }
                 }
                 break;
         }
