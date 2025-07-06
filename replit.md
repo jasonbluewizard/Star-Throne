@@ -708,6 +708,12 @@ Changelog:
    * Provides instant navigation back to home base from anywhere on the galaxy map
    * Fallback to first owned territory if throne star is not found
    * Quick strategic repositioning for defensive or expansion planning
+- January 6, 2025. Critical bug fixes for nebula tooltips, supply indicators, and H key navigation:
+   * Fixed nebula fog of war bug where tooltips still showed fleet counts for enemy/neutral territories in nebulas
+   * Enhanced nebula checks to apply to ALL territories (mysterious, enemy, neutral) for consistent information hiding
+   * Fixed missing supply route indicators (+ symbols) by rendering them at all zoom levels instead of only zoom > 0.3
+   * Fixed H key first-press bug with enhanced throne star detection including fallback search through owned territories
+   * Supply route reinforcement indicators now visible regardless of camera zoom level
 
 ## User Preferences
 

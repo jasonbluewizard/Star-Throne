@@ -323,6 +323,9 @@ export class Renderer {
                 this.renderArmyCount(territory);
             }
             
+            // Always render supply route indicators regardless of zoom level
+            this.renderSupplyRouteIndicators(territory);
+            
             // Render floating text
             if (territory.floatingText && showDetails) {
                 this.renderFloatingText(territory);
@@ -431,9 +434,6 @@ export class Renderer {
         
         this.ctx.strokeText(text, territory.x, territory.y);
         this.ctx.fillText(text, territory.x, territory.y);
-        
-        // Add + indicators below territories receiving reinforcements
-        this.renderSupplyRouteIndicators(territory);
     }
     
     renderSupplyRouteIndicators(territory) {

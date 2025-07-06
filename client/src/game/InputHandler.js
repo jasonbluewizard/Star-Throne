@@ -396,16 +396,34 @@ export class InputHandler {
             case 'h':
             case 'H':
                 // H key - Center camera on player's throne star
-                if (this.game.humanPlayer && this.game.humanPlayer.throneStarId !== undefined) {
+                if (this.game.humanPlayer && this.game.humanPlayer.throneStarId !== undefined && this.game.humanPlayer.throneStarId !== null) {
                     const throneTerritory = this.game.gameMap.territories[this.game.humanPlayer.throneStarId];
                     if (throneTerritory) {
                         this.game.camera.focusOnTerritory(throneTerritory);
+                        break;
                     }
-                } else if (this.game.humanPlayer && this.game.humanPlayer.territories.length > 0) {
-                    // Fallback: focus on first territory if no throne star found
-                    const firstTerritory = this.game.gameMap.territories[this.game.humanPlayer.territories[0]];
-                    if (firstTerritory) {
-                        this.game.camera.focusOnTerritory(firstTerritory);
+                }
+                
+                // Fallback: find throne star by searching owned territories
+                if (this.game.humanPlayer && this.game.humanPlayer.territories.length > 0) {
+                    // Look for throne star among owned territories
+                    let throneTerritory = null;
+                    for (const territoryId of this.game.humanPlayer.territories) {
+                        const territory = this.game.gameMap.territories[territoryId];
+                        if (territory && territory.isThronestar) {
+                            throneTerritory = territory;
+                            break;
+                        }
+                    }
+                    
+                    if (throneTerritory) {
+                        this.game.camera.focusOnTerritory(throneTerritory);
+                    } else {
+                        // Final fallback: focus on first territory
+                        const firstTerritory = this.game.gameMap.territories[this.game.humanPlayer.territories[0]];
+                        if (firstTerritory) {
+                            this.game.camera.focusOnTerritory(firstTerritory);
+                        }
                     }
                 }
                 break;

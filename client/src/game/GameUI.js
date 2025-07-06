@@ -842,22 +842,32 @@ export class GameUI {
             
             const isMysteriousTerritory = isNeutralMystery || isEnemyMystery;
             
+            // NEBULA FOG OF WAR: Check if territory is inside a nebula (applies to ALL territories)
+            const isInNebula = gameData?.gameMap?.isInNebula?.(territory.x, territory.y) || false;
+            const isPlayerOwned = territory.ownerId === humanPlayerId;
+            const isNeutral = territory.ownerId === null;
+            
             if (isMysteriousTerritory && territory.ownerId !== null) {
                 // Mysterious enemy territory - only show player name
                 tooltipLines.push(`${ownerName}`);
-                tooltipLines.push(`Unknown forces`);
+                // Apply nebula fog even to mysterious territories
+                if (isInNebula) {
+                    tooltipLines.push(`Unknown forces (nebula)`);
+                } else {
+                    tooltipLines.push(`Unknown forces`);
+                }
             } else if (isNeutralMystery) {
                 // Mysterious neutral territory - show as unexplored
                 tooltipLines.push(`Unexplored System`);
-                tooltipLines.push(`Unknown garrison`);
+                // Apply nebula fog even to mysterious territories
+                if (isInNebula) {
+                    tooltipLines.push(`Unknown garrison (nebula)`);
+                } else {
+                    tooltipLines.push(`Unknown garrison`);
+                }
             } else {
                 // Visible territory - show full information
                 tooltipLines.push(`${ownerName}`);
-                
-                // NEBULA FOG OF WAR: Check if territory is inside a nebula
-                const isInNebula = gameData?.gameMap?.isInNebula?.(territory.x, territory.y) || false;
-                const isPlayerOwned = territory.ownerId === humanPlayerId;
-                const isNeutral = territory.ownerId === null;
                 
                 // Hide fleet counts in nebulas for non-player territories (including neutrals)
                 if (isInNebula && !isPlayerOwned) {
