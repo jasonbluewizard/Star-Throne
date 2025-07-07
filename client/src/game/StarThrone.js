@@ -118,6 +118,11 @@ export default class StarThrone {
         // Discovery system - Map of playerId -> discovery object
         this.playerDiscoveries = new Map();
         
+        // Throne connectivity tracking
+        this.disconnectedTerritories = new Set();
+        this.lastConnectivityCheck = 0;
+        this.connectivityCheckInterval = 2000; // Check every 2 seconds
+        
         // Legacy drag variables (kept for compatibility)
         this.dragStart = null;
         this.dragEnd = null;
@@ -1063,8 +1068,14 @@ export default class StarThrone {
         }
     }
 
-    // Check if a territory is disconnected from its throne star (cannot reach it through owned territories)
+    // Check if a territory is disconnected from its throne star (uses cached results)
     isDisconnectedFromThrone(territoryId) {
+        // Use cached results from periodic updates for performance
+        return this.disconnectedTerritories.has(territoryId);
+    }
+    
+    // Internal method to calculate throne connectivity (used by updateThroneConnectivity)
+    _calculateThroneConnectivity(territoryId) {
         const territory = this.gameMap.territories[territoryId];
         if (!territory || territory.ownerId === null) {
             return false; // Neutral territories don't have supply issues
@@ -1111,6 +1122,29 @@ export default class StarThrone {
         }
         
         return true; // Could not reach throne star = disconnected
+    }
+
+    // Periodically update throne connectivity for all territories
+    updateThroneConnectivity() {
+        const currentTime = Date.now();
+        if (currentTime - this.lastConnectivityCheck < this.connectivityCheckInterval) {
+            return; // Not time to check yet
+        }
+        
+        this.lastConnectivityCheck = currentTime;
+        this.disconnectedTerritories.clear();
+        
+        // Check all owned territories for throne connectivity
+        Object.values(this.gameMap.territories).forEach(territory => {
+            if (territory.ownerId !== null && this._calculateThroneConnectivity(territory.id)) {
+                this.disconnectedTerritories.add(territory.id);
+            }
+        });
+        
+        // Debug logging occasionally to track disconnected territories
+        if (this.disconnectedTerritories.size > 0 && Math.random() < 0.1) {
+            console.log(`📡 Throne connectivity: ${this.disconnectedTerritories.size} territories disconnected from throne stars`);
+        }
     }
 
     // Create long-range ship animation with visual tracking line
@@ -2008,6 +2042,9 @@ export default class StarThrone {
         if (this.eventProcessingEnabled) {
             gameEvents.processQueue(5); // Process up to 5 events per frame
         }
+        
+        // Periodically update throne connectivity
+        this.updateThroneConnectivity();
         
         // Update performance management and track frame metrics
         if (this.performanceManager) {
