@@ -195,6 +195,13 @@ export class AnimationSystem {
                 const fromScreen = camera.worldToScreen(animation.from.x, animation.from.y);
                 const toScreen = camera.worldToScreen(animation.targetTerritory.x, animation.targetTerritory.y);
                 
+                // Debug dotted line coordinates
+                if (Math.random() < 0.1) {
+                    console.log(`🔴 DOTTED LINE: From World(${animation.from.x}, ${animation.from.y}) -> Screen(${fromScreen.x.toFixed(1)}, ${fromScreen.y.toFixed(1)})`);
+                    console.log(`🔴 DOTTED LINE: To World(${animation.targetTerritory.x}, ${animation.targetTerritory.y}) -> Screen(${toScreen.x.toFixed(1)}, ${toScreen.y.toFixed(1)})`);
+                    console.log(`🔴 CAMERA: Zoom ${camera.zoom}, Offset (${camera.x}, ${camera.y}), Canvas size (${camera.width}, ${camera.height})`);
+                }
+                
                 ctx.beginPath();
                 ctx.moveTo(fromScreen.x, fromScreen.y);
                 ctx.lineTo(toScreen.x, toScreen.y);
@@ -215,6 +222,13 @@ export class AnimationSystem {
             const currentY = animation.from.y + (animation.to.y - animation.from.y) * t;
             
             const screenPos = camera.worldToScreen(currentX, currentY);
+            
+            // Debug coordinate transformation for long-range attacks
+            if (animation.isLongRange && Math.random() < 0.1) {
+                console.log(`🎯 LONG-RANGE POS: World(${currentX.toFixed(1)}, ${currentY.toFixed(1)}) -> Screen(${screenPos.x.toFixed(1)}, ${screenPos.y.toFixed(1)})`);
+                console.log(`🎯 LONG-RANGE FROM: World(${animation.from.x}, ${animation.from.y}) TO: World(${animation.to.x}, ${animation.to.y})`);
+                console.log(`🎯 PROGRESS: ${(animation.progress / animation.duration * 100).toFixed(1)}% (${animation.progress}ms / ${animation.duration}ms)`);
+            }
             
             // Skip if off-screen
             if (screenPos.x < -50 || screenPos.x > camera.width + 50 ||

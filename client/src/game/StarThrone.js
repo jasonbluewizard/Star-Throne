@@ -948,6 +948,8 @@ export default class StarThrone {
         const playerColor = player ? player.color : '#ffffff';
         
         console.log(`🚀 Creating long-range ship animation: ${fromTerritory.id} -> ${toTerritory.id}, fleet size: ${fleetSize}, color: ${playerColor}`);
+        console.log(`🚀 FROM Territory coordinates: (${fromTerritory.x}, ${fromTerritory.y})`);
+        console.log(`🚀 TO Territory coordinates: (${toTerritory.x}, ${toTerritory.y})`);
         
         // Create ship animation with long-range properties
         const animation = this.animationSystem.getPooledShipAnimation();
@@ -963,6 +965,8 @@ export default class StarThrone {
             animation.targetTerritory = toTerritory; // Store target for dotted line
             animation.fromOwnerId = fromTerritory.ownerId; // Track attacking player for AI limits
             animation.isActive = true; // Ensure it's marked as active
+            
+            console.log(`🚀 Animation object created with: from(${animation.from.x}, ${animation.from.y}) to(${animation.to.x}, ${animation.to.y})`);
             
             this.animationSystem.shipAnimations.push(animation);
             console.log(`✅ Long-range animation added. Total animations: ${this.animationSystem.shipAnimations.length}`);
@@ -1086,6 +1090,80 @@ export default class StarThrone {
             
             this.ctx.restore();
         });
+        
+        // RENDER LONG-RANGE ATTACKS from AnimationSystem using working coordinate system
+        this.renderLongRangeAnimationsFixed();
+    }
+    
+    renderLongRangeAnimationsFixed() {
+        if (!this.animationSystem || !this.animationSystem.shipAnimations) return;
+        
+        // Draw dotted lines for long-range attacks (world coordinates, no manual transformation)
+        this.ctx.save();
+        this.ctx.setLineDash([8, 8]);
+        this.ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+        this.ctx.lineWidth = 2;
+        
+        for (const animation of this.animationSystem.shipAnimations) {
+            if (animation.isLongRange && animation.targetTerritory) {
+                this.ctx.beginPath();
+                this.ctx.moveTo(animation.from.x, animation.from.y);
+                this.ctx.lineTo(animation.targetTerritory.x, animation.targetTerritory.y);
+                this.ctx.stroke();
+            }
+        }
+        this.ctx.restore();
+        
+        // Draw long-range ships (world coordinates, same as territories and other ships)
+        for (const animation of this.animationSystem.shipAnimations) {
+            if (!animation.isLongRange) continue;
+            
+            const progress = Math.min(1, animation.progress / animation.duration);
+            const eased = this.easeInOutQuad(progress);
+            const currentX = animation.from.x + (animation.to.x - animation.from.x) * eased;
+            const currentY = animation.from.y + (animation.to.y - animation.from.y) * eased;
+            
+            // Debug long-range ship position occasionally
+            if (Math.random() < 0.05) {
+                console.log(`🚀 LONG-RANGE SHIP: World pos (${currentX.toFixed(1)}, ${currentY.toFixed(1)}) Progress: ${(progress*100).toFixed(1)}%`);
+            }
+            
+            this.ctx.save();
+            this.ctx.fillStyle = animation.color;
+            this.ctx.shadowColor = animation.color;
+            this.ctx.shadowBlur = 12;
+            
+            // Draw larger ship for long-range attacks
+            this.ctx.beginPath();
+            this.ctx.arc(currentX, currentY, 7, 0, Math.PI * 2);
+            this.ctx.fill();
+            
+            // Draw army count
+            if (animation.armyCount) {
+                this.ctx.fillStyle = 'white';
+                this.ctx.font = 'bold 14px Arial';
+                this.ctx.textAlign = 'center';
+                this.ctx.strokeStyle = 'black';
+                this.ctx.lineWidth = 3;
+                this.ctx.strokeText(`${animation.armyCount}`, currentX, currentY - 12);
+                this.ctx.fillText(`${animation.armyCount}`, currentX, currentY - 12);
+            }
+            
+            // Add enhanced trail for long-range ships
+            const trailLength = 8;
+            for (let i = 1; i <= trailLength; i++) {
+                const trailProgress = Math.max(0, eased - (i * 0.08));
+                const trailX = animation.from.x + (animation.to.x - animation.from.x) * trailProgress;
+                const trailY = animation.from.y + (animation.to.y - animation.from.y) * trailProgress;
+                
+                this.ctx.globalAlpha = (trailLength - i) / trailLength * 0.6;
+                this.ctx.beginPath();
+                this.ctx.arc(trailX, trailY, 4, 0, Math.PI * 2);
+                this.ctx.fill();
+            }
+            
+            this.ctx.restore();
+        }
     }
     
     // Render probes
@@ -2606,10 +2684,7 @@ export default class StarThrone {
         // Render probes (disabled - no active probes)
         // this.renderProbes();
         
-        // Render ship animations via AnimationSystem
-        if (this.animationSystem) {
-            this.animationSystem.renderShipAnimations(this.ctx, this.camera);
-        }
+        // AnimationSystem rendering is now handled in renderShipAnimations() using working coordinate system
         
         // Render legacy ship animations (for backwards compatibility)
         this.renderShipAnimations();
