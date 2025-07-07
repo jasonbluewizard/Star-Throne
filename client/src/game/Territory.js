@@ -354,8 +354,7 @@ export class Territory {
                 // Always show fleet counts for player's own territories, even in nebulas
                 if (isPlayerOwned || !isInNebula) {
                     // Show army count normally for player territories or non-nebula territories
-                    // Probe flash effect disabled: always use default color
-                    const isProbeFlashing = false; // (currentTime - this.probeFlashTime) < this.probeFlashDuration;
+                    // Removed unused probe flash variable (leftover variable cleanup)
                     let textColor = '#000000'; // Default black text
                     // if (isProbeFlashing) { ... } // Skip probe flash color change (always default)
                     

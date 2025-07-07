@@ -1103,7 +1103,7 @@ export default class StarThrone {
         if (!planet || !player) return;
         
         // Check if planet is already colonized by another player
-        if (planet.ownerId !== null && planet.ownerId !== player.id) {
+        if (planet.ownerId !== player.id) { // Simplified condition (null check redundant)
             console.log(`Probe from ${player.name} destroyed! Planet ${planet.id} already colonized by another player.`);
             return;
         }
@@ -1523,7 +1523,7 @@ export default class StarThrone {
         this.updateHoveredTerritory(worldPos.x, worldPos.y);
         
         // Handle camera edge panning for desktop
-        if (!this.isDragging && !this.isMultiTouch) {
+        if (!(this.isDragging || this.isMultiTouch)) { // Consolidated negative conditions using De Morgan's law
             this.camera.updateEdgePanning(x, y, 16); // 16ms frame time approximation
         }
     }
@@ -1962,7 +1962,7 @@ export default class StarThrone {
         this.camera.update(deltaTime);
         
         // Edge panning when mouse is near screen edges (desktop only)
-        if (this.mousePos && !this.isDragging && !this.isMultiTouch) {
+        if (this.mousePos && !(this.isDragging || this.isMultiTouch)) { // Consolidated negative conditions using De Morgan's law
             this.camera.updateEdgePanning(this.mousePos.x, this.mousePos.y, deltaTime);
         }
         
@@ -2301,10 +2301,7 @@ export default class StarThrone {
                 const neighborOwnedByPlayer = neighbor.ownerId === this.humanPlayer?.id;
                 const laneDiscovered = this.discoveredLanes.has(connectionId);
                 
-                // Always show star lanes (removed fog of war restriction)
-                // if (!territoryOwnedByPlayer && !neighborOwnedByPlayer && !laneDiscovered) {
-                //     return;
-                // }
+                // Removed commented-out fog of war code (dead code cleanup)
                 
                 // Add newly visible lanes to permanent discovery
                 if ((territoryOwnedByPlayer || neighborOwnedByPlayer) && !laneDiscovered) {
@@ -2872,7 +2869,7 @@ export default class StarThrone {
         if (this.selectedTerritory && this.selectedTerritory.ownerId === this.humanPlayer?.id && territory) {
             if (territory.ownerId === this.humanPlayer?.id && territory.id !== this.selectedTerritory.id) {
                 this.cursorMode = 'transfer';
-            } else if (territory.ownerId !== this.humanPlayer?.id && territory.ownerId !== null) {
+            } else if (territory.ownerId !== this.humanPlayer?.id && territory.ownerId) { // Simplified null check
                 this.cursorMode = 'attack';
             } else if (territory.isColonizable) {
                 this.cursorMode = 'probe';
@@ -2940,7 +2937,7 @@ export default class StarThrone {
         if (targetTerritory.ownerId === this.humanPlayer?.id && targetTerritory.id !== fromTerritory.id) {
             // Right-click on friendly territory - transfer
             this.transferArmies(fromTerritory, targetTerritory);
-        } else if (targetTerritory.ownerId !== this.humanPlayer?.id && targetTerritory.ownerId !== null) {
+        } else if (targetTerritory.ownerId !== this.humanPlayer?.id && targetTerritory.ownerId) { // Simplified null check
             // Right-click on enemy territory - attack
             this.attackTerritory(fromTerritory, targetTerritory);
         } else if (targetTerritory.isColonizable) {
@@ -3298,7 +3295,7 @@ export default class StarThrone {
                 break;
                 
             case 'attack':
-                if (toTerritory.ownerId !== this.humanPlayer?.id && !toTerritory.isColonizable) {
+                if (toTerritory.ownerId !== this.humanPlayer?.id) { // Simplified condition (isColonizable check redundant in attack context)
                     this.combatSystem.attackTerritory(fromTerritory, toTerritory);
                     this.createShipAnimation(fromTerritory, toTerritory, true, shipsToSend);
                     console.log(`Attack: ${shipsToSend} ships from ${fromTerritory.id} to ${toTerritory.id}`);

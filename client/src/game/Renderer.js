@@ -233,7 +233,7 @@ export class Renderer {
                 const neighborOwnedByPlayer = neighbor.ownerId === humanPlayerId;
                 const laneDiscovered = this.game?.discoveredLanes?.has(connectionKey);
                 
-                if (!territoryOwnedByPlayer && !neighborOwnedByPlayer && !laneDiscovered) {
+                if (!(territoryOwnedByPlayer || neighborOwnedByPlayer || laneDiscovered)) { // Consolidated negative conditions using De Morgan's law
                     // Neither territory is owned by player AND lane not previously discovered
                     continue;
                 }

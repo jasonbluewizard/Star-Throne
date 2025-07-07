@@ -394,7 +394,7 @@ export class InputHandler {
             case 'h':
             case 'H':
                 // H key - Center camera on player's throne star
-                if (this.game.humanPlayer && this.game.humanPlayer.throneStarId !== undefined && this.game.humanPlayer.throneStarId !== null) {
+                if (this.game.humanPlayer?.throneStarId) { // Simplified condition (consolidated undefined/null checks)
                     const throneTerritory = this.game.gameMap.territories[this.game.humanPlayer.throneStarId];
                     if (throneTerritory) {
                         this.game.camera.focusOnTerritory(throneTerritory);

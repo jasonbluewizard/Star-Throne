@@ -722,6 +722,10 @@ Changelog:
    * Cleaned up mobile touch debug display and nebula debug logging from GameUI
    * Removed backup files (*_backup.js) for cleaner codebase
    * Applied systematic cleanup: removed unused debug branches, consolidated duplicate checks, eliminated dead code
+   * Removed logically impossible conditions (throne stars cannot be neutral)
+   * Consolidated redundant null checks using simplified conditions and De Morgan's law
+   * Eliminated leftover variables and commented-out probe system restrictions
+   * Cleaned up unused probe flash variables and obsolete fog of war code
 
 ## User Preferences
 

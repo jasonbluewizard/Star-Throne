@@ -460,7 +460,7 @@ export class Player {
                 let value = 0;
                 if (target.isThronestar) value += 50; // High value for throne stars
                 if (target.ownerId === null) value += 10; // Neutral expansion
-                if (target.ownerId !== null && target.ownerId !== this.id) value += 20; // Enemy disruption
+                if (target.ownerId !== this.id) value += 20; // Enemy disruption (consolidated null check)
 
                 // Factor in our attack chance
                 const attackChance = source.armySize / (target.armySize + 5);

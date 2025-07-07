@@ -162,11 +162,7 @@ export default class Controls {
       return false;
     }
 
-    // Old system removed - can now attack all neutral territories directly
-    // if (toTerritory.isColonizable) {
-    //   console.log('Attack blocked: Use probes for colonizable planets');
-    //   return false;
-    // }
+    // Removed commented-out colonizable planet restriction (dead code cleanup)
 
     // Must have enough ships to attack
     if (fromTerritory.armySize <= 1) {
