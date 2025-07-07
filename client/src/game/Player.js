@@ -318,6 +318,8 @@ export class Player {
         attackingTerritory.triggerCombatFlash();
         defendingTerritory.triggerCombatFlash();
         
+        console.log(`🔥 AI ATTACK FLASH: Territory ${attackingTerritory.id} and ${defendingTerritory.id} should be flashing now`);
+        
         // Create ship animation for AI attack (access via gameMap reference)
         if (gameMap.game) {
             gameMap.game.createShipAnimation(attackingTerritory, defendingTerritory, true);

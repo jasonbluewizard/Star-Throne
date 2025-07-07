@@ -151,6 +151,7 @@ export class CombatSystem {
             
             // Flash the defending planet with attacker's color (defender dies)
             this.flashPlanet(battle.defendingTerritory, battle.attacker.color);
+            console.log(`💥 RED FLASH: Territory ${battle.defendingTerritory.id} flashing with attacker color ${battle.attacker.color}`);
             
 
         } else {
@@ -159,6 +160,7 @@ export class CombatSystem {
             
             // Flash the defending planet with red (attacker dies)
             this.flashPlanet(battle.defendingTerritory, '#ff0000');
+            console.log(`💥 RED FLASH: Territory ${battle.defendingTerritory.id} flashing RED (attacker dies)`);
             
 
         }
@@ -261,7 +263,7 @@ export class CombatSystem {
     flashPlanet(territory, color) {
         territory.combatFlashTime = Date.now();
         territory.combatFlashColor = color;
-        territory.combatFlashDuration = 100; // Brief flash
+        territory.combatFlashDuration = 800; // Longer flash duration matching Territory default
     }
 
     /**

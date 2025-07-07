@@ -57,6 +57,7 @@ export class Territory {
     
     triggerCombatFlash() {
         this.combatFlashTime = Date.now();
+        console.log(`⚡ FLASH TRIGGERED: Territory ${this.id} combat flash set to ${this.combatFlashTime}`);
     }
     
     // triggerProbeFlash disabled (no probes active)
@@ -157,17 +158,23 @@ export class Territory {
             }
         }
         
-        // Add combat flash effect (only for owned territories)
+        // Add combat flash effect (applies to all territories including neutral)
         const currentTime = Date.now();
-        if (this.ownerId !== null && this.combatFlashTime > 0 && currentTime - this.combatFlashTime < this.combatFlashDuration) {
+        if (this.combatFlashTime > 0 && currentTime - this.combatFlashTime < this.combatFlashDuration) {
             const flashProgress = (currentTime - this.combatFlashTime) / this.combatFlashDuration;
             const flashIntensity = Math.sin(flashProgress * Math.PI * 6) * (1 - flashProgress);
             if (flashIntensity > 0 && this.combatFlashColor) {
                 // Use attacker's color for combat flash
                 fillColor = this.combatFlashColor;
+                if (Math.random() < 0.01) { // Log occasionally to avoid spam
+                    console.log(`🎨 FLASH RENDER: Territory ${this.id} flashing ${this.combatFlashColor}, intensity: ${flashIntensity.toFixed(2)}`);
+                }
             } else if (flashIntensity > 0) {
                 // Fallback to red if no color specified
                 fillColor = this.adjustColorBrightness('#ff4444', 1 + flashIntensity * 0.8);
+                if (Math.random() < 0.01) { // Log occasionally to avoid spam
+                    console.log(`🎨 FLASH RENDER: Territory ${this.id} flashing RED fallback, intensity: ${flashIntensity.toFixed(2)}`);
+                }
             }
         }
         

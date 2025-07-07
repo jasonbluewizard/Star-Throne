@@ -1,0 +1,114 @@
+Perfect. I’ll now finalize and implement the long-range attack system with the following:
+
+* Long-range fleet movement slowed to 1/6 normal speed using `SUBSPACE_SPEED`
+* Each long-range fleet displays its army count while in transit
+* A dotted line connects the fleet to its target, disappearing on arrival
+* AI will use long-range attacks strategically: only when it has surplus armies, few nearby targets, and not too many active long-range fleets
+
+I’ll return shortly with a complete diff and system update to drop in.
+
+
+```diff
+diff --git a/common/gameConstants.js b/common/gameConstants.js
+@@ -1,6 +1,7 @@
+ export const MAX_ARMIES = 500;
+ export const FLEET_SPEED = 1.0;
++// SUBSPACE_SPEED: speed factor for long-range (subspace) fleets (1/6 of normal speed)
++export const SUBSPACE_SPEED = 1 / 6.0; 
+
+ export const DEFAULT_SINGLE_PLAYER_AI_COUNT = 3;
+ export const DEFAULT_MAP_SIZE_TERRITORIES = 30;
+
+diff --git a/src/InputHandler.js b/src/InputHandler.js
+@@ -120,6 +120,14 @@
+             // If right-click on a target territory
+             if (event.type === 'rightClick') {
+                 const selected = this.game.ui.selectedTerritory;
++                if (selected && selected.armies > 1) {
++                    // Check if target is adjacent or not
++                    if (this.game.pathfinding.areTerritoriesAdjacent(selected, target)) {
++                        // Adjacent: perform normal attack
++                        this.game.combatSystem.attackTerritory(selected, target, selected.armies - 1);
++                    } else {
++                        // Not adjacent: launch long-range attack using remaining armies
++                        this.game.launchLongRangeAttack(selected, target, selected.armies - 1);
++                    }
++                }
+             }
+             break;
+
+diff --git a/src/AnimationSystem.js b/src/AnimationSystem.js
+@@ -200,6 +200,15 @@
+             ship.x += ship.vx;
+             ship.y += ship.vy;
++            
++            // If this ship is part of a long-range attack, slow it down
++            if (ship.isLongRange) {
++                ship.vx *= GAME_CONSTANTS.SUBSPACE_SPEED;
++                ship.vy *= GAME_CONSTANTS.SUBSPACE_SPEED;
++            }
++
++            // Draw the army count label for long-range fleets
++            if (ship.isLongRange) {
++                this.ctx.fillStyle = 'white';
++                this.ctx.fillText(`${ship.armyCount}`, ship.x, ship.y - 10);
++            }
+         }
+
+         // Remove finished ship animations from list
+@@ -220,6 +229,15 @@
+         });
+
+         // Draw dotted lines for all active long-range attacks
++        this.ctx.save();
++        this.ctx.setLineDash([5, 5]); // dotted line pattern
++        this.ctx.strokeStyle = 'rgba(255,255,255,0.7)';
++        this.activeLongRangeAttacks.forEach(attack => {
++            this.ctx.beginPath();
++            this.ctx.moveTo(attack.from.x, attack.from.y);
++            this.ctx.lineTo(attack.to.x, attack.to.y);
++            this.ctx.stroke();
++        });
++        this.ctx.restore();
++
++        // Draw moving fleets and labels after drawing lines
+         this.shipAnimations.forEach(ship => {
+             // ... existing ship drawing code ...
+         });
+
+diff --git a/src/AIManager.js b/src/AIManager.js
+@@ -50,6 +50,24 @@
+         // ... existing AI update logic ...
+
++        // --- Strategic Long-Range Attack Support ---
++        // Limit active long-range fleets
++        const MAX_LR_FLEETS = 2;
++        const activeLR = aiPlayer.activeLongRangeFleets?.length || 0;
++        if (activeLR >= MAX_LR_FLEETS) {
++            return; // already have max long-range fleets
++        }
++
++        // Only launch if AI has significant surplus armies
++        const SURPLUS_THRESHOLD = 10;
++        const surplus = aiPlayer.totalArmies - aiPlayer.deployedArmies;
++        if (surplus < SURPLUS_THRESHOLD) {
++            return; // not enough surplus to risk a long-range attack
++        }
++
++        // Avoid long-range if strong local targets exist
++        if (aiPlayer.hasStrongLocalTarget()) {
++            return;
++        }
++
++        // Find and target distant territory that is reachable and can be reinforced
++        for (const target of this.gameMap.getTerritories()) {
++            if (!target.ownerId || target.ownerId === aiPlayer.id) continue;
++            if (!target.hasFriendlyNeighborTerritories()) {
++                continue; // skip if isolated, hard to hold
++            }
++            // Launch a long-range attack with a portion of surplus armies
++            const attackSize = Math.floor(surplus / 2);
++            this.game.launchLongRangeAttack(aiPlayer.homeTerritory, target, attackSize);
++            break;
++        }
+```
