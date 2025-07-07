@@ -917,7 +917,7 @@ export default class StarThrone {
         return true;
     }
     
-    // Launch long-range attack (probe-like ship that moves slowly across map)
+    // Launch long-range attack (slow-moving ship that crosses the map)
     launchLongRangeAttack(fromTerritory, toTerritory, fleetSize) {
         console.log(`🔧 Creating long-range attack: ${fromTerritory.id} -> ${toTerritory.id} with ${fleetSize} ships`);
         console.log(`🔧 Human player ID: ${this.humanPlayer?.id}, From territory owner: ${fromTerritory.ownerId}, To territory owner: ${toTerritory.ownerId}`);
@@ -926,8 +926,8 @@ export default class StarThrone {
         const result = this.combatSystem.attackTerritory(fromTerritory, toTerritory, fleetSize);
         
         if (result.success) {
-            // Create ship animation for long-range attack
-            this.createShipAnimation(fromTerritory, toTerritory, true, fleetSize);
+            // Create long-range ship animation (slower and with army count display)
+            this.createLongRangeShipAnimation(fromTerritory, toTerritory, fleetSize);
             
             // Show visual feedback
             this.showMessage(`Long-range attack launched: ${fleetSize} ships`, 2000);
@@ -938,6 +938,29 @@ export default class StarThrone {
             console.log(`Long-range attack launched successfully: ${fromTerritory.id} -> ${toTerritory.id} (${fleetSize} ships)`);
         } else {
             console.log(`Long-range attack failed: ${result.reason}`);
+        }
+    }
+
+    // Create long-range ship animation with visual tracking line
+    createLongRangeShipAnimation(fromTerritory, toTerritory, fleetSize) {
+        const player = this.players[fromTerritory.ownerId];
+        const playerColor = player ? player.color : '#ffffff';
+        
+        // Create ship animation with long-range properties
+        const animation = this.animationSystem.getPooledShipAnimation();
+        if (animation) {
+            animation.from = { x: fromTerritory.x, y: fromTerritory.y };
+            animation.to = { x: toTerritory.x, y: toTerritory.y };
+            animation.progress = 0;
+            animation.duration = GAME_CONSTANTS.LONG_RANGE_ANIMATION_DURATION; // 6 seconds
+            animation.color = playerColor;
+            animation.isAttack = true;
+            animation.isLongRange = true; // Mark as long-range
+            animation.armyCount = fleetSize; // Store army count for display
+            animation.targetTerritory = toTerritory; // Store target for dotted line
+            animation.fromOwnerId = fromTerritory.ownerId; // Track attacking player for AI limits
+            
+            this.animationSystem.shipAnimations.push(animation);
         }
     }
     

@@ -1,5 +1,6 @@
 // Import the new advanced AI strategy system
 import { AIStrategist } from './AIStrategist.js';
+import { GAME_CONSTANTS } from '../../../common/gameConstants.js';
 
 // AI Finite State Machine states for enhanced strategic behavior (legacy - being replaced)
 const AI_STATE = {
@@ -135,6 +136,15 @@ export class Player {
     
     executeAggressiveStrategy(attackableTerritories, gameMap, maxActions = 2) {
         let actionsPerformed = 0;
+        
+        // First, consider long-range attacks if AI has enough surplus
+        if (actionsPerformed < maxActions && this.shouldConsiderLongRangeAttacks(gameMap)) {
+            const longRangeAction = this.evaluateLongRangeAttack(attackableTerritories, gameMap);
+            if (longRangeAction) {
+                this.executeLongRangeAttack(longRangeAction.from, longRangeAction.to, gameMap);
+                actionsPerformed++;
+            }
+        }
         
         // Attack strongest enemy territories with performance limits
         for (const territory of attackableTerritories) {
@@ -406,6 +416,85 @@ export class Player {
             battlesWon: this.battlesWon,
             battlesLost: this.battlesLost
         };
+    }
+
+    // AI Long-range Attack Strategic Methods
+    shouldConsiderLongRangeAttacks(gameMap) {
+        // Don't attempt if we don't have enough territories with surplus armies
+        const territoryCount = this.territories.length;
+        if (territoryCount < 3) return false;
+
+        // Count current active long-range fleets
+        const activeLongRangeFleets = gameMap.game?.animationSystem?.shipAnimations?.filter(
+            anim => anim.isLongRange && anim.fromOwnerId === this.id
+        )?.length || 0;
+
+        return activeLongRangeFleets < GAME_CONSTANTS.AI_MAX_LONG_RANGE_FLEETS;
+    }
+
+    evaluateLongRangeAttack(attackableTerritories, gameMap) {
+        // Find territories with significant surplus armies
+        const surplusTerritories = attackableTerritories.filter(t => 
+            t.armySize > GAME_CONSTANTS.AI_SURPLUS_THRESHOLD + 5
+        );
+
+        if (surplusTerritories.length === 0) return null;
+
+        // Find valuable long-range targets (enemy territories, throne stars)
+        const longRangeTargets = [];
+        const allTerritories = Object.values(gameMap.territories);
+
+        for (const source of surplusTerritories) {
+            for (const target of allTerritories) {
+                // Skip our own territories and already adjacent territories
+                if (target.ownerId === this.id) continue;
+                if (this.isAdjacent(source, target, gameMap)) continue;
+
+                const distance = Math.sqrt(
+                    (source.x - target.x) ** 2 + (source.y - target.y) ** 2
+                );
+
+                // Only consider targets at medium to long range
+                if (distance < 200 || distance > 800) continue;
+
+                // Calculate strategic value
+                let value = 0;
+                if (target.isThronestar) value += 50; // High value for throne stars
+                if (target.ownerId === null) value += 10; // Neutral expansion
+                if (target.ownerId !== null && target.ownerId !== this.id) value += 20; // Enemy disruption
+
+                // Factor in our attack chance
+                const attackChance = source.armySize / (target.armySize + 5);
+                if (attackChance > 1.2) { // Good odds
+                    longRangeTargets.push({
+                        from: source,
+                        to: target,
+                        value: value * attackChance,
+                        distance: distance
+                    });
+                }
+            }
+        }
+
+        if (longRangeTargets.length === 0) return null;
+
+        // Sort by strategic value and pick the best
+        longRangeTargets.sort((a, b) => b.value - a.value);
+        return longRangeTargets[0];
+    }
+
+    executeLongRangeAttack(fromTerritory, toTerritory, gameMap) {
+        const fleetSize = Math.floor(fromTerritory.armySize * 0.6); // Use 60% for long-range
+        if (gameMap.game && gameMap.game.launchLongRangeAttack) {
+            console.log(`🚀 AI ${this.name} launching long-range attack: ${fromTerritory.id} -> ${toTerritory.id} (${fleetSize} ships)`);
+            gameMap.game.launchLongRangeAttack(fromTerritory, toTerritory, fleetSize);
+        }
+    }
+
+    isAdjacent(territory1, territory2, gameMap) {
+        // Check if territories are connected via warp lanes
+        const connectedIds = gameMap.getConnectedTerritories(territory1.id) || [];
+        return connectedIds.includes(territory2.id);
     }
     
     considerProbeColonization(attackableTerritories, gameMap) {

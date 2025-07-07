@@ -36,6 +36,15 @@ export const GAME_CONSTANTS = {
     // Fleet Transfer
     MIN_ARMY_TO_LEAVE_AFTER_TRANSFER: 1,
     TRANSFER_AMOUNT_DIVISOR: 2,
+    
+    // Fleet Movement Speeds
+    FLEET_SPEED: 1.0, // Normal fleet movement speed
+    SUBSPACE_SPEED: 1 / 6.0, // Long-range fleets move at 1/6 normal speed
+    LONG_RANGE_ANIMATION_DURATION: 6000, // 6 seconds for long-range attacks
+    
+    // Long-range Attack Limits for AI
+    AI_MAX_LONG_RANGE_FLEETS: 2, // Maximum simultaneous long-range fleets per AI
+    AI_SURPLUS_THRESHOLD: 10, // Minimum surplus armies needed for long-range attacks
 
     // Supply Route System
     SUPPLY_ROUTE: {

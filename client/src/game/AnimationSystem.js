@@ -30,7 +30,11 @@ export class AnimationSystem {
             isAttack: false,
             isActive: false,
             segments: null, // For multi-hop animations
-            currentSegment: 0
+            currentSegment: 0,
+            isLongRange: false, // Long-range attack flag
+            armyCount: 0, // Army count for display
+            targetTerritory: null, // Target territory for dotted line
+            fromOwnerId: null // Track attacking player for AI limits
         };
     }
 
@@ -49,6 +53,10 @@ export class AnimationSystem {
         animation.progress = 0;
         animation.segments = null;
         animation.currentSegment = 0;
+        animation.isLongRange = false;
+        animation.armyCount = 0;
+        animation.targetTerritory = null;
+        animation.fromOwnerId = null;
         
         if (this.shipAnimationPool.length < this.maxPoolSize) {
             this.shipAnimationPool.push(animation);
@@ -176,6 +184,26 @@ export class AnimationSystem {
 
     // Render ship animations
     renderShipAnimations(ctx, camera) {
+        // First, draw dotted lines for long-range attacks
+        ctx.save();
+        ctx.setLineDash([5, 5]); // dotted line pattern
+        ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+        ctx.lineWidth = 1;
+        
+        for (const animation of this.shipAnimations) {
+            if (animation.isLongRange && animation.targetTerritory) {
+                const fromScreen = camera.worldToScreen(animation.from.x, animation.from.y);
+                const toScreen = camera.worldToScreen(animation.targetTerritory.x, animation.targetTerritory.y);
+                
+                ctx.beginPath();
+                ctx.moveTo(fromScreen.x, fromScreen.y);
+                ctx.lineTo(toScreen.x, toScreen.y);
+                ctx.stroke();
+            }
+        }
+        ctx.restore();
+        
+        // Then draw ships
         for (const animation of this.shipAnimations) {
             // FOG OF WAR: Check if animation should be visible
             if (!this.shouldRenderAnimation(animation)) {
@@ -200,10 +228,19 @@ export class AnimationSystem {
             ctx.lineWidth = 2;
             
             // Draw ship as circle with trail
-            const size = animation.isAttack ? 4 : 3;
+            const size = animation.isLongRange ? 6 : (animation.isAttack ? 4 : 3); // Larger for long-range
             ctx.beginPath();
             ctx.arc(screenPos.x, screenPos.y, size, 0, Math.PI * 2);
             ctx.fill();
+            
+            // Draw army count for long-range attacks
+            if (animation.isLongRange && animation.armyCount) {
+                ctx.fillStyle = 'white';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${animation.armyCount}`, screenPos.x, screenPos.y - 10);
+                ctx.fillStyle = animation.color; // Restore original color
+            }
             
             // Draw trail
             const trailLength = 15;
