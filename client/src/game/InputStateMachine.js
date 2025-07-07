@@ -257,7 +257,7 @@ class TerritorySelectedState extends BaseState {
         const ownershipType = this.game.pathfindingService.getTerritoryOwnershipType(targetStar, this.game.humanPlayer?.id);
         const isAdjacent = this.game.pathfindingService.areTerritoriesAdjacent(sourceStar, targetStar);
         
-        console.log(`Right-click: ${sourceStar.id} -> ${targetStar.id}, ownership: ${ownershipType}, adjacent: ${isAdjacent}`);
+        console.log(`🎯 Right-click: ${sourceStar.id} (owner: ${sourceStar.ownerId}) -> ${targetStar.id} (owner: ${targetStar.ownerId}), ownership: ${ownershipType}, adjacent: ${isAdjacent}`);
         
         // Validate minimum fleet size for commands
         if (sourceStar.armySize <= 1) {

@@ -1,0 +1,262 @@
+STAR THRONE - LONG-RANGE ATTACK SYSTEM ANALYSIS
+=====================================================
+
+CURRENT ISSUE: Long-range attacks not working properly despite apparent successful combat resolution
+
+SYMPTOMS:
+1. Ships travel to target but combat doesn't occur visually
+2. Console shows combat messages but territory ownership doesn't change
+3. Possible player ID conflicts causing self-attack detection
+
+KEY FILES AND COMPONENTS:
+=========================
+
+1. CLIENT/SRC/GAME/STARTHRONE.JS
+   - Main game loop and rendering
+   - Contains launchLongRangeAttack() method
+   - Contains updateLongRangeAttacks() method with combat resolution
+   - Contains renderLongRangeAttacks() method for visual display
+
+2. CLIENT/SRC/GAME/INPUTSTATEMACHINE.JS
+   - Handles user input and territory selection
+   - Right-click handler triggers long-range attacks for non-adjacent targets
+   - Contains logic for enemy vs neutral territory attacks
+
+3. CLIENT/SRC/GAME/COMBATSYSTEM.JS
+   - Centralized combat resolution
+   - May have conflicts with direct combat in StarThrone.js
+
+CORE LONG-RANGE ATTACK CODE:
+============================
+
+StarThrone.js - launchLongRangeAttack():
+```javascript
+launchLongRangeAttack(fromTerritory, toTerritory, fleetSize) {
+    console.log(`🔧 Creating long-range attack: ${fromTerritory.id} -> ${toTerritory.id} with ${fleetSize} ships`);
+    console.log(`🔧 Human player ID: ${this.humanPlayer?.id}, From territory owner: ${fromTerritory.ownerId}, To territory owner: ${toTerritory.ownerId}`);
+    
+    // Reduce source territory armies immediately
+    fromTerritory.armySize -= fleetSize;
+    
+    // Create long-range attack object
+    const longRangeAttack = {
+        id: Math.random(),
+        fromTerritoryId: fromTerritory.id,
+        toTerritoryId: toTerritory.id,
+        fromX: fromTerritory.x,
+        fromY: fromTerritory.y,
+        toX: toTerritory.x,
+        toY: toTerritory.y,
+        x: fromTerritory.x,
+        y: fromTerritory.y,
+        fleetSize: fleetSize,
+        speed: 15,
+        isLongRangeAttack: true,
+        playerId: this.humanPlayer?.id,
+        playerColor: this.humanPlayer?.color || '#00ddff',
+        launchTime: Date.now(),
+        totalDistance: Math.sqrt(Math.pow(toTerritory.x - fromTerritory.x, 2) + Math.pow(toTerritory.y - fromTerritory.y, 2)),
+        direction: {
+            x: (toTerritory.x - fromTerritory.x) / Math.sqrt(Math.pow(toTerritory.x - fromTerritory.x, 2) + Math.pow(toTerritory.y - fromTerritory.y, 2)),
+            y: (toTerritory.y - fromTerritory.y) / Math.sqrt(Math.pow(toTerritory.x - fromTerritory.x, 2) + Math.pow(toTerritory.y - fromTerritory.y, 2))
+        }
+    };
+    
+    // Add to long-range attacks array
+    if (!this.longRangeAttacks) {
+        this.longRangeAttacks = [];
+    }
+    this.longRangeAttacks.push(longRangeAttack);
+    
+    // Visual feedback
+    this.showMessage(`Long-range attack launched: ${fleetSize} ships`, 2000);
+    this.flashTerritory(fromTerritory.id, '#ff0000', 300);
+}
+```
+
+StarThrone.js - updateLongRangeAttacks():
+```javascript
+updateLongRangeAttacks(deltaTime) {
+    if (!this.longRangeAttacks) return;
+    
+    for (let i = this.longRangeAttacks.length - 1; i >= 0; i--) {
+        const attack = this.longRangeAttacks[i];
+        
+        // Calculate elapsed time and progress
+        const elapsed = (Date.now() - attack.launchTime) / 1000;
+        const distanceTraveled = attack.speed * elapsed;
+        const progress = Math.min(1, distanceTraveled / attack.totalDistance);
+        
+        // Update position
+        attack.x = attack.fromX + (attack.toX - attack.fromX) * progress;
+        attack.y = attack.fromY + (attack.toY - attack.fromY) * progress;
+        
+        // Check if attack has reached target
+        if (progress >= 1) {
+            console.log(`🚀 Long-range attack ${attack.id} reached target territory ${attack.toTerritoryId}`);
+            
+            // Find target territory
+            let targetTerritory;
+            if (Array.isArray(this.gameMap.territories)) {
+                targetTerritory = this.gameMap.territories.find(t => t.id === attack.toTerritoryId);
+            } else {
+                targetTerritory = this.gameMap.territories[attack.toTerritoryId];
+            }
+            
+            if (!targetTerritory) {
+                console.log(`❌ ERROR: Could not find target territory ${attack.toTerritoryId}`);
+                this.longRangeAttacks.splice(i, 1);
+                continue;
+            }
+            
+            // Execute combat
+            const attackingArmies = attack.fleetSize;
+            const defendingArmies = targetTerritory.armySize;
+            
+            // Prevent self-attack
+            if (targetTerritory.ownerId === attack.playerId) {
+                console.log(`❌ INVALID: Cannot attack your own territory ${targetTerritory.id}`);
+                this.longRangeAttacks.splice(i, 1);
+                continue;
+            }
+            
+            // Combat resolution
+            const attackSuccess = attackingArmies > defendingArmies;
+            
+            if (attackSuccess) {
+                // Territory capture logic
+                const attacker = this.players[attack.playerId];
+                const defender = targetTerritory.ownerId ? this.players[targetTerritory.ownerId] : null;
+                
+                // Remove from previous owner
+                if (defender) {
+                    const territoryIndex = defender.territories.indexOf(targetTerritory.id);
+                    if (territoryIndex > -1) {
+                        defender.territories.splice(territoryIndex, 1);
+                    }
+                }
+                
+                // Transfer ownership
+                targetTerritory.ownerId = attack.playerId;
+                targetTerritory.armySize = attackingArmies - defendingArmies;
+                
+                // Add to attacker's territories
+                if (attacker && !attacker.territories.includes(targetTerritory.id)) {
+                    attacker.territories.push(targetTerritory.id);
+                }
+                
+                // Check throne star capture
+                if (targetTerritory.isThronestar && defender) {
+                    this.combatSystem.handleThroneCapture(attacker, defender);
+                }
+                
+                // Trigger discoveries
+                this.discoverySystem.triggerDiscoveryOnConquest(targetTerritory, attacker);
+                
+                // Visual feedback
+                this.flashTerritory(targetTerritory.id, '#00ff00', 500);
+                this.showMessage(`Long-range attack successful! Captured territory ${targetTerritory.id}`, 3000);
+            } else {
+                // Attack failed
+                targetTerritory.armySize -= attackingArmies;
+                if (targetTerritory.armySize < 1) targetTerritory.armySize = 1;
+                
+                this.flashTerritory(targetTerritory.id, '#ff0000', 500);
+                this.showMessage(`Long-range attack failed against territory ${targetTerritory.id}`, 3000);
+            }
+            
+            // Remove completed attack
+            this.longRangeAttacks.splice(i, 1);
+        }
+    }
+}
+```
+
+InputStateMachine.js - Right-click handler:
+```javascript
+async handleRightClick(territory, worldPos) {
+    // ... other logic ...
+    
+    switch (ownershipType) {
+        case 'enemy':
+            if (isAdjacent) {
+                // Adjacent attack
+                const attackingArmies = Math.floor((sourceStar.armySize - 1) * 0.5);
+                if (attackingArmies > 0) {
+                    const result = this.game.combatSystem.attackTerritory(sourceStar, targetStar, attackingArmies);
+                    this.game.createShipAnimation(sourceStar, targetStar, true, attackingArmies);
+                }
+            } else {
+                // Long-range attack
+                const attackingArmies = Math.floor((sourceStar.armySize - 1) * 0.5);
+                if (attackingArmies > 0) {
+                    console.log(`🚀 ENEMY: Launching long-range attack from territory ${sourceStar.id} (owner: ${sourceStar.ownerId}) to ${targetStar.id} (owner: ${targetStar.ownerId})`);
+                    this.game.launchLongRangeAttack(sourceStar, targetStar, attackingArmies);
+                }
+            }
+            break;
+            
+        case 'neutral':
+            if (isAdjacent) {
+                // Adjacent neutral attack
+                const attackingArmies = Math.floor((sourceStar.armySize - 1) * 0.5);
+                if (attackingArmies > 0) {
+                    const result = this.game.combatSystem.attackTerritory(sourceStar, targetStar, attackingArmies);
+                    this.game.createShipAnimation(sourceStar, targetStar, true, attackingArmies);
+                }
+            } else {
+                // Long-range neutral attack
+                const attackingArmies = Math.floor((sourceStar.armySize - 1) * 0.5);
+                if (attackingArmies > 0) {
+                    console.log(`🚀 NEUTRAL: Launching long-range attack from territory ${sourceStar.id} (owner: ${sourceStar.ownerId}) to ${targetStar.id} (owner: ${targetStar.ownerId})`);
+                    this.game.launchLongRangeAttack(sourceStar, targetStar, attackingArmies);
+                }
+            }
+            break;
+    }
+}
+```
+
+IDENTIFIED ISSUES:
+==================
+
+1. MISSING DEBUG OUTPUT: The 🔧 debug messages from launchLongRangeAttack() are not appearing in console logs, suggesting the method may not be called at all.
+
+2. PLAYER ID CONFLICTS: Console shows "Territory owner: 0, Attacker: 0" indicating possible ID conflicts where human player ID might be 0, same as some AI players.
+
+3. DUAL COMBAT SYSTEMS: Both CombatSystem.js and direct combat in StarThrone.js may be conflicting.
+
+4. TERRITORY STRUCTURE MISMATCH: gameMap.territories might be accessed incorrectly (array vs object).
+
+5. VISUAL UPDATE ISSUES: Territory ownership changes may not trigger visual updates properly.
+
+DEBUGGING PRIORITIES:
+====================
+
+1. Verify launchLongRangeAttack() is actually being called by checking for 🔧 debug messages
+2. Check player ID assignments - human player should not have ID 0 if AI players also use 0
+3. Ensure territory ownership changes trigger visual updates
+4. Verify gameMap.territories structure and access patterns
+5. Check for interference between CombatSystem and direct combat resolution
+
+RECENT CONSOLE OUTPUT ANALYSIS:
+==============================
+
+Latest logs show:
+- "Territory owner: 0, Attacker: 0" - Both IDs are 0, suggesting self-attack
+- No 🔧 debug messages appearing - launchLongRangeAttack() may not be called
+- 🚀 ENEMY/NEUTRAL messages missing - InputStateMachine debug not triggering
+
+This suggests the long-range attack code path is not being executed at all, possibly due to:
+- Wrong conditions in InputStateMachine
+- Player ID assignment issues
+- Territory ownership detection problems
+
+RECOMMENDED FIXES:
+==================
+
+1. Fix player ID assignment to ensure human player has unique ID
+2. Add debug logging to InputStateMachine to verify attack triggering
+3. Simplify combat resolution to use single system
+4. Ensure territory visual updates after ownership changes
+5. Verify territory structure access patterns
