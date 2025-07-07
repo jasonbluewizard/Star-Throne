@@ -1024,9 +1024,15 @@ export default class StarThrone {
             if (progress >= 1) {
                 console.log(`🚀 Long-range attack ${attack.id} reached target territory ${attack.toTerritoryId}`);
                 
-                // Find the target territory
-                const targetTerritory = this.gameMap.territories.find(t => t.id === attack.toTerritoryId);
+                // Find the target territory (check both array and object structure)
+                let targetTerritory;
+                if (Array.isArray(this.gameMap.territories)) {
+                    targetTerritory = this.gameMap.territories.find(t => t.id === attack.toTerritoryId);
+                } else {
+                    targetTerritory = this.gameMap.territories[attack.toTerritoryId];
+                }
                 console.log(`🎯 Target territory found:`, targetTerritory ? `ID ${targetTerritory.id}, armies: ${targetTerritory.armySize}` : 'NOT FOUND');
+                console.log(`🗺️ GameMap structure:`, Array.isArray(this.gameMap.territories) ? 'Array' : 'Object', `with ${Array.isArray(this.gameMap.territories) ? this.gameMap.territories.length : Object.keys(this.gameMap.territories).length} territories`);
                 
                 if (targetTerritory) {
                     // Execute direct combat (no need for ship animation delay)
