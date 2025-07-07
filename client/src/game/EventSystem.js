@@ -79,7 +79,7 @@ export class EventSystem {
         
         // Event filtering for performance
         this.enabledEventTypes = new Set(Object.values(GAME_EVENTS));
-        this.debugMode = false;
+        // Removed unused debugMode variable (dead code cleanup)
         
         console.log('EventSystem initialized');
     }

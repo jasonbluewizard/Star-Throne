@@ -2,7 +2,7 @@ import { GameMap } from './GameMap.js';
 import { Player } from './Player.js';
 import { GameUI } from './GameUI.js';
 import { Camera } from './Camera.js';
-// import { Probe } from './Probe.js'; // Disabled probe system (legacy)
+// Removed disabled Probe import (dead code cleanup)
 import { InputHandler } from './InputHandler.js';
 import { Renderer } from './Renderer.js';
 import { CombatSystem } from './CombatSystem.js';
@@ -94,7 +94,7 @@ export default class StarThrone {
         this.shipAnimationPool = []; // Reuse objects to reduce garbage collection
         this.pendingLongRangeCombats = []; // Track delayed long-range combat arrivals
         
-        // this.longRangeAttacks = []; // legacy long-range list no longer used
+        // Removed legacy long-range attacks array (dead code cleanup)
         
         // Pre-populate animation pool with multi-hop support
         for (let i = 0; i < 20; i++) {
@@ -109,8 +109,7 @@ export default class StarThrone {
         this.minimapMinimized = true; // Default minimap to off
         
         // Probe system
-        // this.probes = []; // Probe system disabled (legacy)
-        // this.nextProbeId = 0; // Probe ID tracking disabled
+        // Removed disabled probe system variables (dead code cleanup)
         
         // Discovery announcements
         this.floatingDiscoveryTexts = [];
@@ -164,7 +163,7 @@ export default class StarThrone {
         this.messageTimer = 0;
         
         // Performance optimization: Throttled logging system
-        this.debugMode = false; // Set to true for development, false for production
+        // Removed unused debugMode variable (dead code cleanup)
         this.logThrottles = new Map(); // Track throttled log messages
         this.lastLogTimes = new Map(); // Track last log timestamp per message type
         
@@ -491,8 +490,7 @@ export default class StarThrone {
         this.aiManager = new AIManager(this);
         this.controls = new Controls(this);
         
-        // TODO: Remove global reference (use dependency injection instead)
-        // window.game = this;  // (global game reference deprecated)
+        // Removed deprecated global game reference (dead code cleanup)
         window.game = this; // Temporary global access - to be replaced with dependency injection
         
         // Auto-detect optimal performance profile
@@ -1095,9 +1093,7 @@ export default class StarThrone {
         // for (let i = this.probes.length - 1; i >= 0; i--) { ... }
     }
     
-    updateLongRangeAttacks(deltaTime) {
-        // No-op: long-range attacks are handled by CombatSystem and animations
-    }
+    // Removed legacy updateLongRangeAttacks method (dead code cleanup - replaced by scheduled combat system)
     
     // Colonize planet when probe arrives
     colonizePlanet(probe) {
@@ -1260,8 +1256,9 @@ export default class StarThrone {
     }
     
     // Render long-range attacks (slow-moving ships crossing the map)
-    renderLongRangeAttacks() {
-        if (!this.longRangeAttacks) return;
+    // Removed legacy renderLongRangeAttacks method (dead code cleanup - now handled by ship animation system)
+    _removedRenderLongRangeAttacks() {
+        // Dead code cleanup - this method was replaced by the ship animation system
         
         this.longRangeAttacks.forEach(attack => {
             // Use same rendering approach as regular ship animations (no manual camera transformation)
@@ -1880,7 +1877,7 @@ export default class StarThrone {
             // Update legacy ship animations (for backwards compatibility)
             this.updateShipAnimations(deltaTime);
             this.updateProbes(deltaTime);
-            this.updateLongRangeAttacks(deltaTime);
+            // Removed updateLongRangeAttacks call (dead code cleanup - now using scheduled combat system)
             this.updateFloatingDiscoveryTexts(deltaTime);
             
             // Process pending long-range combat arrivals
