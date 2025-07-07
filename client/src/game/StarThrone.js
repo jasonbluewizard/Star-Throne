@@ -1063,6 +1063,56 @@ export default class StarThrone {
         }
     }
 
+    // Check if a territory is disconnected from its throne star (cannot reach it through owned territories)
+    isDisconnectedFromThrone(territoryId) {
+        const territory = this.gameMap.territories[territoryId];
+        if (!territory || territory.ownerId === null) {
+            return false; // Neutral territories don't have supply issues
+        }
+        
+        const player = this.players[territory.ownerId];
+        if (!player || !player.throneStarId) {
+            return false; // No throne star to check connectivity to
+        }
+        
+        // If this IS the throne star, it's always connected
+        if (territoryId === player.throneStarId) {
+            return false;
+        }
+        
+        // Use breadth-first search to check if throne star is reachable through owned territories
+        const visited = new Set();
+        const queue = [territoryId];
+        visited.add(territoryId);
+        
+        while (queue.length > 0) {
+            const currentId = queue.shift();
+            const current = this.gameMap.territories[currentId];
+            
+            if (!current) continue;
+            
+            // Check all neighbors
+            for (const neighborId of current.neighbors) {
+                if (visited.has(neighborId)) continue;
+                
+                const neighbor = this.gameMap.territories[neighborId];
+                if (!neighbor || neighbor.ownerId !== territory.ownerId) {
+                    continue; // Skip unowned territories
+                }
+                
+                // Found the throne star!
+                if (neighborId === player.throneStarId) {
+                    return false; // Connected to throne
+                }
+                
+                visited.add(neighborId);
+                queue.push(neighborId);
+            }
+        }
+        
+        return true; // Could not reach throne star = disconnected
+    }
+
     // Create long-range ship animation with visual tracking line
     createLongRangeShipAnimation(fromTerritory, toTerritory, fleetSize) {
         const player = this.players[fromTerritory.ownerId];
@@ -2307,7 +2357,8 @@ export default class StarThrone {
                     humanPlayer: this.humanPlayer,
                     homeSystemFlashStart: this.homeSystemFlashStart,
                     homeSystemFlashDuration: this.homeSystemFlashDuration,
-                    gameMap: this.gameMap // Include game map for fog of war logic
+                    gameMap: this.gameMap, // Include game map for fog of war logic
+                    isDisconnectedFromThrone: (territoryId) => this.isDisconnectedFromThrone(territoryId)
                 }, this.hoveredTerritory);
             }
         }

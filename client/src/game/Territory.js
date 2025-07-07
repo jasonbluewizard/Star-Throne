@@ -186,6 +186,13 @@ export class Territory {
             fillColor = this.adjustColorBrightness(fillColor, pulseIntensity);
         }
         
+        // Add disconnected supply line pulsing (dim pulse for territories out of supply from throne)
+        if (this.ownerId !== null && gameData?.isDisconnectedFromThrone?.(this.id)) {
+            this.pulsePhase += 0.05; // Slower pulse for disconnected territories
+            const disconnectedPulse = Math.sin(this.pulsePhase) * 0.15 + 0.4; // Dimmer pulse range (25%-55%)
+            fillColor = this.adjustColorBrightness(fillColor, disconnectedPulse);
+        }
+        
         // Optimize rendering with batch operations
         ctx.save();
         
