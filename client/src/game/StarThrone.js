@@ -961,7 +961,7 @@ export default class StarThrone {
         // Flash the source territory
         this.flashTerritory(fromTerritory.id, '#ff0000', 300);
         
-        console.log(`Long-range attack created with ID ${longRangeAttack.id}`);
+        console.log(`Long-range attack created with ID ${longRangeAttack.id}: from(${fromTerritory.x}, ${fromTerritory.y}) to(${toTerritory.x}, ${toTerritory.y})`);
     }
     
     // Update ship animations
@@ -1004,17 +1004,21 @@ export default class StarThrone {
         for (let i = this.longRangeAttacks.length - 1; i >= 0; i--) {
             const attack = this.longRangeAttacks[i];
             
-            // Move the attack towards its target using deltaTime (smooth movement)
-            const moveDistance = attack.speed * (deltaTime / 1000); // Convert deltaTime to seconds
-            attack.x += attack.direction.x * moveDistance;
-            attack.y += attack.direction.y * moveDistance;
+            // Calculate elapsed time from launch
+            const elapsed = (Date.now() - attack.launchTime) / 1000; // Convert to seconds
             
-            // Calculate progress based on distance traveled
-            const distanceTraveled = Math.sqrt(
-                Math.pow(attack.x - attack.fromX, 2) + 
-                Math.pow(attack.y - attack.fromY, 2)
-            );
+            // Calculate how far we should have traveled
+            const distanceTraveled = attack.speed * elapsed;
             const progress = Math.min(1, distanceTraveled / attack.totalDistance);
+            
+            // Update position based on progress (interpolate between start and end)
+            attack.x = attack.fromX + (attack.toX - attack.fromX) * progress;
+            attack.y = attack.fromY + (attack.toY - attack.fromY) * progress;
+            
+            // Debug logging for first few updates
+            if (elapsed < 2) {
+                console.log(`Attack ${attack.id} at ${elapsed.toFixed(1)}s: pos(${attack.x.toFixed(1)}, ${attack.y.toFixed(1)}) progress=${progress.toFixed(2)}`);
+            }
             
             // Check if attack has reached its target
             if (progress >= 1) {
