@@ -562,6 +562,7 @@ export class GameUI {
         let currentY = y + 40; // Start showing permanent bonuses
         
         // Show tech levels for human player
+        const humanPlayer = gameData.humanPlayer;
         if (humanPlayer && humanPlayer.tech) {
             this.renderTextWithShadow(ctx, 'Tech Levels:', x + padding, currentY, '#FFD700');
             currentY += lineHeight;
