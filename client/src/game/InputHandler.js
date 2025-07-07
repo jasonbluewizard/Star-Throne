@@ -170,16 +170,20 @@ export class InputHandler {
                 screenPos: this.mousePos
             });
         } else if (button === 2) { // Right click
+            console.log(`🖱️ RIGHT-CLICK: Territory ${territory?.id}, owner: ${territory?.ownerId}, human player: ${this.game.humanPlayer?.id}`);
+            
             // Check for supply route cancellation first (only if territory exists and is owned)
             if (territory && territory.ownerId === this.game.humanPlayer?.id) {
                 const routesToCancel = this.game.supplySystem.supplyRoutes.filter(route => route.from === territory.id);
                 if (routesToCancel.length > 0) {
+                    console.log(`🖱️ Cancelling supply routes from territory ${territory.id}`);
                     this.game.supplySystem.stopSupplyRoutesFromTerritory(territory.id);
                     return; // Supply route cancelled, don't process further
                 }
             }
             
             // No supply routes to cancel, proceed with normal right-click behavior
+            console.log(`🖱️ Sending right-click to FSM: territory ${territory?.id}`);
             this.inputFSM.handleInput('rightClick', {
                 territory: territory,
                 worldPos: worldPos,
