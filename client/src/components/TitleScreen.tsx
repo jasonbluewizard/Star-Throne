@@ -125,7 +125,10 @@ const TitleScreen: React.FC<TitleScreenProps> = ({ onEnterGame }) => {
   }, []);
 
   return (
-    <div className="fixed inset-0 bg-black flex items-center justify-center overflow-hidden">
+    <div 
+      className="fixed inset-0 bg-black flex items-center justify-center overflow-hidden cursor-pointer"
+      onClick={onEnterGame}
+    >
       {/* 3D Tunnel starfield canvas */}
       <canvas
         ref={canvasRef}
