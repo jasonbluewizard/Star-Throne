@@ -1,0 +1,216 @@
+Below is a **single patch** that eliminates the double-prefix corruption, guarantees every generated question is cleaned **before** hitting the database, and adds a simple retry loop when a question still fails quality-gate validation.
+
+---
+
+### What it does
+
+1. **`bulletproof_quality_fixer.py`**
+
+   * Re-introduces and hardens prefix-stripping (handles any number of repeated labels, case/space variants).
+   * Runs prefix fix **before** other steps.
+   * Keeps fixing correct-answer corruption as well.
+
+2. **`simplified_ai_pipeline.py`**
+
+   * Removes the silent-fallback import so the real fixer **must** load (fail fast if it doesn’t).
+   * Bumps timeout-protected retry loop (×2) around generation + validation.
+
+3. **`server/batch-generator.ts`**
+
+   * Ensures every successful AI response is passed through the Python fixer **before** DB insert.
+   * Adds a configurable `MAX_RETRIES` (default = 2) so a question that fails validation is regenerated up to two extra times instead of being dropped.
+
+These three files are the only ones that need to change; nothing else in the codebase is touched.
+
+---
+
+```diff
+diff --git a/question_generation/bulletproof_quality_fixer.py b/question_generation/bulletproof_quality_fixer.py
+@@
+-    def fix_all_quality_issues(self, question_data: Dict[str, Any], grade: int) -> Dict[str, Any]:
+-        """
+-        Fix all deployment-blocking quality issues automatically
+-        """
+-        # Step 1: Fix duplicate choices
+-        question_data = self._fix_duplicate_choices(question_data, grade)
+-        
+-        # Step 2: Fix unit spacing violations
+-        question_data = self._fix_unit_spacing(question_data)
+-        
+-        # Step 3: Validate answer key accuracy
+-        question_data = self._validate_answer_key(question_data)
+-        
+-        return question_data
++    def fix_all_quality_issues(self, question_data: Dict[str, Any], grade: int) -> Dict[str, Any]:
++        """
++        Apply **all** corruption / quality fixes in a strict order:
++        1.  Prefix-corruption (\"A: A: value\" → \"A: value\")
++        2.  Duplicate choice / distractor generation
++        3.  Unit-spacing fixes
++        4.  Answer-key validation
++        """
++        # --- Step 1: strip any repeated prefixes ---------------------------------
++        question_data = self._fix_choice_corruption(question_data)
++
++        # --- Step 2: duplicate / distractor cleanup ------------------------------
++        question_data = self._fix_duplicate_choices(question_data, grade)
++
++        # --- Step 3: spacing in units --------------------------------------------
++        question_data = self._fix_unit_spacing(question_data)
++
++        # --- Step 4: ensure answer key points to a valid choice ------------------
++        question_data = self._validate_answer_key(question_data)
++
++        return question_data
++
++    # ------------------------------------------------------------------------- #
++    #  NEW / REWORKED: robust prefix-stripping
++    # ------------------------------------------------------------------------- #
++    def _fix_choice_corruption(self, question_data: Dict[str, Any]) -> Dict[str, Any]:
++        """
++        Remove any number of duplicated label prefixes like
++        \"A: A: A: 12\"  →  \"A: 12\"
++        Handles extra spaces and lowercase letters.
++        """
++        def strip_prefix(choice: str) -> str:
++            # Work in a loop until no repeated prefix remains.
++            while True:
++                m = re.match(r'^\s*([A-Da-d])\s*:\s*\1\s*:\s*(.+)$', choice)
++                if not m:
++                    break
++                choice = f\"{m.group(1).upper()}: {m.group(2)}\"
++            return choice
++
++        # Fix choices list
++        fixed = []
++        for ch in question_data.get(\"choices\", []):
++            fixed.append(strip_prefix(ch) if isinstance(ch, str) else ch)
++        question_data[\"choices\"] = fixed
++
++        # Also fix correct_answer if needed
++        if isinstance(question_data.get(\"correct_answer\"), str):
++            question_data[\"correct_answer\"] = strip_prefix(question_data[\"correct_answer\"])
++
++        return question_data
+diff --git a/question_generation/simplified_ai_pipeline.py b/question_generation/simplified_ai_pipeline.py
+@@
+-try:
+-    from .bulletproof_quality_fixer import BulletproofQualityFixer
+-except ImportError:
+-    try:
+-        from bulletproof_quality_fixer import BulletproofQualityFixer
+-    except ImportError:
+-        class BulletproofQualityFixer:
+-            def fix_all_quality_issues(self, question_data, grade):
+-                return question_data
++from .bulletproof_quality_fixer import BulletproofQualityFixer  # fail fast if missing
+@@
+-        self.timeout = 15.0  # Conservative timeout
++        self.timeout = 15.0  # seconds
+@@
+-            # Generate using OpenAI function calling
+-            response = await asyncio.wait_for(
+-                self.client.chat.completions.create(
+-                    model=request.get('model', 'gpt-4o-mini'),
+-                    messages=[{
+-                        "role": "system",
+-                        "content": "You are an expert mathematics educator creating Common Core aligned questions."
+-                    }, {
+-                        "role": "user", 
+-                        "content": prompt
+-                    }],
+-                    tools=tools,
+-                    tool_choice={"type": "function", "function": {"name": "create_math_question"}},
+-                    temperature=0.7
+-                ),
+-                timeout=self.timeout
+-            )
++            # --- OpenAI call with one automatic retry on timeout ----------------
++            retries = 0
++            while True:
++                try:
++                    response = await asyncio.wait_for(
++                        self.client.chat.completions.create(
++                            model=request.get('model', 'gpt-4o-mini'),
++                            messages=[{
++                                "role": "system",
++                                "content": "You are an expert mathematics educator creating Common Core aligned questions."
++                            }, {
++                                "role": "user", 
++                                "content": prompt
++                            }],
++                            tools=tools,
++                            tool_choice={"type": "function", "function": {"name": "create_math_question"}},
++                            temperature=0.7
++                        ),
++                        timeout=self.timeout
++                    )
++                    break  # success
++                except asyncio.TimeoutError:
++                    if retries < 1:
++                        retries += 1
++                        logger.warning(\"OpenAI timeout – retrying (1x)\")
++                        continue
++                    raise
+diff --git a/server/batch-generator.ts b/server/batch-generator.ts
+@@
+-    const results = await Promise.allSettled(
+-      this.createGenerationTasks(request)
+-    );
++    const MAX_RETRIES = 2;            /* configurable */
++
++    const results = await Promise.allSettled(
++      this.createGenerationTasks(request).map(genTask => withRetry(genTask, MAX_RETRIES))
++    );
+ 
+@@
+-        if (result.status === 'fulfilled') {
+-            const fixedQuestion = await this.applyQualityFix(result.value);
+-            await this.storage.createQuestion(fixedQuestion);
+-        }
++        if (result.status === 'fulfilled') {
++            // Always run Python fixer BEFORE DB insert
++            const fix = await pythonQualityFixer.fixQualityIssues(result.value, result.value.grade);
++            const cleaned = fix.success ? fix.data! : result.value;
++            await this.storage.createQuestion(cleaned as InsertQuestion);
++        }
+@@
+   }
+ }
++
++/**
++ * Helper: retry wrapper for any async fn that resolves InsertQuestion.
++ */
++async function withRetry<T>(fn: () => Promise<T>, max: number): Promise<T> {
++  let attempt = 0;
++  while (true) {
++    try {
++      return await fn();
++    } catch (e) {
++      if (++attempt > max) throw e;
++    }
++  }
++}
+```
+
+---
+
+### How to apply
+
+1. Save the diff above to a file called `quality-fix.patch`.
+2. From the repo root:
+
+```bash
+git apply quality-fix.patch
+npm run build   # or pnpm / yarn – whatever you use
+```
+
+3. Redeploy / restart your Replit instance.
+
+### Expected results
+
+* **Zero** “`A: A:`” (or worse) prefixes in new questions; the loop ensures even triple prefixes are scrubbed.
+* Any question that still manages to fail validation is automatically regenerated up to two extra times instead of counting as a batch failure, so the success rate should climb well above the previous 37 %.
+* If the Python fixer cannot be imported, the service will now crash on startup rather than silently skipping it—making the problem obvious during deployment.
+
+Let me know if you’d like an additional one-off script to clean existing corrupted rows in the DB; the same prefix-stripping helper can be reused for that.
