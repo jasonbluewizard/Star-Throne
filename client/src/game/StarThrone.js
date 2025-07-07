@@ -1034,7 +1034,15 @@ export default class StarThrone {
                 console.log(`🎯 Target territory found:`, targetTerritory ? `ID ${targetTerritory.id}, armies: ${targetTerritory.armySize}` : 'NOT FOUND');
                 console.log(`🗺️ GameMap structure:`, Array.isArray(this.gameMap.territories) ? 'Array' : 'Object', `with ${Array.isArray(this.gameMap.territories) ? this.gameMap.territories.length : Object.keys(this.gameMap.territories).length} territories`);
                 
-                if (targetTerritory) {
+                if (!targetTerritory) {
+                    console.log(`❌ ERROR: Could not find target territory ${attack.toTerritoryId}. Attack cancelled.`);
+                    this.longRangeAttacks.splice(i, 1);
+                    continue;
+                }
+                
+                console.log(`✅ PROCEEDING WITH COMBAT for territory ${targetTerritory.id}`);
+                
+                {
                     // Execute direct combat (no need for ship animation delay)
                     const attackingArmies = attack.fleetSize;
                     const defendingArmies = targetTerritory.armySize;
