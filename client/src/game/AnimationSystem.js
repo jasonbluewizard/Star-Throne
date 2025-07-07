@@ -110,6 +110,7 @@ export class AnimationSystem {
         animation.to = { x: toTerritory.x, y: toTerritory.y };
         animation.progress = 0;
         animation.duration = 1000;
+        animation.startTime = Date.now(); // Initialize startTime for timestamp-based timing
         animation.color = color;
         animation.isAttack = isAttack;
         animation.segments = null;
@@ -145,6 +146,7 @@ export class AnimationSystem {
             animation.to = segments[0].to;
             animation.progress = 0;
             animation.duration = segments[0].duration;
+            animation.startTime = Date.now(); // Initialize startTime for timestamp-based timing
             animation.color = color;
             animation.isAttack = false;
             
@@ -156,12 +158,20 @@ export class AnimationSystem {
 
     // Update all ship animations
     updateShipAnimations(deltaTime) {
-        const gameSpeed = this.game.config.gameSpeed || 1.0;
-        const adjustedDeltaTime = deltaTime * gameSpeed;
+        const currentTime = Date.now();
         
         for (let i = this.shipAnimations.length - 1; i >= 0; i--) {
             const animation = this.shipAnimations[i];
-            animation.progress += adjustedDeltaTime;
+            
+            // Use timestamp-based progress calculation for consistency with StarThrone rendering
+            if (animation.startTime) {
+                animation.progress = (currentTime - animation.startTime);
+            } else {
+                // Fallback to deltaTime accumulation for animations without startTime
+                const gameSpeed = this.game.config.gameSpeed || 1.0;
+                const adjustedDeltaTime = deltaTime * gameSpeed;
+                animation.progress += adjustedDeltaTime;
+            }
             
             // Check if current segment is complete
             if (animation.progress >= animation.duration) {
@@ -173,6 +183,7 @@ export class AnimationSystem {
                     animation.to = nextSegment.to;
                     animation.progress = 0;
                     animation.duration = nextSegment.duration;
+                    animation.startTime = currentTime; // Reset start time for new segment
                 } else {
                     // Animation complete
                     this.returnToPool(animation);

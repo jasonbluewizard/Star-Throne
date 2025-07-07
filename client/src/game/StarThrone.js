@@ -1079,6 +1079,7 @@ export default class StarThrone {
             animation.to = { x: toTerritory.x, y: toTerritory.y };
             animation.progress = 0;
             animation.duration = GAME_CONSTANTS.LONG_RANGE_ANIMATION_DURATION; // 6 seconds
+            animation.startTime = Date.now(); // Critical: set start time for timestamp-based progress
             animation.color = playerColor;
             animation.isAttack = true;
             animation.isLongRange = true; // Mark as long-range
