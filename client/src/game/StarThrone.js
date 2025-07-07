@@ -1143,16 +1143,21 @@ export default class StarThrone {
         if (!this.longRangeAttacks) return;
         
         this.longRangeAttacks.forEach(attack => {
-            // Convert world coordinates to screen coordinates
-            const screenPos = this.camera.worldToScreen(attack.x, attack.y);
+            // Use camera-transformed coordinates directly (same as territories)
+            this.ctx.save();
             
-            // Skip if off-screen
-            if (screenPos.x < -50 || screenPos.x > this.canvas.width + 50 ||
-                screenPos.y < -50 || screenPos.y > this.canvas.height + 50) {
+            // Apply camera transformation first
+            this.ctx.translate(this.canvas.width / 2, this.canvas.height / 2);
+            this.ctx.scale(this.camera.zoom, this.camera.zoom);
+            this.ctx.translate(-this.camera.x, -this.camera.y);
+            
+            // Skip if off-screen (check in world coordinates)
+            const bounds = this.camera.getViewBounds();
+            if (attack.x < bounds.left - 50 || attack.x > bounds.right + 50 ||
+                attack.y < bounds.top - 50 || attack.y > bounds.bottom + 50) {
+                this.ctx.restore();
                 return;
             }
-            
-            this.ctx.save();
             
             // Draw the long-range attack ship (larger than normal ships)
             this.ctx.fillStyle = attack.playerColor;
@@ -1160,24 +1165,23 @@ export default class StarThrone {
             this.ctx.shadowBlur = 12;
             
             this.ctx.beginPath();
-            this.ctx.arc(screenPos.x, screenPos.y, 6, 0, Math.PI * 2); // Larger radius
+            this.ctx.arc(attack.x, attack.y, 6, 0, Math.PI * 2); // Use world coordinates directly
             this.ctx.fill();
             
-            // Add glowing trail effect
+            // Add glowing trail effect (use world coordinates)
             const trailLength = 8;
             for (let i = 1; i <= trailLength; i++) {
                 const trailDistance = i * 8; // Longer trail
                 const trailX = attack.x - (attack.direction.x * trailDistance);
                 const trailY = attack.y - (attack.direction.y * trailDistance);
-                const trailScreenPos = this.camera.worldToScreen(trailX, trailY);
                 
                 this.ctx.globalAlpha = (trailLength - i) / trailLength * 0.6;
                 this.ctx.beginPath();
-                this.ctx.arc(trailScreenPos.x, trailScreenPos.y, 4 - (i * 0.4), 0, Math.PI * 2);
+                this.ctx.arc(trailX, trailY, 4 - (i * 0.4), 0, Math.PI * 2);
                 this.ctx.fill();
             }
             
-            // Draw fleet size indicator next to the ship
+            // Draw fleet size indicator next to the ship (use world coordinates)
             this.ctx.globalAlpha = 1;
             this.ctx.fillStyle = '#ffffff';
             this.ctx.font = 'bold 12px Arial';
@@ -1186,8 +1190,8 @@ export default class StarThrone {
             this.ctx.lineWidth = 2;
             
             const fleetText = `${attack.fleetSize}`;
-            this.ctx.strokeText(fleetText, screenPos.x, screenPos.y - 15);
-            this.ctx.fillText(fleetText, screenPos.x, screenPos.y - 15);
+            this.ctx.strokeText(fleetText, attack.x, attack.y - 15);
+            this.ctx.fillText(fleetText, attack.x, attack.y - 15);
             
             this.ctx.restore();
         });
