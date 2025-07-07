@@ -313,6 +313,7 @@ class TerritorySelectedState extends BaseState {
                     // Non-adjacent enemy star - launch long-range attack
                     const attackingArmies = Math.floor((sourceStar.armySize - 1) * 0.5);
                     if (attackingArmies > 0) {
+                        console.log(`DEBUG: Launching attack from selected territory ${sourceStar.id} at (${sourceStar.x}, ${sourceStar.y}) to ${targetStar.id} at (${targetStar.x}, ${targetStar.y})`);
                         this.game.launchLongRangeAttack(sourceStar, targetStar, attackingArmies);
                         console.log(`Launched long-range attack: ${sourceStar.id} -> ${targetStar.id} (${attackingArmies} ships)`);
                     } else {
@@ -334,6 +335,7 @@ class TerritorySelectedState extends BaseState {
                     // Non-adjacent neutral star - launch long-range attack
                     const attackingArmies = Math.floor((sourceStar.armySize - 1) * 0.5);
                     if (attackingArmies > 0) {
+                        console.log(`DEBUG: Launching attack from selected territory ${sourceStar.id} at (${sourceStar.x}, ${sourceStar.y}) to ${targetStar.id} at (${targetStar.x}, ${targetStar.y})`);
                         this.game.launchLongRangeAttack(sourceStar, targetStar, attackingArmies);
                         console.log(`Launched long-range attack: ${sourceStar.id} -> ${targetStar.id} (${attackingArmies} ships)`);
                     } else {
