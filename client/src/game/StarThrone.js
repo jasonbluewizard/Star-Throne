@@ -920,7 +920,8 @@ export default class StarThrone {
     
     // Launch long-range attack (probe-like ship that moves slowly across map)
     launchLongRangeAttack(fromTerritory, toTerritory, fleetSize) {
-        console.log(`Creating long-range attack: ${fromTerritory.id} -> ${toTerritory.id} with ${fleetSize} ships`);
+        console.log(`🔧 Creating long-range attack: ${fromTerritory.id} -> ${toTerritory.id} with ${fleetSize} ships`);
+        console.log(`🔧 Human player ID: ${this.humanPlayer?.id}, From territory owner: ${fromTerritory.ownerId}, To territory owner: ${toTerritory.ownerId}`);
         
         // Reduce source territory armies immediately
         fromTerritory.armySize -= fleetSize;
