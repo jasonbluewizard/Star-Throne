@@ -1,0 +1,226 @@
+STAR THRONE - NEBULA FOG OF WAR BUG ANALYSIS
+=====================================================
+
+CRITICAL BUG: Nebula-based fog of war tooltips not working
+- Territory tooltips still show exact fleet counts even when inside purple nebulas
+- Should show "??? Fleets (nebula)" but shows "[DarkMatter] Quinn 13 Fleets" instead
+- Screenshot shows territory clearly inside purple nebula but tooltip reveals fleet count
+
+SECONDARY ISSUE: Supply route indicators missing
+- Green "+" symbols should appear under territories receiving supply routes
+- Test indicators added but not appearing despite renderSupplyRouteIndicators being called
+
+ROOT CAUSE ANALYSIS:
+===================
+
+1. NEBULA DETECTION PROBLEM:
+   - GameUI.js calls: gameData?.gameMap?.isInNebula?.(territory.x, territory.y)
+   - Function exists in GameMap.js but may not be receiving correct gameData structure
+   - Need to verify gameData.gameMap is properly passed from StarThrone.js to GameUI.js
+
+2. SUPPLY INDICATOR PROBLEM:
+   - renderSupplyRouteIndicators() is called in Renderer.js line 327
+   - Test code should show green "+" on every 3rd human territory
+   - Not appearing suggests rendering context or territory ownership issue
+
+KEY FILES TO EXAMINE:
+===================
+
+CLIENT/SRC/GAME/GAMEUI.JS (TOOLTIP GENERATION):
+-----------------------------------------------
+
+Lines 845-870 handle nebula fog of war detection:
+
+```javascript
+// NEBULA FOG OF WAR: Check if territory is inside a nebula (applies to ALL territories)
+const isInNebula = gameData?.gameMap?.isInNebula?.(territory.x, territory.y) || false;
+const isPlayerOwned = territory.ownerId === humanPlayerId;
+const isNeutral = territory.ownerId === null;
+
+// Debug: Always log for neutral territories to debug nebula detection
+if (isNeutral && territory.armySize && (territory.armySize === 11 || territory.armySize === 5)) {
+    console.log(`🔍 NEBULA DEBUG - Territory ${territory.id} at (${territory.x}, ${territory.y}): inNebula=${isInNebula}, armies=${territory.armySize}`);
+    console.log(`🔍 GameMap exists: ${!!gameData?.gameMap}, isInNebula function exists: ${!!gameData?.gameMap?.isInNebula}`);
+    console.log(`🔍 GameData keys:`, Object.keys(gameData || {}));
+    
+    if (gameData?.gameMap?.nebulas) {
+        console.log(`🔍 Total nebulas: ${gameData.gameMap.nebulas.length}`);
+        gameData.gameMap.nebulas.forEach((nebula, i) => {
+            const dist = Math.sqrt((territory.x - nebula.x) ** 2 + (territory.y - nebula.y) ** 2);
+            console.log(`🔍 Nebula ${i}: center (${nebula.x}, ${nebula.y}), radius ${nebula.radius}, distance to territory: ${dist.toFixed(1)}, INSIDE: ${dist <= nebula.radius}`);
+        });
+    } else {
+        console.log(`🔍 No nebulas found in gameData.gameMap`);
+    }
+}
+```
+
+Lines 870-890 should apply fog of war but may not be working:
+
+```javascript
+// Apply nebula fog of war for non-player territories
+if (!isPlayerOwned && isInNebula) {
+    if (isNeutral) {
+        fleetCount = "??? Fleets (nebula)";
+    } else {
+        fleetCount = "Unknown forces (nebula)";
+    }
+} else if (isMysteriousTerritory) {
+    fleetCount = "?";
+} else {
+    fleetCount = `${territory.armySize} Fleet${territory.armySize !== 1 ? 's' : ''}`;
+}
+```
+
+CLIENT/SRC/GAME/GAMEMAP.JS (NEBULA DETECTION):
+---------------------------------------------
+
+The isInNebula function should work correctly:
+
+```javascript
+isInNebula(x, y) {
+    // Check if a point is inside any nebula
+    for (const nebula of this.nebulas) {
+        const distance = Math.sqrt((x - nebula.x) ** 2 + (y - nebula.y) ** 2);
+        if (distance <= nebula.radius) {
+            return true;
+        }
+    }
+    return false;
+}
+```
+
+CLIENT/SRC/GAME/RENDERER.JS (SUPPLY INDICATORS):
+-----------------------------------------------
+
+Lines 439-485 handle supply route indicator rendering:
+
+```javascript
+renderSupplyRouteIndicators(territory) {
+    if (!this.game?.supplySystem?.supplyRoutes) {
+        // Debug: Only log when needed
+        if (!this.lastSupplySystemLog || Date.now() - this.lastSupplySystemLog > 15000) {
+            console.log('📊 Supply debug: routes exist?', !!this.game?.supplySystem?.supplyRoutes, 'count:', this.game?.supplySystem?.supplyRoutes?.length || 0);
+            this.lastSupplySystemLog = Date.now();
+        }
+        return;
+    }
+    
+    // Count incoming supply routes to this territory
+    const incomingRoutes = this.game.supplySystem.supplyRoutes.filter(route => route.to === territory.id);
+    const reinforcementCount = incomingRoutes.length;
+    
+    // Debug: Log supply route indicators being rendered
+    if (reinforcementCount > 0) {
+        console.log(`🔧 Rendering ${reinforcementCount} supply indicators for territory ${territory.id}`);
+    }
+    
+    // TEMP TEST: Force render supply indicators on human player territories for testing
+    const humanPlayerId = this.game?.humanPlayer?.id;
+    if (territory.ownerId === humanPlayerId && territory.id % 3 === 0) { // Every 3rd human territory gets test indicator
+        console.log(`🧪 TEST: Adding fake supply indicator to territory ${territory.id}, humanPlayerId=${humanPlayerId}`);
+        const yOffset = territory.radius + 15;
+        this.ctx.fillStyle = '#00ff00'; // Green color
+        this.ctx.strokeStyle = 'black';
+        this.ctx.lineWidth = 1;
+        this.ctx.font = 'bold 12px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.strokeText('+', territory.x, territory.y + yOffset);
+        this.ctx.fillText('+', territory.x, territory.y + yOffset);
+    }
+    
+    if (reinforcementCount > 0) {
+        // Create + symbols underneath the territory
+        const plusSymbols = '+'.repeat(reinforcementCount);
+        
+        // Position below the territory circle
+        const yOffset = territory.radius + 15;
+        
+        this.ctx.fillStyle = '#00ff00'; // Green color for reinforcement indicators
+        this.ctx.strokeStyle = 'black';
+        this.ctx.lineWidth = 1;
+        this.ctx.font = 'bold 12px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        
+        // Draw text with outline for visibility
+        this.ctx.strokeText(plusSymbols, territory.x, territory.y + yOffset);
+        this.ctx.fillText(plusSymbols, territory.x, territory.y + yOffset);
+    }
+}
+```
+
+Line 327 in renderTerritories calls the function:
+```javascript
+// Always render supply route indicators regardless of zoom level
+this.renderSupplyRouteIndicators(territory);
+```
+
+DEBUGGING STEPS FOR ADVANCED AI:
+===============================
+
+1. NEBULA BUG INVESTIGATION:
+   - Check if gameData structure passed to GameUI.showTooltip contains gameMap
+   - Verify nebula array exists and has correct coordinates/radius values  
+   - Test isInNebula function directly with territory coordinates
+   - Check if territory owner detection is working (isPlayerOwned variable)
+
+2. SUPPLY INDICATOR BUG:
+   - Verify this.game.humanPlayer.id matches territory.ownerId for human territories
+   - Check if renderSupplyRouteIndicators is actually being called (add console.log)
+   - Verify canvas context (this.ctx) is valid during rendering
+   - Test if simple green rectangles can be drawn at territory positions
+
+3. DATA FLOW VERIFICATION:
+   - Trace gameData from StarThrone.js through to GameUI.js tooltip generation
+   - Verify gameMap.nebulas array is populated with correct nebula objects
+   - Check if territory coordinates match expected ranges
+
+EXPECTED BEHAVIOR:
+=================
+
+1. Hovering over neutral territory in purple nebula should show debug output like:
+   ```
+   🔍 NEBULA DEBUG - Territory 42 at (850, 600): inNebula=true, armies=13
+   🔍 GameMap exists: true, isInNebula function exists: true
+   🔍 Total nebulas: 12
+   🔍 Nebula 3: center (840, 590), radius 120, distance to territory: 14.1, INSIDE: true
+   ```
+
+2. Tooltip should show "??? Fleets (nebula)" instead of exact fleet count
+
+3. Green "+" symbols should appear under every 3rd human-owned territory
+
+CURRENT STATUS:
+==============
+
+- Supply routes working (cyan dashed lines visible)
+- Throne star system working (golden crowns visible)
+- Discovery system working (human player has Precursor Drive bonus)
+- Nebula rendering working (purple clouds visible)
+- Territory rendering working (all planets visible with correct colors)
+
+ONLY BROKEN: Nebula-based tooltip fog of war and supply route visual indicators
+
+FILES REQUIRING EXAMINATION:
+============================
+
+Primary suspects:
+- client/src/game/GameUI.js (tooltip generation logic)
+- client/src/game/GameMap.js (isInNebula function)
+- client/src/game/StarThrone.js (gameData structure passed to UI)
+- client/src/game/Renderer.js (supply indicator rendering)
+
+Supporting files:
+- client/src/game/Territory.js (territory data structure)
+- client/src/game/SupplySystem.js (supply route data)
+- common/gameConstants.ts (configuration values)
+
+This appears to be a data flow issue where either:
+1. gameData.gameMap is undefined/null when passed to tooltip function
+2. isInNebula function isn't receiving correct parameters
+3. Territory owner IDs don't match expected human player ID
+4. Canvas rendering context issues preventing visual indicators from appearing
+
+The nebula detection and supply route logic appears correct - the issue is likely in the data handoff between game modules or rendering context problems.
