@@ -138,7 +138,7 @@ const TitleScreen: React.FC<TitleScreenProps> = ({ onEnterGame }) => {
         className="relative flex flex-col items-center justify-center min-h-screen"
         style={{ perspective: '1000px', zIndex: 10 }}
       >
-        {/* Badge - zooms up from the void */}
+        {/* Star Throne Title - dramatic entrance */}
         <div 
           className="relative z-10 mb-8 transition-all duration-2000 ease-out"
           style={{
@@ -146,31 +146,11 @@ const TitleScreen: React.FC<TitleScreenProps> = ({ onEnterGame }) => {
           }}
         >
           <img
-            src="/star-throne-badge.png"
-            alt="Star Throne Badge"
-            className="w-80 h-80 object-contain drop-shadow-2xl"
-            style={{
-              filter: 'drop-shadow(0 0 30px rgba(59, 130, 246, 0.5))',
-            }}
-          />
-        </div>
-
-        {/* Wordmark - falls down from above */}
-        <div 
-          className="absolute z-20"
-          style={{
-            animation: 'fallFromAbove 2.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.8s forwards, gentleDrift 6s ease-in-out 4s infinite',
-            transformStyle: 'preserve-3d',
-            opacity: 0,
-            transform: 'translateY(-200px) translateZ(100px) scale(8)',
-          }}
-        >
-          <img
-            src="/star-throne-wordmark.png"
+            src="/star-throne-title.png"
             alt="Star Throne"
-            className="w-96 h-auto object-contain drop-shadow-2xl"
+            className="w-[600px] h-auto object-contain drop-shadow-2xl"
             style={{
-              filter: 'drop-shadow(0 0 20px rgba(255, 255, 255, 0.8))',
+              filter: 'drop-shadow(0 0 30px rgba(255, 255, 255, 0.8)) drop-shadow(0 0 60px rgba(59, 130, 246, 0.3))',
             }}
           />
         </div>
