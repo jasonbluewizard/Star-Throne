@@ -437,11 +437,27 @@ export class Renderer {
     }
     
     renderSupplyRouteIndicators(territory) {
-        if (!this.game?.supplySystem?.supplyRoutes) return;
+        if (!this.game?.supplySystem?.supplyRoutes) {
+            // Debug: Check if supply system exists - only log once per second to avoid spam
+            if (this.game?.supplySystem && !this.game.supplySystem.supplyRoutes && !this.lastSupplySystemLog) {
+                console.log('Supply system exists but no supply routes array');
+                this.lastSupplySystemLog = Date.now();
+            } else if (!this.lastSupplySystemLog || Date.now() - this.lastSupplySystemLog > 10000) {
+                // Log every 10 seconds if no supply system
+                console.log('Supply route debug: supplySystem exists?', !!this.game?.supplySystem, 'routes exist?', !!this.game?.supplySystem?.supplyRoutes, 'routes count:', this.game?.supplySystem?.supplyRoutes?.length || 0);
+                this.lastSupplySystemLog = Date.now();
+            }
+            return;
+        }
         
         // Count incoming supply routes to this territory
         const incomingRoutes = this.game.supplySystem.supplyRoutes.filter(route => route.to === territory.id);
         const reinforcementCount = incomingRoutes.length;
+        
+        // Debug: Log supply route indicators being rendered
+        if (reinforcementCount > 0) {
+            console.log(`🔧 Rendering ${reinforcementCount} supply indicators for territory ${territory.id}`);
+        }
         
         if (reinforcementCount > 0) {
             // Create + symbols underneath the territory

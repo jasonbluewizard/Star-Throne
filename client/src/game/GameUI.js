@@ -866,10 +866,10 @@ export class GameUI {
                     tooltipLines.push(`Unknown garrison`);
                 }
             } else {
-                // Visible territory - show full information
+                // Visible territory - show owner name first
                 tooltipLines.push(`${ownerName}`);
                 
-                // Hide fleet counts in nebulas for non-player territories (including neutrals)
+                // NEBULA FOG OF WAR: Apply to ALL visible territories that aren't player-owned
                 if (isInNebula && !isPlayerOwned) {
                     if (isNeutral) {
                         // Neutral territory in nebula - show question marks
@@ -879,6 +879,7 @@ export class GameUI {
                         tooltipLines.push(`Unknown forces (nebula)`);
                     }
                 } else {
+                    // Show full fleet information only for player territories OR non-nebula territories
                     // Calculate generation rate including supply bonuses
                     let generationRate = 0;
                     let fleetDisplay = `${territory.armySize} Fleets`;
