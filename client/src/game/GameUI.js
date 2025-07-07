@@ -847,6 +847,11 @@ export class GameUI {
             const isPlayerOwned = territory.ownerId === humanPlayerId;
             const isNeutral = territory.ownerId === null;
             
+            // Debug: Log nebula detection for specific territory when debugging
+            if (isNeutral && territory.id && Date.now() % 5000 < 100) { // Only log occasionally
+                console.log(`🔍 Territory ${territory.id} nebula check: inNebula=${isInNebula}, isNeutral=${isNeutral}, isPlayerOwned=${isPlayerOwned}, armySize=${territory.armySize}`);
+            }
+            
             if (isMysteriousTerritory && territory.ownerId !== null) {
                 // Mysterious enemy territory - only show player name
                 tooltipLines.push(`${ownerName}`);
@@ -871,6 +876,7 @@ export class GameUI {
                 
                 // NEBULA FOG OF WAR: Apply to ALL visible territories that aren't player-owned
                 if (isInNebula && !isPlayerOwned) {
+                    console.log(`🌫️ NEBULA TOOLTIP: Territory ${territory.id} in nebula - hiding fleet count (neutral: ${isNeutral})`);
                     if (isNeutral) {
                         // Neutral territory in nebula - show question marks
                         tooltipLines.push(`??? Fleets (nebula)`);

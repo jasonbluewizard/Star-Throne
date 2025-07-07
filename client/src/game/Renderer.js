@@ -438,13 +438,9 @@ export class Renderer {
     
     renderSupplyRouteIndicators(territory) {
         if (!this.game?.supplySystem?.supplyRoutes) {
-            // Debug: Check if supply system exists - only log once per second to avoid spam
-            if (this.game?.supplySystem && !this.game.supplySystem.supplyRoutes && !this.lastSupplySystemLog) {
-                console.log('Supply system exists but no supply routes array');
-                this.lastSupplySystemLog = Date.now();
-            } else if (!this.lastSupplySystemLog || Date.now() - this.lastSupplySystemLog > 10000) {
-                // Log every 10 seconds if no supply system
-                console.log('Supply route debug: supplySystem exists?', !!this.game?.supplySystem, 'routes exist?', !!this.game?.supplySystem?.supplyRoutes, 'routes count:', this.game?.supplySystem?.supplyRoutes?.length || 0);
+            // Debug: Only log when needed
+            if (!this.lastSupplySystemLog || Date.now() - this.lastSupplySystemLog > 15000) {
+                console.log('📊 Supply debug: routes exist?', !!this.game?.supplySystem?.supplyRoutes, 'count:', this.game?.supplySystem?.supplyRoutes?.length || 0);
                 this.lastSupplySystemLog = Date.now();
             }
             return;
