@@ -149,6 +149,9 @@ export default class StarThrone {
         // Global discovery log for all players
         this.discoveryLog = [];
         
+        // Track active long-range attacks (fleets in transit)
+        this.longRangeAttacks = [];
+        
         // Recent probe results for UI announcements
         // this.recentProbeResults = []; // Probe results tracking disabled
         
@@ -2331,6 +2334,64 @@ export default class StarThrone {
     renderSupplyRoutes() {
         // Delegate to SupplySystem module for rendering
         this.supplySystem.renderSupplyRoutes(this.ctx, this.gameMap.territories);
+    }
+    
+    // Render active long-range attacks with dotted lines and moving army counts
+    renderLongRangeAttacks() {
+        if (!this.longRangeAttacks || this.longRangeAttacks.length === 0) {
+            // No long-range attacks to render
+            return;
+        }
+        
+        this.ctx.save();
+        this.ctx.strokeStyle = "#FFFFFF";
+        this.ctx.lineWidth = 2;
+        
+        // Use a dashed line style for long-range attack paths
+        if (this.ctx.setLineDash) {
+            this.ctx.setLineDash([5, 5]);
+        }
+        
+        for (let i = this.longRangeAttacks.length - 1; i >= 0; i--) {
+            const attack = this.longRangeAttacks[i];
+            
+            // Source and target territory center coordinates
+            const sx = attack.source.x || attack.source.centerX;
+            const sy = attack.source.y || attack.source.centerY;
+            const tx = attack.target.x || attack.target.centerX;
+            const ty = attack.target.y || attack.target.centerY;
+            
+            // Draw a dotted line from source to target
+            this.ctx.beginPath();
+            this.ctx.moveTo(sx, sy);
+            this.ctx.lineTo(tx, ty);
+            this.ctx.stroke();
+            
+            // Determine current fleet position (progress 0.0 to 1.0)
+            const p = Math.min(1, (attack.progress != null) ? attack.progress : 0);
+            const fx = sx + (tx - sx) * p;
+            const fy = sy + (ty - sy) * p;
+            
+            // Draw the floating army count at the fleet's position
+            const num = attack.count || attack.armyCount || attack.armies;
+            if (num != null) {
+                this.ctx.fillStyle = "#FFFFFF";
+                this.ctx.strokeStyle = "#000000";
+                this.ctx.lineWidth = 3;
+                this.ctx.font = "bold 16px sans-serif";
+                this.ctx.textAlign = "center";
+                this.ctx.textBaseline = "middle";
+                this.ctx.strokeText(String(num), fx, fy);
+                this.ctx.fillText(String(num), fx, fy);
+            }
+            
+            // Clean up the attack if it has reached the target
+            if (p >= 1) {
+                this.longRangeAttacks.splice(i, 1);
+            }
+        }
+        
+        this.ctx.restore();
     }
     
     getTransferPercentage(event) {

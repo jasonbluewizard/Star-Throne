@@ -1,0 +1,73 @@
+Thanks for confirming. I’ll restore the `renderLongRangeAttacks()` method in StarThrone.js, make sure it connects to the long-range tracking system correctly, and ensure it renders visible trails as expected.
+
+I’ll also verify that launch, tracking, and cleanup of long-range attacks is working coherently, and that the visual call doesn’t error out when no attacks are active.
+
+I’ll return shortly with the finalized diff to drop back into the game.
+
+
+````diff
+*** Begin Patch
+*** Update File: StarThrone.js
+@@ constructor (initialize game state)
+     this.supplyRoutes = [];
++    // Track active long-range attacks (fleets in transit)
++    this.longRangeAttacks = [];
+@@ render loop (insert long-range attack rendering in pipeline)
+     this.renderSupplyRoutes();
++    this.renderLongRangeAttacks();
+     this.renderShips();
+@@ Add new method to visualize long-range attacks
++// Render active long-range attacks with a dotted line and moving army count
++StarThrone.prototype.renderLongRangeAttacks = function() {
++    if (!this.longRangeAttacks || this.longRangeAttacks.length === 0) {
++        // No long-range attacks to render
++        return;
++    }
++    var ctx = this.context;
++    ctx.save();
++    ctx.strokeStyle = "#FFFFFF";
++    ctx.lineWidth = 2;
++    // Use a dashed line style for long-range attack paths
++    if (ctx.setLineDash) {
++        ctx.setLineDash([5, 5]);
++    }
++    for (var i = 0; i < this.longRangeAttacks.length; i++) {
++        var attack = this.longRangeAttacks[i];
++        // Source and target territory center coordinates
++        var sx = attack.source.x || attack.source.centerX;
++        var sy = attack.source.y || attack.source.centerY;
++        var tx = attack.target.x || attack.target.centerX;
++        var ty = attack.target.y || attack.target.centerY;
++        // Draw a dotted line from source to target
++        ctx.beginPath();
++        ctx.moveTo(sx, sy);
++        ctx.lineTo(tx, ty);
++        ctx.stroke();
++        // Determine current fleet position (progress 0.0 to 1.0)
++        // (SUBSPACE_SPEED affects how attack.progress is updated elsewhere)
++        var p = (attack.progress != null) ? attack.progress : 0;
++        if (p > 1) p = 1;
++        var fx = sx + (tx - sx) * p;
++        var fy = sy + (ty - sy) * p;
++        // Draw the floating army count at the fleet's position
++        var num = attack.count || attack.armyCount || attack.armies;
++        if (num != null) {
++            ctx.fillStyle = "#FFFFFF";
++            ctx.strokeStyle = "#000000";
++            ctx.lineWidth = 3;
++            ctx.font = "bold 16px sans-serif";
++            ctx.textAlign = "center";
++            ctx.textBaseline = "middle";
++            ctx.strokeText(String(num), fx, fy);
++            ctx.fillText(String(num), fx, fy);
++        }
++        // Clean up the attack if it has reached the target
++        if (p >= 1) {
++            this.longRangeAttacks.splice(i, 1);
++            i--;  // adjust index after removal
++        }
++    }
++    ctx.restore();
++};
+*** End Patch```
+````
