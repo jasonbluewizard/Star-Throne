@@ -976,14 +976,21 @@ export default class StarThrone {
                 console.log(`⚔️ LONG-RANGE ARRIVAL: Fleet from ${combat.fromTerritoryId} attacking ${combat.toTerritoryId} with ${combat.fleetSize} ships`);
                 
                 // Validate territories still exist and are valid targets
-                const targetTerritory = this.gameMap.territories.find(t => t.id === combat.toTerritoryId);
-                const sourceTerritory = this.gameMap.territories.find(t => t.id === combat.fromTerritoryId);
+                const targetTerritory = this.gameMap.territories[combat.toTerritoryId] || 
+                                      Object.values(this.gameMap.territories).find(t => t.id === combat.toTerritoryId);
+                const sourceTerritory = this.gameMap.territories[combat.fromTerritoryId] || 
+                                      Object.values(this.gameMap.territories).find(t => t.id === combat.fromTerritoryId);
+                
+                console.log(`🔍 LONG-RANGE DEBUG: Target territory ${combat.toTerritoryId} found: ${!!targetTerritory}, Source territory ${combat.fromTerritoryId} found: ${!!sourceTerritory}`);
                 
                 if (targetTerritory && sourceTerritory) {
                     // Process the actual combat
+                    console.log(`✅ LONG-RANGE: Processing combat for valid territories`);
                     this.processLongRangeArrival(combat, sourceTerritory, targetTerritory);
                 } else {
                     console.log(`❌ Long-range combat cancelled: invalid territories (source: ${!!sourceTerritory}, target: ${!!targetTerritory})`);
+                    if (!targetTerritory) console.log(`❌ Target territory ${combat.toTerritoryId} not found in gameMap.territories`);
+                    if (!sourceTerritory) console.log(`❌ Source territory ${combat.fromTerritoryId} not found in gameMap.territories`);
                 }
                 
                 // Remove completed combat
@@ -1013,7 +1020,9 @@ export default class StarThrone {
         }
         
         // Use the combat system's attackTerritory method
+        console.log(`🔍 LONG-RANGE COMBAT: Calling attackTerritory with temp attacking territory (${tempAttackingTerritory.id}, owner: ${tempAttackingTerritory.ownerId}, armies: ${tempAttackingTerritory.armySize}) vs target (${targetTerritory.id}, owner: ${targetTerritory.ownerId}, armies: ${targetTerritory.armySize})`);
         const result = this.combatSystem.attackTerritory(tempAttackingTerritory, targetTerritory);
+        console.log(`🔍 LONG-RANGE RESULT:`, result);
         
         if (result.success) {
             console.log(`🏆 Long-range attack successful! Territory ${targetTerritory.id} captured by player ${combat.fromOwnerId}`);
