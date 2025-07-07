@@ -215,6 +215,7 @@ export class CombatSystem {
             if (isThroneCapture && oldOwner) {
                 console.log(`🏆 THRONE STAR CAPTURED! ${battle.attacker.name} captures throne from ${oldOwner.name}`);
                 this.handleThroneStarCapture(battle.attacker, oldOwner, battle.defendingTerritory);
+            }
             // Removed logically impossible condition: throne stars cannot be neutral (always have owners)
             
             // DISCOVERY: Trigger discovery when conquering neutral territory
