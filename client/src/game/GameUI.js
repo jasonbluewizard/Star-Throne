@@ -847,9 +847,16 @@ export class GameUI {
             const isPlayerOwned = territory.ownerId === humanPlayerId;
             const isNeutral = territory.ownerId === null;
             
-            // Debug: Log nebula detection for specific territory when debugging
-            if (isNeutral && territory.id && Date.now() % 5000 < 100) { // Only log occasionally
-                console.log(`🔍 Territory ${territory.id} nebula check: inNebula=${isInNebula}, isNeutral=${isNeutral}, isPlayerOwned=${isPlayerOwned}, armySize=${territory.armySize}`);
+            // Debug: Always log for neutral territories to debug nebula detection
+            if (isNeutral && territory.armySize && (territory.armySize === 11 || territory.armySize === 5)) {
+                console.log(`🔍 NEBULA DEBUG - Territory ${territory.id} at (${territory.x}, ${territory.y}): inNebula=${isInNebula}, armies=${territory.armySize}, gameMap exists=${!!gameData?.gameMap}, isInNebula function exists=${!!gameData?.gameMap?.isInNebula}`);
+                if (gameData?.gameMap?.nebulas) {
+                    console.log(`🔍 Total nebulas: ${gameData.gameMap.nebulas.length}`);
+                    gameData.gameMap.nebulas.forEach((nebula, i) => {
+                        const dist = Math.sqrt((territory.x - nebula.x) ** 2 + (territory.y - nebula.y) ** 2);
+                        console.log(`🔍 Nebula ${i}: center (${nebula.x}, ${nebula.y}), radius ${nebula.radius}, distance to territory: ${dist.toFixed(1)}`);
+                    });
+                }
             }
             
             if (isMysteriousTerritory && territory.ownerId !== null) {

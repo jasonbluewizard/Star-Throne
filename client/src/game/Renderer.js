@@ -455,6 +455,20 @@ export class Renderer {
             console.log(`🔧 Rendering ${reinforcementCount} supply indicators for territory ${territory.id}`);
         }
         
+        // TEMP TEST: Force render supply indicators on human player territories for testing
+        if (territory.ownerId === 0 && territory.id % 3 === 0) { // Every 3rd human territory gets test indicator
+            console.log(`🧪 TEST: Adding fake supply indicator to territory ${territory.id}`);
+            const yOffset = territory.radius + 15;
+            this.ctx.fillStyle = '#00ff00'; // Green color
+            this.ctx.strokeStyle = 'black';
+            this.ctx.lineWidth = 1;
+            this.ctx.font = 'bold 12px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            this.ctx.strokeText('+', territory.x, territory.y + yOffset);
+            this.ctx.fillText('+', territory.x, territory.y + yOffset);
+        }
+        
         if (reinforcementCount > 0) {
             // Create + symbols underneath the territory
             const plusSymbols = '+'.repeat(reinforcementCount);
