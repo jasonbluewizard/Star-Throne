@@ -936,17 +936,18 @@ export default class StarThrone {
         // Create long-range ship animation (slower and with army count display)
         this.createLongRangeShipAnimation(fromTerritory, toTerritory, fleetSize);
         
-        // Schedule delayed combat resolution when the fleet arrives
-        const arrivalTime = Date.now() + GAME_CONSTANTS.LONG_RANGE_ANIMATION_DURATION;
+        // Calculate distance-based arrival time
+        const animationDuration = this.calculateLongRangeAnimationDuration(fromTerritory, toTerritory);
+        const arrivalTime = Date.now() + animationDuration;
         this.scheduleLongRangeCombat(fromTerritory, toTerritory, fleetSize, arrivalTime);
         
-        // Show visual feedback
-        this.showMessage(`Long-range attack launched: ${fleetSize} ships (arriving in ${GAME_CONSTANTS.LONG_RANGE_ANIMATION_DURATION/1000}s)`, 3000);
+        // Show visual feedback with accurate arrival time
+        this.showMessage(`Long-range attack launched: ${fleetSize} ships (arriving in ${Math.round(animationDuration/1000)}s)`, 3000);
         
         // Flash the source territory
         this.flashTerritory(fromTerritory.id, '#ff0000', 300);
         
-        console.log(`Long-range attack launched successfully: ${fromTerritory.id} -> ${toTerritory.id} (${fleetSize} ships) - arriving in ${GAME_CONSTANTS.LONG_RANGE_ANIMATION_DURATION/1000}s`);
+        console.log(`Long-range attack launched successfully: ${fromTerritory.id} -> ${toTerritory.id} (${fleetSize} ships) - arriving in ${Math.round(animationDuration/1000)}s`);
     }
     
     // Schedule delayed combat resolution for long-range attacks
@@ -1147,12 +1148,37 @@ export default class StarThrone {
         }
     }
 
+    // Calculate distance-based animation duration for long-range attacks
+    calculateLongRangeAnimationDuration(fromTerritory, toTerritory) {
+        const distance = Math.sqrt(
+            Math.pow(toTerritory.x - fromTerritory.x, 2) + 
+            Math.pow(toTerritory.y - fromTerritory.y, 2)
+        );
+        
+        // Duration = distance / speed (in milliseconds)
+        const duration = (distance / GAME_CONSTANTS.LONG_RANGE_BASE_SPEED) * 1000;
+        
+        // Clamp to reasonable bounds
+        return Math.max(
+            GAME_CONSTANTS.LONG_RANGE_MIN_DURATION, 
+            Math.min(GAME_CONSTANTS.LONG_RANGE_MAX_DURATION, duration)
+        );
+    }
+
     // Create long-range ship animation with visual tracking line
     createLongRangeShipAnimation(fromTerritory, toTerritory, fleetSize) {
         const player = this.players[fromTerritory.ownerId];
         const playerColor = player ? player.color : '#ffffff';
         
+        // Calculate distance-based duration
+        const distance = Math.sqrt(
+            Math.pow(toTerritory.x - fromTerritory.x, 2) + 
+            Math.pow(toTerritory.y - fromTerritory.y, 2)
+        );
+        const animationDuration = this.calculateLongRangeAnimationDuration(fromTerritory, toTerritory);
+        
         console.log(`🚀 Creating long-range ship animation: ${fromTerritory.id} -> ${toTerritory.id}, fleet size: ${fleetSize}, color: ${playerColor}`);
+        console.log(`🚀 Distance: ${distance.toFixed(1)}px, Duration: ${animationDuration/1000}s (${GAME_CONSTANTS.LONG_RANGE_BASE_SPEED}px/s)`);
         console.log(`🚀 FROM Territory coordinates: (${fromTerritory.x}, ${fromTerritory.y})`);
         console.log(`🚀 TO Territory coordinates: (${toTerritory.x}, ${toTerritory.y})`);
         
@@ -1162,7 +1188,7 @@ export default class StarThrone {
             animation.from = { x: fromTerritory.x, y: fromTerritory.y };
             animation.to = { x: toTerritory.x, y: toTerritory.y };
             animation.progress = 0;
-            animation.duration = GAME_CONSTANTS.LONG_RANGE_ANIMATION_DURATION; // 6 seconds
+            animation.duration = animationDuration; // Distance-based duration
             animation.startTime = Date.now(); // Critical: set start time for timestamp-based progress
             animation.color = playerColor;
             animation.isAttack = true;
@@ -1172,7 +1198,7 @@ export default class StarThrone {
             animation.fromOwnerId = fromTerritory.ownerId; // Track attacking player for AI limits
             animation.isActive = true; // Ensure it's marked as active
             
-            console.log(`🚀 Animation object created with: from(${animation.from.x}, ${animation.from.y}) to(${animation.to.x}, ${animation.to.y})`);
+            console.log(`🚀 Animation object created with: from(${animation.from.x}, ${animation.from.y}) to(${animation.to.x}, ${animation.to.y}), duration: ${animationDuration}ms`);
             
             this.animationSystem.shipAnimations.push(animation);
             console.log(`✅ Long-range animation added. Total animations: ${this.animationSystem.shipAnimations.length}`);
