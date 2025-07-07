@@ -936,10 +936,15 @@ export default class StarThrone {
         // Create long-range ship animation (slower and with army count display)
         this.createLongRangeShipAnimation(fromTerritory, toTerritory, fleetSize);
         
-        // Calculate distance-based arrival time
+        // Calculate distance-based arrival time using constant speed
+        const distance = Math.sqrt(
+            Math.pow(toTerritory.x - fromTerritory.x, 2) + 
+            Math.pow(toTerritory.y - fromTerritory.y, 2)
+        );
         const animationDuration = this.calculateLongRangeAnimationDuration(fromTerritory, toTerritory);
-        const arrivalTime = Date.now() + animationDuration;
-        this.scheduleLongRangeCombat(fromTerritory, toTerritory, fleetSize, arrivalTime);
+        const startTime = Date.now();
+        const arrivalTime = startTime + animationDuration;
+        this.scheduleLongRangeCombat(fromTerritory, toTerritory, fleetSize, arrivalTime, distance, startTime);
         
         // Show visual feedback with accurate arrival time
         this.showMessage(`Long-range attack launched: ${fleetSize} ships (arriving in ${Math.round(animationDuration/1000)}s)`, 3000);
@@ -951,7 +956,7 @@ export default class StarThrone {
     }
     
     // Schedule delayed combat resolution for long-range attacks
-    scheduleLongRangeCombat(fromTerritory, toTerritory, fleetSize, arrivalTime) {
+    scheduleLongRangeCombat(fromTerritory, toTerritory, fleetSize, arrivalTime, distance, startTime) {
         if (!this.pendingLongRangeCombats) {
             this.pendingLongRangeCombats = [];
         }
@@ -963,10 +968,12 @@ export default class StarThrone {
             toTerritoryId: toTerritory.id,
             fleetSize: fleetSize,
             arrivalTime: arrivalTime,
+            distance: distance,
+            startTime: startTime,
             fromOwnerId: fromTerritory.ownerId // Store attacking player ID
         });
         
-        console.log(`⏰ Long-range combat scheduled: ${fromTerritory.id} -> ${toTerritory.id} at ${new Date(arrivalTime).toLocaleTimeString()}`);
+        console.log(`⏰ Long-range combat scheduled: ${fromTerritory.id} -> ${toTerritory.id} distance=${distance.toFixed(1)}px, travel=${(arrivalTime-startTime)/1000}s`);
     }
     
     // Process pending long-range combat arrivals
@@ -1155,18 +1162,11 @@ export default class StarThrone {
             Math.pow(toTerritory.y - fromTerritory.y, 2)
         );
         
-        // Duration = distance / speed (in milliseconds)
-        const rawDuration = (distance / GAME_CONSTANTS.LONG_RANGE_BASE_SPEED) * 1000;
+        // Duration = distance / speed (in milliseconds) - using constant speed instead of clamping
+        const travelTime = (distance / GAME_CONSTANTS.LONG_RANGE_BASE_SPEED) * 1000;
         
-        // Clamp to reasonable bounds
-        const clampedDuration = Math.max(
-            GAME_CONSTANTS.LONG_RANGE_MIN_DURATION, 
-            Math.min(GAME_CONSTANTS.LONG_RANGE_MAX_DURATION, rawDuration)
-        );
-        
-        console.log(`📐 DURATION CALC: Distance=${distance.toFixed(1)}px, Speed=${GAME_CONSTANTS.LONG_RANGE_BASE_SPEED}px/s, Raw=${rawDuration.toFixed(0)}ms, Clamped=${clampedDuration.toFixed(0)}ms`);
-        console.log(`📐 BOUNDS CHECK: Min=${GAME_CONSTANTS.LONG_RANGE_MIN_DURATION}ms, Max=${GAME_CONSTANTS.LONG_RANGE_MAX_DURATION}ms, Was clamped: ${rawDuration !== clampedDuration}`);
-        return clampedDuration;
+        console.log(`📐 CONSTANT SPEED: Distance=${distance.toFixed(1)}px, Speed=${GAME_CONSTANTS.LONG_RANGE_BASE_SPEED}px/s, TravelTime=${travelTime.toFixed(0)}ms`);
+        return travelTime;
     }
 
     // Create long-range ship animation with visual tracking line
