@@ -1250,39 +1250,45 @@ export default class StarThrone {
             
             this.ctx.save();
             this.ctx.fillStyle = animation.color;
+            this.ctx.strokeStyle = animation.color;
             this.ctx.shadowColor = animation.color;
-            this.ctx.shadowBlur = 12;
+            this.ctx.shadowBlur = 8;
             
-            // Draw larger ship for long-range attacks
+            // Calculate ship direction angle
+            const dx = animation.to.x - animation.from.x;
+            const dy = animation.to.y - animation.from.y;
+            const angle = Math.atan2(dy, dx);
+            
+            // Draw ship shape (triangle pointing in direction of travel)
+            this.ctx.translate(currentX, currentY);
+            this.ctx.rotate(angle);
+            
             this.ctx.beginPath();
-            this.ctx.arc(currentX, currentY, 7, 0, Math.PI * 2);
+            this.ctx.moveTo(12, 0);      // Ship nose (pointing right before rotation)
+            this.ctx.lineTo(-8, -6);     // Left wing
+            this.ctx.lineTo(-5, 0);      // Back center
+            this.ctx.lineTo(-8, 6);      // Right wing
+            this.ctx.closePath();
             this.ctx.fill();
             
-            // Draw army count
+            // Add ship outline
+            this.ctx.lineWidth = 2;
+            this.ctx.stroke();
+            
+            this.ctx.restore();
+            
+            // Draw army count above ship
             if (animation.armyCount) {
+                this.ctx.save();
                 this.ctx.fillStyle = 'white';
                 this.ctx.font = 'bold 14px Arial';
                 this.ctx.textAlign = 'center';
                 this.ctx.strokeStyle = 'black';
                 this.ctx.lineWidth = 3;
-                this.ctx.strokeText(`${animation.armyCount}`, currentX, currentY - 12);
-                this.ctx.fillText(`${animation.armyCount}`, currentX, currentY - 12);
+                this.ctx.strokeText(`${animation.armyCount}`, currentX, currentY - 18);
+                this.ctx.fillText(`${animation.armyCount}`, currentX, currentY - 18);
+                this.ctx.restore();
             }
-            
-            // Add enhanced trail for long-range ships
-            const trailLength = 8;
-            for (let i = 1; i <= trailLength; i++) {
-                const trailProgress = Math.max(0, eased - (i * 0.08));
-                const trailX = animation.from.x + (animation.to.x - animation.from.x) * trailProgress;
-                const trailY = animation.from.y + (animation.to.y - animation.from.y) * trailProgress;
-                
-                this.ctx.globalAlpha = (trailLength - i) / trailLength * 0.6;
-                this.ctx.beginPath();
-                this.ctx.arc(trailX, trailY, 4, 0, Math.PI * 2);
-                this.ctx.fill();
-            }
-            
-            this.ctx.restore();
         }
     }
     
