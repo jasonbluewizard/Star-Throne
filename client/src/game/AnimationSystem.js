@@ -166,6 +166,12 @@ export class AnimationSystem {
             // Use timestamp-based progress calculation for consistency with StarThrone rendering
             if (animation.startTime) {
                 animation.progress = (currentTime - animation.startTime);
+                
+                // Debug logging for long-range animations
+                if (animation.isLongRange) {
+                    const progressPercent = ((currentTime - animation.startTime) / animation.duration * 100).toFixed(1);
+                    console.log(`🎯 ANIM PROGRESS: Long-range ${animation.fromOwnerId} progress=${progressPercent}%, elapsed=${currentTime - animation.startTime}ms, duration=${animation.duration}ms`);
+                }
             } else {
                 // Fallback to deltaTime accumulation for animations without startTime
                 const gameSpeed = this.game.config.gameSpeed || 1.0;

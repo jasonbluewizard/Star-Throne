@@ -1156,13 +1156,16 @@ export default class StarThrone {
         );
         
         // Duration = distance / speed (in milliseconds)
-        const duration = (distance / GAME_CONSTANTS.LONG_RANGE_BASE_SPEED) * 1000;
+        const rawDuration = (distance / GAME_CONSTANTS.LONG_RANGE_BASE_SPEED) * 1000;
         
         // Clamp to reasonable bounds
-        return Math.max(
+        const clampedDuration = Math.max(
             GAME_CONSTANTS.LONG_RANGE_MIN_DURATION, 
-            Math.min(GAME_CONSTANTS.LONG_RANGE_MAX_DURATION, duration)
+            Math.min(GAME_CONSTANTS.LONG_RANGE_MAX_DURATION, rawDuration)
         );
+        
+        console.log(`📐 DURATION CALC: Distance=${distance.toFixed(1)}px, Speed=${GAME_CONSTANTS.LONG_RANGE_BASE_SPEED}px/s, Raw=${rawDuration.toFixed(0)}ms, Clamped=${clampedDuration.toFixed(0)}ms`);
+        return clampedDuration;
     }
 
     // Create long-range ship animation with visual tracking line
