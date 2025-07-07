@@ -1,0 +1,1982 @@
+STAR THRONE - COMPLETE CODEBASE FOR AI ANALYSIS
+==============================================
+
+ISSUE: Long-range attacks disappear on arrival instead of triggering combat
+CONTEXT: Browser-based RTS game with canvas rendering, WebSocket multiplayer, modular architecture
+
+=== MAIN GAME ENGINE ===
+File: client/src/game/StarThrone.js
+
+```javascript
+import { Territory } from './Territory.js';
+import { Player } from './Player.js';
+import { Camera } from './Camera.js';
+import { GameMap } from './GameMap.js';
+import { GameUI } from './GameUI.js';
+import { CombatSystem } from './CombatSystem.js';
+import { SupplySystem } from './SupplySystem.js';
+import { DiscoverySystem } from './DiscoverySystem.js';
+import { AnimationSystem } from './AnimationSystem.js';
+import { UIManager } from './UIManager.js';
+import { GameUtils } from './GameUtils.js';
+import { GAME_CONSTANTS } from '../../../common/gameConstants.js';
+
+export default class StarThrone {
+    constructor(config = {}) {
+        // Core game systems
+        this.gameMap = null;
+        this.players = [];
+        this.camera = null;
+        this.gameUI = null;
+        this.combatSystem = null;
+        this.supplySystem = null;
+        this.discoverySystem = null;
+        this.animationSystem = null;
+        this.uiManager = null;
+        
+        // Game state
+        this.selectedTerritory = null;
+        this.gameEnded = false;
+        this.winner = null;
+        
+        // Performance tracking
+        this.frameCount = 0;
+        this.lastFPSTime = 0;
+        this.currentFPS = 0;
+        this.lastUpdateTime = 0;
+        this.performanceMode = false;
+        
+        // Long-range attack system
+        this.pendingLongRangeCombats = [];
+        this.longRangeAnimations = [];
+        
+        // Game configuration
+        this.config = {
+            mapSize: config.mapSize || 80,
+            numPlayers: config.numPlayers || 20,
+            gameSpeed: config.gameSpeed || 1.0,
+            layout: config.layout || 'organic',
+            playerName: config.playerName || 'Player',
+            ...config
+        };
+        
+        // Player discoveries tracking
+        this.playerDiscoveries = new Map();
+        
+        // Input state for modifier keys
+        this.modifierKeys = {
+            shift: false,
+            ctrl: false,
+            alt: false
+        };
+        
+        // Mouse and touch handling
+        this.pendingMouseEvent = null;
+        this.lastMouseProcessTime = 0;
+        this.canvasRectCache = null;
+        this.canvasRectCacheTime = 0;
+        
+        // Logging throttling
+        this.logThrottle = new Map();
+    }
+
+    /**
+     * Performance-optimized logging with throttling
+     * @param {string} message - Log message
+     * @param {string} type - Log type (info, warn, error)
+     * @param {number} throttleMs - Minimum time between identical messages
+     */
+    log(message, type = 'info', throttleMs = 1000) {
+        const key = `${type}:${message}`;
+        const now = Date.now();
+        
+        if (this.logThrottle.has(key)) {
+            const lastTime = this.logThrottle.get(key);
+            if (now - lastTime < throttleMs) return;
+        }
+        
+        this.logThrottle.set(key, now);
+        console[type](message);
+    }
+
+    /**
+     * Get cached canvas bounding rectangle with automatic cache invalidation
+     * Prevents expensive getBoundingClientRect() calls on every mouse event
+     */
+    getCachedCanvasRect() {
+        const now = Date.now();
+        if (!this.canvasRectCache || now - this.canvasRectCacheTime > 1000) {
+            this.canvasRectCache = this.canvas.getBoundingClientRect();
+            this.canvasRectCacheTime = now;
+        }
+        return this.canvasRectCache;
+    }
+
+    /**
+     * Invalidate canvas rect cache on window resize or scroll
+     */
+    invalidateCanvasRectCache() {
+        this.canvasRectCache = null;
+    }
+
+    /**
+     * Throttled mouse event processing - limits to one event per frame
+     * @param {MouseEvent} event - Raw mouse event
+     * @param {Function} handler - Event handler function
+     */
+    handleThrottledMouseEvent(event, handler) {
+        const now = Date.now();
+        if (now - this.lastMouseProcessTime < 16) { // 60 FPS limit
+            this.pendingMouseEvent = { event, handler };
+            return;
+        }
+        
+        this.lastMouseProcessTime = now;
+        handler(event);
+    }
+
+    /**
+     * Process the most recent pending mouse event
+     */
+    processPendingMouseEvent() {
+        if (this.pendingMouseEvent) {
+            const { event, handler } = this.pendingMouseEvent;
+            this.pendingMouseEvent = null;
+            handler(event);
+        }
+    }
+
+    loadBackgroundImage() {
+        this.backgroundImage = new Image();
+        this.backgroundImage.onload = () => {
+            console.log('Background image loaded successfully');
+        };
+        this.backgroundImage.onerror = () => {
+            console.log('Background image failed to load, using fallback');
+            this.backgroundImage = null;
+        };
+        this.backgroundImage.src = '/galaxy-background.jpg';
+    }
+
+    renderBackgroundImage() {
+        if (!this.backgroundImage) return;
+        
+        const ctx = this.ctx;
+        ctx.save();
+        
+        // Apply parallax movement (20% of camera movement)
+        const parallaxX = this.camera.x * 0.2;
+        const parallaxY = this.camera.y * 0.2;
+        
+        // Calculate image dimensions to cover the viewport
+        const viewportWidth = this.canvas.width;
+        const viewportHeight = this.canvas.height;
+        const imageAspect = this.backgroundImage.width / this.backgroundImage.height;
+        const viewportAspect = viewportWidth / viewportHeight;
+        
+        let drawWidth, drawHeight;
+        if (imageAspect > viewportAspect) {
+            drawHeight = viewportHeight;
+            drawWidth = drawHeight * imageAspect;
+        } else {
+            drawWidth = viewportWidth;
+            drawHeight = drawWidth / imageAspect;
+        }
+        
+        // Center the image with parallax offset
+        const drawX = (viewportWidth - drawWidth) / 2 - parallaxX;
+        const drawY = (viewportHeight - drawHeight) / 2 - parallaxY;
+        
+        // Set low opacity and dark overlay
+        ctx.globalAlpha = 0.15;
+        ctx.drawImage(this.backgroundImage, drawX, drawY, drawWidth, drawHeight);
+        
+        // Add dark overlay
+        ctx.globalAlpha = 0.6;
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, viewportWidth, viewportHeight);
+        
+        ctx.restore();
+    }
+
+    /**
+     * Setup event listeners for event-driven architecture
+     */
+    setupEventListeners() {
+        // Territory capture events
+        this.gameMap.on('territoryCapture', this.handleTerritoryCapture.bind(this));
+        
+        // Throne capture events  
+        this.gameMap.on('throneCapture', this.handleThroneCapture.bind(this));
+        
+        // Discovery events
+        this.gameMap.on('discovery', this.handleDiscoveryEvent.bind(this));
+        
+        // Combat events
+        this.combatSystem.on('combatStart', this.handleCombatStart.bind(this));
+    }
+
+    /**
+     * Handle territory capture events
+     */
+    handleTerritoryCapture(data) {
+        const { territory, newOwner, previousOwner } = data;
+        
+        // Update visual state
+        territory.triggerCombatFlash();
+        
+        // Check for game ending conditions
+        this.checkWinConditions();
+        
+        // Trigger discovery if capturing neutral territory
+        if (!previousOwner) {
+            this.discoverySystem.triggerDiscovery(territory, newOwner);
+        }
+    }
+
+    /**
+     * Handle throne capture events
+     */
+    handleThroneCapture(data) {
+        const { attackerId, defenderId, territoryId } = data;
+        
+        // Throne capture triggers immediate empire collapse
+        this.processEmperorDefeat(defenderId, attackerId);
+        
+        // Visual feedback
+        this.uiManager.addNotification(`🏆 THRONE CAPTURED! Empire falls to ${this.players[attackerId].name}`, '#ffd700', 5000);
+        
+        // Check if game should end
+        this.checkWinConditions();
+    }
+
+    /**
+     * Handle discovery events
+     */
+    handleDiscoveryEvent(data) {
+        const { territory, playerId, discovery } = data;
+        
+        // Process discovery bonuses
+        this.discoverySystem.processDiscovery(playerId, discovery);
+        
+        // Add visual feedback
+        this.uiManager.addFloatingDiscoveryText(territory, discovery, playerId);
+        
+        // Log for UI panel
+        this.discoverySystem.logDiscoveryForUI(territory, playerId, discovery);
+    }
+
+    /**
+     * Handle combat start events
+     */
+    handleCombatStart(data) {
+        const { attackingTerritory, defendingTerritory } = data;
+        
+        // Trigger visual combat effects
+        attackingTerritory.triggerCombatFlash();
+        defendingTerritory.triggerCombatFlash();
+        
+        // Create ship animation
+        this.animationSystem.createShipAnimation(attackingTerritory, defendingTerritory, true);
+    }
+
+    addNotification(text, color = '#44ff44', duration = 4000) {
+        this.uiManager.addNotification(text, color, duration);
+    }
+
+    updateNotifications() {
+        this.uiManager.updateNotifications();
+    }
+
+    showMessage(text, duration = 3000) {
+        this.uiManager.showMessage(text, duration);
+    }
+
+    hideMessage() {
+        this.uiManager.hideMessage();
+    }
+
+    showError(text) {
+        this.uiManager.showError(text);
+    }
+
+    updateMessage(deltaTime) {
+        this.uiManager.updateMessage(deltaTime);
+    }
+
+    init() {
+        this.setupCanvas();
+        this.loadBackgroundImage();
+        
+        // Initialize game systems
+        this.camera = new Camera(this.canvas.width, this.canvas.height);
+        this.gameUI = new GameUI(this);
+        this.combatSystem = new CombatSystem(this);
+        this.supplySystem = new SupplySystem(this);
+        this.discoverySystem = new DiscoverySystem(this);
+        this.animationSystem = new AnimationSystem(this);
+        this.uiManager = new UIManager(this);
+        
+        // Initialize starfield for background atmosphere
+        this.animationSystem.initializeStarfield();
+        
+        // Initialize discovery system
+        this.discoverySystem.init();
+        
+        // Setup event listeners
+        this.setupEventListeners();
+        
+        console.log('🎮 Star Throne initialized successfully');
+    }
+
+    getDiscoveryTypes() {
+        return [
+            { id: 'precursor_weapons', name: 'Precursor Weapons', effect: 'attack_bonus', value: 0.1, icon: '⚔️', color: '#ff4444' },
+            { id: 'precursor_drive', name: 'Precursor Drive', effect: 'speed_bonus', value: 0.2, icon: '🚀', color: '#44aaff' },
+            { id: 'precursor_shield', name: 'Precursor Shield', effect: 'defense_bonus', value: 0.1, icon: '🛡️', color: '#4444ff' },
+            { id: 'precursor_nanotech', name: 'Precursor Nanotech', effect: 'generation_bonus', value: 0.1, icon: '⚙️', color: '#44ff44' },
+            { id: 'factory_complex', name: 'Precursor Factory Complex', effect: 'factory_bonus', value: 2.0, icon: '🏭', color: '#ffaa44' },
+            { id: 'friendly_aliens', name: 'Friendly Aliens', effect: 'fleet_bonus', value: 50, icon: '👽', color: '#44ffaa' },
+            { id: 'mineral_deposits', name: 'Rich Mineral Deposits', effect: 'generation_bonus', value: 1.5, icon: '💎', color: '#aa44ff' },
+            { id: 'void_storms', name: 'Void Storms', effect: 'generation_penalty', value: 0.75, icon: '⚡', color: '#ff8844' },
+            { id: 'ancient_ruins', name: 'Ancient Ruins', effect: 'neutral', value: 0, icon: '🏛️', color: '#888888' },
+            { id: 'standard_planet', name: 'Standard Planet', effect: 'neutral', value: 0, icon: '🌍', color: '#6699ff' }
+        ];
+    }
+
+    initializeStarfield() {
+        this.animationSystem.initializeStarfield();
+    }
+
+    preRenderStaticBackground() {
+        this.animationSystem.preRenderStaticBackground();
+    }
+
+    renderStarfieldStatic(ctx) {
+        this.animationSystem.renderStarfieldStatic(ctx);
+    }
+
+    renderNebulasStatic(ctx) {
+        this.animationSystem.renderNebulasStatic(ctx);
+    }
+
+    selectRandomDiscovery() {
+        return this.discoverySystem.selectRandomDiscovery();
+    }
+
+    logDiscoveryForUI(territory, playerId, discovery) {
+        this.discoverySystem.logDiscoveryForUI(territory, playerId, discovery);
+    }
+
+    addFloatingDiscoveryText(territory, discovery, playerId) {
+        this.uiManager.addFloatingDiscoveryText(territory, discovery, playerId);
+    }
+
+    getDiscoveryIcon(effect) {
+        return this.discoverySystem.getDiscoveryIcon(effect);
+    }
+
+    getDiscoveryColor(effect) {
+        return this.discoverySystem.getDiscoveryColor(effect);
+    }
+
+    updateFloatingDiscoveryTexts(deltaTime) {
+        this.uiManager.updateFloatingDiscoveryTexts(deltaTime);
+    }
+
+    createShipAnimation(fromTerritory, toTerritory, isAttack = false, fleetSize = 0) {
+        this.animationSystem.createShipAnimation(fromTerritory, toTerritory, isAttack, fleetSize);
+    }
+
+    createSupplyRouteAnimation(path, playerColor) {
+        this.animationSystem.createSupplyRouteAnimation(path, playerColor);
+    }
+
+    initializeAnimationSegment(animation) {
+        this.animationSystem.initializeAnimationSegment(animation);
+    }
+
+    launchLongRangeAttack(fromTerritory, toTerritory, fleetSize) {
+        console.log(`🚀 LAUNCHING LONG-RANGE ATTACK: ${fleetSize} ships from territory ${fromTerritory.id} to ${toTerritory.id}`);
+        
+        // Deduct ships from source territory immediately
+        fromTerritory.armySize = Math.max(1, fromTerritory.armySize - fleetSize);
+        
+        // Calculate travel time based on distance (2 seconds per 100 pixels)
+        const distance = Math.sqrt(
+            Math.pow(toTerritory.x - fromTerritory.x, 2) + 
+            Math.pow(toTerritory.y - fromTerritory.y, 2)
+        );
+        const travelTime = Math.max(3000, distance * 20); // Minimum 3 seconds, 20ms per pixel
+        
+        // Schedule combat arrival
+        this.scheduleLongRangeCombat(fromTerritory, toTerritory, fleetSize, Date.now() + travelTime);
+        
+        // Create visual animation
+        this.createLongRangeShipAnimation(fromTerritory, toTerritory, fleetSize);
+        
+        // Visual feedback
+        this.uiManager.showMessage(`Long-range attack launched! ETA: ${Math.round(travelTime/1000)}s`, 2000);
+        
+        console.log(`📡 Long-range attack scheduled: ${fleetSize} ships will arrive in ${travelTime}ms`);
+    }
+
+    scheduleLongRangeCombat(fromTerritory, toTerritory, fleetSize, arrivalTime) {
+        const combat = {
+            fromTerritoryId: fromTerritory.id,
+            toTerritoryId: toTerritory.id,
+            fromOwnerId: fromTerritory.ownerId,
+            fleetSize: fleetSize,
+            arrivalTime: arrivalTime,
+            id: Date.now() + Math.random() // Unique identifier
+        };
+        
+        this.pendingLongRangeCombats.push(combat);
+        console.log(`⏰ SCHEDULED: Long-range combat ${combat.id} will arrive at ${new Date(arrivalTime).toLocaleTimeString()}`);
+    }
+
+    // Process pending long-range combat arrivals
+    processLongRangeCombatArrivals() {
+        const currentTime = Date.now();
+        for (let i = this.pendingLongRangeCombats.length - 1; i >= 0; i--) {
+            const combat = this.pendingLongRangeCombats[i];
+            
+            if (currentTime >= combat.arrivalTime) {
+                // Fleet has arrived - process combat
+                console.log(`⚔️ LONG-RANGE ARRIVAL: Fleet from ${combat.fromTerritoryId} attacking ${combat.toTerritoryId} with ${combat.fleetSize} ships`);
+                console.log(`🔍 DEBUG: gameMap.territories structure:`, typeof this.gameMap.territories, Object.keys(this.gameMap.territories).length);
+                
+                // Validate territories still exist and are valid targets
+                const targetTerritory = this.gameMap.territories[combat.toTerritoryId] || 
+                                      Object.values(this.gameMap.territories).find(t => t.id === combat.toTerritoryId);
+                const sourceTerritory = this.gameMap.territories[combat.fromTerritoryId] || 
+                                      Object.values(this.gameMap.territories).find(t => t.id === combat.fromTerritoryId);
+                
+                console.log(`🔍 LONG-RANGE DEBUG: Target territory ${combat.toTerritoryId} found: ${!!targetTerritory}, Source territory ${combat.fromTerritoryId} found: ${!!sourceTerritory}`);
+                console.log(`🔍 DEBUG: Target lookup result:`, targetTerritory ? `Territory ${targetTerritory.id} owner ${targetTerritory.ownerId}` : 'NOT FOUND');
+                console.log(`🔍 DEBUG: Source lookup result:`, sourceTerritory ? `Territory ${sourceTerritory.id} owner ${sourceTerritory.ownerId}` : 'NOT FOUND');
+                
+                if (targetTerritory && sourceTerritory) {
+                    // Process the actual combat
+                    console.log(`✅ LONG-RANGE: Processing combat for valid territories`);
+                    this.processLongRangeArrival(combat, sourceTerritory, targetTerritory);
+                } else {
+                    console.log(`❌ Long-range combat cancelled: invalid territories (source: ${!!sourceTerritory}, target: ${!!targetTerritory})`);
+                    if (!targetTerritory) {
+                        console.log(`❌ Target territory ${combat.toTerritoryId} not found in gameMap.territories`);
+                        console.log(`❌ Available territory IDs:`, Object.keys(this.gameMap.territories).slice(0, 10));
+                    }
+                    if (!sourceTerritory) {
+                        console.log(`❌ Source territory ${combat.fromTerritoryId} not found in gameMap.territories`);
+                    }
+                }
+                
+                // Remove completed combat
+                this.pendingLongRangeCombats.splice(i, 1);
+            }
+        }
+    }
+    
+    // Process long-range fleet arrival and combat
+    processLongRangeArrival(combat, sourceTerritory, targetTerritory) {
+        console.log(`💥 Long-range fleet arrives! ${combat.fleetSize} ships attacking territory ${targetTerritory.id} (${targetTerritory.armySize} defenders)`);
+        
+        // Create a temporary attacking territory for the long-range attack
+        const tempAttackingTerritory = {
+            id: sourceTerritory.id,
+            ownerId: combat.fromOwnerId,
+            armySize: combat.fleetSize + 1, // +1 so the attack system can deduct armies
+            x: sourceTerritory.x,
+            y: sourceTerritory.y,
+            neighbors: [targetTerritory.id] // Temporary connection for attack validation
+        };
+        
+        // Trigger combat flash effects
+        targetTerritory.triggerCombatFlash();
+        if (sourceTerritory.triggerCombatFlash) {
+            sourceTerritory.triggerCombatFlash();
+        }
+        
+        // Use the combat system's attackTerritory method
+        console.log(`🔍 LONG-RANGE COMBAT: Calling attackTerritory with temp attacking territory (${tempAttackingTerritory.id}, owner: ${tempAttackingTerritory.ownerId}, armies: ${tempAttackingTerritory.armySize}) vs target (${targetTerritory.id}, owner: ${targetTerritory.ownerId}, armies: ${targetTerritory.armySize})`);
+        const result = this.combatSystem.attackTerritory(tempAttackingTerritory, targetTerritory);
+        console.log(`🔍 LONG-RANGE RESULT:`, result);
+        
+        if (result.success) {
+            console.log(`🏆 Long-range attack successful! Territory ${targetTerritory.id} captured by player ${combat.fromOwnerId}`);
+            
+            // Visual feedback
+            if (this.flashTerritory) {
+                this.flashTerritory(targetTerritory.id, '#00ff00', 500);
+            }
+            if (this.uiManager && this.uiManager.showMessage) {
+                this.uiManager.showMessage(`Long-range attack successful! Territory captured`, 3000);
+            }
+            
+            // Check for game end conditions
+            this.checkWinConditions();
+        } else {
+            console.log(`🛡️ Long-range attack failed! Territory ${targetTerritory.id} defended`);
+            
+            // Visual feedback for failed attack
+            if (this.flashTerritory) {
+                this.flashTerritory(targetTerritory.id, '#ff0000', 500);
+            }
+            if (this.uiManager && this.uiManager.showMessage) {
+                this.uiManager.showMessage(`Long-range attack failed! Defense held`, 2000);
+            }
+        }
+        
+        // Update player stats
+        if (this.players) {
+            this.players.forEach(player => player.updateStats());
+        }
+    }
+
+    createLongRangeShipAnimation(fromTerritory, toTerritory, fleetSize) {
+        this.animationSystem.createLongRangeShipAnimation(fromTerritory, toTerritory, fleetSize);
+    }
+
+    updateShipAnimations(deltaTime) {
+        this.animationSystem.updateShipAnimations(deltaTime);
+    }
+
+    updateProbes(deltaTime) {
+        // Probe system disabled - this method preserved for compatibility
+    }
+
+    colonizePlanet(probe) {
+        // Probe system disabled - this method preserved for compatibility
+    }
+
+    renderShipAnimations() {
+        this.animationSystem.renderShipAnimations();
+    }
+
+    renderLongRangeAnimationsFixed() {
+        this.animationSystem.renderLongRangeAnimations();
+    }
+
+    renderProbes() {
+        // Probe system disabled - this method preserved for compatibility
+    }
+
+    _removedRenderLongRangeAttacks() {
+        // This method has been removed and replaced with renderLongRangeAnimationsFixed
+    }
+
+    renderFloatingDiscoveryTexts() {
+        this.uiManager.renderFloatingDiscoveryTexts();
+    }
+
+    easeInOutQuad(t) {
+        return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    }
+
+    setupCanvas() {
+        this.canvas = document.getElementById('gameCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        
+        // Set canvas dimensions to fill window
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+        
+        // Enable high-DPI rendering
+        const dpr = window.devicePixelRatio || 1;
+        const rect = this.canvas.getBoundingClientRect();
+        
+        this.canvas.width = rect.width * dpr;
+        this.canvas.height = rect.height * dpr;
+        this.canvas.style.width = rect.width + 'px';
+        this.canvas.style.height = rect.height + 'px';
+        
+        this.ctx.scale(dpr, dpr);
+        
+        this.setupEventListeners();
+    }
+
+    setupEventListeners() {
+        // Window resize handler
+        window.addEventListener('resize', this.handleResize.bind(this));
+        window.addEventListener('scroll', this.invalidateCanvasRectCache.bind(this));
+        
+        // Keyboard event listeners for modifier keys
+        window.addEventListener('keydown', (e) => {
+            this.modifierKeys.shift = e.shiftKey;
+            this.modifierKeys.ctrl = e.ctrlKey;
+            this.modifierKeys.alt = e.altKey;
+            
+            // Handle specific key commands
+            if (e.code === 'Space') {
+                e.preventDefault();
+                if (this.selectedTerritory) {
+                    this.camera.focusOnPoint(this.selectedTerritory.x, this.selectedTerritory.y, 1000);
+                }
+            } else if (e.code === 'KeyH') {
+                e.preventDefault();
+                // Find player's throne star and center camera on it
+                const humanPlayer = this.players.find(p => p.type === 'human');
+                if (humanPlayer) {
+                    const throneTerritory = Object.values(this.gameMap.territories).find(t => 
+                        t.ownerId === humanPlayer.id && t.isThronestar
+                    );
+                    if (throneTerritory) {
+                        this.camera.focusOnPoint(throneTerritory.x, throneTerritory.y, 1000);
+                    } else {
+                        // Fallback to first owned territory
+                        const firstTerritory = Object.values(this.gameMap.territories).find(t => 
+                            t.ownerId === humanPlayer.id
+                        );
+                        if (firstTerritory) {
+                            this.camera.focusOnPoint(firstTerritory.x, firstTerritory.y, 1000);
+                        }
+                    }
+                }
+            }
+        });
+        
+        window.addEventListener('keyup', (e) => {
+            this.modifierKeys.shift = e.shiftKey;
+            this.modifierKeys.ctrl = e.ctrlKey;
+            this.modifierKeys.alt = e.altKey;
+        });
+        
+        // Mouse events with throttling
+        this.canvas.addEventListener('mousemove', (e) => {
+            this.handleThrottledMouseEvent(e, this.handleMouseMove.bind(this));
+        });
+        
+        this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
+        this.canvas.addEventListener('mouseup', this.handleMouseUp.bind(this));
+        this.canvas.addEventListener('wheel', this.handleMouseWheel.bind(this));
+        this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+        
+        // Touch events
+        this.canvas.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
+        this.canvas.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
+        this.canvas.addEventListener('touchend', this.handleTouchEnd.bind(this), { passive: false });
+        
+        // Double click for supply routes
+        this.canvas.addEventListener('dblclick', this.handleDoubleClick.bind(this));
+    }
+
+    /**
+     * Handle window resize events with DOM cache invalidation
+     */
+    handleResize() {
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+        
+        // Update high-DPI scaling
+        const dpr = window.devicePixelRatio || 1;
+        const rect = this.canvas.getBoundingClientRect();
+        
+        this.canvas.width = rect.width * dpr;
+        this.canvas.height = rect.height * dpr;
+        this.canvas.style.width = rect.width + 'px';
+        this.canvas.style.height = rect.height + 'px';
+        
+        this.ctx.scale(dpr, dpr);
+        
+        // Update camera viewport
+        if (this.camera) {
+            this.camera.viewportWidth = this.canvas.width / dpr;
+            this.camera.viewportHeight = this.canvas.height / dpr;
+        }
+        
+        // Invalidate DOM caches
+        this.invalidateCanvasRectCache();
+    }
+
+    handleMouseMove(e) {
+        const rect = this.getCachedCanvasRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        this.handleMouseMoveThrottled(x, y, e);
+    }
+
+    /**
+     * Throttled mouse move handler - called via the throttling system
+     * @param {number} x - Canvas-relative X coordinate
+     * @param {number} y - Canvas-relative Y coordinate
+     * @param {MouseEvent} event - Original mouse event
+     */
+    handleMouseMoveThrottled(x, y, event) {
+        // Update camera with edge panning
+        this.camera.handleMouseMove(x, y);
+        
+        // Update hover state for territories
+        const worldPos = this.camera.screenToWorld(x, y);
+        this.updateHoverState(worldPos);
+        
+        // Update canvas cursor
+        this.updateCanvasCursor();
+    }
+
+    handleMouseDown(e) {
+        const rect = this.getCachedCanvasRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        this.camera.handleMouseDown(x, y, e.button);
+    }
+
+    handleMouseUp(e) {
+        const rect = this.getCachedCanvasRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        this.camera.handleMouseUp(x, y, e.button);
+    }
+
+    handleMouseWheel(e) {
+        e.preventDefault();
+        
+        const rect = this.getCachedCanvasRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        const zoomDelta = e.deltaY > 0 ? 0.9 : 1.1;
+        this.camera.zoomAt(x, y, zoomDelta);
+    }
+
+    startGame() {
+        console.log('🎮 Starting Star Throne game...');
+        
+        // Generate map with specified layout
+        this.gameMap = new GameMap(2000, 1500, {
+            layout: this.config.layout,
+            connectionRange: 200, // Increased for better connectivity with larger spacing
+            warpLaneDensity: 80,
+            nebulaCount: Math.floor(8 + Math.random() * 8), // 8-15 nebulas
+            nebulaSlowdown: true,
+            supplyRoutes: true,
+            probeColonization: false // Disabled probe system
+        });
+        
+        console.log('🗺️ Generating galaxy map, please wait...');
+        this.gameMap.generateTerritories(this.config.mapSize);
+        
+        // Create players
+        this.createPlayers(this.config.numPlayers);
+        
+        // Distribute starting territories
+        this.distributeStartingTerritories();
+        
+        // Initialize camera at map center with slight zoom out
+        const mapCenter = this.gameMap.getMapCenter();
+        this.camera.x = mapCenter.x;
+        this.camera.y = mapCenter.y;
+        this.camera.targetZoom = 0.25; // Start zoomed out to see more of the galaxy
+        this.camera.zoom = 0.25;
+        
+        // Flash human player's starting territories for 3 seconds
+        const humanPlayer = this.players.find(p => p.type === 'human');
+        if (humanPlayer) {
+            const humanTerritories = Object.values(this.gameMap.territories).filter(t => t.ownerId === humanPlayer.id);
+            humanTerritories.forEach(territory => {
+                territory.flashStartTime = Date.now();
+                territory.isFlashingStart = true;
+            });
+            
+            // Stop flashing after 3 seconds
+            setTimeout(() => {
+                humanTerritories.forEach(territory => {
+                    territory.isFlashingStart = false;
+                });
+            }, 3000);
+        }
+        
+        // Start game loop
+        this.gameLoop();
+        
+        console.log(`🚀 Game started with ${this.config.numPlayers} players on ${this.config.mapSize} territory ${this.config.layout} galaxy`);
+    }
+
+    generateAIName(index) {
+        return GameUtils.generateAIName(index);
+    }
+
+    createPlayers(numPlayers) {
+        this.players = [];
+        this.playerDiscoveries = new Map();
+        
+        // Create human player first (ID 0)
+        const humanPlayer = new Player(0, this.config.playerName, '#00ffff', 'human');
+        this.players.push(humanPlayer);
+        this.initializePlayerDiscoveries(0);
+        
+        // Generate AI players with unique colors
+        const aiColors = [
+            '#ff4444', '#44ff44', '#4444ff', '#ffff44', '#ff44ff', '#44ffff',
+            '#ff8844', '#88ff44', '#4488ff', '#ff4488', '#88ff88', '#8844ff',
+            '#ffaa44', '#aaff44', '#44aaff', '#ff44aa', '#aaff88', '#aa44ff',
+            '#ff6666', '#66ff66', '#6666ff', '#ffff66', '#ff66ff', '#66ffff',
+            '#ff9966', '#99ff66', '#6699ff', '#ff6699', '#99ff99', '#9966ff',
+            '#ffbb66', '#bbff66', '#66bbff', '#ff66bb', '#bbff99', '#bb66ff',
+            '#ffcc88', '#ccff88', '#88ccff', '#ff88cc', '#ccff99', '#cc88ff',
+            '#ffdd99', '#ddff99', '#99ddff', '#ff99dd', '#ddffaa', '#dd99ff',
+            '#ffeeaa', '#eeffaa', '#aaeeff', '#ffaaee', '#eeffbb', '#eeaaff',
+            '#fff0bb', '#f0ffbb', '#bbf0ff', '#ffbbf0', '#f0ffcc', '#f0bbff'
+        ];
+        
+        for (let i = 1; i < numPlayers; i++) {
+            const color = aiColors[(i - 1) % aiColors.length];
+            const name = this.generateAIName(i);
+            const aiPlayer = new Player(i, name, color, 'ai');
+            this.players.push(aiPlayer);
+            this.initializePlayerDiscoveries(i);
+        }
+        
+        console.log(`👥 Created ${numPlayers} players (1 human, ${numPlayers - 1} AI)`);
+    }
+
+    initializePlayerDiscoveries(playerId) {
+        const discoveries = {
+            precursorWeapons: 0,
+            precursorDrive: 0,
+            precursorShield: 0,
+            precursorNanotech: 0,
+            factoryPlanets: {},
+            friendlyAliens: 0,
+            richMinerals: 0,
+            voidStorms: 0,
+            ancientRuins: 0,
+            hostileAliens: 0
+        };
+        this.playerDiscoveries.set(playerId, discoveries);
+    }
+
+    adjustColorBrightness(hex, percent) {
+        const num = parseInt(hex.replace('#', ''), 16);
+        const amt = Math.round(2.55 * percent);
+        const R = (num >> 16) + amt;
+        const G = (num >> 8 & 0x00FF) + amt;
+        const B = (num & 0x0000FF) + amt;
+        return '#' + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+            (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+            (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1);
+    }
+
+    distributeStartingTerritories() {
+        const territories = Object.values(this.gameMap.territories);
+        const numPlayers = this.players.length;
+        
+        // Find positions with maximum separation
+        const selectedTerritories = [];
+        const minDistance = 200; // Minimum distance between starting positions
+        
+        // Select first territory randomly
+        selectedTerritories.push(territories[Math.floor(Math.random() * territories.length)]);
+        
+        // Select remaining territories with distance constraints
+        for (let i = 1; i < numPlayers; i++) {
+            let attempts = 0;
+            let bestTerritory = null;
+            let bestMinDistance = 0;
+            
+            // Try to find territory with maximum minimum distance to existing selections
+            while (attempts < 100) {
+                const candidate = territories[Math.floor(Math.random() * territories.length)];
+                
+                // Skip if already selected
+                if (selectedTerritories.includes(candidate)) {
+                    attempts++;
+                    continue;
+                }
+                
+                // Calculate minimum distance to any selected territory
+                let minDistToSelected = Infinity;
+                for (const selected of selectedTerritories) {
+                    const dist = Math.sqrt(
+                        Math.pow(candidate.x - selected.x, 2) + 
+                        Math.pow(candidate.y - selected.y, 2)
+                    );
+                    minDistToSelected = Math.min(minDistToSelected, dist);
+                }
+                
+                // Accept if far enough, or track best option
+                if (minDistToSelected >= minDistance) {
+                    bestTerritory = candidate;
+                    break;
+                } else if (minDistToSelected > bestMinDistance) {
+                    bestTerritory = candidate;
+                    bestMinDistance = minDistToSelected;
+                }
+                
+                attempts++;
+            }
+            
+            if (bestTerritory) {
+                selectedTerritories.push(bestTerritory);
+            } else {
+                // Fallback: just pick any unselected territory
+                const unselected = territories.filter(t => !selectedTerritories.includes(t));
+                if (unselected.length > 0) {
+                    selectedTerritories.push(unselected[0]);
+                }
+            }
+        }
+        
+        // Assign selected territories to players
+        for (let i = 0; i < numPlayers && i < selectedTerritories.length; i++) {
+            const territory = selectedTerritories[i];
+            const player = this.players[i];
+            
+            territory.ownerId = player.id;
+            territory.armySize = GAME_CONSTANTS.STARTING_FLEET_COUNT;
+            territory.isThronestar = true; // Mark as throne star
+            
+            // Add to player's territory list
+            player.territories.push(territory.id);
+            
+            console.log(`🏰 Player ${player.name} starts with throne star at territory ${territory.id} (${territory.x.toFixed(0)}, ${territory.y.toFixed(0)})`);
+        }
+        
+        console.log(`🎯 Distributed ${selectedTerritories.length} starting territories to ${numPlayers} players`);
+    }
+
+    shuffleArray(array) {
+        const shuffled = [...array];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        return shuffled;
+    }
+
+    gameLoop(currentTime = 0) {
+        // Process pending mouse events
+        this.processPendingMouseEvent();
+        
+        // Calculate delta time
+        const deltaTime = currentTime - this.lastUpdateTime;
+        this.lastUpdateTime = currentTime;
+        
+        // Update FPS tracking
+        this.updateFPS(currentTime);
+        
+        // Update game state
+        this.update(deltaTime);
+        
+        // Render frame
+        this.render();
+        
+        // Continue game loop
+        requestAnimationFrame(this.gameLoop.bind(this));
+    }
+
+    updateFPS(currentTime) {
+        this.frameCount++;
+        if (currentTime - this.lastFPSTime >= 1000) {
+            this.currentFPS = this.frameCount;
+            this.frameCount = 0;
+            this.lastFPSTime = currentTime;
+        }
+    }
+
+    update(deltaTime) {
+        if (this.gameEnded) return;
+        
+        // Update camera
+        this.camera.update(deltaTime);
+        
+        // Update all players (with AI staggering for performance)
+        this.updatePlayersStaggered(deltaTime);
+        
+        // Update game systems
+        this.animationSystem.updateShipAnimations(deltaTime);
+        this.uiManager.updateFloatingDiscoveryTexts(deltaTime);
+        this.uiManager.updateMessage(deltaTime);
+        this.uiManager.updateNotifications();
+        
+        // Process long-range combat arrivals
+        this.processLongRangeCombatArrivals();
+        
+        // Update territories (army generation, etc.)
+        this.updateTerritories(deltaTime);
+        
+        // Process supply routes (throttled for performance)
+        this.supplySystem.processSupplyRoutes();
+        
+        // Validate throne stars occasionally
+        this.validateThroneStars();
+        
+        // Check win conditions
+        this.checkWinConditions();
+    }
+
+    updatePlayersStaggered(deltaTime) {
+        // Process 1/3 of AI players per frame for better performance
+        const aiPlayers = this.players.filter(p => p.type === 'ai');
+        const batchSize = Math.ceil(aiPlayers.length / 3);
+        const startIndex = (this.frameCount % 3) * batchSize;
+        const endIndex = Math.min(startIndex + batchSize, aiPlayers.length);
+        
+        // Update human player every frame
+        const humanPlayer = this.players.find(p => p.type === 'human');
+        if (humanPlayer) {
+            humanPlayer.update(deltaTime, this.gameMap, this.players);
+        }
+        
+        // Update subset of AI players
+        for (let i = startIndex; i < endIndex; i++) {
+            const player = aiPlayers[i];
+            player.update(deltaTime, this.gameMap, this.players);
+        }
+    }
+
+    updateTerritories(deltaTime) {
+        Object.values(this.gameMap.territories).forEach(territory => {
+            territory.update(deltaTime, this.config.gameSpeed);
+        });
+    }
+
+    checkPlayerElimination() {
+        this.players.forEach(player => {
+            if (!player.isEliminated && player.territories.length === 0) {
+                player.isEliminated = true;
+                console.log(`💀 Player ${player.name} has been eliminated!`);
+                
+                if (player.type === 'human') {
+                    this.uiManager.showMessage(`You have been eliminated! You can continue watching.`, 5000);
+                }
+            }
+        });
+    }
+
+    checkWinConditions() {
+        // Check for player elimination
+        this.checkPlayerElimination();
+        
+        // Check if only one player remains with territories
+        const activePlayers = this.players.filter(p => !p.isEliminated && p.territories.length > 0);
+        
+        if (activePlayers.length <= 1 && !this.gameEnded) {
+            const winner = activePlayers.length === 1 ? activePlayers[0] : null;
+            this.endGame(winner);
+        }
+    }
+
+    endGame(winner = null) {
+        this.gameEnded = true;
+        this.winner = winner;
+        
+        if (winner) {
+            console.log(`🏆 Game Over! Winner: ${winner.name}`);
+            if (winner.type === 'human') {
+                this.uiManager.showMessage(`🏆 VICTORY! You have conquered the galaxy!`, 10000);
+            } else {
+                this.uiManager.showMessage(`💀 DEFEAT! ${winner.name} has conquered the galaxy.`, 10000);
+            }
+        } else {
+            console.log('🏆 Game Over! No clear winner.');
+            this.uiManager.showMessage(`🌌 Game Over! The galaxy remains unconquered.`, 10000);
+        }
+        
+        // Show final leaderboard
+        this.gameUI.showGameOverScreen = true;
+    }
+
+    render() {
+        // Clear canvas
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Save context for camera transformation
+        this.ctx.save();
+        
+        // Render background elements first
+        this.renderBackgroundImage();
+        
+        // Apply camera transformation
+        this.camera.applyTransform(this.ctx);
+        
+        // Get Level of Detail based on zoom
+        const lodLevel = this.getLODLevel();
+        
+        // Update visible territories for performance culling
+        this.updateVisibleTerritories();
+        
+        // Render game elements with LOD
+        this.renderParallaxStarfield();
+        this.renderNebulas();
+        this.renderTerritories(lodLevel);
+        this.renderConnections(lodLevel);
+        this.renderSupplyRoutes();
+        this.renderShipAnimations();
+        this.renderLongRangeAnimationsFixed();
+        this.renderFloatingDiscoveryTexts();
+        
+        // Restore context
+        this.ctx.restore();
+        
+        // Render UI elements (not affected by camera)
+        this.renderUI();
+    }
+
+    /**
+     * Get Level of Detail based on camera zoom level
+     * Level 1: Strategic view (very zoomed out) - minimal detail
+     * Level 2: Operational view (medium zoom) - moderate detail  
+     * Level 3: Tactical view (zoomed in) - full detail
+     */
+    getLODLevel() {
+        if (this.camera.zoom < 0.2) return 1; // Strategic
+        if (this.camera.zoom < 1.0) return 2; // Operational
+        return 3; // Tactical
+    }
+
+    updateVisibleTerritories() {
+        // Update visible territories every 100ms for performance
+        if (!this.lastVisibilityUpdate || Date.now() - this.lastVisibilityUpdate > 100) {
+            const viewBounds = this.camera.getViewBounds();
+            this.visibleTerritories = new Set();
+            
+            Object.values(this.gameMap.territories).forEach(territory => {
+                if (territory.x >= viewBounds.left - 50 && territory.x <= viewBounds.right + 50 &&
+                    territory.y >= viewBounds.top - 50 && territory.y <= viewBounds.bottom + 50) {
+                    this.visibleTerritories.add(territory.id);
+                }
+            });
+            
+            this.lastVisibilityUpdate = Date.now();
+        }
+    }
+
+    renderParallaxStarfield() {
+        this.animationSystem.renderParallaxStarfield();
+    }
+
+    renderNebulas() {
+        this.gameMap.nebulas.forEach(nebula => {
+            this.ctx.save();
+            
+            // Create radial gradient for nebula effect
+            const gradient = this.ctx.createRadialGradient(
+                nebula.x, nebula.y, 0,
+                nebula.x, nebula.y, nebula.radius
+            );
+            gradient.addColorStop(0, 'rgba(128, 0, 255, 0.15)');
+            gradient.addColorStop(0.5, 'rgba(64, 0, 128, 0.1)');
+            gradient.addColorStop(1, 'rgba(32, 0, 64, 0.05)');
+            
+            this.ctx.fillStyle = gradient;
+            this.ctx.beginPath();
+            this.ctx.arc(nebula.x, nebula.y, nebula.radius, 0, Math.PI * 2);
+            this.ctx.fill();
+            
+            this.ctx.restore();
+        });
+    }
+
+    renderTerritories(lodLevel = 3) {
+        this.visibleTerritories.forEach(territoryId => {
+            const territory = this.gameMap.territories[territoryId];
+            if (territory) {
+                territory.render(this.ctx, this.camera, lodLevel, this.players, this.gameMap, this.selectedTerritory);
+            }
+        });
+    }
+
+    renderConnections(lodLevel = 3) {
+        if (lodLevel === 1) return; // Skip connections in strategic view
+        
+        const rendered = new Set();
+        
+        this.visibleTerritories.forEach(territoryId => {
+            const territory = this.gameMap.territories[territoryId];
+            if (!territory) return;
+            
+            territory.neighbors.forEach(neighborId => {
+                const neighbor = this.gameMap.territories[neighborId];
+                if (!neighbor) return;
+                
+                const connectionKey = territoryId < neighborId ? `${territoryId}-${neighborId}` : `${neighborId}-${territoryId}`;
+                if (rendered.has(connectionKey)) return;
+                rendered.add(connectionKey);
+                
+                // Check if this connection should be visible based on fog of war
+                const humanPlayer = this.players.find(p => p.type === 'human');
+                const isVisible = humanPlayer && (
+                    territory.ownerId === humanPlayer.id || 
+                    neighbor.ownerId === humanPlayer.id ||
+                    (this.discoveredLanes && this.discoveredLanes.has(connectionKey))
+                );
+                
+                if (!isVisible) return;
+                
+                this.ctx.save();
+                
+                // Use player color if both territories owned by same player
+                if (territory.ownerId === neighbor.ownerId && territory.ownerId !== null) {
+                    const player = this.players[territory.ownerId];
+                    if (player) {
+                        this.ctx.strokeStyle = player.color;
+                        this.ctx.lineWidth = 2;
+                    }
+                } else {
+                    this.ctx.strokeStyle = '#444444';
+                    this.ctx.lineWidth = 1;
+                }
+                
+                this.ctx.globalAlpha = 0.3;
+                this.ctx.beginPath();
+                this.ctx.moveTo(territory.x, territory.y);
+                this.ctx.lineTo(neighbor.x, neighbor.y);
+                this.ctx.stroke();
+                
+                this.ctx.restore();
+            });
+        });
+    }
+
+    renderSupplyRoutes() {
+        this.supplySystem.renderSupplyRoutes(this.ctx);
+    }
+
+    renderLongRangeAttacks() {
+        this.animationSystem.renderLongRangeAnimations();
+    }
+
+    getTransferPercentage(event) {
+        // Default percentages based on modifier keys
+        if (event.shiftKey) return 100; // Send all armies (except 1)
+        if (event.ctrlKey) return 25;   // Send 25%
+        return 50; // Default 50%
+    }
+
+    renderDragPreview() {
+        if (!this.isDragging || !this.selectedTerritory) return;
+        
+        const mousePos = this.camera.screenToWorld(this.dragCurrentX, this.dragCurrentY);
+        
+        this.ctx.save();
+        this.ctx.strokeStyle = '#ffffff';
+        this.ctx.lineWidth = 2;
+        this.ctx.setLineDash([5, 5]);
+        this.ctx.globalAlpha = 0.7;
+        
+        this.ctx.beginPath();
+        this.ctx.moveTo(this.selectedTerritory.x, this.selectedTerritory.y);
+        this.ctx.lineTo(mousePos.x, mousePos.y);
+        this.ctx.stroke();
+        
+        this.ctx.restore();
+    }
+
+    renderProportionalDragUI() {
+        if (!this.isProportionalDrag || !this.selectedTerritory) return;
+        
+        const centerX = this.dragStartX;
+        const centerY = this.dragStartY;
+        const currentX = this.dragCurrentX;
+        const currentY = this.dragCurrentY;
+        
+        const distance = Math.sqrt(
+            Math.pow(currentX - centerX, 2) + 
+            Math.pow(currentY - centerY, 2)
+        );
+        
+        const maxDistance = 100; // Maximum drag distance for 100%
+        const percentage = Math.min(100, Math.max(0, (distance / maxDistance) * 100));
+        const availableArmies = Math.max(0, this.selectedTerritory.armySize - 1);
+        const armiesToSend = Math.floor(availableArmies * (percentage / 100));
+        const armiesToKeep = availableArmies - armiesToSend;
+        
+        this.ctx.save();
+        this.ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset camera transform
+        
+        // Draw radial percentage indicator
+        this.ctx.strokeStyle = percentage > 80 ? '#ff4444' : percentage > 50 ? '#ffaa44' : '#44ff44';
+        this.ctx.lineWidth = 3;
+        this.ctx.beginPath();
+        const radius = Math.min(50, distance);
+        this.ctx.arc(centerX, centerY, radius, 0, (percentage / 100) * Math.PI * 2);
+        this.ctx.stroke();
+        
+        // Draw percentage text
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.font = 'bold 14px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText(
+            `Send: ${armiesToSend} / Keep: ${armiesToKeep + 1}`,
+            centerX,
+            centerY - radius - 20
+        );
+        
+        this.ctx.restore();
+    }
+
+    renderTransferPreview() {
+        if (!this.hoveredTerritory || !this.selectedTerritory) return;
+        
+        // Show transfer preview
+        const availableArmies = Math.max(0, this.selectedTerritory.armySize - 1);
+        const percentage = this.getTransferPercentage({ shiftKey: this.modifierKeys.shift, ctrlKey: this.modifierKeys.ctrl });
+        const armiesToSend = Math.floor(availableArmies * (percentage / 100));
+        const armiesToKeep = availableArmies - armiesToSend + 1; // +1 for the army that must stay
+        
+        this.ctx.save();
+        this.ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset camera transform for UI
+        
+        // Draw preview text near mouse cursor
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.strokeStyle = '#000000';
+        this.ctx.lineWidth = 2;
+        this.ctx.font = 'bold 14px Arial';
+        this.ctx.textAlign = 'left';
+        
+        const text = `Send: ${armiesToSend} / Keep: ${armiesToKeep}`;
+        const mouseX = this.lastMouseX || 0;
+        const mouseY = this.lastMouseY || 0;
+        
+        this.ctx.strokeText(text, mouseX + 15, mouseY - 10);
+        this.ctx.fillText(text, mouseX + 15, mouseY - 10);
+        
+        this.ctx.restore();
+    }
+
+    renderFloatingTexts() {
+        this.uiManager.renderFloatingTexts();
+    }
+
+    renderArmies() {
+        // Army rendering is handled within territory.render()
+    }
+
+    render() {
+        // Clear canvas
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Save context for camera transformation
+        this.ctx.save();
+        
+        // Render background elements first
+        this.renderBackgroundImage();
+        
+        // Apply camera transformation
+        this.camera.applyTransform(this.ctx);
+        
+        // Get Level of Detail based on zoom
+        const lodLevel = this.getLODLevel();
+        
+        // Update visible territories for performance culling
+        this.updateVisibleTerritories();
+        
+        // Render game elements with LOD
+        this.renderParallaxStarfield();
+        this.renderNebulas();
+        this.renderTerritories(lodLevel);
+        this.renderConnections(lodLevel);
+        this.renderSupplyRoutes();
+        this.renderShipAnimations();
+        this.renderLongRangeAnimationsFixed();
+        this.renderFloatingDiscoveryTexts();
+        
+        // Restore context
+        this.ctx.restore();
+        
+        // Render UI elements (not affected by camera)
+        this.renderUI();
+    }
+
+    renderUI() {
+        this.gameUI.render(this.ctx, this.camera);
+    }
+
+    updateHoverState(mousePos) {
+        this.hoveredTerritory = this.findTerritoryAt(mousePos.x, mousePos.y);
+        
+        // Store mouse position for UI elements
+        this.lastMouseX = this.camera.worldToScreen(mousePos.x, mousePos.y).x;
+        this.lastMouseY = this.camera.worldToScreen(mousePos.x, mousePos.y).y;
+    }
+
+    updateCanvasCursor() {
+        let cursor = 'default';
+        
+        if (this.hoveredTerritory) {
+            if (this.selectedTerritory && this.hoveredTerritory !== this.selectedTerritory) {
+                // Show context-sensitive cursor based on target
+                if (this.hoveredTerritory.ownerId === null) {
+                    cursor = 'crosshair'; // Attack neutral
+                } else if (this.hoveredTerritory.ownerId === this.selectedTerritory.ownerId) {
+                    cursor = 'copy'; // Transfer to friendly
+                } else {
+                    cursor = 'crosshair'; // Attack enemy
+                }
+            } else {
+                cursor = 'pointer'; // Selectable territory
+            }
+        }
+        
+        this.canvas.style.cursor = cursor;
+    }
+
+    handleContextActionWithModifiers(targetTerritory) {
+        if (!this.selectedTerritory) return;
+        
+        const percentage = this.getTransferPercentage(event);
+        const action = this.determineActionType(this.selectedTerritory, targetTerritory);
+        
+        if (action === 'transfer') {
+            this.transferFleetWithPercentage(this.selectedTerritory, targetTerritory, percentage);
+        } else if (action === 'attack') {
+            this.attackTerritoryWithPercentage(this.selectedTerritory, targetTerritory, percentage);
+        }
+    }
+
+    handleContextAction(targetTerritory) {
+        // Handle right-click actions with modifier key support
+        this.handleContextActionWithModifiers(targetTerritory);
+    }
+
+    handleUIClick(screenX, screenY) {
+        // Convert to world coordinates
+        const worldPos = this.camera.screenToWorld(screenX, screenY);
+        const clickedTerritory = this.findTerritoryAt(worldPos.x, worldPos.y);
+        
+        if (clickedTerritory) {
+            // Territory selection logic
+            if (this.selectedTerritory && this.selectedTerritory !== clickedTerritory) {
+                // Attempting action on different territory
+                this.handleContextAction(clickedTerritory);
+            } else {
+                // Select/deselect territory
+                this.selectedTerritory = clickedTerritory;
+            }
+        } else {
+            // Clicked empty space - deselect
+            this.selectedTerritory = null;
+        }
+    }
+
+    launchProbe(fromTerritory, toTerritory) {
+        // Probe system disabled - this method preserved for compatibility
+    }
+
+    launchAIProbe(fromTerritory, toTerritory, player) {
+        // Probe system disabled - this method preserved for compatibility
+    }
+
+    transferFleet(fromTerritory, toTerritory) {
+        // Default transfer (50% of available fleet)
+        this.transferFleetWithAmount(fromTerritory, toTerritory, Math.floor((fromTerritory.armySize - 1) * 0.5));
+    }
+
+    transferFleetWithAmount(fromTerritory, toTerritory, amount) {
+        if (fromTerritory.ownerId !== toTerritory.ownerId) {
+            console.log('Cannot transfer fleet to enemy territory');
+            return;
+        }
+        
+        const maxTransfer = Math.max(0, fromTerritory.armySize - 1);
+        const actualTransfer = Math.min(amount, maxTransfer);
+        
+        if (actualTransfer <= 0) return;
+        
+        // Check if territories are adjacent
+        if (fromTerritory.neighbors.includes(toTerritory.id)) {
+            // Direct transfer
+            fromTerritory.armySize -= actualTransfer;
+            toTerritory.armySize += actualTransfer;
+            
+            // Create ship animation
+            this.createShipAnimation(fromTerritory, toTerritory, false, actualTransfer);
+        } else {
+            // Create supply route for non-adjacent transfers
+            this.createSupplyRoute(fromTerritory, toTerritory);
+        }
+    }
+
+    async createSupplyRoute(fromTerritory, toTerritory) {
+        this.supplySystem.createSupplyRoute(fromTerritory, toTerritory);
+    }
+
+    findPathBetweenTerritories(start, end) {
+        return this.supplySystem.findPathBetweenTerritories(start, end);
+    }
+
+    validateSupplyRoutes() {
+        this.supplySystem.validateSupplyRoutes();
+    }
+
+    processSupplyRoutes() {
+        this.supplySystem.processSupplyRoutes();
+    }
+
+    createDelayedSupplyTransfer(fromTerritory, toTerritory, shipCount, delay) {
+        this.supplySystem.createDelayedSupplyTransfer(fromTerritory, toTerritory, shipCount, delay);
+    }
+
+    findTerritoryAt(x, y) {
+        // Use visible territories set for performance optimization
+        if (this.visibleTerritories) {
+            for (const territoryId of this.visibleTerritories) {
+                const territory = this.gameMap.territories[territoryId];
+                if (territory && territory.containsPoint(x, y)) {
+                    return territory;
+                }
+            }
+        } else {
+            // Fallback to full search if visible territories not available
+            for (const territory of Object.values(this.gameMap.territories)) {
+                if (territory.containsPoint(x, y)) {
+                    return territory;
+                }
+            }
+        }
+        return null;
+    }
+
+    executeFleetCommand(fromTerritory, toTerritory, fleetPercentage, commandType = 'auto', path = null) {
+        const availableFleet = Math.max(0, fromTerritory.armySize - 1);
+        const shipsToSend = Math.floor(availableFleet * (fleetPercentage / 100));
+        
+        if (shipsToSend <= 0) return;
+        
+        if (commandType === 'attack' || toTerritory.ownerId !== fromTerritory.ownerId) {
+            this.attackTerritoryWithAmount(fromTerritory, toTerritory, shipsToSend);
+        } else if (path && path.length > 2) {
+            this.executeMultiHopTransfer(fromTerritory, toTerritory, shipsToSend, path);
+        } else {
+            this.transferFleetWithAmount(fromTerritory, toTerritory, shipsToSend);
+        }
+        
+        this.showFleetCommandFeedback(fromTerritory, shipsToSend, fleetPercentage);
+    }
+
+    executeMultiHopTransfer(fromTerritory, toTerritory, shipsToSend, path) {
+        // Multi-hop transfers through supply routes
+        this.createSupplyRoute(fromTerritory, toTerritory);
+        
+        // Visual feedback
+        this.createSupplyRouteAnimation(path, this.players[fromTerritory.ownerId].color);
+    }
+
+    showFleetCommandFeedback(territory, shipsToSend, percentage) {
+        // Visual feedback for fleet commands
+        this.uiManager.addFloatingText(territory, `-${shipsToSend}`, '#ffff44', 1500);
+    }
+
+    attackTerritory(attackingTerritory, defendingTerritory) {
+        // Trigger combat flash on both territories
+        attackingTerritory.triggerCombatFlash();
+        defendingTerritory.triggerCombatFlash();
+        
+        // Create ship animation for attack
+        this.createShipAnimation(attackingTerritory, defendingTerritory, true);
+        
+        // Delegate to centralized CombatSystem
+        const result = this.combatSystem.attackTerritory(attackingTerritory, defendingTerritory);
+        
+        if (result.success) {
+            console.log(`Territory captured! Attack: ${result.attackPower.toFixed(1)} vs Defense: ${result.defensePower.toFixed(1)}`);
+            
+            if (result.throneCapture) {
+                console.log('👑 THRONE STAR CAPTURED!');
+            }
+            
+            if (result.gameEnded) {
+                this.endGame();
+            }
+        } else {
+            if (result.reason) {
+                console.log(`Attack failed: ${result.reason}`);
+            } else {
+                console.log(`Attack failed! Attack: ${result.attackPower.toFixed(1)} vs Defense: ${result.defensePower.toFixed(1)}`);
+            }
+        }
+        
+        // Update player stats
+        this.players.forEach(player => player.updateStats());
+    }
+
+    attackTerritoryWithAmount(attackingTerritory, defendingTerritory, attackingArmies) {
+        // Custom attack with specific army count
+        const result = this.combatSystem.attackTerritoryWithAmount(attackingTerritory, defendingTerritory, attackingArmies);
+        
+        if (result.success) {
+            console.log(`Territory captured with ${attackingArmies} armies!`);
+        } else {
+            console.log(`Attack with ${attackingArmies} armies failed!`);
+        }
+    }
+
+    handleTouchStart(e) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const rect = this.getCachedCanvasRect();
+        const x = touch.clientX - rect.left;
+        const y = touch.clientY - rect.top;
+        
+        this.camera.handleTouchStart(e);
+    }
+
+    handleTouchMove(e) {
+        e.preventDefault();
+        this.camera.handleTouchMove(e);
+    }
+
+    handleTouchEnd(e) {
+        e.preventDefault();
+        this.camera.handleTouchEnd(e);
+    }
+
+    handleDoubleClick(targetTerritory) {
+        if (!this.selectedTerritory || !targetTerritory) return;
+        if (this.selectedTerritory === targetTerritory) return;
+        
+        // Double-click creates supply routes between friendly territories
+        if (this.selectedTerritory.ownerId === targetTerritory.ownerId) {
+            this.createSupplyRoute(this.selectedTerritory, targetTerritory);
+        }
+    }
+
+    restartGame() {
+        // Reset game state
+        this.gameEnded = false;
+        this.winner = null;
+        this.selectedTerritory = null;
+        this.pendingLongRangeCombats = [];
+        this.longRangeAnimations = [];
+        this.playerDiscoveries.clear();
+        
+        // Clear game systems
+        if (this.animationSystem) {
+            this.animationSystem.clearAll();
+        }
+        if (this.supplySystem) {
+            this.supplySystem.clearAll();
+        }
+        if (this.discoverySystem) {
+            this.discoverySystem.clearAll();
+        }
+        if (this.uiManager) {
+            this.uiManager.clearAll();
+        }
+        
+        // Hide game over screen
+        this.gameUI.showGameOverScreen = false;
+        
+        // Restart the game
+        this.startGame();
+    }
+
+    /**
+     * Validates throne star assignments and fixes double throne star bugs
+     */
+    validateThroneStars() {
+        // Only validate occasionally to avoid performance impact
+        if (this.frameCount % 300 !== 0) return; // Every 5 seconds at 60fps
+        
+        console.log('🔍 THRONE VALIDATION: Starting validation...');
+        
+        // Count throne stars per player
+        const throneStarsByPlayer = new Map();
+        const allThroneStars = [];
+        
+        Object.values(this.gameMap.territories).forEach(territory => {
+            if (territory.isThronestar && territory.ownerId !== null) {
+                allThroneStars.push({ id: territory.id, owner: territory.ownerId });
+                
+                if (!throneStarsByPlayer.has(territory.ownerId)) {
+                    throneStarsByPlayer.set(territory.ownerId, []);
+                }
+                throneStarsByPlayer.get(territory.ownerId).push(territory);
+            }
+        });
+        
+        console.log('🔍 THRONE VALIDATION: Found throne stars:', allThroneStars);
+        console.log('🔍 THRONE VALIDATION: Player throne counts:', Array.from(throneStarsByPlayer.entries()).map(([id, thrones]) => [id, thrones.length]));
+        
+        // Fix players with multiple throne stars
+        let fixesApplied = 0;
+        throneStarsByPlayer.forEach((thrones, playerId) => {
+            if (thrones.length > 1) {
+                console.log(`🚨 THRONE BUG: Player ${playerId} has ${thrones.length} throne stars! Fixing...`);
+                
+                // Keep only the first throne star, remove the rest
+                for (let i = 1; i < thrones.length; i++) {
+                    thrones[i].isThronestar = false;
+                    console.log(`🔧 FIXED: Removed throne star from territory ${thrones[i].id}`);
+                    fixesApplied++;
+                }
+            }
+        });
+        
+        if (fixesApplied > 0) {
+            console.log(`✅ THRONE VALIDATION: Applied ${fixesApplied} fixes for duplicate throne stars`);
+        } else {
+            console.log('🔍 THRONE VALIDATION: No fixes needed, all players have single throne stars');
+        }
+    }
+}
+```
+
+=== COMBAT SYSTEM ===
+File: client/src/game/CombatSystem.js
+
+```javascript
+import { GameUtils } from './GameUtils.js';
+
+export class CombatSystem {
+    constructor(game) {
+        this.game = game;
+        this.pendingBattles = [];
+    }
+
+    validateAttack(attackingTerritory, defendingTerritory) {
+        // Basic validation
+        if (!attackingTerritory || !defendingTerritory) return false;
+        if (attackingTerritory.armySize <= 1) return false;
+        if (attackingTerritory.ownerId === defendingTerritory.ownerId) return false;
+        
+        // Must be adjacent territories
+        if (!attackingTerritory.neighbors.includes(defendingTerritory.id)) return false;
+        
+        return true;
+    }
+
+    resolveCombat(attackingArmies, defendingArmies, attacker, defender) {
+        // Get discovery bonuses
+        const attackerDiscoveries = this.game.playerDiscoveries?.get(attacker.id) || {};
+        const defenderDiscoveries = defender ? (this.game.playerDiscoveries?.get(defender.id) || {}) : {}; // Handle neutral territories
+        
+        // Calculate attack power with bonuses
+        let attackBonus = 1.0;
+        if (attackerDiscoveries.precursorWeapons > 0) {
+            attackBonus += attackerDiscoveries.precursorWeapons * 0.1; // +10% per level
+        }
+        
+        let attackPower = attackingArmies * (0.8 + Math.random() * 0.4) * attackBonus;
+        
+        // Calculate defense power with bonuses
+        let defenseBonus = 1.0;
+        if (defenderDiscoveries.precursorShield > 0) {
+            defenseBonus += defenderDiscoveries.precursorShield * 0.1; // +10% per level
+        }
+        
+        let defensePower = defendingArmies * (1.0 + Math.random() * 0.2) * defenseBonus;
+        
+        // Calculate casualties
+        const attackerLosses = Math.floor(attackingArmies * (0.2 + Math.random() * 0.3));
+        const defenderLosses = Math.floor(defendingArmies * (0.3 + Math.random() * 0.4));
+        
+        return {
+            attackPower,
+            defensePower,
+            attackerLosses,
+            defenderLosses
+        };
+    }
+
+    attackTerritory(attackingTerritory, defendingTerritory, armyCount) {
+        // Validate attack
+        if (!this.validateAttack(attackingTerritory, defendingTerritory)) {
+            return { success: false, reason: 'Invalid attack' };
+        }
+
+        // Calculate attacking force - hardcoded 50% of available fleet
+        const maxAttackers = Math.max(1, attackingTerritory.armySize - 1);
+        const actualAttackers = Math.floor(maxAttackers * 0.5);
+        
+        // Get player objects
+        const attacker = this.game.players[attackingTerritory.ownerId];
+        const defender = defendingTerritory.ownerId ? this.game.players[defendingTerritory.ownerId] : null; // Neutral territories have no defender player
+        
+        console.log(`🎯 ATTACK DEBUG: Territory ${attackingTerritory.id} owned by player ID ${attackingTerritory.ownerId}, player name: ${attacker ? attacker.name : 'NOT FOUND'}`);
+        
+        if (!attacker) {
+            return { success: false, reason: 'Invalid attacker' };
+        }
+        
+        // For neutral territories, defender is null - that's okay
+
+        // Deduct armies from attacking territory immediately
+        attackingTerritory.armySize -= actualAttackers;
+
+        // Create pending battle for when ships arrive
+        const battle = {
+            id: Date.now() + Math.random(), // Unique battle ID
+            attackingTerritory: attackingTerritory,
+            defendingTerritory: defendingTerritory,
+            attackingArmies: actualAttackers,
+            attacker: attacker,
+            defender: defender,
+            arrivalTime: Date.now() + 1000, // Ships arrive in 1 second
+            status: 'pending'
+        };
+
+        this.pendingBattles.push(battle);
+        
+
+
+        return { 
+            success: true, 
+            attackingArmies: actualAttackers,
+            battleId: battle.id
+        };
+    }
+
+    processPendingBattles() {
+        const currentTime = Date.now();
+        
+        for (let i = this.pendingBattles.length - 1; i >= 0; i--) {
+            const battle = this.pendingBattles[i];
+            
+            if (currentTime >= battle.arrivalTime && battle.status === 'pending') {
+                this.executeBattle(battle);
+                this.pendingBattles.splice(i, 1);
+            }
+        }
+    }
+
+    executeBattle(battle) {
+        const { attackingTerritory, defendingTerritory, attackingArmies, attacker, defender } = battle;
+        
+        // Resolve combat
+        const combatResult = this.resolveCombat(attackingArmies, defendingTerritory.armySize, attacker, defender);
+        
+        if (combatResult.attackPower > combatResult.defensePower) {
+            // Attacker wins
+            const survivingAttackers = Math.max(1, attackingArmies - combatResult.attackerLosses);
+            
+            // Handle territory transfer
+            const previousOwner = defendingTerritory.ownerId;
+            this.transferTerritory(defendingTerritory, attacker.id, survivingAttackers);
+            
+            // Check for throne capture
+            if (defendingTerritory.isThronestar && previousOwner !== null) {
+                this.handleThroneCapture(attacker.id, previousOwner, defendingTerritory.id);
+            }
+            
+            // Trigger discovery for neutral territory capture
+            if (previousOwner === null) {
+                const discovery = this.game.selectRandomDiscovery();
+                GameUtils.processDiscovery(this.game.playerDiscoveries.get(attacker.id), discovery);
+                this.game.addFloatingDiscoveryText(defendingTerritory, discovery, attacker.id);
+            }
+            
+            return { success: true, attackPower: combatResult.attackPower, defensePower: combatResult.defensePower };
+        } else {
+            // Defender wins
+            const survivingDefenders = Math.max(1, defendingTerritory.armySize - combatResult.defenderLosses);
+            defendingTerritory.armySize = survivingDefenders;
+            
+            return { success: false, attackPower: combatResult.attackPower, defensePower: combatResult.defensePower };
+        }
+    }
+
+    transferTerritory(territory, newOwnerId, armyCount) {
+        const previousOwner = territory.ownerId;
+        
+        // Remove from previous owner's territory list
+        if (previousOwner !== null) {
+            const prevPlayer = this.game.players[previousOwner];
+            if (prevPlayer) {
+                const index = prevPlayer.territories.indexOf(territory.id);
+                if (index > -1) {
+                    prevPlayer.territories.splice(index, 1);
+                }
+            }
+        }
+        
+        // Add to new owner's territory list
+        const newPlayer = this.game.players[newOwnerId];
+        if (newPlayer && !newPlayer.territories.includes(territory.id)) {
+            newPlayer.territories.push(territory.id);
+        }
+        
+        // Update territory
+        territory.ownerId = newOwnerId;
+        territory.armySize = armyCount;
+        
+        // Trigger combat flash
+        territory.triggerCombatFlash();
+    }
+
+    handleThroneCapture(attackerId, defenderId, territoryId) {
+        console.log(`👑 THRONE CAPTURED: Player ${attackerId} captured throne star from player ${defenderId}`);
+        
+        // Find all territories owned by the defeated player
+        const defeatedPlayer = this.game.players[defenderId];
+        const conquerer = this.game.players[attackerId];
+        
+        if (!defeatedPlayer || !conquerer) {
+            console.log('❌ Throne capture failed: invalid players');
+            return;
+        }
+        
+        // Check if defender is human player
+        const isHumanDefeated = defeatedPlayer.type === 'human';
+        
+        console.log(`🏰 THRONE CHECK: Territory ${territoryId} isThronestar: ${this.game.gameMap.territories[territoryId]?.isThronestar}, defender: ${defeatedPlayer.name}`);
+        
+        // Transfer all territories from defeated player to conquerer
+        const territoriesToTransfer = [...defeatedPlayer.territories];
+        territoriesToTransfer.forEach(territoryId => {
+            const territory = this.game.gameMap.territories[territoryId];
+            if (territory && territory.ownerId === defenderId) {
+                // Don't transfer the throne star territory (it was already captured)
+                if (territory.id !== territoryId) {
+                    this.transferTerritory(territory, attackerId, territory.armySize);
+                }
+            }
+        });
+        
+        // Mark defeated player as eliminated
+        defeatedPlayer.isEliminated = true;
+        defeatedPlayer.territories = [];
+        
+        // Destroy the captured throne star
+        const throneTerritory = this.game.gameMap.territories[territoryId];
+        if (throneTerritory) {
+            throneTerritory.isThronestar = false;
+        }
+        
+        console.log(`💀 EMPIRE COLLAPSE: ${defeatedPlayer.name} defeated, ${territoriesToTransfer.length} territories transferred to ${conquerer.name}`);
+        
+        // Show appropriate message
+        if (isHumanDefeated) {
+            this.game.showMessage(`💀 Your throne star has been captured! Empire destroyed!`, 5000);
+        } else {
+            this.game.showMessage(`🏆 Throne star captured! ${defeatedPlayer.name}'s empire falls!`, 3000);
+        }
+    }
+
+    update(deltaTime) {
+        this.processPendingBattles();
+    }
+}
+```
+
+=== CURRENT DEBUGGING STATUS ===
+
+ISSUE ANALYSIS:
+1. Long-range attacks are scheduled correctly (pendingLongRangeCombats array)
+2. processLongRangeCombatArrivals() is called in the game loop
+3. Console shows "⚔️ LONG-RANGE ARRIVAL" messages indicating the method runs
+4. Territory lookup appears to be failing - no subsequent debug messages appear
+5. The fix attempts to handle both object[id] and array.find() territory storage formats
+
+CRITICAL FINDING: 
+The enhanced debug logging should reveal:
+- Whether territories are stored as object vs array
+- If territory lookup is succeeding
+- What the actual territory structure contains
+
+NEXT DEBUGGING STEPS:
+1. Check console for new debug messages showing territory structure
+2. Verify if territories are found during lookup
+3. Investigate why processLongRangeArrival may not be executing
+
+POSSIBLE ROOT CAUSES:
+1. Territory storage format mismatch (object vs array)
+2. Territory IDs changing during game execution
+3. processLongRangeArrival method not being reached
+4. Combat system integration failure
+5. Temporary territory object creation issue
+
+The comprehensive debug logging should now reveal the exact failure point in the long-range attack system.
