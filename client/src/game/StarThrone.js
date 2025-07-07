@@ -974,6 +974,7 @@ export default class StarThrone {
             if (currentTime >= combat.arrivalTime) {
                 // Fleet has arrived - process combat
                 console.log(`⚔️ LONG-RANGE ARRIVAL: Fleet from ${combat.fromTerritoryId} attacking ${combat.toTerritoryId} with ${combat.fleetSize} ships`);
+                console.log(`🔍 DEBUG: gameMap.territories structure:`, typeof this.gameMap.territories, Object.keys(this.gameMap.territories).length);
                 
                 // Validate territories still exist and are valid targets
                 const targetTerritory = this.gameMap.territories[combat.toTerritoryId] || 
@@ -982,6 +983,8 @@ export default class StarThrone {
                                       Object.values(this.gameMap.territories).find(t => t.id === combat.fromTerritoryId);
                 
                 console.log(`🔍 LONG-RANGE DEBUG: Target territory ${combat.toTerritoryId} found: ${!!targetTerritory}, Source territory ${combat.fromTerritoryId} found: ${!!sourceTerritory}`);
+                console.log(`🔍 DEBUG: Target lookup result:`, targetTerritory ? `Territory ${targetTerritory.id} owner ${targetTerritory.ownerId}` : 'NOT FOUND');
+                console.log(`🔍 DEBUG: Source lookup result:`, sourceTerritory ? `Territory ${sourceTerritory.id} owner ${sourceTerritory.ownerId}` : 'NOT FOUND');
                 
                 if (targetTerritory && sourceTerritory) {
                     // Process the actual combat
@@ -989,8 +992,13 @@ export default class StarThrone {
                     this.processLongRangeArrival(combat, sourceTerritory, targetTerritory);
                 } else {
                     console.log(`❌ Long-range combat cancelled: invalid territories (source: ${!!sourceTerritory}, target: ${!!targetTerritory})`);
-                    if (!targetTerritory) console.log(`❌ Target territory ${combat.toTerritoryId} not found in gameMap.territories`);
-                    if (!sourceTerritory) console.log(`❌ Source territory ${combat.fromTerritoryId} not found in gameMap.territories`);
+                    if (!targetTerritory) {
+                        console.log(`❌ Target territory ${combat.toTerritoryId} not found in gameMap.territories`);
+                        console.log(`❌ Available territory IDs:`, Object.keys(this.gameMap.territories).slice(0, 10));
+                    }
+                    if (!sourceTerritory) {
+                        console.log(`❌ Source territory ${combat.fromTerritoryId} not found in gameMap.territories`);
+                    }
                 }
                 
                 // Remove completed combat
