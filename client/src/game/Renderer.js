@@ -437,8 +437,14 @@ export class Renderer {
     }
     
     renderSupplyRouteIndicators(territory) {
+        // Debug: Check human player ID and territory ownership
+        const humanPlayerId = this.game?.humanPlayer?.id;
+        if (territory && humanPlayerId !== undefined) {
+            console.log(`🔧 Territory ${territory.id}: ownerId=${territory.ownerId}, humanPlayerId=${humanPlayerId}, match=${territory.ownerId === humanPlayerId}`);
+        }
+        
         // Debug: Check if function is called for human territories
-        if (territory?.ownerId === this.game?.humanPlayer?.id) {
+        if (territory?.ownerId === humanPlayerId) {
             console.log(`🔍 renderSupplyRouteIndicators called for human territory ${territory.id}`);
         }
         
