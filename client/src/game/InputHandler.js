@@ -199,28 +199,23 @@ export class InputHandler {
         // Double-click on owned territory
         if (territory.ownerId === this.game.humanPlayer?.id) {
             const selectedTerritory = this.inputFSM.getState().selectedTerritory;
-            console.log(`Selected territory: ${selectedTerritory?.id}, double-clicked territory: ${territory.id}`);
+            // Removed debug console logging (dead code cleanup)
             
             if (selectedTerritory && selectedTerritory.ownerId === this.game.humanPlayer?.id) {
                 if (selectedTerritory.id === territory.id) {
                     // Double-click on same selected territory - stop supply routes
-                    console.log(`Attempting to stop supply routes from territory ${territory.id}`);
                     const stopped = this.game.supplySystem?.stopSupplyRoutesFromTerritory(territory.id);
-                    if (stopped) {
-                        console.log('Supply Stopped');
-                    } else {
-                        console.log('No supply routes to stop from this territory');
-                    }
+                    // Removed debug logging for supply route operations (dead code cleanup)
                 } else {
                     // Double-click on different owned territory - create supply route
-                    console.log(`Creating supply route from ${selectedTerritory.id} to ${territory.id}`);
+                    // Removed debug logging for supply route creation (dead code cleanup)
                     this.game.createSupplyRoute(selectedTerritory, territory).catch(error => {
                         console.error('Failed to create supply route:', error);
                     });
                 }
             }
         } else {
-            console.log('Double-clicked territory is not owned by human player');
+            // Removed debug logging for territory ownership (dead code cleanup)
         }
     }
     

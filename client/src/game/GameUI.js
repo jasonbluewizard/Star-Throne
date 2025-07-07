@@ -260,10 +260,7 @@ export class GameUI {
             })
             .slice(0, 10); // Top 10
             
-        // Debug: Log top 3 players occasionally
-        if (Math.random() < 0.1) {
-            console.log('🏆 Top 3 players:', sortedPlayers.slice(0, 3).map(p => `${p.name}: ${p.territories ? p.territories.length : 0} territories`));
-        }
+        // Removed debug logging (dead code cleanup)
         
         const height = 40 + sortedPlayers.length * itemHeight;
         
@@ -496,16 +493,7 @@ export class GameUI {
             ctx.fillText(`FPS: ${gameData.fps}`, this.canvas.width - 20, this.canvas.height - 10);
         }
         
-        // Mobile touch debug info
-        if (gameData.touchDebugInfo && gameData.showTouchDebug) {
-            ctx.fillStyle = this.accentColor;
-            ctx.font = '14px Arial';
-            ctx.textAlign = 'left';
-            const lines = gameData.touchDebugInfo.split('\n');
-            lines.forEach((line, index) => {
-                ctx.fillText(line, 10, this.canvas.height - 60 + (index * 16));
-            });
-        }
+        // Removed mobile touch debug display (dead code cleanup)
     }
     
     // Removed probe notification UI (probe functionality disabled)
@@ -847,22 +835,7 @@ export class GameUI {
             const isPlayerOwned = territory.ownerId === humanPlayerId;
             const isNeutral = territory.ownerId === null;
             
-            // Debug: Always log for neutral territories to debug nebula detection
-            if (isNeutral && territory.armySize && (territory.armySize === 11 || territory.armySize === 5)) {
-                console.log(`🔍 NEBULA DEBUG - Territory ${territory.id} at (${territory.x}, ${territory.y}): inNebula=${isInNebula}, armies=${territory.armySize}`);
-                console.log(`🔍 GameMap exists: ${!!gameData?.gameMap}, isInNebula function exists: ${!!gameData?.gameMap?.isInNebula}`);
-                console.log(`🔍 GameData keys:`, Object.keys(gameData || {}));
-                
-                if (gameData?.gameMap?.nebulas) {
-                    console.log(`🔍 Total nebulas: ${gameData.gameMap.nebulas.length}`);
-                    gameData.gameMap.nebulas.forEach((nebula, i) => {
-                        const dist = Math.sqrt((territory.x - nebula.x) ** 2 + (territory.y - nebula.y) ** 2);
-                        console.log(`🔍 Nebula ${i}: center (${nebula.x}, ${nebula.y}), radius ${nebula.radius}, distance to territory: ${dist.toFixed(1)}, INSIDE: ${dist <= nebula.radius}`);
-                    });
-                } else {
-                    console.log(`🔍 No nebulas found in gameData.gameMap`);
-                }
-            }
+            // Removed debug nebula logging (dead code cleanup)
             
             if (isMysteriousTerritory && territory.ownerId !== null) {
                 // Mysterious enemy territory - only show player name

@@ -198,10 +198,7 @@ export class Player {
         for (const territory of attackableTerritories) {
             if (territory.armySize < 5) continue; // Very low army requirement for aggressive expansion
             
-            // Debug: Log expansion attempts occasionally
-            if (Math.random() < 0.02) {
-                console.log(`🤖 AI ${this.name} considering expansion from territory ${territory.id} with ${territory.armySize} armies`);
-            }
+            // Removed disabled debug logging (empty conditional cleanup)
             
             const neutralTargets = this.findAttackTargets(territory, gameMap)
                 .filter(target => target.ownerId === null);

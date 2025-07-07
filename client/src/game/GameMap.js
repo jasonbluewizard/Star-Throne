@@ -121,7 +121,7 @@ export class GameMap {
      * Fast map generation using simple algorithms to eliminate startup delay
      */
     generateTerritoriesFast(count) {
-        console.log(`⚡ Fast generating ${count} territories using simplified ${this.layout} layout...`);
+        // Removed debug map generation logging (dead code cleanup)
         
         const territories = [];
         const points = [];

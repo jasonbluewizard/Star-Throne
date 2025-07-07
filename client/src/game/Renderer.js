@@ -336,9 +336,6 @@ export class Renderer {
                 this.renderHumanPlayerFlag(territory);
             }
             
-            // Render supply route indicators (+ symbols for incoming reinforcements)
-            this.renderSupplyRouteIndicators(territory);
-            
             this.ctx.restore();
         }
     }
@@ -440,23 +437,11 @@ export class Renderer {
     }
     
     renderSupplyRouteIndicators(territory) {
-        // Debug: Check human player ID and territory ownership
+        // Removed debug ownership verification (dead code cleanup)
         const humanPlayerId = this.game?.humanPlayer?.id;
-        if (territory && humanPlayerId !== undefined) {
-            console.log(`🔧 Territory ${territory.id}: ownerId=${territory.ownerId}, humanPlayerId=${humanPlayerId}, match=${territory.ownerId === humanPlayerId}`);
-        }
-        
-        // Debug: Check if function is called for human territories
-        if (territory?.ownerId === humanPlayerId) {
-            console.log(`🔍 renderSupplyRouteIndicators called for human territory ${territory.id}`);
-        }
         
         if (!this.game?.supplySystem?.supplyRoutes) {
-            // Debug: Only log when needed
-            if (!this.lastSupplySystemLog || Date.now() - this.lastSupplySystemLog > 15000) {
-                console.log('📊 Supply debug: routes exist?', !!this.game?.supplySystem?.supplyRoutes, 'count:', this.game?.supplySystem?.supplyRoutes?.length || 0);
-                this.lastSupplySystemLog = Date.now();
-            }
+            // Removed debug supply system logging (dead code cleanup)
             return;
         }
         
@@ -464,14 +449,11 @@ export class Renderer {
         const incomingRoutes = this.game.supplySystem.supplyRoutes.filter(route => route.to === territory.id);
         const reinforcementCount = incomingRoutes.length;
         
-        // Debug: Log supply route indicators being rendered
-        if (reinforcementCount > 0) {
-            console.log(`🔧 Rendering ${reinforcementCount} supply indicators for territory ${territory.id}`);
-        }
+        // Removed debug supply route rendering logs (dead code cleanup)
         
-        // TEMP TEST: Add a fake supply indicator to every territory owned by human player
+        // Render supply route indicators based on actual incoming routes
         if (territory.ownerId === this.game?.humanPlayer?.id) {
-            console.log(`🧪 TEST: Adding temporary supply indicator to human territory ${territory.id}`);
+            // Removed test logging (dead code cleanup)
             
             // Position below the territory circle
             const yOffset = territory.radius + 15;
