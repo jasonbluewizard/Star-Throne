@@ -996,37 +996,53 @@ export default class StarThrone {
     processLongRangeArrival(combat, sourceTerritory, targetTerritory) {
         console.log(`💥 Long-range fleet arrives! ${combat.fleetSize} ships attacking territory ${targetTerritory.id} (${targetTerritory.armySize} defenders)`);
         
-        // Use combat system to process the attack
-        const result = this.combatSystem.resolveCombat(combat.fleetSize, targetTerritory.armySize);
+        // Create a temporary attacking territory for the long-range attack
+        const tempAttackingTerritory = {
+            id: sourceTerritory.id,
+            ownerId: combat.fromOwnerId,
+            armySize: combat.fleetSize + 1, // +1 so the attack system can deduct armies
+            x: sourceTerritory.x,
+            y: sourceTerritory.y,
+            neighbors: [targetTerritory.id] // Temporary connection for attack validation
+        };
         
-        if (result.attackerWins) {
-            // Attacker wins - capture territory
-            const previousOwner = targetTerritory.ownerId;
-            targetTerritory.ownerId = combat.fromOwnerId;
-            targetTerritory.armySize = result.attackerSurvivors;
-            
+        // Trigger combat flash effects
+        targetTerritory.triggerCombatFlash();
+        if (sourceTerritory.triggerCombatFlash) {
+            sourceTerritory.triggerCombatFlash();
+        }
+        
+        // Use the combat system's attackTerritory method
+        const result = this.combatSystem.attackTerritory(tempAttackingTerritory, targetTerritory);
+        
+        if (result.success) {
             console.log(`🏆 Long-range attack successful! Territory ${targetTerritory.id} captured by player ${combat.fromOwnerId}`);
             
             // Visual feedback
-            this.flashTerritory(targetTerritory.id, '#00ff00', 500);
-            this.showMessage(`Long-range attack successful! Territory captured`, 3000);
-            
-            // Check for throne capture
-            if (targetTerritory.isThroneStars) {
-                this.handleThroneCapture({
-                    attackerId: combat.fromOwnerId,
-                    defenderId: previousOwner,
-                    territoryId: targetTerritory.id
-                });
+            if (this.flashTerritory) {
+                this.flashTerritory(targetTerritory.id, '#00ff00', 500);
             }
-        } else {
-            // Defender wins
-            targetTerritory.armySize = result.defenderSurvivors;
-            console.log(`🛡️ Long-range attack failed! Territory ${targetTerritory.id} defended (${result.defenderSurvivors} survivors)`);
+            if (this.uiManager && this.uiManager.showMessage) {
+                this.uiManager.showMessage(`Long-range attack successful! Territory captured`, 3000);
+            }
             
-            // Visual feedback
-            this.flashTerritory(targetTerritory.id, '#ff0000', 500);
-            this.showMessage(`Long-range attack failed! Defense held`, 2000);
+            // Check for game end conditions
+            this.checkWinConditions();
+        } else {
+            console.log(`🛡️ Long-range attack failed! Territory ${targetTerritory.id} defended`);
+            
+            // Visual feedback for failed attack
+            if (this.flashTerritory) {
+                this.flashTerritory(targetTerritory.id, '#ff0000', 500);
+            }
+            if (this.uiManager && this.uiManager.showMessage) {
+                this.uiManager.showMessage(`Long-range attack failed! Defense held`, 2000);
+            }
+        }
+        
+        // Update player stats
+        if (this.players) {
+            this.players.forEach(player => player.updateStats());
         }
     }
 
