@@ -1050,6 +1050,13 @@ export default class StarThrone {
                     console.log(`⚔️ COMBAT: ${attackingArmies} attackers vs ${defendingArmies} defenders on territory ${targetTerritory.id}`);
                     console.log(`🏴 Territory owner: ${targetTerritory.ownerId}, Attacker: ${attack.playerId}`);
                     
+                    // Prevent attacking your own territory
+                    if (targetTerritory.ownerId === attack.playerId) {
+                        console.log(`❌ INVALID: Cannot attack your own territory ${targetTerritory.id}`);
+                        this.longRangeAttacks.splice(i, 1);
+                        continue;
+                    }
+                    
                     // Simple combat resolution: attackers win if they have more armies
                     const attackSuccess = attackingArmies > defendingArmies;
                     console.log(`🎲 Combat result: ${attackSuccess ? 'ATTACKERS WIN' : 'DEFENDERS WIN'}`)
@@ -1059,17 +1066,24 @@ export default class StarThrone {
                         const attacker = this.players[attack.playerId];
                         const defender = targetTerritory.ownerId ? this.players[targetTerritory.ownerId] : null;
                         
+                        console.log(`🔄 BEFORE: Territory ${targetTerritory.id} owned by ${targetTerritory.ownerId}, armies: ${targetTerritory.armySize}`);
+                        console.log(`🔄 Attacker: ${attacker ? attacker.name : 'NOT FOUND'}, Defender: ${defender ? defender.name : 'NEUTRAL'}`);
+                        
                         // Remove from previous owner if applicable
                         if (defender) {
                             const territoryIndex = defender.territories.indexOf(targetTerritory.id);
                             if (territoryIndex > -1) {
                                 defender.territories.splice(territoryIndex, 1);
+                                console.log(`📤 Removed territory ${targetTerritory.id} from ${defender.name}'s territories`);
                             }
                         }
                         
                         // Transfer ownership
+                        const oldOwner = targetTerritory.ownerId;
                         targetTerritory.ownerId = attack.playerId;
                         targetTerritory.armySize = attackingArmies - defendingArmies;
+                        
+                        console.log(`🔄 AFTER: Territory ${targetTerritory.id} changed from owner ${oldOwner} to ${targetTerritory.ownerId}, armies: ${targetTerritory.armySize}`);
                         
                         // Add to attacker's territories
                         if (attacker && !attacker.territories.includes(targetTerritory.id)) {
