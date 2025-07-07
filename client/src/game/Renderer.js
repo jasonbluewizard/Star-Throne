@@ -455,6 +455,26 @@ export class Renderer {
             console.log(`🔧 Rendering ${reinforcementCount} supply indicators for territory ${territory.id}`);
         }
         
+        // TEMP TEST: Add a fake supply indicator to every territory owned by human player
+        if (territory.ownerId === this.game?.humanPlayer?.id) {
+            console.log(`🧪 TEST: Adding temporary supply indicator to human territory ${territory.id}`);
+            
+            // Position below the territory circle
+            const yOffset = territory.radius + 15;
+            
+            this.ctx.fillStyle = '#00ff00'; // Green color for reinforcement indicators
+            this.ctx.strokeStyle = 'black';
+            this.ctx.lineWidth = 1;
+            this.ctx.globalAlpha = 1; // Ensure full opacity for plus symbols
+            this.ctx.font = 'bold 12px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            
+            // Draw text with outline for visibility
+            this.ctx.strokeText('+', territory.x, territory.y + yOffset);
+            this.ctx.fillText('+', territory.x, territory.y + yOffset);
+        }
+        
         // Ensure full opacity for reinforcement plus symbols
         this.ctx.globalAlpha = 1;
         if (reinforcementCount > 0) {

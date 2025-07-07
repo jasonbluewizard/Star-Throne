@@ -124,14 +124,13 @@ export class InputHandler {
         if (wasQuickClick) {
             const currentTime = Date.now();
             
-            // Check for double-click on same territory for supply routes
+            // Check for double-click for supply routes (can be same or different territory)
             if (targetTerritory && 
                 this.lastClickedTerritory && 
-                targetTerritory.id === this.lastClickedTerritory.id &&
                 currentTime - this.lastClickTime < this.doubleClickThreshold) {
                 
                 // Double-click detected - handle supply route creation/stopping
-                console.log(`Double-click detected on territory ${targetTerritory.id}`);
+                console.log(`Double-click detected: last=${this.lastClickedTerritory.id}, current=${targetTerritory.id}`);
                 this.handleDoubleClick(targetTerritory);
                 this.lastClickTime = 0; // Reset to prevent triple-click
                 this.lastClickedTerritory = null;
