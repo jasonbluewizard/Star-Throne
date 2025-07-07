@@ -1143,21 +1143,8 @@ export default class StarThrone {
         if (!this.longRangeAttacks) return;
         
         this.longRangeAttacks.forEach(attack => {
-            // Use camera-transformed coordinates directly (same as territories)
+            // Use same rendering approach as regular ship animations (no manual camera transformation)
             this.ctx.save();
-            
-            // Apply camera transformation first
-            this.ctx.translate(this.canvas.width / 2, this.canvas.height / 2);
-            this.ctx.scale(this.camera.zoom, this.camera.zoom);
-            this.ctx.translate(-this.camera.x, -this.camera.y);
-            
-            // Skip if off-screen (check in world coordinates)
-            const bounds = this.camera.getViewBounds();
-            if (attack.x < bounds.left - 50 || attack.x > bounds.right + 50 ||
-                attack.y < bounds.top - 50 || attack.y > bounds.bottom + 50) {
-                this.ctx.restore();
-                return;
-            }
             
             // Draw the long-range attack ship (larger than normal ships)
             this.ctx.fillStyle = attack.playerColor;
@@ -1165,10 +1152,10 @@ export default class StarThrone {
             this.ctx.shadowBlur = 12;
             
             this.ctx.beginPath();
-            this.ctx.arc(attack.x, attack.y, 6, 0, Math.PI * 2); // Use world coordinates directly
+            this.ctx.arc(attack.x, attack.y, 6, 0, Math.PI * 2);
             this.ctx.fill();
             
-            // Add glowing trail effect (use world coordinates)
+            // Add glowing trail effect
             const trailLength = 8;
             for (let i = 1; i <= trailLength; i++) {
                 const trailDistance = i * 8; // Longer trail
@@ -1181,7 +1168,7 @@ export default class StarThrone {
                 this.ctx.fill();
             }
             
-            // Draw fleet size indicator next to the ship (use world coordinates)
+            // Draw fleet size indicator next to the ship
             this.ctx.globalAlpha = 1;
             this.ctx.fillStyle = '#ffffff';
             this.ctx.font = 'bold 12px Arial';
