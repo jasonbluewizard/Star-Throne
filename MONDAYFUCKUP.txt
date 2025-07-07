@@ -1,0 +1,835 @@
+# STAR THRONE - COMPLETE CODEBASE AND ISSUE DESCRIPTION
+# Created: January 6, 2025
+# Issue: Long-range attacks broken after combat system refactoring
+
+## PROBLEM DESCRIPTION
+We have a space strategy game called "Star Throne" where players can attack adjacent territories (works fine) and non-adjacent territories via long-range attacks (currently broken). 
+
+The user can do regular attacks on adjacent territories, but right-clicking on distant territories to launch long-range attacks does nothing. The system was working before but broke during recent refactoring.
+
+## EXPECTED BEHAVIOR
+1. Left-click to select your territory (must have >1 army)
+2. Right-click on a distant neutral/enemy territory
+3. Should launch a long-range attack using the normal combat system with visual effects (flashing territories, changing army numbers, round-by-round combat)
+
+## CURRENT BROKEN BEHAVIOR
+Right-clicks on distant territories do nothing - no attack is launched.
+
+## RECENT CHANGES THAT BROKE IT
+- Fixed combat system to use proper round-by-round mechanics instead of instant territory transfer
+- Disabled old long-range attack processing system
+- Made long-range attacks use the normal combat system
+
+## KEY FILES AND THEIR ROLES
+
+### 1. StarThrone.js - Main Game Controller
+```javascript
+import { GameMap } from './GameMap.js';
+import { Player } from './Player.js';
+import { GameUI } from './GameUI.js';
+import { Camera } from './Camera.js';
+// import { Probe } from './Probe.js'; // Disabled probe system (legacy)
+import { InputHandler } from './InputHandler.js';
+import { Renderer } from './Renderer.js';
+import { CombatSystem } from './CombatSystem.js';
+import { SupplySystem } from './SupplySystem.js';
+import { PathfindingService } from './PathfindingService.js';
+import { GameUtils } from './utils.js';
+import { GAME_CONSTANTS } from '../../../common/gameConstants';
+import { gameEvents, GAME_EVENTS, EVENT_PRIORITY, EventHelpers } from './EventSystem.js';
+import { PerformanceManager } from './PerformanceManager.js';
+import { PerformanceOverlay } from './PerformanceOverlay.js';
+import { DiscoverySystem } from './DiscoverySystem.js';
+import { AnimationSystem } from './AnimationSystem.js';
+import { UIManager } from './UIManager.js';
+import { AIManager } from './AIManager.js';
+import Controls from './Controls.js';
+
+export default class StarThrone {
+    constructor(config = {}) {
+        this.canvas = null;
+        this.ctx = null;
+        this.gameMap = null;
+        this.players = [];
+        this.humanPlayer = null;
+        this.camera = null;
+        this.ui = null;
+        
+        // Game configuration from config screen
+        this.config = {
+            playerName: config.playerName || 'Player',
+            aiCount: config.aiCount || GAME_CONSTANTS.DEFAULT_SINGLE_PLAYER_AI_COUNT,
+            mapSize: config.mapSize || GAME_CONSTANTS.DEFAULT_MAP_SIZE_TERRITORIES,
+            gameSpeed: config.gameSpeed || 1.0,
+            layout: config.layout || 'organic',
+            ...config
+        };
+        
+        // Game state
+        this.gameState = 'lobby'; // lobby, playing, ended
+        this.gameTimer = 10 * 60 * 1000; // 10 minutes
+        this.maxPlayers = 100;
+        this.currentPlayers = 0;
+        this.gameInitialized = false; // Prevent early win condition checks
+        
+        // Persistent star lane discovery system
+        this.discoveredLanes = new Set(); // Stores "id1-id2" strings for permanently visible lanes
+        
+        // Throne star validation timer
+        this.throneStarValidationTimer = 0;
+        
+        // Home system flashing
+        this.homeSystemFlashStart = null;
+        this.homeSystemFlashDuration = 3000; // 3 seconds
+        
+        // Modular systems (initialized in init())
+        this.inputHandler = null;
+        this.renderer = null;
+        this.combatSystem = null;
+        this.supplySystem = null;
+        this.pathfindingService = null;
+        this.performanceManager = null;
+        this.discoverySystem = null;
+        this.animationSystem = null;
+        this.uiManager = null;
+        this.controls = null;
+        
+        // Legacy properties for backward compatibility
+        this.hoveredTerritory = null;
+        
+        // Performance
+        this.lastFrameTime = 0;
+        this.fps = 0;
+        this.frameCount = 0;
+        this.lastFpsUpdate = 0;
+        
+        // Performance optimizations
+        this.visibleTerritories = new Set();
+        this.lastVisibilityUpdate = 0;
+        this.cullingBatchIndex = 0; // For incremental visibility processing
+        this.performanceStats = {
+            frameTime: 0,
+            renderTime: 0,
+            updateTime: 0,
+            visibleTerritories: 0
+        };
+        this.showPerformancePanel = false; // Toggle with P key
+        
+        // Ship movement animations
+        this.shipAnimations = [];
+        this.shipAnimationPool = []; // Reuse objects to reduce garbage collection
+        
+        // Long-range attacks (slow-moving ships that cross the map)
+        this.longRangeAttacks = [];
+        
+        // Pre-populate animation pool with multi-hop support
+        for (let i = 0; i < 20; i++) {
+            this.shipAnimationPool.push({
+                fromX: 0, fromY: 0, toX: 0, toY: 0,
+                progress: 0, duration: 0, startTime: 0,
+                isAttack: false, playerColor: '#ffffff', id: 0,
+                path: null, currentSegment: 0, isMultiHop: false
+            });
+        }
+        this.leaderboardMinimized = false;
+        this.minimapMinimized = true; // Default minimap to off
+        
+        // Probe system
+        // this.probes = []; // Probe system disabled (legacy)
+        // this.nextProbeId = 0; // Probe ID tracking disabled
+        
+        // Discovery announcements
+        this.floatingDiscoveryTexts = [];
+        this.discoveryLog = []; // Recent discovery announcements for panel display
+        
+        // Discovery system - Map of playerId -> discovery object
+        this.playerDiscoveries = new Map();
+        
+        // Legacy drag variables (kept for compatibility)
+        this.dragStart = null;
+        this.dragEnd = null;
+        this.isDraggingForSupplyRoute = false;
+        
+        // Background image system
+        this.backgroundImage = null;
+        this.backgroundLoaded = false;
+        this.backgroundScale = 1.0;
+        
+        // Parallax starfield system
+        this.starfield = {
+            farStars: [],      // Slowest moving, smallest stars
+            midStars: [],      // Medium speed, medium stars  
+            nearStars: [],     // Fastest moving, larger stars
+            initialized: false
+        };
+        
+        // Static background optimization
+        this.staticBg = document.createElement('canvas');
+        this.staticBgCtx = this.staticBg.getContext('2d');
+        
+        // Discovery system for planet colonization - per player tracking
+        this.playerDiscoveries = new Map(); // Map of playerId -> discoveries
+        
+        // Initialize event system for decoupled component communication
+        this.eventProcessingEnabled = true;
+        
+        // Global discovery log for all players
+        this.discoveryLog = [];
+        
+        // Recent probe results for UI announcements
+        // this.recentProbeResults = []; // Probe results tracking disabled
+        
+        // Notification system
+        this.notifications = [];
+        
+        // Bonus panel state
+        this.showBonusPanel = true;
+        
+        // Message display system
+        this.messageText = '';
+        this.messageTimer = 0;
+        
+        // Performance optimization: Throttled logging system
+        this.debugMode = false; // Set to true for development, false for production
+        this.logThrottles = new Map(); // Track throttled log messages
+        this.lastLogTimes = new Map(); // Track last log timestamp per message type
+        
+        // DOM optimization: Cache layout measurements
+        this.cachedCanvasRect = null;
+        this.canvasRectUpdateTime = 0;
+        this.canvasRectCacheDuration = 1000; // Cache for 1 second
+        
+        // Input throttling for performance
+        this.lastMouseMoveTime = 0;
+        this.mouseMoveThrottleMs = 16; // ~60 FPS, one event per frame
+        this.pendingMouseEvent = null;
+        
+        this.init();
+        this.loadBackgroundImage();
+    }
+
+    init() {
+        this.setupCanvas();
+        this.setupEventListeners();
+        this.gameMap = new GameMap(2000, 1500, this.config); // Large map with advanced configuration
+        this.gameMap.game = this; // Reference for AI animations
+        
+        // Use logical dimensions for camera, not physical canvas dimensions
+        const logicalWidth = this.canvas.style.width ? parseInt(this.canvas.style.width) : window.innerWidth;
+        const logicalHeight = this.canvas.style.height ? parseInt(this.canvas.style.height) : window.innerHeight;
+        this.camera = new Camera(logicalWidth, logicalHeight);
+        
+        // Update camera map boundaries to match actual expanded map size
+        this.camera.mapWidth = this.gameMap.width;
+        this.camera.mapHeight = this.gameMap.height;
+        
+        // Center camera on map and set appropriate zoom
+        this.camera.centerOn(this.gameMap.width / 2, this.gameMap.height / 2); // Center of expanded map
+        this.camera.targetZoom = 0.25; // Zoom out further to see more territories
+        this.camera.zoom = 0.25;
+        
+        this.ui = new GameUI(this.canvas, this.camera);
+        
+        // Initialize modular systems
+        this.inputHandler = new InputHandler(this);
+        this.renderer = new Renderer(this.canvas, this.camera, this);
+        this.combatSystem = new CombatSystem(this);
+        this.supplySystem = new SupplySystem(this);
+        this.pathfindingService = new PathfindingService(this);
+        this.performanceManager = new PerformanceManager(this);
+        this.performanceOverlay = new PerformanceOverlay(this.canvas, this.performanceManager);
+        this.discoverySystem = new DiscoverySystem(this);
+        this.animationSystem = new AnimationSystem(this);
+        this.uiManager = new UIManager(this);
+        this.aiManager = new AIManager(this);
+        this.controls = new Controls(this);
+        
+        // TODO: Remove global reference (use dependency injection instead)
+        // window.game = this;  // (global game reference deprecated)
+        window.game = this; // Temporary global access - to be replaced with dependency injection
+        
+        // Auto-detect optimal performance profile
+        this.performanceManager.detectOptimalProfile();
+        
+        this.gameStartTime = Date.now(); // Track when game actually starts
+        this.startGame();
+        this.gameLoop();
+    }
+
+    // Launch long-range attack (probe-like ship that moves slowly across map)
+    launchLongRangeAttack(fromTerritory, toTerritory, fleetSize) {
+        console.log(`🔧 Creating long-range attack: ${fromTerritory.id} -> ${toTerritory.id} with ${fleetSize} ships`);
+        console.log(`🔧 Human player ID: ${this.humanPlayer?.id}, From territory owner: ${fromTerritory.ownerId}, To territory owner: ${toTerritory.ownerId}`);
+        
+        // Use the normal combat system with delayed arrival
+        const result = this.combatSystem.attackTerritory(fromTerritory, toTerritory, fleetSize);
+        
+        if (result.success) {
+            // Create ship animation for long-range attack
+            this.createShipAnimation(fromTerritory, toTerritory, true, fleetSize);
+            
+            // Show visual feedback
+            this.showMessage(`Long-range attack launched: ${fleetSize} ships`, 2000);
+            
+            // Flash the source territory
+            this.flashTerritory(fromTerritory.id, '#ff0000', 300);
+            
+            console.log(`Long-range attack launched successfully: ${fromTerritory.id} -> ${toTerritory.id} (${fleetSize} ships)`);
+        } else {
+            console.log(`Long-range attack failed: ${result.reason}`);
+        }
+    }
+
+    // Update long-range attacks (disabled - using normal combat system now)
+    updateLongRangeAttacks(deltaTime) {
+        // Long-range attacks now use the normal combat system, no separate processing needed
+        return;
+        
+        for (let i = this.longRangeAttacks.length - 1; i >= 0; i--) {
+            // ... (old processing code disabled) ...
+        }
+    }
+
+    // ... (rest of StarThrone.js methods) ...
+}
+```
+
+### 2. InputHandler.js - Mouse/Keyboard Input Processing
+```javascript
+/**
+ * InputHandler.js - Simplified input processing module
+ * 
+ * Processes raw browser events into simple left-click selection and right-click contextual actions.
+ * Removes complex proportional drag and modifier key logic per new architecture.
+ */
+
+import { InputStateMachine } from './InputStateMachine.js';
+
+export class InputHandler {
+    constructor(game) {
+        this.game = game;
+        this.hoveredTerritory = null;
+        this.canvas = game.canvas;
+        
+        // Simplified input state
+        this.mousePos = { x: 0, y: 0 };
+        this.lastMousePos = { x: 0, y: 0 };
+        this.isDragging = false;
+        this.dragStartPos = null;
+        this.dragStartTime = null;
+        
+        // Double-click handling for supply routes
+        this.lastClickTime = 0;
+        this.lastClickedTerritory = null;
+        this.doubleClickThreshold = 250; // ms
+        
+        // Touch state for mobile support
+        this.touchState = {
+            activeTouches: new Map(),
+            lastTouchDistance: null,
+            lastPinchCenter: null,
+            panVelocity: { x: 0, y: 0 },
+            lastPanTime: 0
+        };
+        
+        // Initialize FSM
+        this.inputFSM = new InputStateMachine(game);
+        
+        this.setupEventListeners();
+    }
+    
+    setupEventListeners() {
+        // Mouse events
+        this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+        this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+        this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+        this.canvas.addEventListener('wheel', (e) => this.handleWheel(e));
+        this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+        
+        // Touch events
+        this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e));
+        this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e));
+        this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e));
+        this.canvas.addEventListener('touchcancel', (e) => this.handleTouchEnd(e));
+        
+        // Keyboard events
+        document.addEventListener('keydown', (e) => this.handleKeyDown(e));
+        document.addEventListener('keyup', (e) => this.handleKeyUp(e));
+    }
+
+    processSingleClick(button, territory, worldPos) {
+        // Check UI elements first
+        if (this.game.handleUIClick(this.mousePos.x, this.mousePos.y)) {
+            return;
+        }
+        
+        // Skip game logic if not in playing state
+        if (this.game.gameState !== 'playing') {
+            return;
+        }
+        
+        if (button === 0) { // Left click
+            this.inputFSM.handleInput('leftClick', {
+                territory: territory,
+                worldPos: worldPos,
+                screenPos: this.mousePos
+            });
+        } else if (button === 2) { // Right click
+            console.log(`🖱️ RIGHT-CLICK: Territory ${territory?.id}, owner: ${territory?.ownerId}, human player: ${this.game.humanPlayer?.id}`);
+            
+            // Check for supply route cancellation first (only if territory exists and is owned)
+            if (territory && territory.ownerId === this.game.humanPlayer?.id) {
+                const routesToCancel = this.game.supplySystem.supplyRoutes.filter(route => route.from === territory.id);
+                if (routesToCancel.length > 0) {
+                    console.log(`🖱️ Cancelling supply routes from territory ${territory.id}`);
+                    this.game.supplySystem.stopSupplyRoutesFromTerritory(territory.id);
+                    return; // Supply route cancelled, don't process further
+                }
+            }
+            
+            // No supply routes to cancel, proceed with normal right-click behavior
+            console.log(`🖱️ Sending right-click to FSM: territory ${territory?.id}`);
+            this.inputFSM.handleInput('rightClick', {
+                territory: territory,
+                worldPos: worldPos,
+                screenPos: this.mousePos
+            });
+        }
+    }
+
+    // ... (rest of InputHandler.js methods) ...
+}
+```
+
+### 3. InputStateMachine.js - State Machine for Game Input
+```javascript
+/**
+ * InputStateMachine.js - Finite State Machine for handling game input
+ * 
+ * States:
+ * - Default: No territory selected
+ * - TerritorySelected: Player territory selected  
+ * - EnemySelected: Enemy/neutral territory selected
+ * 
+ * Handles transitions between states and processes input events
+ */
+
+import { GameUtils } from './utils.js';
+
+export class InputStateMachine {
+    constructor(game) {
+        this.game = game;
+        
+        this.states = {
+            'Default': new DefaultState(this),
+            'TerritorySelected': new TerritorySelectedState(this),
+            'EnemySelected': new EnemySelectedState(this)
+        };
+        
+        this.currentState = 'Default';
+        this.selectedTerritory = null;
+        
+        console.log('InputStateMachine initialized');
+    }
+    
+    transitionTo(newState, data = {}) {
+        console.log(`FSM: ${this.currentState} -> ${newState}`);
+        
+        // Exit current state
+        this.states[this.currentState].onExit();
+        
+        // Change state
+        this.currentState = newState;
+        
+        // Enter new state
+        this.states[this.currentState].onEnter(data);
+    }
+    
+    handleInput(inputType, data) {
+        return this.states[this.currentState].handleInput(inputType, data);
+    }
+    
+    getState() {
+        return {
+            currentState: this.currentState,
+            selectedTerritory: this.selectedTerritory
+        };
+    }
+}
+
+// Territory Selected State: Player territory selected, can issue commands
+class TerritorySelectedState extends BaseState {
+    onEnter(data) {
+        this.selectedTerritory = data.selectedTerritory;
+        this.game.selectedTerritory = this.selectedTerritory;
+        console.log(`Selected territory ${this.selectedTerritory.id} with ${this.selectedTerritory.armySize} armies`);
+    }
+    
+    handleInput(inputType, data) {
+        switch (inputType) {
+            case 'leftClick':
+                return this.handleLeftClick(data.territory, data.worldPos);
+            case 'rightClick':
+                return this.handleRightClick(data.territory, data.worldPos);
+            case 'keyPress':
+                return this.handleKeyPress(data.key);
+            default:
+                return false;
+        }
+    }
+    
+    async handleRightClick(territory, worldPos) {
+        if (!territory) {
+            // Right-click on empty space - do nothing, maintain selection
+            return true;
+        }
+        
+        // Right-click on the selected territory itself - cancel supply routes if any exist
+        if (territory.id === this.selectedTerritory.id) {
+            // Check if this territory has any outgoing supply routes (using SupplySystem module)
+            const outgoingRoutes = this.game.supplySystem.supplyRoutes.filter(route => route.from === territory.id);
+            if (outgoingRoutes.length > 0) {
+                outgoingRoutes.forEach(route => {
+                    this.game.supplySystem.removeSupplyRoute(route.id);
+                    console.log(`Cancelled supply route from ${territory.id} to ${route.to}`);
+                });
+                return true;
+            } else {
+                console.log(`No supply route to cancel from territory ${territory.id}`);
+            }
+            return true;
+        }
+        
+        const sourceStar = this.selectedTerritory;
+        const targetStar = territory;
+        const ownershipType = this.game.pathfindingService.getTerritoryOwnershipType(targetStar, this.game.humanPlayer?.id);
+        const isAdjacent = this.game.pathfindingService.areTerritoriesAdjacent(sourceStar, targetStar);
+        
+        console.log(`🎯 Right-click: ${sourceStar.id} (owner: ${sourceStar.ownerId}) -> ${targetStar.id} (owner: ${targetStar.ownerId}), ownership: ${ownershipType}, adjacent: ${isAdjacent}`);
+        console.log(`🎯 FSM STATE: Current state is ${this.fsm.currentState}, selected territory: ${this.selectedTerritory?.id}`);
+        
+        // Validate minimum fleet size for commands
+        if (sourceStar.armySize <= 1) {
+            this.showFeedback("Need more than 1 army to send fleet", sourceStar.x, sourceStar.y);
+            return true;
+        }
+        
+        // Handle different target types
+        switch (ownershipType) {
+            case 'friendly':
+                if (isAdjacent) {
+                    // Adjacent friendly star - send reinforcements (50%)
+                    const success = this.game.combatSystem.transferArmies(sourceStar, targetStar);
+                    if (success) {
+                        const fleetSize = Math.floor((sourceStar.armySize + Math.floor(sourceStar.armySize * 0.5)) * 0.5);
+                        this.game.createShipAnimation(sourceStar, targetStar, false, fleetSize);
+                        console.log(`Sent reinforcements from ${sourceStar.id} to adjacent ${targetStar.id}`);
+                    }
+                } else {
+                    // Distant friendly star - find path and execute multi-hop transfer
+                    try {
+                        const path = await this.game.pathfindingService.findShortestPath(
+                            sourceStar.id, 
+                            targetStar.id, 
+                            this.game.gameMap, 
+                            this.game.humanPlayer?.id
+                        );
+                        
+                        if (path && path.length > 1) {
+                            GameUtils.logDebug(`Multi-hop transfer path found: ${path.join(' -> ')}`);
+                            this.game.executeFleetCommand(sourceStar, targetStar, 0.5, 'multi-hop-transfer', path);
+                        } else {
+                            this.showFeedback("No valid reinforcement path", sourceStar.x, sourceStar.y);
+                            GameUtils.logDebug(`No path found from ${sourceStar.id} to ${targetStar.id}`);
+                        }
+                    } catch (error) {
+                        GameUtils.logError("Pathfinding error:", error);
+                        this.showFeedback("Pathfinding failed", sourceStar.x, sourceStar.y);
+                    }
+                }
+                break;
+                
+            case 'enemy':
+                if (isAdjacent) {
+                    // Adjacent enemy star - attack with 50% of fleet
+                    const attackingArmies = Math.floor((sourceStar.armySize - 1) * 0.5);
+                    if (attackingArmies > 0) {
+                        const result = this.game.combatSystem.attackTerritory(sourceStar, targetStar, attackingArmies);
+                        this.game.createShipAnimation(sourceStar, targetStar, true, attackingArmies);
+                        console.log(`Attacked enemy ${targetStar.id} from ${sourceStar.id}`);
+                    }
+                } else {
+                    // Non-adjacent enemy star - launch long-range attack
+                    const attackingArmies = Math.floor((sourceStar.armySize - 1) * 0.5);
+                    if (attackingArmies > 0) {
+                        console.log(`🚀 ENEMY: Launching long-range attack from territory ${sourceStar.id} (owner: ${sourceStar.ownerId}) to ${targetStar.id} (owner: ${targetStar.ownerId})`);
+                        this.game.launchLongRangeAttack(sourceStar, targetStar, attackingArmies);
+                        console.log(`🚀 ENEMY: Launched long-range attack: ${sourceStar.id} -> ${targetStar.id} (${attackingArmies} ships)`);
+                    } else {
+                        this.showFeedback("Need more armies for long-range attack", sourceStar.x, sourceStar.y);
+                    }
+                }
+                break;
+                
+            case 'neutral':
+                console.log(`🎯 NEUTRAL CASE: isAdjacent=${isAdjacent}, sourceStar armies=${sourceStar.armySize}`);
+                if (isAdjacent) {
+                    // Adjacent neutral star with garrison - attack directly (no probe needed)
+                    const attackingArmies = Math.floor((sourceStar.armySize - 1) * 0.5);
+                    if (attackingArmies > 0) {
+                        console.log(`🎯 ADJACENT NEUTRAL: Attacking with ${attackingArmies} armies`);
+                        const result = this.game.combatSystem.attackTerritory(sourceStar, targetStar, attackingArmies);
+                        this.game.createShipAnimation(sourceStar, targetStar, true, attackingArmies);
+                        console.log(`Attacked neutral garrison ${targetStar.id} from ${sourceStar.id}`);
+                    }
+                } else {
+                    // Non-adjacent neutral star - launch long-range attack
+                    const attackingArmies = Math.floor((sourceStar.armySize - 1) * 0.5);
+                    console.log(`🎯 NON-ADJACENT NEUTRAL: Attempting long-range attack with ${attackingArmies} armies`);
+                    if (attackingArmies > 0) {
+                        console.log(`🚀 NEUTRAL: Launching long-range attack from territory ${sourceStar.id} (owner: ${sourceStar.ownerId}) to ${targetStar.id} (owner: ${targetStar.ownerId})`);
+                        this.game.launchLongRangeAttack(sourceStar, targetStar, attackingArmies);
+                        console.log(`🚀 NEUTRAL: Launched long-range attack: ${sourceStar.id} -> ${targetStar.id} (${attackingArmies} ships)`);
+                    } else {
+                        console.log(`🚀 NEUTRAL: Not enough armies for long-range attack`);
+                        this.showFeedback("Need more armies for long-range attack", sourceStar.x, sourceStar.y);
+                    }
+                }
+                break;
+                
+            case 'colonizable':
+                // Colonizable planets should no longer exist with the new system, but keep for safety
+                this.showFeedback("Invalid target type", sourceStar.x, sourceStar.y);
+                console.log(`Deprecated colonizable target: ${targetStar.id}`);
+                break;
+                
+            default:
+                console.log(`Invalid target: ${targetStar.id}`);
+                break;
+        }
+        
+        // Keep territory selected for multiple commands
+        return true;
+    }
+
+    // ... (rest of state methods) ...
+}
+
+// ... (other state classes) ...
+```
+
+### 4. CombatSystem.js - Combat Resolution
+```javascript
+/**
+ * Centralized Combat System for Star Throne
+ * Handles all battle resolution, army transfers, and throne star mechanics
+ * Features delayed combat with coin-flip battles and visual feedback
+ */
+
+import { GameUtils } from './utils.js';
+import { gameEvents, GAME_EVENTS, EVENT_PRIORITY, EventHelpers } from './EventSystem.js';
+
+export class CombatSystem {
+    constructor(game) {
+        this.game = game;
+        this.pendingBattles = []; // Array of battles waiting for ships to arrive
+        this.activeBattles = []; // Array of battles currently in progress
+    }
+
+    /**
+     * Initiates a delayed attack - ships launch but combat waits until arrival
+     * @param {Object} attackingTerritory - Source territory
+     * @param {Object} defendingTerritory - Target territory
+     * @param {number} armyCount - Number of attacking armies
+     * @returns {Object} Attack initiation result
+     */
+    attackTerritory(attackingTerritory, defendingTerritory, armyCount) {
+        // Validate attack
+        if (!this.validateAttack(attackingTerritory, defendingTerritory)) {
+            return { success: false, reason: 'Invalid attack' };
+        }
+
+        // Calculate attacking force - hardcoded 50% of available fleet
+        const maxAttackers = Math.max(1, attackingTerritory.armySize - 1);
+        const actualAttackers = Math.floor(maxAttackers * 0.5);
+        
+        // Get player objects
+        const attacker = this.game.players[attackingTerritory.ownerId];
+        const defender = defendingTerritory.ownerId ? this.game.players[defendingTerritory.ownerId] : null; // Neutral territories have no defender player
+        
+        console.log(`🎯 ATTACK DEBUG: Territory ${attackingTerritory.id} owned by player ID ${attackingTerritory.ownerId}, player name: ${attacker ? attacker.name : 'NOT FOUND'}`);
+        
+        if (!attacker) {
+            return { success: false, reason: 'Invalid attacker' };
+        }
+        
+        // For neutral territories, defender is null - that's okay
+
+        // Deduct armies from attacking territory immediately
+        attackingTerritory.armySize -= actualAttackers;
+
+        // Create pending battle for when ships arrive
+        const battle = {
+            id: Date.now() + Math.random(), // Unique battle ID
+            attackingTerritory: attackingTerritory,
+            defendingTerritory: defendingTerritory,
+            attackingArmies: actualAttackers,
+            attacker: attacker,
+            defender: defender,
+            arrivalTime: Date.now() + 1000, // Ships arrive in 1 second
+            status: 'pending'
+        };
+
+        this.pendingBattles.push(battle);
+        
+
+        return { 
+            success: true, 
+            attackingArmies: actualAttackers,
+            battleId: battle.id
+        };
+    }
+
+    /**
+     * Starts a battle with coin-flip mechanics
+     * @param {Object} battle - Battle object
+     */
+    startBattle(battle) {
+        // Calculate combat odds based on discoveries
+        const attackerBonus = this.calculateWeaponBonus(battle.attacker);
+        const defenderBonus = battle.defender ? this.calculateDefenseBonus(battle.defender) : 0; // Neutral territories have no defense bonus
+        
+        // Base 50/50 odds adjusted by bonuses
+        const attackerWinChance = Math.max(0.1, Math.min(0.9, 0.5 + attackerBonus - defenderBonus));
+        
+        console.log(`⚔️ COMBAT: ${battle.attackingArmies} vs ${battle.defendingTerritory.armySize} armies, round win chance: ${(attackerWinChance * 100).toFixed(1)}%`);
+        
+        battle.attackerWinChance = attackerWinChance;
+        battle.attackersRemaining = battle.attackingArmies;
+        battle.defendersRemaining = battle.defendingTerritory.armySize;
+        battle.lastBattleTime = Date.now();
+        battle.status = 'active';
+        
+        this.activeBattles.push(battle);
+    }
+
+    /**
+     * Updates an active battle, processing coin-flip rounds
+     * @param {Object} battle - Battle object
+     * @param {number} currentTime - Current timestamp
+     * @returns {boolean} True if battle is complete
+     */
+    updateBattle(battle, currentTime) {
+        // Check if it's time for the next round (50ms per battle)
+        if (currentTime - battle.lastBattleTime < 50) {
+            return false;
+        }
+        
+        // Check if battle should end before fighting
+        if (battle.attackersRemaining <= 0 || battle.defendersRemaining <= 0) {
+            this.completeBattle(battle);
+            return true;
+        }
+        
+        // Fight one round
+        const attackerWins = Math.random() < battle.attackerWinChance;
+        
+        if (attackerWins) {
+            // Attacker wins this round - defender loses one ship
+            battle.defendersRemaining = Math.max(0, battle.defendersRemaining - 1);
+            
+            // Update the actual territory army count immediately
+            battle.defendingTerritory.armySize = Math.max(0, battle.defendersRemaining);
+            
+            // Flash the defending planet with attacker's color (defender dies)
+            this.flashPlanet(battle.defendingTerritory, battle.attacker.color);
+            
+
+        } else {
+            // Defender wins this round - attacker loses one ship
+            battle.attackersRemaining = Math.max(0, battle.attackersRemaining - 1);
+            
+            // Flash the defending planet with red (attacker dies)
+            this.flashPlanet(battle.defendingTerritory, '#ff0000');
+            
+
+        }
+        
+        battle.lastBattleTime = currentTime;
+        
+        // Check if battle is over after this round
+        if (battle.attackersRemaining <= 0 || battle.defendersRemaining <= 0) {
+            this.completeBattle(battle);
+            return true;
+        }
+        
+        return false;
+    }
+
+    // ... (rest of CombatSystem.js methods) ...
+}
+```
+
+### 5. PathfindingService.js - Territory Connections
+```javascript
+/**
+ * PathfindingService.js - Handles pathfinding and territory relationships
+ */
+
+export class PathfindingService {
+    constructor(game) {
+        this.game = game;
+    }
+
+    areTerritoriesAdjacent(territory1, territory2) {
+        if (!territory1 || !territory2 || !territory1.neighbors) {
+            return false;
+        }
+        
+        return territory1.neighbors.includes(territory2.id);
+    }
+
+    getTerritoryOwnershipType(territory, humanPlayerId) {
+        if (!territory) return 'invalid';
+        
+        if (territory.ownerId === humanPlayerId) {
+            return 'friendly';
+        } else if (territory.ownerId === null) {
+            return 'neutral';
+        } else {
+            return 'enemy';
+        }
+    }
+
+    // ... (rest of PathfindingService.js methods) ...
+}
+```
+
+## DEBUG OUTPUT TO LOOK FOR
+When testing long-range attacks, look for these console messages:
+
+1. `🖱️ RIGHT-CLICK: Territory X, owner: Y, human player: Z` - Shows right-click is detected
+2. `🖱️ Sending right-click to FSM: territory X` - Shows it's being sent to state machine
+3. `🎯 Right-click: A -> B, ownership: neutral, adjacent: false` - Shows target analysis
+4. `🎯 FSM STATE: Current state is TerritorySelected` - Shows FSM state
+5. `🎯 NEUTRAL CASE: isAdjacent=false, sourceStar armies=X` - Shows neutral case processing
+6. `🎯 NON-ADJACENT NEUTRAL: Attempting long-range attack with X armies` - Shows long-range attempt
+7. `🚀 NEUTRAL: Launching long-range attack from territory A to B` - Shows launch
+8. `🔧 Creating long-range attack: A -> B with X ships` - Shows launchLongRangeAttack called
+9. `⚔️ COMBAT: X vs Y armies, round win chance: Z%` - Shows combat starting
+
+## LIKELY ISSUE
+The most likely problem is that either:
+1. The right-click isn't reaching the InputStateMachine (check for the 🖱️ messages)
+2. The FSM state is wrong (should be 'TerritorySelected' after left-clicking your territory)
+3. The adjacency detection is wrong (territories that should be non-adjacent are showing as adjacent)
+4. The launchLongRangeAttack method isn't being called
+
+## TO FIX
+1. Make sure the user left-clicks their territory first to select it
+2. Check that the right-click debug messages appear in console
+3. Verify the FSM state is 'TerritorySelected' 
+4. Check that adjacency detection returns false for distant territories
+5. Ensure the 🚀 NEUTRAL launch messages appear
+
+The core issue is likely in the input flow or state management, not the combat system itself.
