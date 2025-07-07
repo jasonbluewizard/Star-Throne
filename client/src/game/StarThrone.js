@@ -1531,9 +1531,8 @@ export default class StarThrone {
     startGame() {
         console.log('Starting Star Throne game with config:', this.config);
         
-        // Initialize background systems immediately
+        // Initialize background systems immediately  
         this.animationSystem.initializeStarfield();
-        this.animationSystem.preRenderStaticBackground();
         this.uiManager.loadBackgroundImage();
         this.showMessage('Generating galaxy map, please wait...', 15000);
         
@@ -1571,12 +1570,7 @@ export default class StarThrone {
 
             this.gameState = 'playing';
             
-            // Re-initialize starfield with final map size
-            if (this.animationSystem && this.animationSystem.starfield) {
-                this.animationSystem.starfield.initialized = false;
-                this.animationSystem.initializeStarfield();
-                this.animationSystem.preRenderStaticBackground();
-            }
+            // Consolidated duplicate starfield initialization (dead code eliminated)
             
             // Start home system flashing for player identification
             this.homeSystemFlashStart = Date.now();
@@ -1666,7 +1660,7 @@ export default class StarThrone {
         this.humanPlayer = new Player(0, 'You', '#00ffff', 'human');
         this.players.push(this.humanPlayer);
         console.log(`🔍 HUMAN PLAYER CREATED: ID=${this.humanPlayer.id}, type=${this.humanPlayer.type}, total players now: ${this.players.length}`);
-        this.initializePlayerDiscoveries(this.humanPlayer.id);
+        // Consolidated duplicate initialization call
         
         // Create AI players with unique colors and human-like names
         const usedColors = new Set(['#00ffff']); // Reserve human color
@@ -1694,12 +1688,17 @@ export default class StarThrone {
             const aiName = AIManager.generateAIName(i - 1);
             const aiPlayer = new Player(i, aiName, playerColor, 'ai');
             this.players.push(aiPlayer);
-            this.initializePlayerDiscoveries(aiPlayer.id);
+            // Consolidated duplicate initialization call
         }
         
         this.currentPlayers = this.players.length;
         console.log(`🔍 CREATED PLAYERS: Total ${this.players.length} players`);
         console.log(`🔍 PLAYER BREAKDOWN: Human: ${this.players.filter(p => p.type === 'human').length}, AI: ${this.players.filter(p => p.type === 'ai').length}`);
+        
+        // Consolidated player discovery initialization (duplicate calls eliminated)
+        this.players.forEach(player => {
+            this.initializePlayerDiscoveries(player.id);
+        });
     }
     
     initializePlayerDiscoveries(playerId) {
