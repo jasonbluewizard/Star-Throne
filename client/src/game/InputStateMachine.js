@@ -309,11 +309,13 @@ class TerritorySelectedState extends BaseState {
                 } else {
                     // Non-adjacent enemy star - launch long-range attack
                     const attackingArmies = Math.floor((sourceStar.armySize - 1) * 0.5);
+                    console.log(`🎯 LONG-RANGE ENEMY TRIGGER: Attacking ${targetStar.id} with ${attackingArmies} armies`);
                     if (attackingArmies > 0) {
                         console.log(`🚀 ENEMY: Launching long-range attack from territory ${sourceStar.id} (owner: ${sourceStar.ownerId}) to ${targetStar.id} (owner: ${targetStar.ownerId})`);
                         this.game.launchLongRangeAttack(sourceStar, targetStar, attackingArmies);
                         console.log(`🚀 ENEMY: Launched long-range attack: ${sourceStar.id} -> ${targetStar.id} (${attackingArmies} ships)`);
                     } else {
+                        console.log(`❌ LONG-RANGE BLOCKED: Source has only ${sourceStar.armySize} armies`);
                         this.showFeedback("Need more armies for long-range attack", sourceStar.x, sourceStar.y);
                     }
                 }

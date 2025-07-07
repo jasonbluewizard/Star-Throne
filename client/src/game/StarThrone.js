@@ -921,6 +921,7 @@ export default class StarThrone {
     launchLongRangeAttack(fromTerritory, toTerritory, fleetSize) {
         console.log(`🔧 Creating long-range attack: ${fromTerritory.id} -> ${toTerritory.id} with ${fleetSize} ships`);
         console.log(`🔧 Human player ID: ${this.humanPlayer?.id}, From territory owner: ${fromTerritory.ownerId}, To territory owner: ${toTerritory.ownerId}`);
+        console.log(`🔧 AnimationSystem available: ${!!this.animationSystem}`);
         
         // Use the normal combat system with delayed arrival
         const result = this.combatSystem.attackTerritory(fromTerritory, toTerritory, fleetSize);
@@ -946,6 +947,8 @@ export default class StarThrone {
         const player = this.players[fromTerritory.ownerId];
         const playerColor = player ? player.color : '#ffffff';
         
+        console.log(`🚀 Creating long-range ship animation: ${fromTerritory.id} -> ${toTerritory.id}, fleet size: ${fleetSize}, color: ${playerColor}`);
+        
         // Create ship animation with long-range properties
         const animation = this.animationSystem.getPooledShipAnimation();
         if (animation) {
@@ -959,8 +962,12 @@ export default class StarThrone {
             animation.armyCount = fleetSize; // Store army count for display
             animation.targetTerritory = toTerritory; // Store target for dotted line
             animation.fromOwnerId = fromTerritory.ownerId; // Track attacking player for AI limits
+            animation.isActive = true; // Ensure it's marked as active
             
             this.animationSystem.shipAnimations.push(animation);
+            console.log(`✅ Long-range animation added. Total animations: ${this.animationSystem.shipAnimations.length}`);
+        } else {
+            console.log(`❌ Failed to get pooled animation for long-range attack`);
         }
     }
     
@@ -1700,6 +1707,12 @@ export default class StarThrone {
         
         // Update ship animations and probes with normal delta time (speed applied internally)
         try {
+            // Update AnimationSystem (new modular system for long-range attacks)
+            if (this.animationSystem) {
+                this.animationSystem.updateShipAnimations(deltaTime);
+            }
+            
+            // Update legacy ship animations (for backwards compatibility)
             this.updateShipAnimations(deltaTime);
             this.updateProbes(deltaTime);
             this.updateLongRangeAttacks(deltaTime);
@@ -2593,7 +2606,12 @@ export default class StarThrone {
         // Render probes (disabled - no active probes)
         // this.renderProbes();
         
-        // Render ship animations
+        // Render ship animations via AnimationSystem
+        if (this.animationSystem) {
+            this.animationSystem.renderShipAnimations(this.ctx, this.camera);
+        }
+        
+        // Render legacy ship animations (for backwards compatibility)
         this.renderShipAnimations();
         
         // Render long-range attacks
