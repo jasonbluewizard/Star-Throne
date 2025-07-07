@@ -6,7 +6,7 @@
  */
 
 import { GAME_CONSTANTS } from '../../../common/gameConstants.ts';
-// Removed unused PathfindingService import (dead code cleanup)
+// Removed unused PathfindingService import (dead code eliminated)
 
 export class SupplySystem {
     constructor(game) {

@@ -309,12 +309,7 @@ export class AnimationSystem {
         };
     }
 
-    // Pre-render static background (now unused - both starfield and nebulas are dynamic)
-    preRenderStaticBackground() {
-        // Both starfield and nebulas are now rendered dynamically for proper camera tracking
-        // This method is kept for compatibility but no longer pre-renders anything
-        console.log('Background rendering switched to dynamic mode for proper parallax and camera tracking');
-    }
+    // Removed unused preRenderStaticBackground method (dead code eliminated)
 
     // Render starfield to static canvas
     renderStarfieldStatic(ctx) {

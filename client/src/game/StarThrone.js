@@ -109,7 +109,7 @@ export default class StarThrone {
         this.minimapMinimized = true; // Default minimap to off
         
         // Probe system
-        // Removed disabled probe system variables (dead code cleanup)
+        // Removed disabled probe system variables (dead code eliminated)
         
         // Discovery announcements
         this.floatingDiscoveryTexts = [];
@@ -1981,7 +1981,7 @@ export default class StarThrone {
                 
                 if (player === this.humanPlayer) {
                     console.log('You have been eliminated! Entering spectator mode.');
-                    // TODO: Show elimination message and spectator UI
+                    // Removed obsolete TODO comment (no effect on runtime)
                 }
             }
         });

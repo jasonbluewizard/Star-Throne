@@ -726,6 +726,9 @@ Changelog:
    * Consolidated redundant null checks using simplified conditions and De Morgan's law
    * Eliminated leftover variables and commented-out probe system restrictions
    * Cleaned up unused probe flash variables and obsolete fog of war code
+   * Applied SupplyManager.cs cleanup pattern to supply/logistics system
+   * Removed obsolete TODO comments with no runtime effect
+   * Eliminated unused computed methods and dead code in AnimationSystem
 
 ## User Preferences
 
