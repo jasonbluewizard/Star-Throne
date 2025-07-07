@@ -8,7 +8,7 @@ import { Renderer } from './Renderer.js';
 import { CombatSystem } from './CombatSystem.js';
 import { SupplySystem } from './SupplySystem.js';
 import { GameUtils } from './utils.js';
-import { GAME_CONSTANTS } from '../../../common/gameConstants';
+import { GAME_CONSTANTS } from '../../../common/gameConstants.ts';
 import { gameEvents, GAME_EVENTS, EVENT_PRIORITY, EventHelpers } from './EventSystem.js';
 import { PerformanceManager } from './PerformanceManager.js';
 import { PerformanceOverlay } from './PerformanceOverlay.js';

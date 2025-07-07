@@ -2,7 +2,7 @@ import { Server as SocketServer } from 'socket.io';
 import { Server } from 'http';
 import { GameEngine } from './GameEngine.js';
 import { PlayerState, GameConfig, ClientCommand, CommandType, GameStateUpdate, CombatResult, CommandError, GameState } from '../common/types/index.js';
-import { GAME_CONSTANTS } from '../common/gameConstants.js';
+import { GAME_CONSTANTS } from '../common/gameConstants';
 
 interface Player {
   id: string;

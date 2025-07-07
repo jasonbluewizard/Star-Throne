@@ -1,7 +1,7 @@
 // Server-side authoritative game engine containing all game logic
 // This replaces client-side authority with proper server validation
 
-import { GAME_CONSTANTS } from '../common/gameConstants.js';
+import { GAME_CONSTANTS } from '../common/gameConstants';
 import { PlayerState, TerritoryState, ProbeState, GameState, SupplyRoute, CommandType, ClientCommand } from '../common/types/index.js';
 
 export class GameEngine {

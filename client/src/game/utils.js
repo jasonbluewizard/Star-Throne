@@ -3,7 +3,7 @@
  * Eliminates code duplication across game modules
  */
 
-import { GAME_CONSTANTS } from '../../../common/gameConstants';
+import { GAME_CONSTANTS } from '../../../common/gameConstants.ts';
 
 export class GameUtils {
     /**

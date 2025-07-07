@@ -1,4 +1,4 @@
-import { GAME_CONSTANTS } from '../../../common/gameConstants';
+import { GAME_CONSTANTS } from '../../../common/gameConstants.ts';
 
 export class AnimationSystem {
     constructor(game) {

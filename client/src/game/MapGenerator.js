@@ -12,7 +12,7 @@
  */
 
 import Delaunator from 'delaunator';
-import { GAME_CONSTANTS } from '../../../common/gameConstants';
+import { GAME_CONSTANTS } from '../../../common/gameConstants.ts';
 import { Territory } from './Territory.js';
 
 /**
