@@ -729,6 +729,9 @@ Changelog:
    * Applied SupplyManager.cs cleanup pattern to supply/logistics system
    * Removed obsolete TODO comments with no runtime effect
    * Eliminated unused computed methods and dead code in AnimationSystem
+   * Applied UIManager.cs cleanup pattern to UI and debug panels
+   * Removed unused debugMode variables and debug logging (unused UI features)
+   * Eliminated commented-out debug panels and mobile touch debug displays
 
 ## User Preferences
 

@@ -79,7 +79,7 @@ export class EventSystem {
         
         // Event filtering for performance
         this.enabledEventTypes = new Set(Object.values(GAME_EVENTS));
-        // Removed unused debugMode variable (dead code cleanup)
+        // Removed unused debugMode variable (dead code eliminated)
         
         console.log('EventSystem initialized');
     }
@@ -108,9 +108,7 @@ export class EventSystem {
         // Sort by priority (lower number = higher priority)
         this.listeners.get(eventType).sort((a, b) => a.priority - b.priority);
         
-        if (this.debugMode) {
-            console.log(`EventSystem: Registered listener for ${eventType} (priority: ${priority})`);
-        }
+        // Removed debug logging (unused UI feature)
         
         return listener.id;
     }
@@ -128,9 +126,7 @@ export class EventSystem {
         
         if (index !== -1) {
             listeners.splice(index, 1);
-            if (this.debugMode) {
-                console.log(`EventSystem: Removed listener ${listenerId} for ${eventType}`);
-            }
+            // Removed debug logging (unused UI feature)
             return true;
         }
         
@@ -167,9 +163,7 @@ export class EventSystem {
         this.processingTime += processingTime;
         this.eventsProcessed++;
         
-        if (this.debugMode && processingTime > 1) {
-            console.warn(`EventSystem: Slow event processing for ${eventType}: ${processingTime.toFixed(2)}ms`);
-        }
+        // Removed debug warning (unused UI feature)
     }
     
     /**
@@ -194,9 +188,7 @@ export class EventSystem {
         // Sort queue by priority
         this.eventQueue.sort((a, b) => a.priority - b.priority);
         
-        if (this.debugMode) {
-            console.log(`EventSystem: Queued ${eventType} (queue size: ${this.eventQueue.length})`);
-        }
+        // Removed debug logging (unused UI feature)
     }
     
     /**
@@ -218,9 +210,7 @@ export class EventSystem {
             this.processingTime += processingTime;
             this.eventsProcessed += processed;
             
-            if (this.debugMode) {
-                console.log(`EventSystem: Processed ${processed} queued events in ${processingTime.toFixed(2)}ms`);
-            }
+            // Removed debug logging (unused UI feature)
         }
     }
     
@@ -284,14 +274,7 @@ export class EventSystem {
         console.log(`EventSystem: Enabled ${eventTypes.length} event types`);
     }
     
-    /**
-     * Enable or disable debug mode
-     * @param {boolean} enabled - Debug mode state
-     */
-    setDebugMode(enabled) {
-        this.debugMode = enabled;
-        console.log(`EventSystem: Debug mode ${enabled ? 'enabled' : 'disabled'}`);
-    }
+    // Removed unused setDebugMode method (dead code eliminated)
     
     /**
      * Get performance statistics

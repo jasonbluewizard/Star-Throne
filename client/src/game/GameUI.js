@@ -493,10 +493,10 @@ export class GameUI {
             ctx.fillText(`FPS: ${gameData.fps}`, this.canvas.width - 20, this.canvas.height - 10);
         }
         
-        // Removed mobile touch debug display (dead code cleanup)
+        // Removed mobile touch debug display (unused UI feature)
     }
     
-    // Removed probe notification UI (probe functionality disabled)
+    // Removed probe notification UI (unused UI feature)
     
     renderDiscoveryPanel(ctx, gameData) {
         // Only show human player's discoveries

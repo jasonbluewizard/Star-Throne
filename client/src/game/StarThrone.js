@@ -163,7 +163,7 @@ export default class StarThrone {
         this.messageTimer = 0;
         
         // Performance optimization: Throttled logging system
-        // Removed unused debugMode variable (dead code cleanup)
+        // Removed unused debugMode variable (dead code eliminated)
         this.logThrottles = new Map(); // Track throttled log messages
         this.lastLogTimes = new Map(); // Track last log timestamp per message type
         
@@ -188,7 +188,7 @@ export default class StarThrone {
      * @param {number} throttleMs - Minimum time between identical messages
      */
     log(message, type = 'info', throttleMs = 1000) {
-        if (!this.debugMode && type === 'info') return; // Skip info logs in production
+        // Removed debugMode check (unused UI variable)
         
         const key = `${type}:${message}`;
         const now = Date.now();
