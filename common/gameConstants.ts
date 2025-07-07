@@ -40,7 +40,7 @@ export const GAME_CONSTANTS = {
     // Fleet Movement Speeds
     FLEET_SPEED: 1.0, // Normal fleet movement speed
     SUBSPACE_SPEED: 1 / 6.0, // Long-range fleets move at 1/6 normal speed
-    LONG_RANGE_ANIMATION_DURATION: 6000, // 6 seconds for long-range attacks
+    LONG_RANGE_ANIMATION_DURATION: 36000, // 36 seconds for slow long-range ship travel (1/6th speed)
     
     // Long-range Attack Limits for AI
     AI_MAX_LONG_RANGE_FLEETS: 2, // Maximum simultaneous long-range fleets per AI

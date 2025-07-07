@@ -92,6 +92,7 @@ export default class StarThrone {
         // Ship movement animations
         this.shipAnimations = [];
         this.shipAnimationPool = []; // Reuse objects to reduce garbage collection
+        this.pendingLongRangeCombats = []; // Track delayed long-range combat arrivals
         
         // this.longRangeAttacks = []; // legacy long-range list no longer used
         
@@ -923,22 +924,108 @@ export default class StarThrone {
         console.log(`🔧 Human player ID: ${this.humanPlayer?.id}, From territory owner: ${fromTerritory.ownerId}, To territory owner: ${toTerritory.ownerId}`);
         console.log(`🔧 AnimationSystem available: ${!!this.animationSystem}`);
         
-        // Use the normal combat system with delayed arrival
-        const result = this.combatSystem.attackTerritory(fromTerritory, toTerritory, fleetSize);
+        // Reduce attacking territory's armies immediately
+        fromTerritory.armySize = Math.max(1, fromTerritory.armySize - fleetSize);
         
-        if (result.success) {
-            // Create long-range ship animation (slower and with army count display)
-            this.createLongRangeShipAnimation(fromTerritory, toTerritory, fleetSize);
+        // Create long-range ship animation (slower and with army count display)
+        this.createLongRangeShipAnimation(fromTerritory, toTerritory, fleetSize);
+        
+        // Schedule delayed combat resolution when the fleet arrives
+        const arrivalTime = Date.now() + GAME_CONSTANTS.LONG_RANGE_ANIMATION_DURATION;
+        this.scheduleLongRangeCombat(fromTerritory, toTerritory, fleetSize, arrivalTime);
+        
+        // Show visual feedback
+        this.showMessage(`Long-range attack launched: ${fleetSize} ships (arriving in ${GAME_CONSTANTS.LONG_RANGE_ANIMATION_DURATION/1000}s)`, 3000);
+        
+        // Flash the source territory
+        this.flashTerritory(fromTerritory.id, '#ff0000', 300);
+        
+        console.log(`Long-range attack launched successfully: ${fromTerritory.id} -> ${toTerritory.id} (${fleetSize} ships) - arriving in ${GAME_CONSTANTS.LONG_RANGE_ANIMATION_DURATION/1000}s`);
+    }
+    
+    // Schedule delayed combat resolution for long-range attacks
+    scheduleLongRangeCombat(fromTerritory, toTerritory, fleetSize, arrivalTime) {
+        if (!this.pendingLongRangeCombats) {
+            this.pendingLongRangeCombats = [];
+        }
+        
+        this.pendingLongRangeCombats.push({
+            fromTerritory: fromTerritory,
+            toTerritory: toTerritory,
+            fromTerritoryId: fromTerritory.id, // Store IDs for validation
+            toTerritoryId: toTerritory.id,
+            fleetSize: fleetSize,
+            arrivalTime: arrivalTime,
+            fromOwnerId: fromTerritory.ownerId // Store attacking player ID
+        });
+        
+        console.log(`⏰ Long-range combat scheduled: ${fromTerritory.id} -> ${toTerritory.id} at ${new Date(arrivalTime).toLocaleTimeString()}`);
+    }
+    
+    // Process pending long-range combat arrivals
+    processLongRangeCombatArrivals() {
+        if (!this.pendingLongRangeCombats) return;
+        
+        const currentTime = Date.now();
+        for (let i = this.pendingLongRangeCombats.length - 1; i >= 0; i--) {
+            const combat = this.pendingLongRangeCombats[i];
             
-            // Show visual feedback
-            this.showMessage(`Long-range attack launched: ${fleetSize} ships`, 2000);
+            if (currentTime >= combat.arrivalTime) {
+                // Fleet has arrived - process combat
+                console.log(`⚔️ LONG-RANGE ARRIVAL: Fleet from ${combat.fromTerritoryId} attacking ${combat.toTerritoryId} with ${combat.fleetSize} ships`);
+                
+                // Validate territories still exist and are valid targets
+                const targetTerritory = this.gameMap.territories.find(t => t.id === combat.toTerritoryId);
+                const sourceTerritory = this.gameMap.territories.find(t => t.id === combat.fromTerritoryId);
+                
+                if (targetTerritory && sourceTerritory) {
+                    // Process the actual combat
+                    this.processLongRangeArrival(combat, sourceTerritory, targetTerritory);
+                } else {
+                    console.log(`❌ Long-range combat cancelled: invalid territories (source: ${!!sourceTerritory}, target: ${!!targetTerritory})`);
+                }
+                
+                // Remove completed combat
+                this.pendingLongRangeCombats.splice(i, 1);
+            }
+        }
+    }
+    
+    // Process long-range fleet arrival and combat
+    processLongRangeArrival(combat, sourceTerritory, targetTerritory) {
+        console.log(`💥 Long-range fleet arrives! ${combat.fleetSize} ships attacking territory ${targetTerritory.id} (${targetTerritory.armySize} defenders)`);
+        
+        // Use combat system to process the attack
+        const result = this.combatSystem.resolveCombat(combat.fleetSize, targetTerritory.armySize);
+        
+        if (result.attackerWins) {
+            // Attacker wins - capture territory
+            const previousOwner = targetTerritory.ownerId;
+            targetTerritory.ownerId = combat.fromOwnerId;
+            targetTerritory.armySize = result.attackerSurvivors;
             
-            // Flash the source territory
-            this.flashTerritory(fromTerritory.id, '#ff0000', 300);
+            console.log(`🏆 Long-range attack successful! Territory ${targetTerritory.id} captured by player ${combat.fromOwnerId}`);
             
-            console.log(`Long-range attack launched successfully: ${fromTerritory.id} -> ${toTerritory.id} (${fleetSize} ships)`);
+            // Visual feedback
+            this.flashTerritory(targetTerritory.id, '#00ff00', 500);
+            this.showMessage(`Long-range attack successful! Territory captured`, 3000);
+            
+            // Check for throne capture
+            if (targetTerritory.isThroneStars) {
+                this.handleThroneCapture({
+                    attackerId: combat.fromOwnerId,
+                    defenderId: previousOwner,
+                    territoryId: targetTerritory.id
+                });
+            }
         } else {
-            console.log(`Long-range attack failed: ${result.reason}`);
+            // Defender wins
+            targetTerritory.armySize = result.defenderSurvivors;
+            console.log(`🛡️ Long-range attack failed! Territory ${targetTerritory.id} defended (${result.defenderSurvivors} survivors)`);
+            
+            // Visual feedback
+            this.flashTerritory(targetTerritory.id, '#ff0000', 500);
+            this.showMessage(`Long-range attack failed! Defense held`, 2000);
         }
     }
 
@@ -1795,6 +1882,9 @@ export default class StarThrone {
             this.updateProbes(deltaTime);
             this.updateLongRangeAttacks(deltaTime);
             this.updateFloatingDiscoveryTexts(deltaTime);
+            
+            // Process pending long-range combat arrivals
+            this.processLongRangeCombatArrivals();
         } catch (error) {
             console.error('Error updating animations:', error);
         }
