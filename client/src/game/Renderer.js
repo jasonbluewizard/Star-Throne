@@ -455,21 +455,8 @@ export class Renderer {
             console.log(`🔧 Rendering ${reinforcementCount} supply indicators for territory ${territory.id}`);
         }
         
-        // TEMP TEST: Force render supply indicators on human player territories for testing
-        const humanPlayerId = this.game?.humanPlayer?.id;
-        if (territory.ownerId === humanPlayerId && territory.id % 3 === 0) { // Every 3rd human territory gets test indicator
-            console.log(`🧪 TEST: Adding fake supply indicator to territory ${territory.id}, humanPlayerId=${humanPlayerId}`);
-            const yOffset = territory.radius + 15;
-            this.ctx.fillStyle = '#00ff00'; // Green color
-            this.ctx.strokeStyle = 'black';
-            this.ctx.lineWidth = 1;
-            this.ctx.font = 'bold 12px Arial';
-            this.ctx.textAlign = 'center';
-            this.ctx.textBaseline = 'middle';
-            this.ctx.strokeText('+', territory.x, territory.y + yOffset);
-            this.ctx.fillText('+', territory.x, territory.y + yOffset);
-        }
-        
+        // Ensure full opacity for reinforcement plus symbols
+        this.ctx.globalAlpha = 1;
         if (reinforcementCount > 0) {
             // Create + symbols underneath the territory
             const plusSymbols = '+'.repeat(reinforcementCount);
@@ -480,6 +467,7 @@ export class Renderer {
             this.ctx.fillStyle = '#00ff00'; // Green color for reinforcement indicators
             this.ctx.strokeStyle = 'black';
             this.ctx.lineWidth = 1;
+            this.ctx.globalAlpha = 1; // Ensure full opacity for plus symbols
             this.ctx.font = 'bold 12px Arial';
             this.ctx.textAlign = 'center';
             this.ctx.textBaseline = 'middle';

@@ -886,8 +886,8 @@ export class GameUI {
                 // Visible territory - show owner name first
                 tooltipLines.push(`${ownerName}`);
                 
-                // NEBULA FOG OF WAR: Apply to ALL visible territories that aren't player-owned
-                if (isInNebula && !isPlayerOwned) {
+                // NEBULA FOG OF WAR: Apply to ALL visible territories (suppress fleet count)
+                if (isInNebula) {
                     console.log(`🌫️ NEBULA TOOLTIP: Territory ${territory.id} in nebula - hiding fleet count (neutral: ${isNeutral})`);
                     if (isNeutral) {
                         // Neutral territory in nebula - show question marks

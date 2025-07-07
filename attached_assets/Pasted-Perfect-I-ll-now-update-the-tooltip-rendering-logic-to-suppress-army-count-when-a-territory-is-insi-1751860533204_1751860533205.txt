@@ -1,0 +1,65 @@
+Perfect. I’ll now update the tooltip rendering logic to suppress army count when a territory is inside a nebula, and enhance rendering to draw one '+' symbol per incoming active supply route. I’ll return with a clean diff patch to fix both behaviors.
+
+
+# Star Throne Code Visual Fixes
+
+We apply two fixes in the rendering code:
+
+* **Tooltip Suppression in Nebula:** Always hide the fleet count for any star inside a nebula. In `GameUI.renderTooltip`, we remove the `!isPlayerOwned` check so that even player-owned stars inside a nebula do not display their army size. All other tooltip fields (star name, owner, etc.) remain unchanged.
+* **Supply Route “+” Indicators:** Draw one “+” symbol for each incoming supply route under the destination star. In `Renderer.renderSupplyRouteIndicators`, we remove the temporary test code and ensure the text is drawn at full opacity. We then use `'+'.repeat(reinforcementCount)` to draw a string of pluses under the star when `reinforcementCount > 0`.
+
+Below is a unified diff-style patch of the changes, with comments:
+
+```diff
+--- client/src/game/GameUI.js
+@@ -982,7 +982,7 @@
+-                // NEBULA FOG OF WAR: Apply to ALL visible territories that aren't player-owned
+-                if (isInNebula && !isPlayerOwned) {
++                // NEBULA FOG OF WAR: Apply to ALL visible territories (suppress fleet count)
++                if (isInNebula) {
+                     console.log(`🌫️ NEBULA TOOLTIP: Territory ${territory.id} in nebula - hiding fleet count (neutral: ${isNeutral})`);
+                     if (isNeutral) {
+                         // Neutral territory in nebula - show question marks
+                         tooltipLines.push(`??? Fleets (nebula)`);
+                     } else {
+                         // Enemy (or player) territory in nebula - hide fleet count
+                         tooltipLines.push(`Unknown forces (nebula)`);
+                     }
+--- client/src/game/Renderer.js
+@@ -2920,15 +2920,5 @@
+-        // TEMP TEST: Force render supply indicators on human player territories for testing
+-        if (territory.ownerId === humanPlayerId && territory.id % 3 === 0) { 
+-            // Every 3rd human territory gets test indicator
+-            console.log(`🧪 TEST: Adding fake supply indicator to territory ${territory.id}`);
+-            const yOffset = territory.radius + 15;
+-            this.ctx.fillStyle = '#00ff00'; // Green color
+-            this.ctx.strokeStyle = 'black';
+-            this.ctx.lineWidth = 1;
+-            this.ctx.font = 'bold 12px Arial';
+-            this.ctx.textAlign = 'center';
+-            this.ctx.textBaseline = 'middle';
+-            this.ctx.strokeText('+', territory.x, territory.y + yOffset);
+-            this.ctx.fillText('+', territory.x, territory.y + yOffset);
+-        }
++
++        // Ensure full opacity for reinforcement plus symbols
++        this.ctx.globalAlpha = 1;
+         if (reinforcementCount > 0) {
+             // Create + symbols underneath the territory
+             const plusSymbols = '+'.repeat(reinforcementCount);
+@@ -2942,6 +2932,8 @@
+             this.ctx.fillStyle = '#00ff00'; // Green color for reinforcement indicators
+             this.ctx.strokeStyle = 'black';
+             this.ctx.lineWidth = 1;
++            this.ctx.globalAlpha = 1; // (Redundant with above, but ensures full opacity)
+             this.ctx.font = 'bold 12px Arial';
+             this.ctx.textAlign = 'center';
+             this.ctx.textBaseline = 'middle';
+             // Draw text with outline for visibility
+```
+
+**Explanation of Changes:** In `GameUI.js`, changing the condition to `if (isInNebula)` unconditionally suppresses the fleet count for any star in a nebula. In `Renderer.js`, we remove the temporary test block (which was only for debugging) and add `this.ctx.globalAlpha = 1` so that the green “+” indicators are drawn at full opacity. The code already constructs the string of pluses with `'+'.repeat(reinforcementCount)` and draws it centered under the star when `reinforcementCount > 0`.
+
+These patches ensure that tooltip fleet counts are always hidden in nebulae, and each incoming supply route is visually represented by a “+” under the destination star.  Appropriate comments are included so the changes can be applied by the Replit AI.
+
+**Sources:** Existing code from *GameUI.js* and *Renderer.js* in the Star Throne project.
