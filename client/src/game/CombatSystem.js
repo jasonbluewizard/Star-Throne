@@ -309,24 +309,14 @@ export class CombatSystem {
     }
 
     /**
-     * Validates if an attack is legal
+     * Validates if an attack is legal - now allows long-range attacks
      */
     validateAttack(attackingTerritory, defendingTerritory) {
-        // Must have different owners
-        if (attackingTerritory.ownerId === defendingTerritory.ownerId) {
-            return false;
-        }
-        
-        // Attacking territory must have more than 1 army
-        if (attackingTerritory.armySize <= 1) {
-            return false;
-        }
-        
-        // Territories must be connected
-        if (!attackingTerritory.neighbors.includes(defendingTerritory.id)) {
-            return false;
-        }
-        
+        if (!attackingTerritory || !defendingTerritory) return false;
+        // Must have an attacker and not target own territory
+        if (attackingTerritory.ownerId === null) return false;
+        if (attackingTerritory.ownerId === defendingTerritory.ownerId) return false;
+        // (Removed adjacency requirement to allow long-range attacks)
         return true;
     }
 

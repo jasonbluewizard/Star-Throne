@@ -161,16 +161,12 @@ class DefaultState extends BaseState {
             return true;
         }
         
-        if (this.isOwnedByPlayer(territory)) {
+        // Select only your own territory with >1 army
+        if (territory && territory.ownerId === this.game.humanPlayer?.id && territory.armySize > 1) {
             this.fsm.selectedTerritory = territory;
             this.fsm.transitionTo('TerritorySelected', { selectedTerritory: territory });
-            return true;
-        } else {
-            // Enemy, neutral, or colonizable territory
-            this.fsm.selectedTerritory = territory;
-            this.fsm.transitionTo('EnemySelected', { selectedTerritory: territory });
-            return true;
         }
+        return true;  // consume left-click in default state
     }
     
     handleRightClick(territory, worldPos) {

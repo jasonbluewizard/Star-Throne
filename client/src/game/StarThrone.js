@@ -93,8 +93,7 @@ export default class StarThrone {
         this.shipAnimations = [];
         this.shipAnimationPool = []; // Reuse objects to reduce garbage collection
         
-        // Long-range attacks (slow-moving ships that cross the map)
-        this.longRangeAttacks = [];
+        // this.longRangeAttacks = []; // legacy long-range list no longer used
         
         // Pre-populate animation pool with multi-hop support
         for (let i = 0; i < 20; i++) {
@@ -975,127 +974,8 @@ export default class StarThrone {
         // for (let i = this.probes.length - 1; i >= 0; i--) { ... }
     }
     
-    // Update long-range attacks (disabled - using normal combat system now)
     updateLongRangeAttacks(deltaTime) {
-        // Long-range attacks now use the normal combat system, no separate processing needed
-        return;
-        
-        for (let i = this.longRangeAttacks.length - 1; i >= 0; i--) {
-            const attack = this.longRangeAttacks[i];
-            
-            // Calculate elapsed time from launch
-            const elapsed = (Date.now() - attack.launchTime) / 1000; // Convert to seconds
-            
-            // Calculate how far we should have traveled
-            const distanceTraveled = attack.speed * elapsed;
-            const progress = Math.min(1, distanceTraveled / attack.totalDistance);
-            
-            // Update position based on progress (interpolate between start and end)
-            attack.x = attack.fromX + (attack.toX - attack.fromX) * progress;
-            attack.y = attack.fromY + (attack.toY - attack.fromY) * progress;
-            
-            // Debug logging for first few updates
-            if (elapsed < 2) {
-                console.log(`Attack ${attack.id} at ${elapsed.toFixed(1)}s: pos(${attack.x.toFixed(1)}, ${attack.y.toFixed(1)}) progress=${progress.toFixed(2)}`);
-            }
-            
-            // Check if attack has reached its target
-            if (progress >= 1) {
-                console.log(`🚀 Long-range attack ${attack.id} reached target territory ${attack.toTerritoryId}`);
-                
-                // Find the target territory (check both array and object structure)
-                let targetTerritory;
-                if (Array.isArray(this.gameMap.territories)) {
-                    targetTerritory = this.gameMap.territories.find(t => t.id === attack.toTerritoryId);
-                } else {
-                    targetTerritory = this.gameMap.territories[attack.toTerritoryId];
-                }
-                console.log(`🎯 Target territory found:`, targetTerritory ? `ID ${targetTerritory.id}, armies: ${targetTerritory.armySize}` : 'NOT FOUND');
-                console.log(`🗺️ GameMap structure:`, Array.isArray(this.gameMap.territories) ? 'Array' : 'Object', `with ${Array.isArray(this.gameMap.territories) ? this.gameMap.territories.length : Object.keys(this.gameMap.territories).length} territories`);
-                
-                if (!targetTerritory) {
-                    console.log(`❌ ERROR: Could not find target territory ${attack.toTerritoryId}. Attack cancelled.`);
-                    this.longRangeAttacks.splice(i, 1);
-                    continue;
-                }
-                
-                console.log(`✅ PROCEEDING WITH COMBAT for territory ${targetTerritory.id}`);
-                
-                {
-                    // Execute direct combat (no need for ship animation delay)
-                    const attackingArmies = attack.fleetSize;
-                    const defendingArmies = targetTerritory.armySize;
-                    
-                    console.log(`⚔️ COMBAT: ${attackingArmies} attackers vs ${defendingArmies} defenders on territory ${targetTerritory.id}`);
-                    console.log(`🏴 Territory owner: ${targetTerritory.ownerId}, Attacker: ${attack.playerId}`);
-                    
-                    // Prevent attacking your own territory
-                    if (targetTerritory.ownerId === attack.playerId) {
-                        console.log(`❌ INVALID: Cannot attack your own territory ${targetTerritory.id}`);
-                        this.longRangeAttacks.splice(i, 1);
-                        continue;
-                    }
-                    
-                    // Simple combat resolution: attackers win if they have more armies
-                    const attackSuccess = attackingArmies > defendingArmies;
-                    console.log(`🎲 Combat result: ${attackSuccess ? 'ATTACKERS WIN' : 'DEFENDERS WIN'}`)
-                    
-                    if (attackSuccess) {
-                        // Capture territory
-                        const attacker = this.players[attack.playerId];
-                        const defender = targetTerritory.ownerId ? this.players[targetTerritory.ownerId] : null;
-                        
-                        console.log(`🔄 BEFORE: Territory ${targetTerritory.id} owned by ${targetTerritory.ownerId}, armies: ${targetTerritory.armySize}`);
-                        console.log(`🔄 Attacker: ${attacker ? attacker.name : 'NOT FOUND'}, Defender: ${defender ? defender.name : 'NEUTRAL'}`);
-                        
-                        // Remove from previous owner if applicable
-                        if (defender) {
-                            const territoryIndex = defender.territories.indexOf(targetTerritory.id);
-                            if (territoryIndex > -1) {
-                                defender.territories.splice(territoryIndex, 1);
-                                console.log(`📤 Removed territory ${targetTerritory.id} from ${defender.name}'s territories`);
-                            }
-                        }
-                        
-                        // Transfer ownership
-                        const oldOwner = targetTerritory.ownerId;
-                        targetTerritory.ownerId = attack.playerId;
-                        targetTerritory.armySize = attackingArmies - defendingArmies;
-                        
-                        console.log(`🔄 AFTER: Territory ${targetTerritory.id} changed from owner ${oldOwner} to ${targetTerritory.ownerId}, armies: ${targetTerritory.armySize}`);
-                        
-                        // Add to attacker's territories
-                        if (attacker && !attacker.territories.includes(targetTerritory.id)) {
-                            attacker.territories.push(targetTerritory.id);
-                        }
-                        
-                        // Check for throne star capture
-                        if (targetTerritory.isThronestar && defender) {
-                            console.log(`🏰 THRONE STAR CAPTURED: ${attacker.name} captured ${defender.name}'s throne!`);
-                            this.combatSystem.handleThroneCapture(attacker, defender);
-                        }
-                        
-                        // Trigger discovery on conquest
-                        this.discoverySystem.triggerDiscoveryOnConquest(targetTerritory, attacker);
-                        
-                        console.log(`Long-range attack SUCCESS: Territory ${targetTerritory.id} captured`);
-                        this.flashTerritory(targetTerritory.id, '#00ff00', 500);
-                        this.showMessage(`Long-range attack successful! Captured territory ${targetTerritory.id}`, 3000);
-                    } else {
-                        // Attack failed
-                        targetTerritory.armySize -= attackingArmies; // Reduce defender armies
-                        if (targetTerritory.armySize < 1) targetTerritory.armySize = 1; // Minimum garrison
-                        
-                        console.log(`Long-range attack FAILED: Territory ${targetTerritory.id} defended`);
-                        this.flashTerritory(targetTerritory.id, '#ff0000', 500);
-                        this.showMessage(`Long-range attack failed against territory ${targetTerritory.id}`, 3000);
-                    }
-                }
-                
-                // Remove the completed attack
-                this.longRangeAttacks.splice(i, 1);
-            }
-        }
+        // No-op: long-range attacks are handled by CombatSystem and animations
     }
     
     // Colonize planet when probe arrives
