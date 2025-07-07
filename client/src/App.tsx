@@ -22,6 +22,9 @@ function App() {
 
   const initSinglePlayerGame = async (data: GameData) => {
     try {
+      // Set single-player flag to prevent WebSocket connections
+      (window as any).singlePlayerMode = true;
+      
       const { default: StarThrone } = await import('./game/StarThrone.js');
       
       // Add mode flag to prevent WebSocket connection attempts

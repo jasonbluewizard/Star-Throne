@@ -45,6 +45,12 @@ export class SocketClient {
   connect() {
     if (this.isConnected) return;
 
+    // Check if we're in single-player mode by checking the URL or window flag
+    if (window.location.search.includes('auto=single') || (window as any).singlePlayerMode) {
+      console.log('Single-player mode detected, skipping WebSocket connection');
+      return;
+    }
+
     this.socket = io('ws://localhost:5000', {
       transports: ['websocket'],
       upgrade: false

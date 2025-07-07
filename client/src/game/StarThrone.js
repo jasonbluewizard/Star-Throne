@@ -93,6 +93,9 @@ export default class StarThrone {
         this.shipAnimations = [];
         this.shipAnimationPool = []; // Reuse objects to reduce garbage collection
         
+        // Long-range attacks (slow-moving ships that cross the map)
+        this.longRangeAttacks = [];
+        
         // Pre-populate animation pool with multi-hop support
         for (let i = 0; i < 20; i++) {
             this.shipAnimationPool.push({
@@ -915,6 +918,52 @@ export default class StarThrone {
         return true;
     }
     
+    // Launch long-range attack (probe-like ship that moves slowly across map)
+    launchLongRangeAttack(fromTerritory, toTerritory, fleetSize) {
+        console.log(`Creating long-range attack: ${fromTerritory.id} -> ${toTerritory.id} with ${fleetSize} ships`);
+        
+        // Reduce source territory armies immediately
+        fromTerritory.armySize -= fleetSize;
+        
+        // Create long-range attack object (similar to old probe system)
+        const longRangeAttack = {
+            id: Math.random(),
+            fromTerritoryId: fromTerritory.id,
+            toTerritoryId: toTerritory.id,
+            fromX: fromTerritory.x,
+            fromY: fromTerritory.y,
+            toX: toTerritory.x,
+            toY: toTerritory.y,
+            x: fromTerritory.x,
+            y: fromTerritory.y,
+            fleetSize: fleetSize,
+            speed: 15, // Much slower than normal ships (normal is ~50-100 pixels/second)
+            isLongRangeAttack: true,
+            playerId: this.humanPlayer?.id,
+            playerColor: this.humanPlayer?.color || '#00ddff',
+            launchTime: Date.now(),
+            totalDistance: Math.sqrt(Math.pow(toTerritory.x - fromTerritory.x, 2) + Math.pow(toTerritory.y - fromTerritory.y, 2)),
+            direction: {
+                x: (toTerritory.x - fromTerritory.x) / Math.sqrt(Math.pow(toTerritory.x - fromTerritory.x, 2) + Math.pow(toTerritory.y - fromTerritory.y, 2)),
+                y: (toTerritory.y - fromTerritory.y) / Math.sqrt(Math.pow(toTerritory.x - fromTerritory.x, 2) + Math.pow(toTerritory.y - fromTerritory.y, 2))
+            }
+        };
+        
+        // Add to long-range attacks array (create if doesn't exist)
+        if (!this.longRangeAttacks) {
+            this.longRangeAttacks = [];
+        }
+        this.longRangeAttacks.push(longRangeAttack);
+        
+        // Show visual feedback
+        this.showMessage(`Long-range attack launched: ${fleetSize} ships`, 2000);
+        
+        // Flash the source territory
+        this.flashTerritory(fromTerritory.id, '#ff0000', 300);
+        
+        console.log(`Long-range attack created with ID ${longRangeAttack.id}`);
+    }
+    
     // Update ship animations
     updateShipAnimations(deltaTime) {
         const currentTime = Date.now();
@@ -946,6 +995,54 @@ export default class StarThrone {
     updateProbes(deltaTime) {
         // Probe update logic disabled (no active probes)
         // for (let i = this.probes.length - 1; i >= 0; i--) { ... }
+    }
+    
+    // Update long-range attacks (slow-moving ships that cross map)
+    updateLongRangeAttacks(deltaTime) {
+        if (!this.longRangeAttacks) return;
+        
+        for (let i = this.longRangeAttacks.length - 1; i >= 0; i--) {
+            const attack = this.longRangeAttacks[i];
+            const elapsed = (Date.now() - attack.launchTime) / 1000; // Convert to seconds
+            
+            // Move the attack towards its target
+            const moveDistance = attack.speed * elapsed;
+            const progress = Math.min(1, moveDistance / attack.totalDistance);
+            
+            // Update position
+            attack.x = attack.fromX + (attack.toX - attack.fromX) * progress;
+            attack.y = attack.fromY + (attack.toY - attack.fromY) * progress;
+            
+            // Check if attack has reached its target
+            if (progress >= 1) {
+                console.log(`Long-range attack ${attack.id} reached target territory ${attack.toTerritoryId}`);
+                
+                // Find the target territory
+                const targetTerritory = this.gameMap.territories.find(t => t.id === attack.toTerritoryId);
+                if (targetTerritory) {
+                    // Execute the attack using the combat system
+                    const result = this.combatSystem.attackTerritory(
+                        { armySize: attack.fleetSize, ownerId: attack.playerId }, 
+                        targetTerritory, 
+                        attack.fleetSize
+                    );
+                    
+                    console.log(`Long-range attack result: ${result ? 'Success' : 'Failed'}`);
+                    
+                    // Show visual feedback
+                    this.flashTerritory(targetTerritory.id, result ? '#00ff00' : '#ff0000', 500);
+                    
+                    if (result) {
+                        this.showMessage(`Long-range attack successful! Captured territory ${targetTerritory.id}`, 3000);
+                    } else {
+                        this.showMessage(`Long-range attack failed against territory ${targetTerritory.id}`, 3000);
+                    }
+                }
+                
+                // Remove the completed attack
+                this.longRangeAttacks.splice(i, 1);
+            }
+        }
     }
     
     // Colonize planet when probe arrives
@@ -1032,6 +1129,61 @@ export default class StarThrone {
     renderProbes() {
         // Probe rendering disabled (no active probes)
         // this.probes.forEach(probe => { probe.render(this.ctx); });
+    }
+    
+    // Render long-range attacks (slow-moving ships crossing the map)
+    renderLongRangeAttacks() {
+        if (!this.longRangeAttacks) return;
+        
+        this.longRangeAttacks.forEach(attack => {
+            // Convert world coordinates to screen coordinates
+            const screenPos = this.camera.worldToScreen(attack.x, attack.y);
+            
+            // Skip if off-screen
+            if (screenPos.x < -50 || screenPos.x > this.canvas.width + 50 ||
+                screenPos.y < -50 || screenPos.y > this.canvas.height + 50) {
+                return;
+            }
+            
+            this.ctx.save();
+            
+            // Draw the long-range attack ship (larger than normal ships)
+            this.ctx.fillStyle = attack.playerColor;
+            this.ctx.shadowColor = attack.playerColor;
+            this.ctx.shadowBlur = 12;
+            
+            this.ctx.beginPath();
+            this.ctx.arc(screenPos.x, screenPos.y, 6, 0, Math.PI * 2); // Larger radius
+            this.ctx.fill();
+            
+            // Add glowing trail effect
+            const trailLength = 8;
+            for (let i = 1; i <= trailLength; i++) {
+                const trailDistance = i * 8; // Longer trail
+                const trailX = attack.x - (attack.direction.x * trailDistance);
+                const trailY = attack.y - (attack.direction.y * trailDistance);
+                const trailScreenPos = this.camera.worldToScreen(trailX, trailY);
+                
+                this.ctx.globalAlpha = (trailLength - i) / trailLength * 0.6;
+                this.ctx.beginPath();
+                this.ctx.arc(trailScreenPos.x, trailScreenPos.y, 4 - (i * 0.4), 0, Math.PI * 2);
+                this.ctx.fill();
+            }
+            
+            // Draw fleet size indicator next to the ship
+            this.ctx.globalAlpha = 1;
+            this.ctx.fillStyle = '#ffffff';
+            this.ctx.font = 'bold 12px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.strokeStyle = '#000000';
+            this.ctx.lineWidth = 2;
+            
+            const fleetText = `${attack.fleetSize}`;
+            this.ctx.strokeText(fleetText, screenPos.x, screenPos.y - 15);
+            this.ctx.fillText(fleetText, screenPos.x, screenPos.y - 15);
+            
+            this.ctx.restore();
+        });
     }
     
     renderFloatingDiscoveryTexts() {
@@ -1603,6 +1755,7 @@ export default class StarThrone {
         try {
             this.updateShipAnimations(deltaTime);
             this.updateProbes(deltaTime);
+            this.updateLongRangeAttacks(deltaTime);
             this.updateFloatingDiscoveryTexts(deltaTime);
         } catch (error) {
             console.error('Error updating animations:', error);
@@ -2495,6 +2648,9 @@ export default class StarThrone {
         
         // Render ship animations
         this.renderShipAnimations();
+        
+        // Render long-range attacks
+        this.renderLongRangeAttacks();
         
         // Proportional drag interface handled by InputHandler
         

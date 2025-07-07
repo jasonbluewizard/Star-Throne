@@ -310,9 +310,14 @@ class TerritorySelectedState extends BaseState {
                         console.log(`Attacked enemy ${targetStar.id} from ${sourceStar.id}`);
                     }
                 } else {
-                    // Non-adjacent enemy star - show error feedback
-                    this.showFeedback("Target not in range", sourceStar.x, sourceStar.y);
-                    console.log(`Enemy territory ${targetStar.id} not in range from ${sourceStar.id}`);
+                    // Non-adjacent enemy star - launch long-range attack
+                    const attackingArmies = Math.floor((sourceStar.armySize - 1) * 0.5);
+                    if (attackingArmies > 0) {
+                        this.game.launchLongRangeAttack(sourceStar, targetStar, attackingArmies);
+                        console.log(`Launched long-range attack: ${sourceStar.id} -> ${targetStar.id} (${attackingArmies} ships)`);
+                    } else {
+                        this.showFeedback("Need more armies for long-range attack", sourceStar.x, sourceStar.y);
+                    }
                 }
                 break;
                 
@@ -326,9 +331,14 @@ class TerritorySelectedState extends BaseState {
                         console.log(`Attacked neutral garrison ${targetStar.id} from ${sourceStar.id}`);
                     }
                 } else {
-                    // Non-adjacent neutral star - show error feedback
-                    this.showFeedback("Target not in range", sourceStar.x, sourceStar.y);
-                    console.log(`Neutral territory ${targetStar.id} not in range from ${sourceStar.id}`);
+                    // Non-adjacent neutral star - launch long-range attack
+                    const attackingArmies = Math.floor((sourceStar.armySize - 1) * 0.5);
+                    if (attackingArmies > 0) {
+                        this.game.launchLongRangeAttack(sourceStar, targetStar, attackingArmies);
+                        console.log(`Launched long-range attack: ${sourceStar.id} -> ${targetStar.id} (${attackingArmies} ships)`);
+                    } else {
+                        this.showFeedback("Need more armies for long-range attack", sourceStar.x, sourceStar.y);
+                    }
                 }
                 break;
                 
