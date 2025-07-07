@@ -1003,15 +1003,18 @@ export default class StarThrone {
         
         for (let i = this.longRangeAttacks.length - 1; i >= 0; i--) {
             const attack = this.longRangeAttacks[i];
-            const elapsed = (Date.now() - attack.launchTime) / 1000; // Convert to seconds
             
-            // Move the attack towards its target
-            const moveDistance = attack.speed * elapsed;
-            const progress = Math.min(1, moveDistance / attack.totalDistance);
+            // Move the attack towards its target using deltaTime (smooth movement)
+            const moveDistance = attack.speed * (deltaTime / 1000); // Convert deltaTime to seconds
+            attack.x += attack.direction.x * moveDistance;
+            attack.y += attack.direction.y * moveDistance;
             
-            // Update position
-            attack.x = attack.fromX + (attack.toX - attack.fromX) * progress;
-            attack.y = attack.fromY + (attack.toY - attack.fromY) * progress;
+            // Calculate progress based on distance traveled
+            const distanceTraveled = Math.sqrt(
+                Math.pow(attack.x - attack.fromX, 2) + 
+                Math.pow(attack.y - attack.fromY, 2)
+            );
+            const progress = Math.min(1, distanceTraveled / attack.totalDistance);
             
             // Check if attack has reached its target
             if (progress >= 1) {

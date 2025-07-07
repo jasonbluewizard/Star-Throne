@@ -336,6 +336,9 @@ export class Renderer {
                 this.renderHumanPlayerFlag(territory);
             }
             
+            // Render supply route indicators (+ symbols for incoming reinforcements)
+            this.renderSupplyRouteIndicators(territory);
+            
             this.ctx.restore();
         }
     }
