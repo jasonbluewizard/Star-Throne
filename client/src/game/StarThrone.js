@@ -1165,6 +1165,7 @@ export default class StarThrone {
         );
         
         console.log(`📐 DURATION CALC: Distance=${distance.toFixed(1)}px, Speed=${GAME_CONSTANTS.LONG_RANGE_BASE_SPEED}px/s, Raw=${rawDuration.toFixed(0)}ms, Clamped=${clampedDuration.toFixed(0)}ms`);
+        console.log(`📐 BOUNDS CHECK: Min=${GAME_CONSTANTS.LONG_RANGE_MIN_DURATION}ms, Max=${GAME_CONSTANTS.LONG_RANGE_MAX_DURATION}ms, Was clamped: ${rawDuration !== clampedDuration}`);
         return clampedDuration;
     }
 
