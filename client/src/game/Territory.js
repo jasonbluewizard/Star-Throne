@@ -85,8 +85,13 @@ export class Territory {
         const speedAdjustedDelta = deltaTime * gameSpeed;
         this.lastArmyGeneration += speedAdjustedDelta;
         
-        // Calculate generation rate with discovery bonuses
+        // Calculate generation rate with discovery bonuses and tech bonuses
         let effectiveGenerationRate = this.armyGenerationRate;
+        
+        // Apply production tech bonus: +10% per production tech level
+        if (player && player.tech && player.tech.production > 0) {
+            effectiveGenerationRate *= (1 + player.tech.production * 0.1);
+        }
         
         // Apply planet-specific bonuses
         if (this.discoveryBonus === 'factory') {

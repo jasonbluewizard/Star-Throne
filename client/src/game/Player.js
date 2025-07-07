@@ -15,7 +15,15 @@ export class Player {
         this.id = id;
         this.name = name;
         this.color = color;
-        this.type = type; // 'human' or 'ai'
+        this.type = type;
+        
+        // Initialize tech levels (Attack, Defense, Engines, Production), max 5 each
+        this.tech = {
+            attack: 0,
+            defense: 0,
+            engines: 0,
+            production: 0
+        }; // 'human' or 'ai'
         
         // Game state
         this.territories = [];

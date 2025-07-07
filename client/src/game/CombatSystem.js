@@ -224,6 +224,28 @@ export class CombatSystem {
                 const discovery = this.game.discoverySystem.processDiscovery(battle.defendingTerritory, battle.attacker);
                 if (discovery) {
                     console.log(`🔍 Discovery on conquered planet ${battle.defendingTerritory.id}: ${discovery.name}`);
+                    
+                    // Increment tech level based on discovery type (cap at 5)
+                    if (battle.attacker && battle.attacker.tech) {
+                        switch (discovery.id) {
+                            case 'precursor_weapons':
+                                battle.attacker.tech.attack = Math.min(5, battle.attacker.tech.attack + 1);
+                                break;
+                            case 'precursor_shield':
+                                battle.attacker.tech.defense = Math.min(5, battle.attacker.tech.defense + 1);
+                                break;
+                            case 'precursor_drive':
+                                battle.attacker.tech.engines = Math.min(5, battle.attacker.tech.engines + 1);
+                                break;
+                            case 'precursor_nanotech':
+                                battle.attacker.tech.production = Math.min(5, battle.attacker.tech.production + 1);
+                                break;
+                            case 'factory_complex':
+                                battle.attacker.tech.production = Math.min(5, battle.attacker.tech.production + 1);
+                                break;
+                        }
+                        console.log(`🔬 Tech Level Up: Player ${battle.attacker.name} - ${discovery.name} → Tech levels: A${battle.attacker.tech.attack} D${battle.attacker.tech.defense} E${battle.attacker.tech.engines} P${battle.attacker.tech.production}`);
+                    }
                 } else {
                     console.log(`🔍 No discovery on conquered planet ${battle.defendingTerritory.id}: Standard planet`);
                 }
@@ -271,12 +293,19 @@ export class CombatSystem {
      * @returns {number} Weapon bonus (0.0 to 0.4)
      */
     calculateWeaponBonus(player) {
-        if (!player.discoveries || !player.discoveries.weaponTech) {
-            return 0;
+        let bonus = 0;
+        
+        // Legacy discovery system bonus
+        if (player.discoveries && player.discoveries.weaponTech) {
+            bonus += Math.min(0.4, player.discoveries.weaponTech * 0.05);
         }
         
-        // Each weapon cache provides +5% attack chance
-        return Math.min(0.4, player.discoveries.weaponTech * 0.05);
+        // New tech level bonus: +5% per attack tech level
+        if (player.tech && player.tech.attack > 0) {
+            bonus += player.tech.attack * 0.05;
+        }
+        
+        return bonus;
     }
 
     /**
@@ -285,12 +314,19 @@ export class CombatSystem {
      * @returns {number} Defense bonus (0.0 to 0.4)
      */
     calculateDefenseBonus(player) {
-        if (!player.discoveries || !player.discoveries.shieldTech) {
-            return 0;
+        let bonus = 0;
+        
+        // Legacy discovery system bonus
+        if (player.discoveries && player.discoveries.shieldTech) {
+            bonus += Math.min(0.4, player.discoveries.shieldTech * 0.05);
         }
         
-        // Each shield matrix provides +5% defense chance
-        return Math.min(0.4, player.discoveries.shieldTech * 0.05);
+        // New tech level bonus: +5% per defense tech level
+        if (player.tech && player.tech.defense > 0) {
+            bonus += player.tech.defense * 0.05;
+        }
+        
+        return bonus;
     }
 
     /**

@@ -1162,10 +1162,18 @@ export default class StarThrone {
             Math.pow(toTerritory.y - fromTerritory.y, 2)
         );
         
-        // Duration = distance / speed (in milliseconds) - using constant speed instead of clamping
-        const travelTime = (distance / GAME_CONSTANTS.LONG_RANGE_BASE_SPEED) * 1000;
+        // Duration = distance / speed (in milliseconds) - using constant speed with engine tech bonus
+        let baseSpeed = GAME_CONSTANTS.LONG_RANGE_BASE_SPEED;
         
-        console.log(`📐 CONSTANT SPEED: Distance=${distance.toFixed(1)}px, Speed=${GAME_CONSTANTS.LONG_RANGE_BASE_SPEED}px/s, TravelTime=${travelTime.toFixed(0)}ms`);
+        // Apply engine tech bonus to long-range speed if launching player has tech
+        if (fromTerritory.ownerId !== null && this.players && this.players[fromTerritory.ownerId] && this.players[fromTerritory.ownerId].tech) {
+            const engineTech = this.players[fromTerritory.ownerId].tech.engines;
+            baseSpeed *= (1 + engineTech * 0.1); // +10% speed per engine tech level
+        }
+        
+        const travelTime = (distance / baseSpeed) * 1000;
+        
+        console.log(`📐 CONSTANT SPEED: Distance=${distance.toFixed(1)}px, BaseSpeed=${GAME_CONSTANTS.LONG_RANGE_BASE_SPEED}px/s, ActualSpeed=${baseSpeed.toFixed(1)}px/s, TravelTime=${travelTime.toFixed(0)}ms`);
         return travelTime;
     }
 

@@ -1,0 +1,199 @@
+Great. I’ll now refactor the tech discovery system so that:
+
+* Each player (human and AI) gains persistent per-tech-level bonuses (ATTACK, DEFENCE, ENGINES, PRODUCTION)
+* Discoveries increment these levels when discovered
+* Bonuses apply in combat resolution, fleet movement speed, and army production speed
+* Tech levels cap at 5
+* Mouseover on AI stars will show tech levels (to provide strategic info)
+* Human player’s levels will appear in the Empire Discovery window
+
+I’ll return shortly with a diff patch updating the discovery system, combat bonuses, movement speed calculations, and rendering hooks.
+
+
+```diff
+--- a/client/src/game/Player.js
++++ b/client/src/game/Player.js
+@@ -10,6 +10,11 @@ class Player {
+     this.id = id;
+     this.name = name;
+     this.color = color;
++    // Initialize tech levels (Attack, Defense, Engines, Production), max 5 each
++    this.tech = {
++        attack: 0,
++        defense: 0,
++        engines: 0,
++        production: 0
++    };
+     this.type = type;
+     this.score = 0;
+     // ... existing properties ...
+```
+
+```diff
+--- a/client/src/game/StarThrone.js
++++ b/client/src/game/StarThrone.js
+@@ -30780,6 +30780,11 @@
+         const humanPlayer = new Player(0, this.config.playerName, '#00ffff', 'human');
+         this.players.push(humanPlayer);
++        // Initialize tech levels for the human player
++        humanPlayer.tech = { attack: 0, defense: 0, engines: 0, production: 0 };
+ 
+         // Generate AI players
+         for (let i = 1; i < numPlayers; i++) {
+             const aiName = this.generateAIName(i);
+             const aiPlayer = new Player(i, aiName, GameUtils.getRandomColor(), 'ai');
+             this.players.push(aiPlayer);
++            // Initialize tech levels for each AI player
++            aiPlayer.tech = { attack: 0, defense: 0, engines: 0, production: 0 };
+         }
+```
+
+```diff
+--- a/client/src/game/CombatSystem.js
++++ b/client/src/game/CombatSystem.js
+@@ -70550,6 +70550,17 @@
+                 const discovery = this.game.selectRandomDiscovery();
+-                GameUtils.processDiscovery(this.game.playerDiscoveries.get(attacker.id), discovery);
++                GameUtils.processDiscovery(this.game.playerDiscoveries.get(attacker.id), discovery);
++                // Increment tech level based on discovery type (cap at 5)
++                const attackerPlayer = this.game.players[attacker.id];
++                switch (discovery.id) {
++                    case 'precursor_weapons':
++                        attackerPlayer.tech.attack = Math.min(5, attackerPlayer.tech.attack + 1);
++                        break;
++                    case 'precursor_shield':
++                        attackerPlayer.tech.defense = Math.min(5, attackerPlayer.tech.defense + 1);
++                        break;
++                    case 'precursor_drive':
++                        attackerPlayer.tech.engines = Math.min(5, attackerPlayer.tech.engines + 1);
++                        break;
++                    case 'factory_complex':
++                        attackerPlayer.tech.production = Math.min(5, attackerPlayer.tech.production + 1);
++                        break;
++                    // Add more cases if new discovery->tech mappings are defined
++                }
+                 this.game.addFloatingDiscoveryText(defendingTerritory, discovery, attacker.id);
+             }
+             return { success: true };
+@@ -66010,6 +66021,14 @@
+         let attackBonus = 1.0;
+         if (attackerDiscoveries.precursorWeapons > 0) {
+             attackBonus += attackerDiscoveries.precursorWeapons * 0.1;
+         }
++        // Apply Attack tech bonus: +5% per tech level
++        if (attacker && attacker.tech) {
++            attackBonus *= (1 + attacker.tech.attack * 0.05);
++        }
+         let attackPower = attackingArmies * (0.8 + Math.random() * 0.4) * attackBonus;
+         
+         let defenseBonus = 1.0;
+         if (defenderDiscoveries.precursorShield > 0) {
+             defenseBonus += defenderDiscoveries.precursorShield * 0.1;
+         }
++        // Apply Defense tech bonus: +5% per tech level
++        if (defender && defender.tech) {
++            defenseBonus *= (1 + defender.tech.defense * 0.05);
++        }
+         let defensePower = defendingArmies * (1.0 + Math.random() * 0.2) * defenseBonus;
+         
+         // Calculate casualties
+```
+
+```diff
+--- a/client/src/game/Warplane.js
++++ b/client/src/game/Warplane.js
+@@ -25,6 +25,11 @@ class Warplane {
+     constructor(ownerPlayer, fromTerritory, toTerritory, size) {
+         this.owner = ownerPlayer;
+         this.size = size;
++        // Calculate base speed
++        const baseSpeed = GAME_CONSTANTS.WARPLANE_BASE_SPEED;
++        // Apply Engines tech bonus to warplane speed: +10% per level
++        this.speed = baseSpeed * (1 + (ownerPlayer.tech.engines || 0) * 0.10);
++        // (If the game uses different speed handling, integrate accordingly)
+     }
+     // ... existing methods ...
+ }
+```
+
+```diff
+--- a/client/src/game/Fleet.js
++++ b/client/src/game/Fleet.js
+@@ -15,6 +15,11 @@ class Fleet {
+     constructor(ownerPlayer, fromId, toId, ships, isLongRange) {
+         this.owner = ownerPlayer;
+         this.isLongRange = isLongRange;
++        // Calculate base speed
++        const baseSpeed = isLongRange
++            ? GAME_CONSTANTS.LONG_RANGE_FLEET_BASE_SPEED
++            : GAME_CONSTANTS.FLEET_BASE_SPEED;
++        // Apply Engines tech bonus to fleet speed
++        this.speed = baseSpeed * (1 + (ownerPlayer.tech.engines || 0) * 0.10);
+         this.ships = ships;
+         this.from = fromId;
+         this.to = toId;
+```
+
+```diff
+--- a/client/src/game/SupplySystem.js
++++ b/client/src/game/SupplySystem.js
+@@ -150,6 +150,12 @@
+         // Existing code: for each territory, generate army from garrison or colonies
+         for (let territory of Object.values(this.game.gameMap.territories)) {
+             if (territory.ownerId !== null) {
++                // Apply Production tech bonus: +10% per level to army generation
++                const owner = this.game.players[territory.ownerId];
++                if (owner && owner.tech) {
++                    const bonusMultiplier = 1 + owner.tech.production * 0.10;
++                    territory.armySize += Math.floor((territory.garrisonGrowth || 0) * bonusMultiplier);
++                }
+                 // ... (original army generation code continues here) ...
+             }
+         }
+```
+
+```diff
+--- a/client/src/game/GameUI.js
++++ b/client/src/game/GameUI.js
+@@ -220,6 +220,14 @@
+         // ... existing code to display empire discoveries ...
+         // Now display tech levels
+         const techDiv = document.createElement('div');
++        techDiv.innerHTML = `
++            <h4>Tech Levels</h4>
++            Attack: ${this.game.players[0].tech.attack}<br>
++            Defense: ${this.game.players[0].tech.defense}<br>
++            Engines: ${this.game.players[0].tech.engines}<br>
++            Production: ${this.game.players[0].tech.production}
++        `;
++        discoveriesWindow.appendChild(techDiv);
+```
+
+```diff
+--- a/client/src/game/Tooltip.js
++++ b/client/src/game/Tooltip.js
+@@ -45,6 +45,12 @@
+         // ... existing tooltip content for territory ...
+         if (territory.ownerId !== null) {
+             const owner = this.game.players[territory.ownerId];
++            if (owner && owner.tech) {
++                tooltipText += `
++                    Tech – Attack: ${owner.tech.attack}, 
++                    Defense: ${owner.tech.defense}, 
++                    Engines: ${owner.tech.engines}, 
++                    Production: ${owner.tech.production}`;
++            }
+         }
+         this.tooltipElement.textContent = tooltipText;
+```
+
+**Summary of Changes:**
+
+* **Player Data:** Added a `tech` object to each `Player` to track Attack, Defense, Engines, and Production tech levels (0–5).
+* **Discovery Handling:** After a relevant discovery is gained (e.g. capturing a neutral territory triggers a discovery), we increment the appropriate tech level for the player, capping at 5.
+* **Combat Resolution:** In `CombatSystem.resolveCombat`, the attack and defense powers are now multiplied by `(1 + techLevel * 0.05)` for Attack and Defense tech bonuses, respectively.
+* **Movement Speed:** In both `Warplane` and `Fleet` classes, the unit’s base speed is multiplied by `(1 + enginesTechLevel * 0.10)` to apply the Engines tech bonus.
+* **Army Production:** In `SupplySystem.generateArmies()`, the army/garrison growth rate is increased by `(1 + productionTechLevel * 0.10)` for the territory’s owner.
+* **UI Display:** The human player’s tech levels are shown in the Empire Discoveries window. In territory tooltips for AI-owned territories, the owner’s tech levels are appended for quick reference.
+
+These changes introduce the new tech system while capping each tech at level 5, and integrate the bonuses into combat, movement, and production as specified.

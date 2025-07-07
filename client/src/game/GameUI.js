@@ -561,6 +561,22 @@ export class GameUI {
         
         let currentY = y + 40; // Start showing permanent bonuses
         
+        // Show tech levels for human player
+        if (humanPlayer && humanPlayer.tech) {
+            this.renderTextWithShadow(ctx, 'Tech Levels:', x + padding, currentY, '#FFD700');
+            currentY += lineHeight;
+            
+            ctx.font = '11px Arial';
+            this.renderTextWithShadow(ctx, `⚔️ Attack: ${humanPlayer.tech.attack}/5`, x + padding, currentY, '#FF6B6B');
+            currentY += lineHeight - 2;
+            this.renderTextWithShadow(ctx, `🛡️ Defense: ${humanPlayer.tech.defense}/5`, x + padding, currentY, '#4CAF50');
+            currentY += lineHeight - 2;
+            this.renderTextWithShadow(ctx, `🚀 Engines: ${humanPlayer.tech.engines}/5`, x + padding, currentY, '#2196F3');
+            currentY += lineHeight - 2;
+            this.renderTextWithShadow(ctx, `🏭 Production: ${humanPlayer.tech.production}/5`, x + padding, currentY, '#FF9800');
+            currentY += lineHeight + 5;
+        }
+        
         // Show empire-wide bonuses only (no temporary notifications)
         ctx.font = '12px Arial';
         
