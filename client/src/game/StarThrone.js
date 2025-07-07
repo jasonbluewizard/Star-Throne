@@ -1022,19 +1022,23 @@ export default class StarThrone {
             
             // Check if attack has reached its target
             if (progress >= 1) {
-                console.log(`Long-range attack ${attack.id} reached target territory ${attack.toTerritoryId}`);
+                console.log(`🚀 Long-range attack ${attack.id} reached target territory ${attack.toTerritoryId}`);
                 
                 // Find the target territory
                 const targetTerritory = this.gameMap.territories.find(t => t.id === attack.toTerritoryId);
+                console.log(`🎯 Target territory found:`, targetTerritory ? `ID ${targetTerritory.id}, armies: ${targetTerritory.armySize}` : 'NOT FOUND');
+                
                 if (targetTerritory) {
                     // Execute direct combat (no need for ship animation delay)
                     const attackingArmies = attack.fleetSize;
                     const defendingArmies = targetTerritory.armySize;
                     
-                    console.log(`Long-range attack: ${attackingArmies} vs ${defendingArmies} on territory ${targetTerritory.id}`);
+                    console.log(`⚔️ COMBAT: ${attackingArmies} attackers vs ${defendingArmies} defenders on territory ${targetTerritory.id}`);
+                    console.log(`🏴 Territory owner: ${targetTerritory.ownerId}, Attacker: ${attack.playerId}`);
                     
                     // Simple combat resolution: attackers win if they have more armies
                     const attackSuccess = attackingArmies > defendingArmies;
+                    console.log(`🎲 Combat result: ${attackSuccess ? 'ATTACKERS WIN' : 'DEFENDERS WIN'}`)
                     
                     if (attackSuccess) {
                         // Capture territory
