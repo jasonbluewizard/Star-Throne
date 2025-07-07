@@ -437,6 +437,11 @@ export class Renderer {
     }
     
     renderSupplyRouteIndicators(territory) {
+        // Debug: Check if function is called for human territories
+        if (territory?.ownerId === this.game?.humanPlayer?.id) {
+            console.log(`🔍 renderSupplyRouteIndicators called for human territory ${territory.id}`);
+        }
+        
         if (!this.game?.supplySystem?.supplyRoutes) {
             // Debug: Only log when needed
             if (!this.lastSupplySystemLog || Date.now() - this.lastSupplySystemLog > 15000) {
