@@ -258,6 +258,7 @@ class TerritorySelectedState extends BaseState {
         const isAdjacent = this.game.pathfindingService.areTerritoriesAdjacent(sourceStar, targetStar);
         
         console.log(`🎯 Right-click: ${sourceStar.id} (owner: ${sourceStar.ownerId}) -> ${targetStar.id} (owner: ${targetStar.ownerId}), ownership: ${ownershipType}, adjacent: ${isAdjacent}`);
+        console.log(`🎯 FSM STATE: Current state is ${this.fsm.currentState}, selected territory: ${this.selectedTerritory?.id}`);
         
         // Validate minimum fleet size for commands
         if (sourceStar.armySize <= 1) {
@@ -323,10 +324,12 @@ class TerritorySelectedState extends BaseState {
                 break;
                 
             case 'neutral':
+                console.log(`🎯 NEUTRAL CASE: isAdjacent=${isAdjacent}, sourceStar armies=${sourceStar.armySize}`);
                 if (isAdjacent) {
                     // Adjacent neutral star with garrison - attack directly (no probe needed)
                     const attackingArmies = Math.floor((sourceStar.armySize - 1) * 0.5);
                     if (attackingArmies > 0) {
+                        console.log(`🎯 ADJACENT NEUTRAL: Attacking with ${attackingArmies} armies`);
                         const result = this.game.combatSystem.attackTerritory(sourceStar, targetStar, attackingArmies);
                         this.game.createShipAnimation(sourceStar, targetStar, true, attackingArmies);
                         console.log(`Attacked neutral garrison ${targetStar.id} from ${sourceStar.id}`);
@@ -334,11 +337,13 @@ class TerritorySelectedState extends BaseState {
                 } else {
                     // Non-adjacent neutral star - launch long-range attack
                     const attackingArmies = Math.floor((sourceStar.armySize - 1) * 0.5);
+                    console.log(`🎯 NON-ADJACENT NEUTRAL: Attempting long-range attack with ${attackingArmies} armies`);
                     if (attackingArmies > 0) {
                         console.log(`🚀 NEUTRAL: Launching long-range attack from territory ${sourceStar.id} (owner: ${sourceStar.ownerId}) to ${targetStar.id} (owner: ${targetStar.ownerId})`);
                         this.game.launchLongRangeAttack(sourceStar, targetStar, attackingArmies);
                         console.log(`🚀 NEUTRAL: Launched long-range attack: ${sourceStar.id} -> ${targetStar.id} (${attackingArmies} ships)`);
                     } else {
+                        console.log(`🚀 NEUTRAL: Not enough armies for long-range attack`);
                         this.showFeedback("Need more armies for long-range attack", sourceStar.x, sourceStar.y);
                     }
                 }
