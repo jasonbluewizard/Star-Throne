@@ -103,19 +103,14 @@ export class CombatSystem {
      * @param {Object} battle - Battle object
      */
     startBattle(battle) {
-        // Calculate combat odds based on army strength ratio
+        // Calculate combat odds based on discoveries
         const attackerBonus = this.calculateWeaponBonus(battle.attacker);
-        const defenderBonus = battle.defender ? this.calculateDefenseBonus(battle.defender) : 0.1; // Neutral territories get slight defense bonus
+        const defenderBonus = battle.defender ? this.calculateDefenseBonus(battle.defender) : 0; // Neutral territories have no defense bonus
         
-        // Calculate strength ratio with bonuses
-        const attackerStrength = battle.attackingArmies * (1 + attackerBonus);
-        const defenderStrength = battle.defendingTerritory.armySize * (1 + defenderBonus);
-        const strengthRatio = attackerStrength / (attackerStrength + defenderStrength);
+        // Base 50/50 odds adjusted by bonuses
+        const attackerWinChance = Math.max(0.1, Math.min(0.9, 0.5 + attackerBonus - defenderBonus));
         
-        // Win chance based on strength ratio, not 50/50 coin flip
-        const attackerWinChance = Math.max(0.1, Math.min(0.9, strengthRatio));
-        
-        console.log(`⚔️ COMBAT: ${battle.attackingArmies} vs ${battle.defendingTerritory.armySize} armies, win chance: ${(attackerWinChance * 100).toFixed(1)}%`);
+        console.log(`⚔️ COMBAT: ${battle.attackingArmies} vs ${battle.defendingTerritory.armySize} armies, round win chance: ${(attackerWinChance * 100).toFixed(1)}%`);
         
         battle.attackerWinChance = attackerWinChance;
         battle.attackersRemaining = battle.attackingArmies;

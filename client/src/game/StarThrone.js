@@ -923,46 +923,23 @@ export default class StarThrone {
         console.log(`🔧 Creating long-range attack: ${fromTerritory.id} -> ${toTerritory.id} with ${fleetSize} ships`);
         console.log(`🔧 Human player ID: ${this.humanPlayer?.id}, From territory owner: ${fromTerritory.ownerId}, To territory owner: ${toTerritory.ownerId}`);
         
-        // Reduce source territory armies immediately
-        fromTerritory.armySize -= fleetSize;
+        // Use the normal combat system with delayed arrival
+        const result = this.combatSystem.attackTerritory(fromTerritory, toTerritory, fleetSize);
         
-        // Create long-range attack object (similar to old probe system)
-        const longRangeAttack = {
-            id: Math.random(),
-            fromTerritoryId: fromTerritory.id,
-            toTerritoryId: toTerritory.id,
-            fromX: fromTerritory.x,
-            fromY: fromTerritory.y,
-            toX: toTerritory.x,
-            toY: toTerritory.y,
-            x: fromTerritory.x,
-            y: fromTerritory.y,
-            fleetSize: fleetSize,
-            speed: 15, // Much slower than normal ships (normal is ~50-100 pixels/second)
-            isLongRangeAttack: true,
-            playerId: this.humanPlayer?.id,
-            playerColor: this.humanPlayer?.color || '#00ddff',
-            launchTime: Date.now(),
-            totalDistance: Math.sqrt(Math.pow(toTerritory.x - fromTerritory.x, 2) + Math.pow(toTerritory.y - fromTerritory.y, 2)),
-            direction: {
-                x: (toTerritory.x - fromTerritory.x) / Math.sqrt(Math.pow(toTerritory.x - fromTerritory.x, 2) + Math.pow(toTerritory.y - fromTerritory.y, 2)),
-                y: (toTerritory.y - fromTerritory.y) / Math.sqrt(Math.pow(toTerritory.x - fromTerritory.x, 2) + Math.pow(toTerritory.y - fromTerritory.y, 2))
-            }
-        };
-        
-        // Add to long-range attacks array (create if doesn't exist)
-        if (!this.longRangeAttacks) {
-            this.longRangeAttacks = [];
+        if (result.success) {
+            // Create ship animation for long-range attack
+            this.createShipAnimation(fromTerritory, toTerritory, true, fleetSize);
+            
+            // Show visual feedback
+            this.showMessage(`Long-range attack launched: ${fleetSize} ships`, 2000);
+            
+            // Flash the source territory
+            this.flashTerritory(fromTerritory.id, '#ff0000', 300);
+            
+            console.log(`Long-range attack launched successfully: ${fromTerritory.id} -> ${toTerritory.id} (${fleetSize} ships)`);
+        } else {
+            console.log(`Long-range attack failed: ${result.reason}`);
         }
-        this.longRangeAttacks.push(longRangeAttack);
-        
-        // Show visual feedback
-        this.showMessage(`Long-range attack launched: ${fleetSize} ships`, 2000);
-        
-        // Flash the source territory
-        this.flashTerritory(fromTerritory.id, '#ff0000', 300);
-        
-        console.log(`Long-range attack created with ID ${longRangeAttack.id}: from(${fromTerritory.x}, ${fromTerritory.y}) to(${toTerritory.x}, ${toTerritory.y})`);
     }
     
     // Update ship animations
@@ -998,9 +975,10 @@ export default class StarThrone {
         // for (let i = this.probes.length - 1; i >= 0; i--) { ... }
     }
     
-    // Update long-range attacks (slow-moving ships that cross map)
+    // Update long-range attacks (disabled - using normal combat system now)
     updateLongRangeAttacks(deltaTime) {
-        if (!this.longRangeAttacks) return;
+        // Long-range attacks now use the normal combat system, no separate processing needed
+        return;
         
         for (let i = this.longRangeAttacks.length - 1; i >= 0; i--) {
             const attack = this.longRangeAttacks[i];
