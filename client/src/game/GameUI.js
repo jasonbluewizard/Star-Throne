@@ -849,13 +849,18 @@ export class GameUI {
             
             // Debug: Always log for neutral territories to debug nebula detection
             if (isNeutral && territory.armySize && (territory.armySize === 11 || territory.armySize === 5)) {
-                console.log(`🔍 NEBULA DEBUG - Territory ${territory.id} at (${territory.x}, ${territory.y}): inNebula=${isInNebula}, armies=${territory.armySize}, gameMap exists=${!!gameData?.gameMap}, isInNebula function exists=${!!gameData?.gameMap?.isInNebula}`);
+                console.log(`🔍 NEBULA DEBUG - Territory ${territory.id} at (${territory.x}, ${territory.y}): inNebula=${isInNebula}, armies=${territory.armySize}`);
+                console.log(`🔍 GameMap exists: ${!!gameData?.gameMap}, isInNebula function exists: ${!!gameData?.gameMap?.isInNebula}`);
+                console.log(`🔍 GameData keys:`, Object.keys(gameData || {}));
+                
                 if (gameData?.gameMap?.nebulas) {
                     console.log(`🔍 Total nebulas: ${gameData.gameMap.nebulas.length}`);
                     gameData.gameMap.nebulas.forEach((nebula, i) => {
                         const dist = Math.sqrt((territory.x - nebula.x) ** 2 + (territory.y - nebula.y) ** 2);
-                        console.log(`🔍 Nebula ${i}: center (${nebula.x}, ${nebula.y}), radius ${nebula.radius}, distance to territory: ${dist.toFixed(1)}`);
+                        console.log(`🔍 Nebula ${i}: center (${nebula.x}, ${nebula.y}), radius ${nebula.radius}, distance to territory: ${dist.toFixed(1)}, INSIDE: ${dist <= nebula.radius}`);
                     });
+                } else {
+                    console.log(`🔍 No nebulas found in gameData.gameMap`);
                 }
             }
             

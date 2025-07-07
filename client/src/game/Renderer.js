@@ -456,8 +456,9 @@ export class Renderer {
         }
         
         // TEMP TEST: Force render supply indicators on human player territories for testing
-        if (territory.ownerId === 0 && territory.id % 3 === 0) { // Every 3rd human territory gets test indicator
-            console.log(`🧪 TEST: Adding fake supply indicator to territory ${territory.id}`);
+        const humanPlayerId = this.game?.humanPlayer?.id;
+        if (territory.ownerId === humanPlayerId && territory.id % 3 === 0) { // Every 3rd human territory gets test indicator
+            console.log(`🧪 TEST: Adding fake supply indicator to territory ${territory.id}, humanPlayerId=${humanPlayerId}`);
             const yOffset = territory.radius + 15;
             this.ctx.fillStyle = '#00ff00'; // Green color
             this.ctx.strokeStyle = 'black';
