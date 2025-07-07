@@ -1027,21 +1027,56 @@ export default class StarThrone {
                 // Find the target territory
                 const targetTerritory = this.gameMap.territories.find(t => t.id === attack.toTerritoryId);
                 if (targetTerritory) {
-                    // Execute the attack using the combat system
-                    const result = this.combatSystem.attackTerritory(
-                        { armySize: attack.fleetSize, ownerId: attack.playerId }, 
-                        targetTerritory, 
-                        attack.fleetSize
-                    );
+                    // Execute direct combat (no need for ship animation delay)
+                    const attackingArmies = attack.fleetSize;
+                    const defendingArmies = targetTerritory.armySize;
                     
-                    console.log(`Long-range attack result: ${result ? 'Success' : 'Failed'}`);
+                    console.log(`Long-range attack: ${attackingArmies} vs ${defendingArmies} on territory ${targetTerritory.id}`);
                     
-                    // Show visual feedback
-                    this.flashTerritory(targetTerritory.id, result ? '#00ff00' : '#ff0000', 500);
+                    // Simple combat resolution: attackers win if they have more armies
+                    const attackSuccess = attackingArmies > defendingArmies;
                     
-                    if (result) {
+                    if (attackSuccess) {
+                        // Capture territory
+                        const attacker = this.players[attack.playerId];
+                        const defender = targetTerritory.ownerId ? this.players[targetTerritory.ownerId] : null;
+                        
+                        // Remove from previous owner if applicable
+                        if (defender) {
+                            const territoryIndex = defender.territories.indexOf(targetTerritory.id);
+                            if (territoryIndex > -1) {
+                                defender.territories.splice(territoryIndex, 1);
+                            }
+                        }
+                        
+                        // Transfer ownership
+                        targetTerritory.ownerId = attack.playerId;
+                        targetTerritory.armySize = attackingArmies - defendingArmies;
+                        
+                        // Add to attacker's territories
+                        if (attacker && !attacker.territories.includes(targetTerritory.id)) {
+                            attacker.territories.push(targetTerritory.id);
+                        }
+                        
+                        // Check for throne star capture
+                        if (targetTerritory.isThronestar && defender) {
+                            console.log(`🏰 THRONE STAR CAPTURED: ${attacker.name} captured ${defender.name}'s throne!`);
+                            this.combatSystem.handleThroneCapture(attacker, defender);
+                        }
+                        
+                        // Trigger discovery on conquest
+                        this.discoverySystem.triggerDiscoveryOnConquest(targetTerritory, attacker);
+                        
+                        console.log(`Long-range attack SUCCESS: Territory ${targetTerritory.id} captured`);
+                        this.flashTerritory(targetTerritory.id, '#00ff00', 500);
                         this.showMessage(`Long-range attack successful! Captured territory ${targetTerritory.id}`, 3000);
                     } else {
+                        // Attack failed
+                        targetTerritory.armySize -= attackingArmies; // Reduce defender armies
+                        if (targetTerritory.armySize < 1) targetTerritory.armySize = 1; // Minimum garrison
+                        
+                        console.log(`Long-range attack FAILED: Territory ${targetTerritory.id} defended`);
+                        this.flashTerritory(targetTerritory.id, '#ff0000', 500);
                         this.showMessage(`Long-range attack failed against territory ${targetTerritory.id}`, 3000);
                     }
                 }
