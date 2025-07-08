@@ -297,7 +297,7 @@ class TerritorySelectedState extends BaseState {
                 // Multi-hop route available
                 const isAttack = targetTerritory.ownerId !== this.game.humanPlayer.id;
                 console.log(`🔧 DEBUG: Multi-hop path found with ${path.length} territories`);
-                this.game.launchMultiHopMovement?.(sourceTerritory, targetTerritory, fleetPercentage, isAttack, path);
+                this.game.executeFleetCommand(sourceTerritory, targetTerritory, fleetPercentage, 'multi-hop-transfer', path);
                 console.log(`🛸 Multi-hop ${isAttack ? 'attack' : 'transfer'}: ${fleetsToSend} ships via ${path.length} hops`);
                 return true;
             } else {
@@ -306,18 +306,9 @@ class TerritorySelectedState extends BaseState {
             }
         }
         
-        // Direct connection available - execute immediate command
-        if (targetTerritory.ownerId === this.game.humanPlayer.id) {
-            // Transfer to friendly territory
-            console.log(`🔧 DEBUG: Executing direct transfer to friendly territory`);
-            this.game.combatSystem.executeTransfer(sourceTerritory, targetTerritory, fleetsToSend);
-            console.log(`🚢 Transfer: ${fleetsToSend} ships from ${sourceId} to ${targetId}`);
-        } else {
-            // Attack enemy/neutral territory
-            console.log(`🔧 DEBUG: Executing direct attack on enemy/neutral territory`);
-            this.game.combatSystem.executeAttack(sourceTerritory, targetTerritory, fleetsToSend);
-            console.log(`⚔️ Attack: ${fleetsToSend} ships from ${sourceId} to ${targetId}`);
-        }
+        // Use StarThrone's unified fleet command system for all commands
+        console.log(`🔧 DEBUG: Executing fleet command via StarThrone.executeFleetCommand`);
+        this.game.executeFleetCommand(sourceTerritory, targetTerritory, fleetPercentage);
         
         return true;
     }
