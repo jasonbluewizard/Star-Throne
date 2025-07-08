@@ -83,6 +83,20 @@ export class InputHandler {
         this.lastMousePos = { ...this.mousePos };
         this.mouseButton = e.button;
         
+        // Send drag_start event to FSM for left-click
+        if (e.button === 0) {
+            const worldPos = this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+            const territory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
+            
+            this.game.inputFSM.handleInput('drag_start', {
+                x: this.mousePos.x,
+                y: this.mousePos.y,
+                territory: territory,
+                shiftKey: e.shiftKey,
+                ctrlKey: e.ctrlKey
+            });
+        }
+        
         // Both left and right mouse buttons can drag the camera
         // isDragging will be set to true in handleMouseMove once movement threshold is reached
     }
@@ -113,6 +127,14 @@ export class InputHandler {
             this.game.camera.pan(-deltaX, -deltaY);
         }
         
+        // Send drag_move events to FSM for left mouse button
+        if (this.isDragging && this.mouseButton === 0) {
+            this.game.inputFSM.handleInput('drag_move', {
+                x: newMousePos.x,
+                y: newMousePos.y
+            });
+        }
+        
         // Update edge panning
         this.game.camera.updateEdgePanning(newMousePos.x, newMousePos.y, 16);
         
@@ -132,13 +154,21 @@ export class InputHandler {
         
         // Handle different mouse buttons
         if (e.button === 0) {
-            // Left-click: either fleet command (if not dragging) or camera pan (if dragging)
+            // Left-click: either fleet command (if not dragging) or send drag_end to FSM
             if (!this.isDragging) {
                 console.log(`🖱️ LEFT-CLICK: Territory ${targetTerritory?.id}, fleet command`);
                 this.processSingleClick(e.button, targetTerritory, worldPos, e.shiftKey, e.ctrlKey);
             } else {
-                console.log(`🖱️ LEFT-DRAG: Camera pan completed`);
-                // Camera dragging handled in handleMouseMove
+                console.log(`🖱️ LEFT-DRAG END: Sending to FSM`);
+                // Send drag_end event to FSM
+                this.game.inputFSM.handleInput('drag_end', {
+                    startX: this.dragStartPos.x,
+                    startY: this.dragStartPos.y,
+                    endX: this.mousePos.x,
+                    endY: this.mousePos.y,
+                    shiftKey: e.shiftKey,
+                    ctrlKey: e.ctrlKey
+                });
             }
         } else if (e.button === 2) {
             // Right-click: camera drag only

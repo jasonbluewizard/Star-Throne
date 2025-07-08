@@ -31,8 +31,13 @@ export class InputStateMachine {
         this.stateHandlers = {
             'Default': new DefaultState(this),
             'TerritorySelected': new TerritorySelectedState(this),
-            'EnemySelected': new EnemySelectedState(this)
+            'EnemySelected': new EnemySelectedState(this),
+            'CommandDrag': new CommandDragState(this)
         };
+        
+        // Drag state tracking
+        this.dragSource = null;
+        this.dragStartPos = null;
         
         console.log('InputStateMachine initialized in Default state');
     }
@@ -196,11 +201,26 @@ class TerritorySelectedState extends BaseState {
         switch (inputType) {
             case 'leftClick':
                 return this.handleLeftClick(data.territory, data.worldPos, data);
+            case 'drag_start':
+                return this.handleDragStart(data);
             case 'keyPress':
                 return this.handleKeyPress(data.key);
             default:
                 return false;
         }
+    }
+    
+    handleDragStart(data) {
+        // Start a potential fleet-command drag ONLY if drag began on the
+        // currently selected friendly planet.
+        if (data.territory === this.selectedTerritory &&
+            this.selectedTerritory.ownerId === this.game.humanPlayer.id) {
+            this.fsm.dragSource = this.selectedTerritory;
+            this.fsm.dragStartPos = { x: data.x, y: data.y };
+            this.fsm.transitionTo('CommandDrag');
+            return true;
+        }
+        return false;
     }
     
     handleLeftClick(territory, worldPos, data = {}) {
@@ -521,5 +541,89 @@ class EnemySelectedState extends BaseState {
             default:
                 return false;
         }
+    }
+}
+
+// Command Drag State: Dragging from selected territory to execute fleet commands
+class CommandDragState extends BaseState {
+    onEnter(data) {
+        console.log(`Entered CommandDrag state from territory ${this.fsm.dragSource?.id}`);
+    }
+    
+    handleInput(inputType, data) {
+        switch (inputType) {
+            case 'drag_move':
+                // Ignore drag movement - just visual feedback
+                return true;
+            case 'drag_end':
+                return this.handleDragEnd(data);
+            case 'leftClick':
+                // Ignore clicks during drag
+                return true;
+            default:
+                return false;
+        }
+    }
+    
+    handleDragEnd(data) {
+        const worldPos = this.game.camera.screenToWorld(data.endX, data.endY);
+        const target = this.game.findTerritoryAt(worldPos.x, worldPos.y);
+        
+        if (target && target.id !== this.fsm.dragSource.id) {
+            // Decide attack vs reinforce based on target ownership
+            const fleetPercentage = data.shiftKey ? 1.0 :
+                                   data.ctrlKey  ? 0.25 : 0.5;
+            
+            console.log(`🎯 DRAG COMMAND: ${this.fsm.dragSource.id} → ${target.id} (${Math.floor(fleetPercentage * 100)}%)`);
+            
+            // Execute fleet command
+            this.executeFleetCommand(this.fsm.dragSource, target, fleetPercentage);
+        } else {
+            console.log(`🎯 DRAG CANCELLED: No valid target or same territory`);
+        }
+        
+        // Clear drag state and return to TerritorySelected
+        this.fsm.dragSource = null;
+        this.fsm.transitionTo('TerritorySelected', { selectedTerritory: this.fsm.selectedTerritory });
+        return true;
+    }
+    
+    executeFleetCommand(sourceTerritory, targetTerritory, fleetPercentage) {
+        // Basic validation
+        if (!sourceTerritory || !targetTerritory || sourceTerritory === targetTerritory) {
+            return false;
+        }
+        
+        if (sourceTerritory.ownerId !== this.game.humanPlayer.id) {
+            return false;
+        }
+        
+        // Calculate fleet size
+        const availableFleets = Math.max(0, sourceTerritory.armySize - 1);
+        let fleetsToSend = Math.floor(availableFleets * fleetPercentage);
+        
+        if (fleetPercentage >= 1.0) {
+            fleetsToSend = availableFleets; // Send all available
+        }
+        
+        if (fleetsToSend <= 0) {
+            return false;
+        }
+        
+        console.log(`🚀 DRAG FLEET: Sending ${fleetsToSend} fleets from ${sourceTerritory.armySize} total`);
+        
+        // Execute the command through CombatSystem
+        if (targetTerritory.ownerId === this.game.humanPlayer.id) {
+            // Transfer to friendly territory
+            this.game.combatSystem.executeTransfer(sourceTerritory, targetTerritory, fleetsToSend);
+        } else {
+            // Attack enemy/neutral territory  
+            this.game.combatSystem.executeAttack(sourceTerritory, targetTerritory, fleetsToSend);
+        }
+        
+        // Create visual animation
+        this.game.createShipAnimation(sourceTerritory, targetTerritory, targetTerritory.ownerId !== this.game.humanPlayer.id, fleetsToSend);
+        
+        return true;
     }
 }
