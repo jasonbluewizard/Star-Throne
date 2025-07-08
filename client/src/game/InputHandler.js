@@ -17,7 +17,6 @@ export class InputHandler {
             return;                     // Bail early; nothing to attach to
         }
         console.log(`🎮 InputHandler: Successfully attached to canvas element`);
-    }
         
         this.hoveredTerritory = null;
         
