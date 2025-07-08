@@ -1,4 +1,4 @@
-import { GAME_CONSTANTS } from '../../../common/gameConstants';
+import { HOP_DELAY_PER_PIXEL_MS } from '../../../common/gameConstants';
 
 /**
  * Lightweight per-frame hop advancement for multi-hop fleet movements
@@ -18,7 +18,7 @@ export function updateActiveFleets(game, deltaMs) {
         }
 
         const hopDist = Math.hypot(to.x - from.x, to.y - from.y);
-        const hopTime = hopDist * GAME_CONSTANTS.HOP_DELAY_PER_PIXEL_MS;
+        const hopTime = hopDist * HOP_DELAY_PER_PIXEL_MS;
         
         if (now - f.launchTime >= hopTime) {
             f.launchTime = now;

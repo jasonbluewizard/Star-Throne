@@ -10,7 +10,7 @@
  * - EnemySelected: Enemy/neutral territory selected for inspection
  */
 
-import { PathfindingService } from './PathfindingService.js';
+import PathfindingService from './PathfindingService.js';
 import { GameUtils } from './utils.js';
 
 export class InputStateMachine {
