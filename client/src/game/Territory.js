@@ -312,6 +312,11 @@ export class Territory {
             this.renderFactoryIcon(ctx);
         }
         
+        // Draw mineral diamond icon for Rich Mineral discoveries
+        if (this.discoveryBonus === 'minerals') {
+            this.renderMineralIcon(ctx);
+        }
+        
         // Draw explosion animation for failed probes
         if (this.explosionTime && Date.now() - this.explosionTime < this.explosionDuration) {
             this.renderExplosion(ctx);
@@ -511,6 +516,29 @@ export class Territory {
         ctx.font = `bold ${factorySize}px Arial`;
         ctx.textAlign = 'center';
         ctx.fillText('🏭', factoryX, factoryY);
+        
+        ctx.restore();
+    }
+    
+    renderMineralIcon(ctx) {
+        // Mineral diamond icon positioned to the left of the planet
+        const mineralX = this.x - this.radius - 10;
+        const mineralY = this.y;
+        const mineralSize = Math.max(10, this.radius * 0.6);
+        
+        ctx.save();
+        
+        // Mineral shadow for visibility
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.font = `bold ${mineralSize + 2}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.fillText('💎', mineralX + 1, mineralY + 1);
+        
+        // Main mineral icon - bright diamond color
+        ctx.fillStyle = '#00FFFF';
+        ctx.font = `bold ${mineralSize}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.fillText('💎', mineralX, mineralY);
         
         ctx.restore();
     }

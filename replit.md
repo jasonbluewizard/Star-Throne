@@ -723,6 +723,8 @@ Changelog:
   * Redesigned Empire Discoveries panel with "Tech Levels" title and two-column layout for improved readability
   * Tech levels display clearly: Attack/Defense in left column, Engines/Production in right column
   * Discoveries increment appropriate tech levels: weapons→attack, shield→defense, drive→engines, factory/nanotech→production
+  * Added visual mineral diamond icons (💎) to territories with Rich Mineral Deposits discoveries for easy identification
+  * Mineral icons positioned to the left of planets, factory icons to the right, crowns above for clear visual distinction
 - January 7, 2025. Comprehensive code cleanup following C# RenderEngine.cs pattern implementation:
    * Systematically removed empty conditionals, debug logging, and commented-out code
    * Consolidated duplicate renderFloatingDiscoveryTexts method (removed corrupted duplicate)
