@@ -259,7 +259,7 @@ export class AnimationSystem {
             ctx.lineWidth = 2;
             
             // Draw ship as circle with trail
-            const size = animation.isLongRange ? 6 : (animation.isAttack ? 4 : 3); // Larger for long-range
+            const size = animation.isLongRange ? 3 : (animation.isAttack ? 4 : 3); // Smaller for long-range (half size)
             ctx.beginPath();
             ctx.arc(screenPos.x, screenPos.y, size, 0, Math.PI * 2);
             ctx.fill();

@@ -40,7 +40,7 @@ export const GAME_CONSTANTS = {
     // Fleet Movement Speeds
     FLEET_SPEED: 1.0, // Normal fleet movement speed
     SUBSPACE_SPEED: 1 / 6.0, // Long-range fleets move at 1/6 normal speed
-    LONG_RANGE_BASE_SPEED: 50, // Pixels per second for long-range movement (was 100px/s originally)
+    LONG_RANGE_BASE_SPEED: 25, // Pixels per second for long-range movement (half speed for better visibility)
     LONG_RANGE_MIN_DURATION: 1000, // Minimum 1 second for very short distances
     LONG_RANGE_MAX_DURATION: 20000, // Maximum 20 seconds for very long distances
     
