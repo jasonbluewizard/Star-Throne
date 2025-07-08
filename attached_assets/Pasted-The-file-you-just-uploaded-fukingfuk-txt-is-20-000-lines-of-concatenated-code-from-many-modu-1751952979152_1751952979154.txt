@@ -1,0 +1,90 @@
+The file you just uploaded (`fukingfuk.txt`) is **20,000 lines of concatenated code** from many modules, so any single diff will be huge and brittle.  The build still fails because:
+
+1. **`InputHandler.js`** and **`InputStateMachine.js`** both contain *two different control‑flow blocks* (the new single‑click logic and the old RMB logic) that now fight each other.
+2. The new `issueFleetCommand` you pasted into **`StarThrone.js`** still references `this.activeFleets` and `this.updateActiveFleets` —but those arrays/functions are never created, so fleets never advance to the next hop.
+3. The hop loop you inserted in `GameLoopFleetUpdates.js` was never imported into the main update loop.
+
+Below is a **minimal, safe fix** to get the single‑click controls and multi‑hop fleets actually running without ripping more code apart. After applying these three snippets you can build again and test:
+
+---
+
+\### A  `src/game/StarThrone.js` – ensure hop array + per‑tick update
+
+```diff
+@@ constructor()
+-        // Ship movement animations
++        // Ship movement animations
+         this.shipAnimations = [];
+         this.shipAnimationPool = [];
+-        this.pendingLongRangeCombats = [];
++        this.pendingLongRangeCombats = [];
++
++        // NEW: queue of multi‑hop fleets in transit
++        this.activeFleets = [];           // ← was missing
+@@ main update(dt)
+         this.combatSystem.update(dt);
++
++        // Move multi‑hop fleets
++        this.updateActiveFleets(dt);      // ← call the hop tick function
+```
+
+---
+
+\### B  `src/game/InputStateMachine.js` – remove stale RMB call & pass modifiers
+
+```diff
+@@ DefaultState.handleInput
+-        if (inputType === 'leftClick')  this.handleLeftClick();
++        if (inputType === 'leftClick')  this.handleLeftClick(data);   // pass data
+@@ TerritorySelectedState.switch(eventType)
+-            case 'click_right':  this.handleRightClick(eventData); break;
++            // RMB removed
+```
+
+*(If any `handleRightClick` now has no caller you can safely delete it.)*
+
+---
+
+\### C  Add `src/game/updateActiveFleets.js` and import it
+
+```js
+// lightweight per‑frame hop advancement
+export function updateActiveFleets(game, deltaMs) {
+    const now = Date.now();
+    for (let i = game.activeFleets.length - 1; i >= 0; i--) {
+        const f = game.activeFleets[i];
+        const from = game.gameMap.territories[f.path[f.currentHop]];
+        const to   = game.gameMap.territories[f.path[f.currentHop + 1]];
+        if (!to) { game.activeFleets.splice(i,1); continue; }
+
+        const hopDist = Math.hypot(to.x - from.x, to.y - from.y);
+        const hopTime = hopDist * GAME_CONSTANTS.HOP_DELAY_PER_PIXEL_MS;
+        if (now - f.launchTime >= hopTime) {
+            f.launchTime = now;
+            f.currentHop++;
+            // arrival behaviour as in your earlier code…
+        }
+    }
+}
+```
+
+And in **`StarThrone.js`**:
+
+```diff
+-import { updateActiveFleets } from './updateActiveFleets.js';
++import { updateActiveFleets } from './updateActiveFleets.js';
+@@ class StarThrone
+     updateActiveFleets(deltaMs) { updateActiveFleets(this, deltaMs); }
+```
+
+---
+
+After just these changes:
+
+* Single‑click commands run (the FSM no longer drops the modifier data).
+* Fleets placed into `this.activeFleets` actually advance each frame.
+* No dead `click_right` handler means no stray RMB errors.
+
+Build, test one hop: select your planet → click a friendly two hops away.  You should see one sub‑fleet travel hop‑by‑hop.  Break a lane mid‑flight and watch it stop or fight.
+
+If that works, you can then slowly refactor the rest (e.g., delete old RMB blocks, merge duplicate UI code).  Trying to patch the giant 20 k‑line dump all at once is what keeps breaking the build; tackle it in small, testable slices like the three above.
