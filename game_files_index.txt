@@ -1,0 +1,36 @@
+Star Throne Single Mouse Button Control System - Current Files Export
+================================================================
+
+The following files contain the current implementation of the single mouse button control system:
+
+Core Input System:
+- InputHandler.js - Mouse event handling, camera drag separation from clicks
+- InputStateMachine.js - FSM for territory selection and fleet commands
+- updateActiveFleets.js - Lightweight per-frame hop advancement for multi-hop fleets
+
+Main Game Engine:
+- StarThrone.js - Main game controller with integrated fleet movement system
+- PathfindingService.js - Path finding for multi-hop fleet movements
+
+Support Systems:
+- SupplySystem.js - Supply route management
+- gameConstants.ts - Centralized game configuration constants
+
+Current Control Scheme:
+- Left-click: Select territory, then click targets to send 50% fleet
+- Shift + left-click: Send all available fleet (minus 1 for defense)  
+- Ctrl + left-click: Send 25% of fleet for conservative attacks
+- Right-click + drag: Camera movement (separated from game commands)
+
+Recent Fixes Applied:
+- Fixed 300ms click delay that made controls feel unresponsive
+- Separated camera dragging from click detection to prevent cursor sticking
+- Implemented immediate click processing for responsive controls
+- Added comprehensive debug logging to track click detection and fleet commands
+
+Issues Still Present:
+- Basic left-click territory selection and fleet movement may still need debugging
+- Multi-hop fleet pathfinding integration needs verification
+- Fleet command execution through combatSystem needs testing
+
+All files are located in /tmp/game_export/ and copied to project root.
