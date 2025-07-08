@@ -5,7 +5,7 @@
  * Uses the new PathfindingService for route calculations.
  */
 
-import { GAME_CONSTANTS } from '../../../common/gameConstants.ts';
+import { GAME_CONSTANTS } from '../../../common/gameConstants';
 // Removed unused PathfindingService import (dead code eliminated)
 
 export class SupplySystem {

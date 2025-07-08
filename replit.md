@@ -581,13 +581,6 @@ Changelog:
    * Modernized error handling: updated AIManager, EventSystem, and InputStateMachine to use centralized logging
    * Console output optimization: production builds now show only essential game events (discoveries, throne captures)
    * Error handling consistency: all modules now respect DEBUG_MODE flag for toggling development vs production logging
-- January 8, 2025. Single mouse button control system preparation for AI-assisted modification:
-   * Applied InputHandler.js patch: enhanced canvas validation, added passive event handling, improved error checking
-   * Applied InputStateMachine.js patch: added CommandDragState class for drag-to-command functionality
-   * Modified TerritorySelectedState to support drag_start events instead of right-click commands
-   * Disabled handleRightClick methods in preparation for single mouse button consolidation
-   * Created star_throne_snapshot.tar.gz archive containing complete game codebase for AI analysis
-   * Foundation laid for converting dual mouse button system (left/right click) to unified single mouse button interface
 - January 3, 2025. Supply route system overhaul - Army generation redirection implementation:
    * Completely redesigned supply routes from army transfer system to army generation redirection
    * Source territories stop growing armies when supplying - armies generate directly at destination instead

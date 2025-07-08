@@ -10,15 +10,8 @@ import { InputStateMachine } from './InputStateMachine.js';
 export class InputHandler {
     constructor(game) {
         this.game = game;
-        this.canvas = game.canvas;      // ✅ real <canvas> element
-        console.log(`🎮 InputHandler: Canvas available: ${!!this.canvas}, Game available: ${!!game}`);
-        if (!this.canvas) {
-            console.error('[InputHandler] game.canvas is undefined!');
-            return;                     // Bail early; nothing to attach to
-        }
-        console.log(`🎮 InputHandler: Successfully attached to canvas element`);
-        
         this.hoveredTerritory = null;
+        this.canvas = game.canvas;
         
         // Simplified input state
         this.mousePos = { x: 0, y: 0 };
@@ -49,19 +42,17 @@ export class InputHandler {
     
     setupEventListeners() {
         // Mouse events
-        console.log(`🎮 InputHandler: Attaching mouse event listeners to canvas`);
         this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
         this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
         this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
-        this.canvas.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
+        this.canvas.addEventListener('wheel', (e) => this.handleWheel(e));
         this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-        console.log(`🎮 InputHandler: Event listeners attached successfully`);
         
-        // Touch events for trackpads / mobile (also need correct canvas ref)
-        this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
-        this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
-        this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e), { passive: false });
-        this.canvas.addEventListener('touchcancel', (e) => this.handleTouchEnd(e), { passive: false });
+        // Touch events
+        this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e));
+        this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e));
+        this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e));
+        this.canvas.addEventListener('touchcancel', (e) => this.handleTouchEnd(e));
         
         // Keyboard events (simplified - no modifier key tracking)
         document.addEventListener('keydown', (e) => this.handleKeyDown(e));
@@ -69,9 +60,7 @@ export class InputHandler {
     
     handleMouseDown(e) {
         e.preventDefault();
-        console.log(`🖱️ MOUSE DOWN EVENT: Button ${e.button}, x:${e.clientX}, y:${e.clientY}`);
         this.isDragging = false;
-        this.isCommandDrag = false; // Track if this is a command drag vs camera drag
         
         const rect = this.canvas.getBoundingClientRect();
         this.mousePos = {
@@ -82,26 +71,6 @@ export class InputHandler {
         this.dragStartPos = { ...this.mousePos };
         this.dragStartTime = Date.now();
         this.lastMousePos = { ...this.mousePos };
-        
-        // Check if drag started from a friendly territory for command drag
-        const worldPos = this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
-        const startTerritory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
-        
-        // Determine if this should be a command drag (from selected friendly territory)
-        if (startTerritory && 
-            startTerritory.ownerId === this.game.humanPlayer?.id && 
-            this.game.selectedTerritory?.id === startTerritory.id) {
-            this.isCommandDrag = true;
-        }
-        
-        // Send drag_start event to FSM with territory and modifier key information
-        this.inputFSM.handleInput('drag_start', {
-            x: this.mousePos.x,
-            y: this.mousePos.y,
-            territory: startTerritory,
-            shiftKey: e.shiftKey,
-            ctrlKey: e.ctrlKey
-        });
     }
     
     handleMouseMove(e) {
@@ -123,16 +92,8 @@ export class InputHandler {
             }
         }
         
-        // Send drag_move event to FSM
+        // Handle camera panning
         if (this.isDragging) {
-            this.inputFSM.handleInput('drag_move', {
-                x: this.mousePos.x,
-                y: this.mousePos.y
-            });
-        }
-        
-        // Handle camera panning (only if NOT a command drag)
-        if (this.isDragging && !this.isCommandDrag) {
             const deltaX = newMousePos.x - this.lastMousePos.x;
             const deltaY = newMousePos.y - this.lastMousePos.y;
             this.game.camera.pan(-deltaX, -deltaY);
@@ -160,19 +121,6 @@ export class InputHandler {
         const worldPos = this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
         const targetTerritory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
         
-        // Send drag_end event to FSM if we were dragging
-        if (this.isDragging) {
-            this.inputFSM.handleInput('drag_end', {
-                startX: this.dragStartPos.x,
-                startY: this.dragStartPos.y,
-                endX: this.mousePos.x,
-                endY: this.mousePos.y,
-                territory: targetTerritory,
-                shiftKey: e.shiftKey,
-                ctrlKey: e.ctrlKey
-            });
-        }
-        
         if (wasQuickClick) {
             const currentTime = Date.now();
             
@@ -195,7 +143,7 @@ export class InputHandler {
                 setTimeout(() => {
                     if (this.lastClickTime === currentTime) {
                         // No double-click occurred, process as single click
-                        this.processSingleClick(e.button, targetTerritory, worldPos, e);
+                        this.processSingleClick(e.button, targetTerritory, worldPos);
                     }
                 }, this.doubleClickThreshold);
             }
@@ -204,7 +152,7 @@ export class InputHandler {
         this.resetDragState();
     }
     
-    processSingleClick(button, territory, worldPos, e) {
+    processSingleClick(button, territory, worldPos) {
         // Check UI elements first
         if (this.game.handleUIClick(this.mousePos.x, this.mousePos.y)) {
             return;
@@ -216,14 +164,32 @@ export class InputHandler {
         }
         
         if (button === 0) { // Left click
-            this.inputFSM.handleInput('click_left', {
-                x: this.mousePos.x,
-                y: this.mousePos.y,
-                shiftKey: e.shiftKey,
-                ctrlKey:  e.ctrlKey
+            this.inputFSM.handleInput('leftClick', {
+                territory: territory,
+                worldPos: worldPos,
+                screenPos: this.mousePos
+            });
+        } else if (button === 2) { // Right click
+            console.log(`🖱️ RIGHT-CLICK: Territory ${territory?.id}, owner: ${territory?.ownerId}, human player: ${this.game.humanPlayer?.id}`);
+            
+            // Check for supply route cancellation first (only if territory exists and is owned)
+            if (territory && territory.ownerId === this.game.humanPlayer?.id) {
+                const routesToCancel = this.game.supplySystem.supplyRoutes.filter(route => route.from === territory.id);
+                if (routesToCancel.length > 0) {
+                    console.log(`🖱️ Cancelling supply routes from territory ${territory.id}`);
+                    this.game.supplySystem.stopSupplyRoutesFromTerritory(territory.id);
+                    return; // Supply route cancelled, don't process further
+                }
+            }
+            
+            // No supply routes to cancel, proceed with normal right-click behavior
+            console.log(`🖱️ Sending right-click to FSM: territory ${territory?.id}`);
+            this.inputFSM.handleInput('rightClick', {
+                territory: territory,
+                worldPos: worldPos,
+                screenPos: this.mousePos
             });
         }
-        // Right-click functionality removed - using left-click only controls
     }
     
 
@@ -464,7 +430,6 @@ export class InputHandler {
     
     resetDragState() {
         this.isDragging = false;
-        this.isCommandDrag = false;
         this.dragStartPos = null;
         this.dragStartTime = null;
     }
