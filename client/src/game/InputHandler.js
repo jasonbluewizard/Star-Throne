@@ -66,6 +66,7 @@ export class InputHandler {
     handleMouseDown(e) {
         e.preventDefault();
         this.isDragging = false;
+        this.isCommandDrag = false; // Track if this is a command drag vs camera drag
         
         const rect = this.canvas.getBoundingClientRect();
         this.mousePos = {
@@ -77,12 +78,22 @@ export class InputHandler {
         this.dragStartTime = Date.now();
         this.lastMousePos = { ...this.mousePos };
         
-        // Send drag_start event to FSM with territory and modifier key information
+        // Check if drag started from a friendly territory for command drag
         const worldPos = this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+        const startTerritory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
+        
+        // Determine if this should be a command drag (from selected friendly territory)
+        if (startTerritory && 
+            startTerritory.ownerId === this.game.humanPlayer?.id && 
+            this.game.selectedTerritory?.id === startTerritory.id) {
+            this.isCommandDrag = true;
+        }
+        
+        // Send drag_start event to FSM with territory and modifier key information
         this.inputFSM.handleInput('drag_start', {
             x: this.mousePos.x,
             y: this.mousePos.y,
-            territory: this.game.findTerritoryAt(worldPos.x, worldPos.y),
+            territory: startTerritory,
             shiftKey: e.shiftKey,
             ctrlKey: e.ctrlKey
         });
@@ -115,8 +126,8 @@ export class InputHandler {
             });
         }
         
-        // Handle camera panning
-        if (this.isDragging) {
+        // Handle camera panning (only if NOT a command drag)
+        if (this.isDragging && !this.isCommandDrag) {
             const deltaX = newMousePos.x - this.lastMousePos.x;
             const deltaY = newMousePos.y - this.lastMousePos.y;
             this.game.camera.pan(-deltaX, -deltaY);
@@ -466,6 +477,7 @@ export class InputHandler {
     
     resetDragState() {
         this.isDragging = false;
+        this.isCommandDrag = false;
         this.dragStartPos = null;
         this.dragStartTime = null;
     }
