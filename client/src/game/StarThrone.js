@@ -18,6 +18,7 @@ import { AnimationSystem } from './AnimationSystem.js';
 import { UIManager } from './UIManager.js';
 import { AIManager } from './AIManager.js';
 import Controls from './Controls.js';
+import { updateActiveFleets } from './updateActiveFleets.js';
 
 export default class StarThrone {
     constructor(config = {}) {
@@ -93,6 +94,9 @@ export default class StarThrone {
         this.shipAnimations = [];
         this.shipAnimationPool = []; // Reuse objects to reduce garbage collection
         this.pendingLongRangeCombats = []; // Track delayed long-range combat arrivals
+
+        // NEW: queue of multi-hop fleets in transit
+        this.activeFleets = [];
         
         // Removed legacy long-range attacks array (dead code cleanup)
         
@@ -2060,6 +2064,9 @@ export default class StarThrone {
                 console.error('Combat system error stack:', error.stack);
             }
         }
+
+        // Move multi-hop fleets
+        this.updateActiveFleets(deltaTime);
         
         // Update modular UI systems
         if (this.uiManager) {
@@ -3478,17 +3485,20 @@ export default class StarThrone {
         }
         const travelTime = Math.max(3000, totalDistance * GAME_CONSTANTS.HOP_DELAY_PER_PIXEL_MS);
         
-        // Schedule arrival (as a pending long-range combat or movement)
-        const combatEvent = {
+        // Add to active fleets for step-by-step movement
+        const fleetId = Date.now() + Math.random();
+        const activeFleet = {
+            id: fleetId,
             fromTerritoryId: sourceTerritory.id,
             toTerritoryId: targetTerritory.id,
             fromOwnerId: sourceTerritory.ownerId,
             fleetSize: shipsToSend,
-            arrivalTime: Date.now() + travelTime,
             path: path.map(t => t.id),
+            currentHop: 0, // Match updateActiveFleets.js structure
+            launchTime: Date.now(), // Match updateActiveFleets.js structure
             isAttack: isAttack ? true : false
         };
-        this.pendingLongRangeCombats.push(combatEvent);
+        this.activeFleets.push(activeFleet);
         console.log(`🚀 Scheduled ${isAttack ? 'attack' : 'reinforcement'} from ${sourceTerritory.id} to ${targetTerritory.id} (fleet ${shipsToSend}) arriving in ${Math.round(travelTime/1000)}s`);
         
         // Visual feedback: highlight path and show launching animation
@@ -3505,6 +3515,13 @@ export default class StarThrone {
         } else {
             this.uiManager.showMessage(`Reinforcements en route to ${targetTerritory.id}`, 2000);
         }
+    }
+
+    /**
+     * Update active multi-hop fleets in transit (delegated to external module)
+     */
+    updateActiveFleets(deltaMs) { 
+        updateActiveFleets(this, deltaMs); 
     }
     
     /**
