@@ -1,4 +1,4 @@
-import { GAME_CONSTANTS } from '../../../common/gameConstants.js';
+import { GAME_CONSTANTS } from '../../../common/gameConstants';
 
 /**
  * Lightweight per-frame hop advancement for multi-hop fleet movements
