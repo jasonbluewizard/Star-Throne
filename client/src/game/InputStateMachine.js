@@ -155,7 +155,7 @@ class DefaultState extends BaseState {
         }
     }
     
-    handleLeftClick(territory, worldPos) {
+    handleLeftClick(territory, worldPos, data = {}) {
         if (!territory) {
             // Clicked empty space - stay in Default
             return true;
@@ -191,7 +191,7 @@ class TerritorySelectedState extends BaseState {
     handleInput(inputType, data) {
         switch (inputType) {
             case 'leftClick':
-                return this.handleLeftClick(data.territory, data.worldPos);
+                return this.handleLeftClick(data.territory, data.worldPos, data);
             case 'rightClick':
                 return this.handleRightClick(data.territory, data.worldPos);
             case 'keyPress':
@@ -201,7 +201,7 @@ class TerritorySelectedState extends BaseState {
         }
     }
     
-    handleLeftClick(territory, worldPos) {
+    handleLeftClick(territory, worldPos, data = {}) {
         if (!territory) {
             // Clicked empty space - deselect
             this.fsm.transitionTo('Default');
@@ -213,7 +213,25 @@ class TerritorySelectedState extends BaseState {
             return true;
         }
         
-        // Clicking another territory - select it
+        // NEW SINGLE BUTTON CONTROL: Left-click on different territory = fleet command
+        if (territory.id !== this.selectedTerritory.id) {
+            // Determine fleet percentage based on modifier keys
+            let fleetPercentage = 0.5; // Default 50%
+            if (data.shiftKey) {
+                fleetPercentage = 1.0; // Send all (minus 1)
+            } else if (data.ctrlKey) {
+                fleetPercentage = 0.25; // Send 25%
+            }
+            
+            // Execute the appropriate fleet command
+            const success = this.executeFleetCommand(this.selectedTerritory, territory, fleetPercentage);
+            if (success) {
+                // Keep source selected for potential follow-up commands
+                return true;
+            }
+        }
+        
+        // Fallback to selection behavior if fleet command wasn't executed
         if (this.isOwnedByPlayer(territory)) {
             this.fsm.selectedTerritory = territory;
             this.fsm.transitionTo('TerritorySelected', { selectedTerritory: territory });
@@ -224,6 +242,61 @@ class TerritorySelectedState extends BaseState {
             this.fsm.transitionTo('EnemySelected', { selectedTerritory: territory });
             return true;
         }
+    }
+    
+    executeFleetCommand(sourceTerritory, targetTerritory, fleetPercentage) {
+        // Validate command
+        if (!sourceTerritory || !targetTerritory || sourceTerritory === targetTerritory) {
+            return false;
+        }
+        
+        if (sourceTerritory.ownerId !== this.game.humanPlayer.id) {
+            return false; // Can only command own territories
+        }
+        
+        // Calculate fleet size
+        const availableFleets = Math.max(0, sourceTerritory.armySize - 1);
+        let fleetsToSend = Math.floor(availableFleets * fleetPercentage);
+        
+        if (fleetPercentage >= 1.0) {
+            // "Send all" means all minus 1
+            fleetsToSend = availableFleets;
+        }
+        
+        if (fleetsToSend <= 0) return false;
+        
+        // Check if territories are connected by visible warp lanes
+        const sourceId = sourceTerritory.id;
+        const targetId = targetTerritory.id;
+        const isConnected = this.game.gameMap.connections[sourceId]?.includes(targetId);
+        
+        if (!isConnected && targetTerritory.ownerId !== null) {
+            // Try multi-hop path for non-connected territories
+            const path = this.game.findPathBetweenTerritories?.(sourceId, targetId);
+            if (path && path.length > 2) {
+                // Multi-hop route available
+                const isAttack = targetTerritory.ownerId !== this.game.humanPlayer.id;
+                this.game.launchMultiHopMovement?.(sourceTerritory, targetTerritory, fleetPercentage, isAttack, path);
+                console.log(`🛸 Multi-hop ${isAttack ? 'attack' : 'transfer'}: ${fleetsToSend} ships via ${path.length} hops`);
+                return true;
+            } else {
+                console.log('No valid path found between territories');
+                return false;
+            }
+        }
+        
+        // Direct connection available - execute immediate command
+        if (targetTerritory.ownerId === this.game.humanPlayer.id) {
+            // Transfer to friendly territory
+            this.game.combatSystem.executeTransfer(sourceTerritory, targetTerritory, fleetsToSend);
+            console.log(`🚢 Transfer: ${fleetsToSend} ships from ${sourceId} to ${targetId}`);
+        } else {
+            // Attack enemy/neutral territory
+            this.game.combatSystem.executeAttack(sourceTerritory, targetTerritory, fleetsToSend);
+            console.log(`⚔️ Attack: ${fleetsToSend} ships from ${sourceId} to ${targetId}`);
+        }
+        
+        return true;
     }
     
     async handleRightClick(territory, worldPos) {

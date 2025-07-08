@@ -3449,6 +3449,186 @@ export default class StarThrone {
         });
     }
     
+    /**
+     * Launch a multi-hop movement (reinforcement or attack) along a continuous friendly path.
+     * @param {Object} sourceTerritory - Starting territory object (owned by player).
+     * @param {Object} targetTerritory - Destination territory object.
+     * @param {number} fleetPercentage - Fraction of fleet to send (0.0 to 1.0).
+     * @param {boolean} isAttack - True if the target is an enemy (attack), false if reinforcement.
+     * @param {Array} path - Array of territory objects representing the route (includes source and target).
+     */
+    launchMultiHopMovement(sourceTerritory, targetTerritory, fleetPercentage, isAttack, path) {
+        const availableFleet = Math.max(0, sourceTerritory.armySize - 1);
+        const shipsToSend = Math.floor(availableFleet * fleetPercentage);
+        if (shipsToSend <= 0) return;
+        
+        // Deduct ships from source immediately (leave at least 1 behind)
+        sourceTerritory.armySize = Math.max(1, sourceTerritory.armySize - shipsToSend);
+        
+        // Calculate travel time based on total path distance (GAME_CONSTANTS.HOP_DELAY_PER_PIXEL_MS per pixel, min 3s)
+        let totalDistance = 0;
+        for (let i = 0; i < path.length - 1; i++) {
+            const a = path[i];
+            const b = path[i+1];
+            if (a && b) {
+                const dx = b.x - a.x;
+                const dy = b.y - a.y;
+                totalDistance += Math.sqrt(dx*dx + dy*dy);
+            }
+        }
+        const travelTime = Math.max(3000, totalDistance * GAME_CONSTANTS.HOP_DELAY_PER_PIXEL_MS);
+        
+        // Schedule arrival (as a pending long-range combat or movement)
+        const combatEvent = {
+            fromTerritoryId: sourceTerritory.id,
+            toTerritoryId: targetTerritory.id,
+            fromOwnerId: sourceTerritory.ownerId,
+            fleetSize: shipsToSend,
+            arrivalTime: Date.now() + travelTime,
+            path: path.map(t => t.id),
+            isAttack: isAttack ? true : false
+        };
+        this.pendingLongRangeCombats.push(combatEvent);
+        console.log(`🚀 Scheduled ${isAttack ? 'attack' : 'reinforcement'} from ${sourceTerritory.id} to ${targetTerritory.id} (fleet ${shipsToSend}) arriving in ${Math.round(travelTime/1000)}s`);
+        
+        // Visual feedback: highlight path and show launching animation
+        if (path && path.length > 1) {
+            const playerColor = this.players[sourceTerritory.ownerId]?.color || '#ffffff';
+            const pathIds = path.map(t => t.id);
+            this.createSupplyRouteAnimation(pathIds, playerColor);
+        }
+        
+        // Optionally, create a ship animation (long-range) for visual effect
+        this.createLongRangeShipAnimation(sourceTerritory, targetTerritory, shipsToSend);
+        if (isAttack) {
+            this.uiManager.showMessage(`Multi-hop attack launched towards ${targetTerritory.id}!`, 2000);
+        } else {
+            this.uiManager.showMessage(`Reinforcements en route to ${targetTerritory.id}`, 2000);
+        }
+    }
+    
+    /**
+     * Launch a direct long-range attack (no continuous friendly path required).
+     * This sends all available fleets from the source to the target with a travel delay.
+     */
+    launchLongRangeAttack(fromTerritory, toTerritory, fleetSize) {
+        const shipsToSend = Math.floor(Math.max(0, fromTerritory.armySize - 1));
+        if (shipsToSend <= 0) return;
+        
+        // Deduct ships from source immediately
+        fromTerritory.armySize = Math.max(1, fromTerritory.armySize - shipsToSend);
+        
+        // Calculate travel time (use straight-line distance)
+        const dx = toTerritory.x - fromTerritory.x;
+        const dy = toTerritory.y - fromTerritory.y;
+        const distance = Math.sqrt(dx*dx + dy*dy);
+        const travelTime = Math.max(3000, distance * GAME_CONSTANTS.HOP_DELAY_PER_PIXEL_MS);
+        
+        // Schedule combat arrival
+        const combatEvent = {
+            fromTerritoryId: fromTerritory.id,
+            toTerritoryId: toTerritory.id,
+            fromOwnerId: fromTerritory.ownerId,
+            fleetSize: shipsToSend,
+            arrivalTime: Date.now() + travelTime,
+            path: null,
+            isAttack: true
+        };
+        this.pendingLongRangeCombats.push(combatEvent);
+        console.log(`🚀 LAUNCHING LONG-RANGE ATTACK: ${shipsToSend} ships from ${fromTerritory.id} to ${toTerritory.id}, ETA ${Math.round(travelTime/1000)}s`);
+        
+        // Visual and UI feedback
+        this.createLongRangeShipAnimation(fromTerritory, toTerritory, shipsToSend);
+        this.uiManager.showMessage(`Long-range strike launched! ETA: ${Math.round(travelTime/1000)}s`, 3000);
+    }
+    
+    /**
+     * Create long-range ship animation for visual feedback
+     */
+    createLongRangeShipAnimation(fromTerritory, toTerritory, fleetSize) {
+        // Use object pooling to reduce garbage collection
+        let animation = this.shipAnimationPool.pop();
+        if (!animation) {
+            animation = {
+                fromX: 0, fromY: 0, toX: 0, toY: 0,
+                progress: 0, duration: 0, startTime: 0,
+                isAttack: false, playerColor: '#ffffff', id: 0,
+                path: null, currentSegment: 0, isMultiHop: false,
+                fleetSize: 0, isLongRange: false
+            };
+        }
+        
+        const player = this.players[fromTerritory.ownerId];
+        const playerColor = player ? player.color : '#ffffff';
+        
+        // Reset animation properties for long-range attack
+        animation.fromX = fromTerritory.x;
+        animation.fromY = fromTerritory.y;
+        animation.toX = toTerritory.x;
+        animation.toY = toTerritory.y;
+        animation.progress = 0;
+        animation.duration = 3000 / this.config.gameSpeed; // Longer duration for long-range
+        animation.startTime = Date.now();
+        animation.isAttack = true;
+        animation.playerColor = playerColor;
+        animation.id = Math.random();
+        animation.path = null;
+        animation.currentSegment = 0;
+        animation.isMultiHop = false;
+        animation.isLongRange = true;
+        animation.fleetSize = fleetSize;
+        
+        this.shipAnimations.push(animation);
+    }
+    
+    /**
+     * Process any pending long-range fleet arrivals (multi-hop movements and long-range strikes).
+     * Should be called each game tick to check if a fleet has arrived at its destination.
+     */
+    processLongRangeCombatArrivals() {
+        const currentTime = Date.now();
+        for (let i = this.pendingLongRangeCombats.length - 1; i >= 0; i--) {
+            const event = this.pendingLongRangeCombats[i];
+            if (currentTime >= event.arrivalTime) {
+                const source = this.gameMap.territories[event.fromTerritoryId];
+                const target = this.gameMap.territories[event.toTerritoryId];
+                if (!source || !target) {
+                    console.warn('Long-range event canceled: invalid source or target.');
+                    this.pendingLongRangeCombats.splice(i, 1);
+                    continue;
+                }
+                
+                // If path was provided, check if any intermediate hop became hostile
+                if (event.path && event.path.length > 2) {
+                    for (let j = 1; j < event.path.length - 1; j++) {
+                        const midId = event.path[j];
+                        const midTerritory = this.gameMap.territories[midId];
+                        if (midTerritory && midTerritory.ownerId !== event.fromOwnerId) {
+                            // Stop at this intermediate territory
+                            console.log(`⚠️ Path broken at ${midId} (owner changed), stopping fleet for combat`);
+                            event.toTerritoryId = midId;
+                            break;
+                        }
+                    }
+                }
+                
+                // Execute the arrival
+                if (event.isAttack) {
+                    // Attack the target territory
+                    this.combatSystem.executeAttack({id: event.fromTerritoryId, ownerId: event.fromOwnerId}, target, event.fleetSize);
+                    console.log(`💥 Long-range attack arrived: ${event.fleetSize} ships hit ${target.id}`);
+                } else {
+                    // Reinforce friendly territory
+                    target.armySize += event.fleetSize;
+                    console.log(`🛡️ Reinforcements arrived: +${event.fleetSize} ships to ${target.id}`);
+                }
+                
+                // Remove the processed event
+                this.pendingLongRangeCombats.splice(i, 1);
+            }
+        }
+    }
+    
     createDelayedSupplyTransfer(fromTerritory, toTerritory, shipCount, delay) {
         // Find the supply route to get the path
         const route = this.supplyRoutes.get(fromTerritory.id);

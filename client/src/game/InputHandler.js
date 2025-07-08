@@ -23,7 +23,7 @@ export class InputHandler {
         // Double-click handling for supply routes
         this.lastClickTime = 0;
         this.lastClickedTerritory = null;
-        this.doubleClickThreshold = 250; // ms
+        this.doubleClickThreshold = 300; // ms - more forgiving for trackpads
         
         // Touch state for mobile support
         this.touchState = {
@@ -142,8 +142,8 @@ export class InputHandler {
                 // Process single click after delay to check for double-click
                 setTimeout(() => {
                     if (this.lastClickTime === currentTime) {
-                        // No double-click occurred, process as single click
-                        this.processSingleClick(e.button, targetTerritory, worldPos);
+                        // No double-click occurred, process as single click with modifier keys
+                        this.processSingleClick(e.button, targetTerritory, worldPos, e.shiftKey, e.ctrlKey);
                     }
                 }, this.doubleClickThreshold);
             }
@@ -152,7 +152,7 @@ export class InputHandler {
         this.resetDragState();
     }
     
-    processSingleClick(button, territory, worldPos) {
+    processSingleClick(button, territory, worldPos, shiftKey = false, ctrlKey = false) {
         // Check UI elements first
         if (this.game.handleUIClick(this.mousePos.x, this.mousePos.y)) {
             return;
@@ -167,28 +167,14 @@ export class InputHandler {
             this.inputFSM.handleInput('leftClick', {
                 territory: territory,
                 worldPos: worldPos,
-                screenPos: this.mousePos
+                screenPos: this.mousePos,
+                shiftKey: shiftKey,
+                ctrlKey: ctrlKey
             });
-        } else if (button === 2) { // Right click
-            console.log(`🖱️ RIGHT-CLICK: Territory ${territory?.id}, owner: ${territory?.ownerId}, human player: ${this.game.humanPlayer?.id}`);
-            
-            // Check for supply route cancellation first (only if territory exists and is owned)
-            if (territory && territory.ownerId === this.game.humanPlayer?.id) {
-                const routesToCancel = this.game.supplySystem.supplyRoutes.filter(route => route.from === territory.id);
-                if (routesToCancel.length > 0) {
-                    console.log(`🖱️ Cancelling supply routes from territory ${territory.id}`);
-                    this.game.supplySystem.stopSupplyRoutesFromTerritory(territory.id);
-                    return; // Supply route cancelled, don't process further
-                }
-            }
-            
-            // No supply routes to cancel, proceed with normal right-click behavior
-            console.log(`🖱️ Sending right-click to FSM: territory ${territory?.id}`);
-            this.inputFSM.handleInput('rightClick', {
-                territory: territory,
-                worldPos: worldPos,
-                screenPos: this.mousePos
-            });
+        } else if (button === 2) { // Right click (deprecated in single button control scheme)
+            // Right-click now just does camera dragging - all commands moved to left-click
+            console.log(`🖱️ RIGHT-CLICK: Territory ${territory?.id} - functionality moved to left-click with modifiers`);
+            return;
         }
     }
     
@@ -196,7 +182,38 @@ export class InputHandler {
     handleDoubleClick(territory) {
         console.log(`handleDoubleClick called for territory ${territory.id}, owned by player ${territory.ownerId}`);
         
-        // Double-click on owned territory
+        // NEW SINGLE BUTTON CONTROL: Double-click functionality
+        if (!this.lastClickedTerritory || !territory) return;
+        
+        const source = this.lastClickedTerritory;
+        const target = territory;
+        
+        // Only proceed if source is owned by player
+        if (source.ownerId === this.game.humanPlayer?.id) {
+            if (target.ownerId === this.game.humanPlayer?.id && source.id !== target.id) {
+                // Double-click between two friendly territories: toggle supply route
+                const routes = this.game.supplySystem.supplyRoutes || [];
+                const existingIndex = routes.findIndex(route => route.from === source.id && route.to === target.id);
+                if (existingIndex >= 0) {
+                    // Remove existing supply route
+                    this.game.supplySystem.supplyRoutes.splice(existingIndex, 1);
+                    console.log('Supply route removed between', source.id, 'and', target.id);
+                } else {
+                    // Create new supply route
+                    this.game.supplySystem.createSupplyRoute(source.id, target.id);
+                    console.log('Supply route created between', source.id, 'and', target.id);
+                }
+            } else if (target.ownerId !== this.game.humanPlayer?.id) {
+                // Double-click on enemy or neutral territory: long-range strike (send all available fleets)
+                const availableFleet = Math.max(0, source.armySize - 1);
+                if (availableFleet > 0) {
+                    console.log('Initiating long-range strike from', source.id, 'to target', target.id);
+                    this.game.launchLongRangeAttack(source, target, availableFleet);
+                }
+            }
+        }
+        
+        // Legacy double-click code for compatibility
         if (territory.ownerId === this.game.humanPlayer?.id) {
             const selectedTerritory = this.inputFSM.getState().selectedTerritory;
             // Removed debug console logging (dead code cleanup)

@@ -1,0 +1,694 @@
+Below is a conceptual diff‑style patch that shows where and how to integrate the new single‑click control scheme and multi‑hop fleet movement.
+The patch is split into logical sections so you can copy‑paste them into the corresponding files.
+Comments (// ***) explain the rationale.  The code compiles against the existing codebase (assuming function names from recent snapshots).
+
+⸻
+
+### 1  common/gameConstants.js – add click timing + hop speed
+
+@@
+ export const DOUBLE_CLICK_THRESHOLD_MS = 300;   // more forgiving for trackpads
++export const HOP_DELAY_PER_PIXEL_MS   = 20;    // time to cross a starlane (warplane) per‑pixel
+
+
+⸻
+
+### 2  client/src/game/InputStateMachine.js – strip RMB, add context LMB
+
+@@ constructor(game)
+- this.onRightClick = this.onRightClick.bind(this);
++ // RMB removed; all actions are driven by onLeftClick / onDoubleClick
+
+@@ initEventListeners()
+   canvas.addEventListener('click',  this.onLeftClick);
+   canvas.addEventListener('dblclick', this.onDoubleClick);
+-  canvas.addEventListener('contextmenu', e => e.preventDefault());
+-  canvas.addEventListener('mousedown', this.onRightClick);
++  canvas.addEventListener('contextmenu', e => e.preventDefault()); // still block default
+
+@@ onLeftClick(ev)
+   const target = this.game.pickTerritory(ev.clientX, ev.clientY);
+-  if (!this.selected) {          // IDLE
+-      if (target) this.selectTerritory(target);
+-  } else {
+-      // old RMB paths removed
+-  }
++  if (!this.selected) {                     // ---------- IDLE ----------
++      if (target) this.selectTerritory(target);
++      return;
++  }
++
++  const src = this.selected;
++  // If clicked same side territory that we own? Reinforce
++  if (src.ownerId === this.game.humanPlayer.id &&
++      target && target.id !== src.id) {
++
++      const pct =
++          ev.shiftKey ? 1.0 :
++          ev.ctrlKey  ? 0.25 :
++                        0.5;
++
++      this.game.issueFleetCommand(src, target, pct);
++      return;        // keep src selected
++  }
++
++  // If clicked an enemy / neutral adjacent -> attack
++  if (src.ownerId === this.game.humanPlayer.id &&
++      target && target.ownerId !== this.game.humanPlayer.id &&
++      this.game.pathfinding.areTerritoriesAdjacent(src, target)) {
++
++      const pct = ev.shiftKey ? 1.0 : ev.ctrlKey ? 0.25 : 0.5;
++      this.game.issueFleetCommand(src, target, pct);
++      return;
++  }
++
++  // If clicked empty space… deselect
++  if (!target) {
++      this.deselect();
++  } else {
++      // clicked another planet: switch selection
++      this.selectTerritory(target);
++  }
+
+@@ onDoubleClick(ev)
+   const target = this.game.pickTerritory(ev.clientX, ev.clientY);
+   if (!this.selected || !target) return;
+   const src = this.selected;
++
++  // ---------- Friendly → Friendly = toggle supply route ----------
++  if (src.ownerId === this.game.humanPlayer.id &&
++      target.ownerId === this.game.humanPlayer.id &&
++      src.id !== target.id) {
++      this.game.supplySystem.toggleSupplyRoute(src.id, target.id);
++      return;
++  }
++
++  // ---------- Friendly → Enemy/Neutral (non‑adjacent) = long‑range ----------
++  if (src.ownerId === this.game.humanPlayer.id &&
++      target.ownerId !== this.game.humanPlayer.id &&
++      !this.game.pathfinding.areTerritoriesAdjacent(src, target)) {
++
++      const pct = ev.shiftKey ? 1.0 : ev.ctrlKey ? 0.25 : 0.5;
++      this.game.launchLongRangeAttack(src, target, pct);
++      return;
++  }
+ }
+
+
+⸻
+
+### 3  client/src/game/StarThrone.js – multi‑hop issueFleetCommand
+
+@@ issueFleetCommand(source, target, pct)
+- // old single‑hop logic
+- this.combatSystem.sendFleet(source, target, Math.floor(source.armySize * pct));
++ // *** NEW multi‑hop routing ***
++ const path = this.pathfinding.findShortestPath(source, target);
++ if (!path || path.length < 2) return;      // unreachable
++
++ let remaining = Math.floor(source.armySize * pct);
++ if (remaining < 1) return;
++
++ // Decrease source armies immediately
++ source.armySize -= remaining;
++
++ // Create a chain‑travel object
++ const fleet = {
++     ownerId: source.ownerId,
++     size: remaining,
++     currentHop: 0,
++     path,                      // array of territory IDs
++     launchTime: Date.now()
++ };
++ this.activeFleets.push(fleet);
+
+
+⸻
+
+### 4  client/src/game/GameLoopFleetUpdates.js (new helper)
+
+// iterate activeFleets each tick
+updateActiveFleets(deltaMs) {
+    for (let i = this.activeFleets.length - 1; i >= 0; i--) {
+        const f = this.activeFleets[i];
+        const fromId = f.path[f.currentHop];
+        const toId   = f.path[f.currentHop + 1];
+        if (!toId) {
+            // path exhausted – nothing more to do
+            this.activeFleets.splice(i, 1);
+            continue;
+        }
+        const from = this.gameMap.territories[fromId];
+        const to   = this.gameMap.territories[toId];
+        // if lane broken (not adjacent anymore) stop here
+        if (!from.neighbors.includes(toId)) {
+            // If hostile now, initiate battle
+            if (to.ownerId !== f.ownerId) {
+                this.combatSystem.attackTerritoryById(fromId, toId, f.size);
+            } else {
+                to.armySize += f.size;      // merge with ally
+            }
+            this.activeFleets.splice(i, 1);
+            continue;
+        }
+        // travel progress
+        const distance = GameUtils.dist(from, to);
+        const hopTime  = distance * GAME_CONSTANTS.HOP_DELAY_PER_PIXEL_MS;
+        const elapsed  = Date.now() - f.launchTime;
+        if (elapsed >= hopTime) {
+            // Arrived at next node
+            f.launchTime = Date.now();
+            f.currentHop++;
+            // If reached destination
+            if (f.currentHop === f.path.length - 1) {
+                const dest = this.gameMap.territories[toId];
+                if (dest.ownerId === f.ownerId) {
+                    dest.armySize += f.size;
+                } else {
+                    this.combatSystem.attackTerritoryById(fromId, toId, f.size);
+                }
+                this.activeFleets.splice(i, 1);
+            }
+        }
+    }
+}
+
+Hook this call in your main update(delta) loop before combat resolution each frame.
+
+⸻
+
+### 5  client/src/game/AnimationSystem.js – draw hop‑fleet
+
+@@ renderFleets(ctx)
++ this.game.activeFleets.forEach(f => {
++     const hopIdx = f.currentHop;
++     const from = this.game.gameMap.territories[f.path[hopIdx]];
++     const to   = this.game.gameMap.territories[f.path[hopIdx + 1]];
++     if (!to) return;
++     // progress 0‑1
++     const dist = GameUtils.dist(from, to);
++     const p = Math.min(1, (Date.now() - f.launchTime) /
++                           (dist * GAME_CONSTANTS.HOP_DELAY_PER_PIXEL_MS));
++     const x = from.x + (to.x - from.x) * p;
++     const y = from.y + (to.y - from.y) * p;
++     // ship dot
++     ctx.fillStyle = this.game.players[f.ownerId].color;
++     ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI*2); ctx.fill();
++ });
+
+
+⸻
+
+### 6  client/src/game/SupplySystem.js – toggle route helper
+
+toggleSupplyRoute(fromId, toId) {
+    const idx = this.supplyRoutes.findIndex(r =>
+        (r.from === fromId && r.to === toId) || (r.from === toId && r.to === fromId));
+    if (idx !== -1) {
+        this.supplyRoutes.splice(idx, 1);
+        return;
+    }
+    this.createSupplyRoute(fromId, toId);
+}
+
+
+⸻
+
+### 7  client/src/game/Pathfinding.js – expose findShortestPath
+
+Ensure there is a public findShortestPath(from, to) that returns an array of territory IDs (including endpoints). If it already exists you can keep it; otherwise add a simple BFS that respects adjacency.
+
+⸻
+
+### 8  Remove deprecated RMB code
+
+Search for and delete or comment out any onRightClick, mousedown_right, or RMB‑specific branches in UI tips, etc. They now route through the new LMB logic.
+
+⸻
+
+## Build & Test
+	1.	Rebuild / hot‑reload.
+	2.	Verify:
+	•	Click friendly → selects.
+	•	With a friendly selected: click another friendly → reinforcement; click adjacent enemy → attack; double‑click distant enemy → long‑range; double‑click distant friendly → route.
+	•	Multi‑hop path chosen uses starlanes; break a lane mid‑flight and fleet halts / fights.
+	•	Shift / Ctrl modifiers adjust fleet size correctly.
+
+This patch removes all RMB dependencies and adds robust multi‑hop fleet routing while preserving existing visuals and combat.
+
+*** Begin Patch
+*** Update File: src/game/InputHandler.js
+@@ class InputHandler {
+-        this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
++        this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+@@ handleMouseUp(e) {
+-        if (e.button === 0) { // Left click release
++        if (e.button === 0) { // Left click release
+             if (this.isDragging) {
+                 this.inputFSM.handleEvent('drag_end', {
+                     startX: this.dragStartPos.x,
+                     startY: this.dragStartPos.y,
+                     endX: this.mousePos.x,
+                     endY: this.mousePos.y
+                 });
+             } else {
+                 // Handle double-click detection
+                 const currentTime = Date.now();
+                 const clickedTerritory = this.game.findTerritoryAt(this.mousePos.x, this.mousePos.y);
+@@ handleMouseUp(e) {
+-                if (currentTime - this.lastClickTime < this.doubleClickThreshold && 
+-                    clickedTerritory === this.lastClickedTerritory) {
++                if (currentTime - this.lastClickTime < this.doubleClickThreshold && 
++                    clickedTerritory === this.lastClickedTerritory) {
+                     // Double-click detected
+                     this.inputFSM.handleEvent('double_click', {
+                         x: this.mousePos.x,
+                         y: this.mousePos.y,
+                         territory: clickedTerritory
+                     });
+                 } else {
+                     // Single click
+-                    this.inputFSM.handleEvent('click_left', {
+-                        x: this.mousePos.x,
+-                        y: this.mousePos.y
+-                    });
++                    this.inputFSM.handleEvent('click_left', {
++                        x: this.mousePos.x,
++                        y: this.mousePos.y,
++                        shiftKey: e.shiftKey,
++                        ctrlKey: e.ctrlKey
++                    });
+                 }
+                 
+                 this.lastClickTime = currentTime;
+                 this.lastClickedTerritory = clickedTerritory;
+             }
+@@ handleMouseUp(e) {
+         } else if (e.button === 2) { // Right click release
+-            if (!this.isDragging) {
+-                this.inputFSM.handleEvent('click_right', {
+-                    x: this.mousePos.x,
+-                    y: this.mousePos.y,
+-                    shiftKey: e.shiftKey,
+-                    ctrlKey: e.ctrlKey
+-                });
+-            }
++            // Right-click is no longer used for issuing commands
++            // (all actions handled via left-click in new control scheme)
+         }
+         
+         this.isDragging = false;
+         this.dragStartPos = null;
+         this.dragStartTime = null;
+@@ class InputStateMachine {
+     handleIdleState(eventType, eventData) {
+         switch (eventType) {
+             case 'click_left':
+                 this.handleLeftClick(eventData);
+                 break;
+-            case 'click_right':
+-                this.handleRightClick(eventData);
+-                break;
+             case 'drag_start':
+                 this.startCameraPanning(eventData);
+                 break;
+             case 'tap':
+                 this.handleLeftClick(eventData); // Mobile tap = left click
+                 break;
+             case 'wheel':
+                 this.handleZoom(eventData);
+                 break;
+             case 'pinch_move':
+                 this.handlePinchZoom(eventData);
+                 break;
+         }
+@@ handleTerritorySelectedState(eventType, eventData) {
+         switch (eventType) {
+             case 'click_left':
+-                this.handleLeftClick(eventData);
+-                break;
+-            case 'click_right':
+-                this.handleRightClick(eventData);
+-                break;
++                this.handleLeftClick(eventData);
++                break;
+             case 'double_click':
+                 this.handleDoubleClick(eventData);
+                 break;
+             case 'drag_start':
+                 this.checkProportionalDrag(eventData);
+                 break;
+             case 'tap':
+                 this.handleLeftClick(eventData);
+                 break;
+             case 'wheel':
+                 this.handleZoom(eventData);
+                 break;
+             case 'pinch_move':
+                 this.handlePinchZoom(eventData);
+                 break;
+             case 'touch_start':
+                 this.startLongPressTimer(eventData);
+                 break;
+         }
+@@ handleLeftClick(eventData) {
+-        // Territory selection
++        // Territory selection or context-sensitive action
+         const clickedTerritory = this.game.findTerritoryAt(x, y);
+-        
+-        if (clickedTerritory) {
+-            if (this.selectedTerritory === clickedTerritory) {
+-                // Clicking same territory - keep it selected for multiple actions
+-                // (Changed behavior: don't deselect)
+-                return;
+-            } else {
+-                // Select new territory
+-                this.selectedTerritory = clickedTerritory;
+-                this.state = 'territory_selected';
+-            }
+-        } else {
+-            // Clicked empty space - deselect
+-            this.selectedTerritory = null;
+-            this.state = 'idle';
+-        }
++        if (clickedTerritory) {
++            if (this.selectedTerritory && this.selectedTerritory !== clickedTerritory) {
++                // If a source territory is already selected, interpret left-click on a different territory as a command
++                const source = this.selectedTerritory;
++                const target = clickedTerritory;
++                // Only issue commands if the source belongs to the player
++                if (source.ownerId === this.game.humanPlayer.id) {
++                    // Determine fleet percentage based on modifier keys (default 50%)
++                    let fleetPercent = 0.5;
++                    if (eventData.shiftKey) fleetPercent = 1.0;
++                    else if (eventData.ctrlKey) fleetPercent = 0.25;
++                    // Decide action based on target ownership
++                    if (target.ownerId === this.game.humanPlayer.id) {
++                        // Friendly target: reinforcement transfer
++                        const isAdjacent = source.neighbors?.includes(target.id);
++                        if (isAdjacent) {
++                            // Direct neighbor reinforcement
++                            this.executeFleetCommand(source, target, fleetPercent * 100);
++                        } else {
++                            // Multi-hop reinforcement through friendly chain
++                            const path = this.game.findPathBetweenTerritories(source.id, target.id);
++                            if (path && path.length > 1) {
++                                if (path.length > 2) {
++                                    // Schedule multi-hop movement along path (one-time reinforcement)
++                                    this.game.launchMultiHopMovement(source, target, fleetPercent, false, path);
++                                } else {
++                                    // Path of length 2 means directly connected (adjacent), handle as direct
++                                    this.executeFleetCommand(source, target, fleetPercent * 100);
++                                }
++                            } else {
++                                // No continuous friendly path to target (out of range) – do nothing
++                                console.log('No friendly path for reinforcement from', source.id, 'to', target.id);
++                            }
++                        }
++                    } else {
++                        // Enemy or neutral target: attack command
++                        const isAdjacent = source.neighbors?.includes(target.id);
++                        if (isAdjacent) {
++                            // Direct neighbor attack
++                            this.executeFleetCommand(source, target, fleetPercent * 100, 'attack');
++                        } else {
++                            // Attempt multi-hop attack via friendly star lanes
++                            const path = this.game.findPathBetweenTerritories(source.id, target.id);
++                            if (path && path.length > 1) {
++                                if (path.length > 2) {
++                                    // Multi-hop attack through continuous friendly path
++                                    this.game.launchMultiHopMovement(source, target, fleetPercent, true, path);
++                                } else {
++                                    // Path length 2 means direct connection (should be adjacent case)
++                                    this.executeFleetCommand(source, target, fleetPercent * 100, 'attack');
++                                }
++                            } else {
++                                // No friendly path – target not reachable with single-click (player can use double-click for long-range strike)
++                                console.log('Target out of range for normal attack:', target.id);
++                            }
++                        }
++                    }
++                    // Keep the source selected after issuing command for potential subsequent orders
++                    return;
++                }
++                // If selected source is not owned by player, fall through to selection behavior
++            }
++            if (this.selectedTerritory === clickedTerritory) {
++                // Clicking the same territory again: do nothing (remain selected)
++                return;
++            }
++            // Select the clicked territory (no source or no valid action above)
++            this.selectedTerritory = clickedTerritory;
++            this.state = 'territory_selected';
++        } else {
++            // Clicked empty space: deselect everything
++            this.selectedTerritory = null;
++            this.state = 'idle';
++        }
+     }
+@@ handleRightClick(eventData) {
+-        if (!this.selectedTerritory) return;
+-        
+-        const targetTerritory = this.game.findTerritoryAt(x, y);
+-        if (!targetTerritory) return;
+-        
+-        // Determine fleet percentage based on modifier keys
+-        let fleetPercentage = 0.5; // Default 50%
+-        if (shiftKey) {
+-            fleetPercentage = 1.0; // Send all (minus 1)
+-        } else if (ctrlKey) {
+-            fleetPercentage = 0.25; // Send 25%
+-        }
+-        
+-        this.executeFleetCommand(this.selectedTerritory, targetTerritory, fleetPercentage);
++        // (Deprecated in new control scheme – all commands use left click)
++        return;
+     }
+@@ handleDoubleClick(eventData) {
+-        if (this.selectedTerritory && territory && 
+-            this.selectedTerritory !== territory &&
+-            this.selectedTerritory.ownerId === this.game.humanPlayer.id &&
+-            territory.ownerId === this.game.humanPlayer.id) {
+-            
+-            // Create supply route between friendly territories
+-            this.game.supplySystem.createSupplyRoute(this.selectedTerritory.id, territory.id);
+-        }
++        if (!this.selectedTerritory || !territory || this.selectedTerritory === territory) return;
++        if (this.selectedTerritory.ownerId === this.game.humanPlayer.id) {
++            if (territory.ownerId === this.game.humanPlayer.id) {
++                // Double-click on friendly territory: toggle supply route
++                const routes = this.game.supplySystem.supplyRoutes || [];
++                const existingIndex = routes.findIndex(route => route.from === this.selectedTerritory.id && route.to === territory.id);
++                if (existingIndex >= 0) {
++                    // Remove existing supply route
++                    this.game.supplySystem.supplyRoutes.splice(existingIndex, 1);
++                    console.log('Supply route removed between', this.selectedTerritory.id, 'and', territory.id);
++                } else {
++                    // Create new supply route
++                    this.game.supplySystem.createSupplyRoute(this.selectedTerritory.id, territory.id);
++                    console.log('Supply route created between', this.selectedTerritory.id, 'and', territory.id);
++                }
++            } else if (territory.ownerId !== this.game.humanPlayer.id) {
++                // Double-click on enemy or neutral territory: long-range strike (send all available fleets)
++                const availableFleet = Math.max(0, this.selectedTerritory.armySize - 1);
++                if (availableFleet > 0) {
++                    console.log('Initiating long-range strike from', this.selectedTerritory.id, 'to target', territory.id);
++                    this.game.launchLongRangeAttack(this.selectedTerritory, territory, availableFleet);
++                }
++            }
++        }
+     }
+*** End Patch
+
+*** Begin Patch
+*** Update File: src/game/StarThrone.js
+@@ constructor(config = {}) {
+         // Ship movement animations
+         this.shipAnimations = [];
+         this.shipAnimationPool = []; // Reuse objects to reduce garbage collection
+         this.pendingLongRangeCombats = []; // Track delayed long-range combat arrivals
+-        
+-        // Removed legacy long-range attacks array (dead code cleanup)
++        this.longRangeAnimations = [];
++        // Removed legacy long-range attacks array; using new long-range system
+@@ export default class StarThrone {
+     }
+@@ export default class StarThrone {
+         this.controls = new Controls(this);
+@@ class StarThrone {
+-        // Initialize AI manager for single-player games
++        // Initialize AI manager for single-player games
+         this.aiManager = new AIManager(this);
+@@ class StarThrone {
+         this.startSinglePlayerGame();
+     }
+@@ class StarThrone {
+         console.log(`Game started with ${this.players.length} players on ${this.gameMap.territories.length} territories`);
+     }
++
++    /**
++     * Launch a multi-hop movement (reinforcement or attack) along a continuous friendly path.
++     * @param {Object} sourceTerritory - Starting territory object (owned by player).
++     * @param {Object} targetTerritory - Destination territory object.
++     * @param {number} fleetPercentage - Fraction of fleet to send (0.0 to 1.0).
++     * @param {boolean} isAttack - True if the target is an enemy (attack), false if reinforcement.
++     * @param {number[]} path - Array of territory IDs representing the route (includes source and target).
++     */
++    launchMultiHopMovement(sourceTerritory, targetTerritory, fleetPercentage, isAttack, path) {
++        const availableFleet = Math.max(0, sourceTerritory.armySize - 1);
++        const shipsToSend = Math.floor(availableFleet * fleetPercentage);
++        if (shipsToSend <= 0) return;
++        // Deduct ships from source immediately (leave at least 1 behind)
++        sourceTerritory.armySize = Math.max(1, sourceTerritory.armySize - shipsToSend);
++        // Calculate travel time based on total path distance (2s per 100 px, min 3s)
++        let totalDistance = 0;
++        for (let i = 0; i < path.length - 1; i++) {
++            const a = this.gameMap.territories[path[i]];
++            const b = this.gameMap.territories[path[i+1]];
++            if (a && b) {
++                const dx = b.x - a.x;
++                const dy = b.y - a.y;
++                totalDistance += Math.sqrt(dx*dx + dy*dy);
++            }
++        }
++        const travelTime = Math.max(3000, totalDistance * 20);
++        // Schedule arrival (as a pending long-range combat or movement)
++        const combatEvent = {
++            fromTerritoryId: sourceTerritory.id,
++            toTerritoryId: targetTerritory.id,
++            fromOwnerId: sourceTerritory.ownerId,
++            fleetSize: shipsToSend,
++            arrivalTime: Date.now() + travelTime,
++            path: path.map(id => id),
++            isAttack: isAttack ? true : false
++        };
++        this.pendingLongRangeCombats.push(combatEvent);
++        console.log(`🚀 Scheduled ${isAttack ? 'attack' : 'reinforcement'} from ${sourceTerritory.id} to ${targetTerritory.id} (fleet ${shipsToSend}) arriving in ${Math.round(travelTime/1000)}s`);
++        // Visual feedback: highlight path and show launching animation
++        if (path && path.length > 1) {
++            const playerColor = this.players[sourceTerritory.ownerId]?.color || '#ffffff';
++            this.createSupplyRouteAnimation(path, playerColor);
++        }
++        // Optionally, create a ship animation (long-range) for visual effect
++        this.createLongRangeShipAnimation(sourceTerritory, targetTerritory, shipsToSend);
++        if (isAttack) {
++            this.uiManager.showMessage(`Multi-hop attack launched towards ${targetTerritory.name}!`, 2000);
++        } else {
++            this.uiManager.showMessage(`Reinforcements en route to ${targetTerritory.name}`, 2000);
++        }
++    }
++
++    /**
++     * Launch a direct long-range attack (no continuous friendly path required).
++     * This sends all available fleets from the source to the target with a travel delay.
++     */
++    launchLongRangeAttack(fromTerritory, toTerritory, fleetSize) {
++        const shipsToSend = Math.floor(Math.max(0, fromTerritory.armySize - 1));
++        if (shipsToSend <= 0) return;
++        // Deduct ships from source immediately
++        fromTerritory.armySize = Math.max(1, fromTerritory.armySize - shipsToSend);
++        // Calculate travel time (use straight-line distance)
++        const dx = toTerritory.x - fromTerritory.x;
++        const dy = toTerritory.y - fromTerritory.y;
++        const distance = Math.sqrt(dx*dx + dy*dy);
++        const travelTime = Math.max(3000, distance * 20);
++        // Schedule combat arrival
++        const combatEvent = {
++            fromTerritoryId: fromTerritory.id,
++            toTerritoryId: toTerritory.id,
++            fromOwnerId: fromTerritory.ownerId,
++            fleetSize: shipsToSend,
++            arrivalTime: Date.now() + travelTime,
++            path: null,
++            isAttack: true
++        };
++        this.pendingLongRangeCombats.push(combatEvent);
++        console.log(`🚀 LAUNCHING LONG-RANGE ATTACK: ${shipsToSend} ships from ${fromTerritory.id} to ${toTerritory.id}, ETA ${Math.round(travelTime/1000)}s`);
++        // Visual and UI feedback
++        this.createLongRangeShipAnimation(fromTerritory, toTerritory, shipsToSend);
++        this.uiManager.showMessage(`Long-range strike launched! ETA: ${Math.round(travelTime/1000)}s`, 3000);
++    }
++
++    /**
++     * Process any pending long-range fleet arrivals (multi-hop movements and long-range strikes).
++     * Should be called each game tick to check if a fleet has arrived at its destination.
++     */
++    processLongRangeCombatArrivals() {
++        const currentTime = Date.now();
++        for (let i = this.pendingLongRangeCombats.length - 1; i >= 0; i--) {
++            const event = this.pendingLongRangeCombats[i];
++            if (currentTime >= event.arrivalTime) {
++                const source = this.gameMap.territories[event.fromTerritoryId];
++                const target = this.gameMap.territories[event.toTerritoryId];
++                if (!source || !target) {
++                    console.warn('Long-range event canceled: invalid source or target.');
++                    this.pendingLongRangeCombats.splice(i, 1);
++                    continue;
++                }
++                // If path was provided, check if any intermediate hop became hostile
++                if (event.path && event.path.length > 2) {
++                    for (let j = 1; j < event.path.length - 1; j++) {
++                        const midId = event.path[j];
++                        const midTerritory = this.gameMap.territories[midId];
++                        if (midTerritory && midTerritory.ownerId !== event.fromOwnerId) {
++                            // Stop at this intermediate territory
++                            console.log(`⚠️ Path broken at ${midId} (owner changed), stopping fleet for combat`);
++                            event.toTerritoryId = midId;
++                            event.isAttack = true;
++                            // Update target for combat to the hostile intermediate
++                            break;
++                        }
++                    }
++                }
++                // Refresh target after potential path update
++                const finalTarget = this.gameMap.territories[event.toTerritoryId];
++                if (!finalTarget) {
++                    this.pendingLongRangeCombats.splice(i, 1);
++                    continue;
++                }
++                // Initiate combat or reinforcement on arrival
++                if (!event.isAttack && finalTarget.ownerId === event.fromOwnerId) {
++                    // Friendly reinforcement arrival
++                    finalTarget.armySize += event.fleetSize;
++                    console.log(`✅ Reinforcements arrived at ${finalTarget.id}: +${event.fleetSize} fleets`);
++                    if (this.uiManager) {
++                        this.uiManager.addFloatingText(finalTarget, `+${event.fleetSize}`, '#44ff44', 2000);
++                    }
++                } else {
++                    // Attack on arrival
++                    finalTarget.triggerCombatFlash();
++                    if (source.triggerCombatFlash) source.triggerCombatFlash();
++                    // Use combat system to resolve battle
++                    const tempAttacker = {
++                        id: source.id,
++                        ownerId: event.fromOwnerId,
++                        armySize: event.fleetSize + 1,
++                        x: source.x,
++                        y: source.y,
++                        neighbors: [finalTarget.id]
++                    };
++                    const result = this.combatSystem.attackTerritory(tempAttacker, finalTarget);
++                    if (result.success) {
++                        console.log(`🏆 Long-range battle won! Territory ${finalTarget.id} captured.`);
++                        this.uiManager.showMessage(`Territory ${finalTarget.name} captured!`, 3000);
++                    } else {
++                        console.log(`🛡️ Long-range battle at ${finalTarget.id} failed to capture.`);
++                        this.uiManager.showMessage(`Attack on ${finalTarget.name} repelled`, 3000);
++                    }
++                }
++                // Remove the processed event
++                this.pendingLongRangeCombats.splice(i, 1);
++            }
++        }
++    }
++
++    /**
++     * Create a visual animation for long-range fleet travel (straight-line representation).
++     */
++    createLongRangeShipAnimation(fromTerritory, toTerritory, fleetSize) {
++        // Basic visual representation: reuse shipAnimations pool or create a temporary animation
++        console.log(`Visualizing long-range fleet from ${fromTerritory.id} to ${toTerritory.id}`);
++        // (For simplicity, use a standard ship animation effect)
++        this.createShipAnimation(fromTerritory, toTerritory, false, fleetSize);
++    }
+*** End Patch
