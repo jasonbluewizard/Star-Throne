@@ -721,6 +721,12 @@ Changelog:
    * Fixed missing supply route indicators (+ symbols) by rendering them at all zoom levels instead of only zoom > 0.3
    * Fixed H key first-press bug with enhanced throne star detection including fallback search through owned territories
    * Supply route reinforcement indicators now visible regardless of camera zoom level
+- January 7, 2025. Single mouse button control system completion:
+  * CRITICAL FIXES: Fixed broken event listeners (this.canvas → this.game.canvas) and missing CombatSystem methods
+  * Added executeTransfer() and executeAttack() methods to CombatSystem for proper fleet command execution
+  * Single mouse button control now fully functional: left-click for 50% fleet, Shift+click for all, Ctrl+click for 25%
+  * Comprehensive debug logging added to track fleet command execution pipeline
+  * Territory selection and fleet movement working seamlessly with visual ship animations
 - January 7, 2025. Tech discovery system implementation with persistent upgrades:
   * Added comprehensive tech level system (Attack, Defense, Engines, Production) capped at level 5
   * Each player gains permanent tech bonuses when conquering neutral territories and discovering precursor technologies
