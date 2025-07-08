@@ -23,6 +23,7 @@ class CommandDragState {
         this.src        = data.source;          // selected friendly planet
         this.shiftKey   = data.shiftKey;
         this.ctrlKey    = data.ctrlKey;
+        console.log(`🎯 COMMAND DRAG: Started from territory ${this.src.id} (Shift:${this.shiftKey}, Ctrl:${this.ctrlKey})`);
     }
 
     handle(eventType, data) {
@@ -33,10 +34,14 @@ class CommandDragState {
 
             case 'drag_end': {
                 const target = data.territory;
+                console.log(`🎯 COMMAND DRAG END: Source ${this.src.id} → Target ${target?.id || 'none'}`);
                 if (target && target.id !== this.src.id) {
                     const pct = this.shiftKey ? 1.0 :
                                 this.ctrlKey  ? 0.25 : 0.5;
-                    this.fsm.game.issueFleetCommand(this.src, target, pct);
+                    console.log(`🚀 EXECUTING FLEET COMMAND: ${this.src.id} → ${target.id} (${Math.round(pct*100)}% fleet)`);
+                    this.fsm.game.executeFleetCommand(this.src, target, pct);
+                } else {
+                    console.log(`❌ COMMAND DRAG CANCELLED: ${target ? 'Same territory' : 'No target'}`);
                 }
                 this.fsm.setState('territory_selected', { keepSelection: true });
                 break;

@@ -3494,12 +3494,12 @@ export default class StarThrone {
             return;
         }
         
-        // Calculate ships to send - hardcoded 50% for new system
+        // Calculate ships to send using the provided percentage
         const availableShips = Math.max(0, fromTerritory.armySize - 1);
-        const shipsToSend = Math.max(1, Math.floor(availableShips * 0.5));
+        const shipsToSend = Math.max(1, Math.floor(availableShips * fleetPercentage));
         
         // Visual feedback - show number flying off
-        this.showFleetCommandFeedback(fromTerritory, shipsToSend, 0.5);
+        this.showFleetCommandFeedback(fromTerritory, shipsToSend, fleetPercentage);
         
         // Handle different command types
         switch (commandType) {
