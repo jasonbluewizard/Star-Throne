@@ -156,15 +156,21 @@ class DefaultState extends BaseState {
     }
     
     handleLeftClick(territory, worldPos, data = {}) {
+        console.log(`🔧 DEBUG: DefaultState.handleLeftClick - territory: ${territory?.id}, modifiers: shift=${data.shiftKey}, ctrl=${data.ctrlKey}`);
+        
         if (!territory) {
             // Clicked empty space - stay in Default
+            console.log('🔧 DEBUG: Clicked empty space in default state');
             return true;
         }
         
         // Select only your own territory with >1 army
         if (territory && territory.ownerId === this.game.humanPlayer?.id && territory.armySize > 1) {
+            console.log(`🔧 DEBUG: Selecting owned territory ${territory.id} with ${territory.armySize} armies`);
             this.fsm.selectedTerritory = territory;
             this.fsm.transitionTo('TerritorySelected', { selectedTerritory: territory });
+        } else {
+            console.log(`🔧 DEBUG: Territory not selectable - owned: ${territory.ownerId === this.game.humanPlayer?.id}, armies: ${territory.armySize}`);
         }
         return true;  // consume left-click in default state
     }
@@ -219,15 +225,24 @@ class TerritorySelectedState extends BaseState {
             let fleetPercentage = 0.5; // Default 50%
             if (data.shiftKey) {
                 fleetPercentage = 1.0; // Send all (minus 1)
+                console.log('🔧 DEBUG: Shift+click detected - sending all fleet');
             } else if (data.ctrlKey) {
                 fleetPercentage = 0.25; // Send 25%
+                console.log('🔧 DEBUG: Ctrl+click detected - sending 25% fleet');
+            } else {
+                console.log('🔧 DEBUG: Normal click detected - sending 50% fleet');
             }
+            
+            console.log(`🔧 DEBUG: Attempting fleet command from ${this.selectedTerritory.id} to ${territory.id} with ${Math.floor(fleetPercentage * 100)}% fleet`);
             
             // Execute the appropriate fleet command
             const success = this.executeFleetCommand(this.selectedTerritory, territory, fleetPercentage);
             if (success) {
+                console.log('🔧 DEBUG: Fleet command successful - keeping source selected');
                 // Keep source selected for potential follow-up commands
                 return true;
+            } else {
+                console.log('🔧 DEBUG: Fleet command failed - proceeding to selection behavior');
             }
         }
         
@@ -245,12 +260,16 @@ class TerritorySelectedState extends BaseState {
     }
     
     executeFleetCommand(sourceTerritory, targetTerritory, fleetPercentage) {
+        console.log(`🔧 DEBUG: executeFleetCommand called - source: ${sourceTerritory?.id}, target: ${targetTerritory?.id}, percentage: ${fleetPercentage}`);
+        
         // Validate command
         if (!sourceTerritory || !targetTerritory || sourceTerritory === targetTerritory) {
+            console.log('🔧 DEBUG: Validation failed - invalid territories or same territory');
             return false;
         }
         
         if (sourceTerritory.ownerId !== this.game.humanPlayer.id) {
+            console.log(`🔧 DEBUG: Validation failed - source not owned by human player (${sourceTerritory.ownerId} vs ${this.game.humanPlayer.id})`);
             return false; // Can only command own territories
         }
         
@@ -263,24 +282,33 @@ class TerritorySelectedState extends BaseState {
             fleetsToSend = availableFleets;
         }
         
-        if (fleetsToSend <= 0) return false;
+        console.log(`🔧 DEBUG: Fleet calculation - available: ${availableFleets}, to send: ${fleetsToSend}, army size: ${sourceTerritory.armySize}`);
+        
+        if (fleetsToSend <= 0) {
+            console.log('🔧 DEBUG: No fleets to send - insufficient armies');
+            return false;
+        }
         
         // Check if territories are connected by visible warp lanes
         const sourceId = sourceTerritory.id;
         const targetId = targetTerritory.id;
         const isConnected = this.game.gameMap.connections[sourceId]?.includes(targetId);
         
+        console.log(`🔧 DEBUG: Connection check - ${sourceId} -> ${targetId}: ${isConnected ? 'CONNECTED' : 'NOT CONNECTED'}`);
+        
         if (!isConnected && targetTerritory.ownerId !== null) {
             // Try multi-hop path for non-connected territories
-            const path = this.game.findPathBetweenTerritories?.(sourceId, targetId);
-            if (path && path.length > 2) {
+            console.log('🔧 DEBUG: Attempting pathfinding for non-connected territories');
+            const path = this.game.findPathBetweenTerritories?.(sourceTerritory, targetTerritory);
+            if (path && path.length > 1) {
                 // Multi-hop route available
                 const isAttack = targetTerritory.ownerId !== this.game.humanPlayer.id;
+                console.log(`🔧 DEBUG: Multi-hop path found with ${path.length} territories`);
                 this.game.launchMultiHopMovement?.(sourceTerritory, targetTerritory, fleetPercentage, isAttack, path);
                 console.log(`🛸 Multi-hop ${isAttack ? 'attack' : 'transfer'}: ${fleetsToSend} ships via ${path.length} hops`);
                 return true;
             } else {
-                console.log('No valid path found between territories');
+                console.log('🔧 DEBUG: No valid path found between territories');
                 return false;
             }
         }
@@ -288,10 +316,12 @@ class TerritorySelectedState extends BaseState {
         // Direct connection available - execute immediate command
         if (targetTerritory.ownerId === this.game.humanPlayer.id) {
             // Transfer to friendly territory
+            console.log(`🔧 DEBUG: Executing direct transfer to friendly territory`);
             this.game.combatSystem.executeTransfer(sourceTerritory, targetTerritory, fleetsToSend);
             console.log(`🚢 Transfer: ${fleetsToSend} ships from ${sourceId} to ${targetId}`);
         } else {
             // Attack enemy/neutral territory
+            console.log(`🔧 DEBUG: Executing direct attack on enemy/neutral territory`);
             this.game.combatSystem.executeAttack(sourceTerritory, targetTerritory, fleetsToSend);
             console.log(`⚔️ Attack: ${fleetsToSend} ships from ${sourceId} to ${targetId}`);
         }

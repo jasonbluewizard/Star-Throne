@@ -581,6 +581,13 @@ Changelog:
    * Modernized error handling: updated AIManager, EventSystem, and InputStateMachine to use centralized logging
    * Console output optimization: production builds now show only essential game events (discoveries, throne captures)
    * Error handling consistency: all modules now respect DEBUG_MODE flag for toggling development vs production logging
+- January 7, 2025. Single mouse button control system debugging and implementation:
+   * Added comprehensive debug logging to InputStateMachine for fleet command tracking
+   * Fixed pathfinding system to use game map connections instead of territory neighbors
+   * Enhanced multi-hop fleet movement with proper activeFleets array management
+   * Implemented per-tick fleet advancement system with updateActiveFleets module
+   * Added modifier key detection debugging (Shift+click, Ctrl+click functionality)
+   * Fixed territory selection and fleet command execution flow for single-click interface
 - January 3, 2025. Supply route system overhaul - Army generation redirection implementation:
    * Completely redesigned supply routes from army transfer system to army generation redirection
    * Source territories stop growing armies when supplying - armies generate directly at destination instead

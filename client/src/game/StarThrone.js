@@ -3361,6 +3361,8 @@ export default class StarThrone {
     }
     
     findPathBetweenTerritories(start, end) {
+        console.log(`🔧 DEBUG: findPathBetweenTerritories called - from ${start.id} to ${end.id}`);
+        
         // BFS to find shortest path through owned territories
         const queue = [[start]];
         const visited = new Set([start.id]);
@@ -3370,23 +3372,26 @@ export default class StarThrone {
             const current = path[path.length - 1];
             
             if (current.id === end.id) {
+                console.log(`🔧 DEBUG: Path found with ${path.length} territories:`, path.map(t => t.id));
                 return path;
             }
             
-            // Check all neighbors
-            current.neighbors.forEach(neighborId => {
+            // Check all neighbors using game map connections
+            const connections = this.gameMap.connections[current.id] || [];
+            connections.forEach(neighborId => {
                 const neighbor = this.gameMap.territories[neighborId];
                 
-                if (neighbor && 
-                    !visited.has(neighbor.id) && 
-                    neighbor.ownerId === this.humanPlayer?.id) {
-                    
-                    visited.add(neighbor.id);
-                    queue.push([...path, neighbor]);
+                if (neighbor && !visited.has(neighbor.id)) {
+                    // For pathfinding, allow through friendly or target territory
+                    if (neighbor.ownerId === this.humanPlayer?.id || neighbor.id === end.id) {
+                        visited.add(neighbor.id);
+                        queue.push([...path, neighbor]);
+                    }
                 }
             });
         }
         
+        console.log(`🔧 DEBUG: No path found from ${start.id} to ${end.id}`);
         return null; // No path found
     }
     
