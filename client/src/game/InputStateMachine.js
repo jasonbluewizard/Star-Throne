@@ -146,8 +146,6 @@ class DefaultState extends BaseState {
         switch (inputType) {
             case 'leftClick':
                 return this.handleLeftClick(data.territory, data.worldPos, data);
-            case 'rightClick':
-                return this.handleRightClick(data.territory, data.worldPos);
             case 'keyPress':
                 return this.handleKeyPress(data.key);
             default:
@@ -175,10 +173,7 @@ class DefaultState extends BaseState {
         return true;  // consume left-click in default state
     }
     
-    handleRightClick(territory, worldPos) {
-        // Right click in default state - camera drag (handled elsewhere)
-        return false;
-    }
+
     
     handleKeyPress(key) {
         // No special keys in default state
@@ -198,8 +193,6 @@ class TerritorySelectedState extends BaseState {
         switch (inputType) {
             case 'leftClick':
                 return this.handleLeftClick(data.territory, data.worldPos, data);
-            case 'rightClick':
-                return this.handleRightClick(data.territory, data.worldPos);
             case 'keyPress':
                 return this.handleKeyPress(data.key);
             default:
@@ -504,8 +497,7 @@ class EnemySelectedState extends BaseState {
         switch (inputType) {
             case 'leftClick':
                 return this.handleLeftClick(data.territory, data.worldPos, data);
-            case 'rightClick':
-                return this.handleRightClick(data.territory, data.worldPos);
+
             case 'keyPress':
                 return this.handleKeyPress(data.key);
             default:
@@ -538,10 +530,7 @@ class EnemySelectedState extends BaseState {
         }
     }
     
-    handleRightClick(territory, worldPos) {
-        // Right-click in enemy selected - camera drag
-        return false;
-    }
+
     
     handleKeyPress(key) {
         switch (key) {
