@@ -1,0 +1,68 @@
+### A  src/game/StarThrone.js – ensure hop array + per‑tick update
+
+diff
+Copy
+@@ constructor()
+-        // Ship movement animations
++        // Ship movement animations
+         this.shipAnimations = [];
+         this.shipAnimationPool = [];
+-        this.pendingLongRangeCombats = [];
++        this.pendingLongRangeCombats = [];
++
++        // NEW: queue of multi‑hop fleets in transit
++        this.activeFleets = [];           // ← was missing
+@@ main update(dt)
+         this.combatSystem.update(dt);
++
++        // Move multi‑hop fleets
++        this.updateActiveFleets(dt);      // ← call the hop tick function
+### B  src/game/InputStateMachine.js – remove stale RMB call & pass modifiers
+
+diff
+Copy
+@@ DefaultState.handleInput
+-        if (inputType === 'leftClick')  this.handleLeftClick();
++        if (inputType === 'leftClick')  this.handleLeftClick(data);   // pass data
+@@ TerritorySelectedState.switch(eventType)
+-            case 'click_right':  this.handleRightClick(eventData); break;
++            // RMB removed
+(If any handleRightClick now has no caller you can safely delete it.)
+
+### C  Add src/game/updateActiveFleets.js and import it
+
+js
+Copy
+// lightweight per‑frame hop advancement
+export function updateActiveFleets(game, deltaMs) {
+    const now = Date.now();
+    for (let i = game.activeFleets.length - 1; i >= 0; i--) {
+        const f = game.activeFleets[i];
+        const from = game.gameMap.territories[f.path[f.currentHop]];
+        const to   = game.gameMap.territories[f.path[f.currentHop + 1]];
+        if (!to) { game.activeFleets.splice(i,1); continue; }
+
+        const hopDist = Math.hypot(to.x - from.x, to.y - from.y);
+        const hopTime = hopDist * GAME_CONSTANTS.HOP_DELAY_PER_PIXEL_MS;
+        if (now - f.launchTime >= hopTime) {
+            f.launchTime = now;
+            f.currentHop++;
+            // arrival behaviour as in your earlier code…
+        }
+    }
+}
+And in StarThrone.js:
+
+diff
+Copy
+-import { updateActiveFleets } from './updateActiveFleets.js';
++import { updateActiveFleets } from './updateActiveFleets.js';
+@@ class StarThrone
+     updateActiveFleets(deltaMs) { updateActiveFleets(this, deltaMs); }
+After just these changes:
+
+Single‑click commands run (the FSM no longer drops the modifier data).
+
+Fleets placed into this.activeFleets actually advance each frame.
+
+No dead click_right handler means no stray RMB errors.

@@ -11,6 +11,7 @@ import { PathfindingService } from './PathfindingService.js';
 import { GameUtils } from './utils.js';
 import { GAME_CONSTANTS } from '../../../common/gameConstants';
 import { gameEvents, GAME_EVENTS, EVENT_PRIORITY, EventHelpers } from './EventSystem.js';
+import { updateActiveFleets } from './updateActiveFleets.js';
 import { PerformanceManager } from './PerformanceManager.js';
 import { PerformanceOverlay } from './PerformanceOverlay.js';
 import { DiscoverySystem } from './DiscoverySystem.js';
@@ -93,6 +94,9 @@ export default class StarThrone {
         this.shipAnimations = [];
         this.shipAnimationPool = []; // Reuse objects to reduce garbage collection
         this.pendingLongRangeCombats = []; // Track delayed long-range combat arrivals
+        
+        // NEW: queue of multi-hop fleets in transit
+        this.activeFleets = []; // Essential for proper multi-hop fleet tracking
         
         // Removed legacy long-range attacks array (dead code cleanup)
         
@@ -2046,6 +2050,9 @@ export default class StarThrone {
             
             // Process pending long-range combat arrivals
             this.processLongRangeCombatArrivals();
+            
+            // Move multi-hop fleets
+            this.updateActiveFleets(deltaTime);
         } catch (error) {
             console.error('Error updating animations:', error);
         }
@@ -3478,17 +3485,17 @@ export default class StarThrone {
         }
         const travelTime = Math.max(3000, totalDistance * GAME_CONSTANTS.HOP_DELAY_PER_PIXEL_MS);
         
-        // Schedule arrival (as a pending long-range combat or movement)
-        const combatEvent = {
-            fromTerritoryId: sourceTerritory.id,
-            toTerritoryId: targetTerritory.id,
-            fromOwnerId: sourceTerritory.ownerId,
-            fleetSize: shipsToSend,
-            arrivalTime: Date.now() + travelTime,
+        // Schedule arrival using activeFleets system for proper hop-by-hop movement
+        const fleetEvent = {
+            sourceId: sourceTerritory.id,
             path: path.map(t => t.id),
-            isAttack: isAttack ? true : false
+            fleetSize: shipsToSend,
+            ownerId: sourceTerritory.ownerId,
+            isAttack: isAttack,
+            currentHop: 0,
+            launchTime: Date.now()
         };
-        this.pendingLongRangeCombats.push(combatEvent);
+        this.activeFleets.push(fleetEvent);
         console.log(`🚀 Scheduled ${isAttack ? 'attack' : 'reinforcement'} from ${sourceTerritory.id} to ${targetTerritory.id} (fleet ${shipsToSend}) arriving in ${Math.round(travelTime/1000)}s`);
         
         // Visual feedback: highlight path and show launching animation
@@ -3627,6 +3634,14 @@ export default class StarThrone {
                 this.pendingLongRangeCombats.splice(i, 1);
             }
         }
+    }
+    
+    /**
+     * Update active multi-hop fleets by delegating to the external updateActiveFleets function
+     * @param {number} deltaMs - Delta time in milliseconds
+     */
+    updateActiveFleets(deltaMs) {
+        updateActiveFleets(this, deltaMs);
     }
     
     createDelayedSupplyTransfer(fromTerritory, toTerritory, shipCount, delay) {
