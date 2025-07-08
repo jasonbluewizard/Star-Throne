@@ -11,10 +11,13 @@ export class InputHandler {
     constructor(game) {
         this.game = game;
         this.canvas = game.canvas;      // ✅ real <canvas> element
+        console.log(`🎮 InputHandler: Canvas available: ${!!this.canvas}, Game available: ${!!game}`);
         if (!this.canvas) {
             console.error('[InputHandler] game.canvas is undefined!');
             return;                     // Bail early; nothing to attach to
         }
+        console.log(`🎮 InputHandler: Successfully attached to canvas element`);
+    }
         
         this.hoveredTerritory = null;
         
@@ -47,11 +50,13 @@ export class InputHandler {
     
     setupEventListeners() {
         // Mouse events
+        console.log(`🎮 InputHandler: Attaching mouse event listeners to canvas`);
         this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
         this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
         this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
         this.canvas.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
         this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+        console.log(`🎮 InputHandler: Event listeners attached successfully`);
         
         // Touch events for trackpads / mobile (also need correct canvas ref)
         this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
@@ -65,6 +70,7 @@ export class InputHandler {
     
     handleMouseDown(e) {
         e.preventDefault();
+        console.log(`🖱️ MOUSE DOWN EVENT: Button ${e.button}, x:${e.clientX}, y:${e.clientY}`);
         this.isDragging = false;
         this.isCommandDrag = false; // Track if this is a command drag vs camera drag
         
