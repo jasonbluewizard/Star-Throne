@@ -714,6 +714,15 @@ Changelog:
    * Fixed missing supply route indicators (+ symbols) by rendering them at all zoom levels instead of only zoom > 0.3
    * Fixed H key first-press bug with enhanced throne star detection including fallback search through owned territories
    * Supply route reinforcement indicators now visible regardless of camera zoom level
+- January 7, 2025. Tech discovery system implementation with persistent upgrades:
+  * Added comprehensive tech level system (Attack, Defense, Engines, Production) capped at level 5
+  * Each player gains permanent tech bonuses when conquering neutral territories and discovering precursor technologies
+  * Combat bonuses: +5% attack/defense per tech level applied to battle calculations
+  * Movement speed: +10% long-range fleet speed per engine tech level for faster strategic movement
+  * Production: +10% army generation speed per production tech level for economic advantage
+  * Redesigned Empire Discoveries panel with "Tech Levels" title and two-column layout for improved readability
+  * Tech levels display clearly: Attack/Defense in left column, Engines/Production in right column
+  * Discoveries increment appropriate tech levels: weapons→attack, shield→defense, drive→engines, factory/nanotech→production
 - January 7, 2025. Comprehensive code cleanup following C# RenderEngine.cs pattern implementation:
    * Systematically removed empty conditionals, debug logging, and commented-out code
    * Consolidated duplicate renderFloatingDiscoveryTexts method (removed corrupted duplicate)

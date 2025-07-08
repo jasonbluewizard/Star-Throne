@@ -537,12 +537,13 @@ export class GameUI {
         }
         
         const x = 20;
-        const width = 280;
+        const width = 320; // Wider for two columns
         const lineHeight = 20;
         const padding = 10;
         const discoveryHeight = discoveryCount * lineHeight;
         const titleHeight = 25;
-        const height = Math.max(80, titleHeight + discoveryHeight + padding * 2);
+        const techHeight = 70; // Space for tech levels in two columns
+        const height = Math.max(120, titleHeight + techHeight + discoveryHeight + padding * 2);
         const y = this.canvas.height - height - 20; // Bottom left positioning
         
         // Background with transparency
@@ -554,28 +555,29 @@ export class GameUI {
         ctx.lineWidth = 2;
         ctx.strokeRect(x, y, width, height);
         
-        // Title
-        ctx.font = 'bold 14px Arial';
+        // Main title
+        ctx.font = 'bold 16px Arial';
         ctx.textAlign = 'left';
-        this.renderTextWithShadow(ctx, '🔬 Empire Discoveries', x + padding, y + 20, '#4CAF50');
+        this.renderTextWithShadow(ctx, '⚔️ Tech Levels', x + padding, y + 22, '#FFD700');
         
-        let currentY = y + 40; // Start showing permanent bonuses
+        let currentY = y + 45; // Start showing tech levels
         
-        // Show tech levels for human player
+        // Show tech levels for human player in two columns
         const humanPlayer = gameData.humanPlayer;
         if (humanPlayer && humanPlayer.tech) {
-            this.renderTextWithShadow(ctx, 'Tech Levels:', x + padding, currentY, '#FFD700');
-            currentY += lineHeight;
+            ctx.font = 'bold 13px Arial';
+            const leftCol = x + padding;
+            const rightCol = x + padding + 140;
             
-            ctx.font = '11px Arial';
-            this.renderTextWithShadow(ctx, `⚔️ Attack: ${humanPlayer.tech.attack}/5`, x + padding, currentY, '#FF6B6B');
-            currentY += lineHeight - 2;
-            this.renderTextWithShadow(ctx, `🛡️ Defense: ${humanPlayer.tech.defense}/5`, x + padding, currentY, '#4CAF50');
-            currentY += lineHeight - 2;
-            this.renderTextWithShadow(ctx, `🚀 Engines: ${humanPlayer.tech.engines}/5`, x + padding, currentY, '#2196F3');
-            currentY += lineHeight - 2;
-            this.renderTextWithShadow(ctx, `🏭 Production: ${humanPlayer.tech.production}/5`, x + padding, currentY, '#FF9800');
-            currentY += lineHeight + 5;
+            // Left column - Attack and Defense
+            this.renderTextWithShadow(ctx, `⚔️ Attack: ${humanPlayer.tech.attack}/5`, leftCol, currentY, '#FF6B6B');
+            this.renderTextWithShadow(ctx, `🛡️ Defense: ${humanPlayer.tech.defense}/5`, leftCol, currentY + 20, '#4CAF50');
+            
+            // Right column - Engines and Production
+            this.renderTextWithShadow(ctx, `🚀 Engines: ${humanPlayer.tech.engines}/5`, rightCol, currentY, '#2196F3');
+            this.renderTextWithShadow(ctx, `🏭 Production: ${humanPlayer.tech.production}/5`, rightCol, currentY + 20, '#FF9800');
+            
+            currentY += 50; // Move past tech levels
         }
         
         // Show empire-wide bonuses only (no temporary notifications)
