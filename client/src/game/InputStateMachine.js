@@ -202,28 +202,19 @@ class TerritorySelectedState extends BaseState {
     }
     
     handleLeftClick(territory, worldPos) {
+        // Empty space → deselect
         if (!territory) {
-            // Clicked empty space - deselect
             this.fsm.transitionTo('Default');
             return true;
         }
-        
-        // Clicking same territory - keep selected (no deselect for better UX)
+
+        // Same planet → no‑op
         if (territory.id === this.selectedTerritory.id) {
             return true;
         }
-        
-        // Clicking another territory - select it
-        if (this.isOwnedByPlayer(territory)) {
-            this.fsm.selectedTerritory = territory;
-            this.fsm.transitionTo('TerritorySelected', { selectedTerritory: territory });
-            return true;
-        } else {
-            // Enemy, neutral, or colonizable territory
-            this.fsm.selectedTerritory = territory;
-            this.fsm.transitionTo('EnemySelected', { selectedTerritory: territory });
-            return true;
-        }
+
+        // Any other planet → reuse old right‑click logic
+        return this.handleRightClick(territory, worldPos);
     }
     
     async handleRightClick(territory, worldPos) {
