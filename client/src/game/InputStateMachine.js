@@ -232,7 +232,9 @@ class TerritorySelectedState extends BaseState {
             console.log(`🔧 DEBUG: Attempting fleet command from ${this.selectedTerritory.id} to ${territory.id} with ${Math.floor(fleetPercentage * 100)}% fleet`);
             
             // Execute the appropriate fleet command
+            console.log(`🔧 DEBUG: Calling executeFleetCommand...`);
             const success = this.executeFleetCommand(this.selectedTerritory, territory, fleetPercentage);
+            console.log(`🔧 DEBUG: executeFleetCommand returned: ${success}`);
             if (success) {
                 console.log('🔧 DEBUG: Fleet command successful - keeping source selected');
                 // Keep source selected for potential follow-up commands
