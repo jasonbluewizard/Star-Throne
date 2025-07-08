@@ -590,17 +590,15 @@ export class GameUI {
             this.renderTextWithShadow(ctx, `🚀 Engines: ${humanPlayer.tech.engines}/5`, rightCol, currentY, '#2196F3');
             this.renderTextWithShadow(ctx, `🏭 Production: ${humanPlayer.tech.production}/5`, rightCol, currentY + 20, '#FF9800');
             
-            currentY += 50; // Move past tech levels
-        }
-        
-        // Store tech level positions for tooltip detection
-        if (humanPlayer && humanPlayer.tech) {
+            // Store tech level positions for tooltip detection (inside scope where leftCol/rightCol are defined)
             this.techLevelAreas = {
-                attack: { x: leftCol, y: currentY - 50, width: 120, height: 18, tech: humanPlayer.tech.attack },
-                defense: { x: leftCol, y: currentY - 30, width: 120, height: 18, tech: humanPlayer.tech.defense },
-                engines: { x: rightCol, y: currentY - 50, width: 120, height: 18, tech: humanPlayer.tech.engines },
-                production: { x: rightCol, y: currentY - 30, width: 120, height: 18, tech: humanPlayer.tech.production }
+                attack: { x: leftCol, y: currentY, width: 120, height: 18, tech: humanPlayer.tech.attack },
+                defense: { x: leftCol, y: currentY + 20, width: 120, height: 18, tech: humanPlayer.tech.defense },
+                engines: { x: rightCol, y: currentY, width: 120, height: 18, tech: humanPlayer.tech.engines },
+                production: { x: rightCol, y: currentY + 20, width: 120, height: 18, tech: humanPlayer.tech.production }
             };
+            
+            currentY += 50; // Move past tech levels
         }
     }
     
