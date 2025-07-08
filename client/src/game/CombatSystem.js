@@ -15,6 +15,41 @@ export class CombatSystem {
     }
 
     /**
+     * Execute fleet transfer between friendly territories
+     */
+    executeTransfer(sourceTerritory, targetTerritory, fleetSize) {
+        console.log(`🚢 TRANSFER: ${fleetSize} ships from ${sourceTerritory.id} to ${targetTerritory.id}`);
+        
+        // Validate transfer
+        if (sourceTerritory.ownerId !== targetTerritory.ownerId) {
+            console.log('🚢 TRANSFER FAILED: Different owners');
+            return false;
+        }
+        
+        if (sourceTerritory.armySize <= fleetSize) {
+            console.log('🚢 TRANSFER FAILED: Not enough armies');
+            return false;
+        }
+        
+        // Execute transfer
+        sourceTerritory.armySize -= fleetSize;
+        targetTerritory.armySize += fleetSize;
+        
+        console.log(`🚢 TRANSFER SUCCESS: Source now has ${sourceTerritory.armySize}, target has ${targetTerritory.armySize}`);
+        return true;
+    }
+
+    /**
+     * Execute attack on enemy/neutral territory
+     */
+    executeAttack(sourceTerritory, targetTerritory, fleetSize) {
+        console.log(`⚔️ ATTACK: ${fleetSize} ships from ${sourceTerritory.id} to ${targetTerritory.id}`);
+        
+        // Use existing attackTerritory method
+        return this.attackTerritory(sourceTerritory, targetTerritory, fleetSize);
+    }
+
+    /**
      * Initiates a delayed attack - ships launch but combat waits until arrival
      * @param {Object} attackingTerritory - Source territory
      * @param {Object} defendingTerritory - Target territory
