@@ -215,5 +215,3 @@ export class PathfindingService {
         return path ? Math.max(0, path.length - 1) : 0;
     }
 }
-
-export default PathfindingService;

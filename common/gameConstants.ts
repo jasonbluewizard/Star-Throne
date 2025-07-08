@@ -24,10 +24,6 @@ export const GAME_CONSTANTS = {
     TERRITORY_RADIUS: 25,
     CONNECTION_DISTANCE: 60, // Very short range connections for tactical gameplay
     ARMY_GENERATION_RATE: 1500, // milliseconds per army - faster for more dynamic gameplay
-    
-    // Control scheme timing constants
-    DOUBLE_CLICK_THRESHOLD_MS: 300,
-    HOP_DELAY_PER_PIXEL_MS: 20,
 
     // Probe System
     PROBE_LAUNCH_COST_FLEET: 10,
@@ -135,6 +131,3 @@ export const GAME_CONSTANTS = {
     ROOM_ID_GENERATION_SUBSTRING_END: 8,
     SERVER_TICK_RATE_MS: 1000 / 20, // 20 ticks per second
 };
-
-// Export individual constants for cleaner imports
-export const HOP_DELAY_PER_PIXEL_MS = GAME_CONSTANTS.HOP_DELAY_PER_PIXEL_MS;

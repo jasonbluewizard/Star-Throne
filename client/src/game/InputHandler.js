@@ -23,7 +23,7 @@ export class InputHandler {
         // Double-click handling for supply routes
         this.lastClickTime = 0;
         this.lastClickedTerritory = null;
-        this.doubleClickThreshold = 300; // ms - more forgiving for trackpads
+        this.doubleClickThreshold = 250; // ms
         
         // Touch state for mobile support
         this.touchState = {
@@ -41,28 +41,18 @@ export class InputHandler {
     }
     
     setupEventListeners() {
-        console.log('🖱️ SETTING UP EVENT LISTENERS on canvas:', this.game.canvas);
+        // Mouse events
+        this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+        this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+        this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+        this.canvas.addEventListener('wheel', (e) => this.handleWheel(e));
+        this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
         
-        // Mouse events with debug logging
-        this.game.canvas.addEventListener('mousedown', (e) => {
-            console.log('🖱️ CANVAS MOUSEDOWN:', e.button);
-            this.handleMouseDown(e);
-        });
-        this.game.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
-        this.game.canvas.addEventListener('mouseup', (e) => {
-            console.log('🖱️ CANVAS MOUSEUP:', e.button);
-            this.handleMouseUp(e);
-        });
-        this.game.canvas.addEventListener('wheel', (e) => this.handleWheel(e));
-        this.game.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-        
-        // Touch events for mobile support
-        this.game.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e));
-        this.game.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e));
-        this.game.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e));
-        this.game.canvas.addEventListener('touchcancel', (e) => this.handleTouchEnd(e));
-        
-        console.log('🖱️ EVENT LISTENERS SETUP COMPLETE');
+        // Touch events
+        this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e));
+        this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e));
+        this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e));
+        this.canvas.addEventListener('touchcancel', (e) => this.handleTouchEnd(e));
         
         // Keyboard events (simplified - no modifier key tracking)
         document.addEventListener('keydown', (e) => this.handleKeyDown(e));
@@ -72,7 +62,7 @@ export class InputHandler {
         e.preventDefault();
         this.isDragging = false;
         
-        const rect = this.game.canvas.getBoundingClientRect();
+        const rect = this.canvas.getBoundingClientRect();
         this.mousePos = {
             x: e.clientX - rect.left,
             y: e.clientY - rect.top
@@ -81,161 +71,124 @@ export class InputHandler {
         this.dragStartPos = { ...this.mousePos };
         this.dragStartTime = Date.now();
         this.lastMousePos = { ...this.mousePos };
-        this.mouseButton = e.button;
-        
-        // Store initial drag state for camera panning
-        this.potentialCommandDrag = false;
-        
-        // Check if this might be a command drag (left-click on selected territory)
-        if (e.button === 0) {
-            const worldPos = this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
-            const territory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
-            
-            // Only mark as potential command drag if clicking on selected friendly territory
-            if (territory && 
-                this.game.inputFSM.selectedTerritory && 
-                territory.id === this.game.inputFSM.selectedTerritory.id &&
-                territory.ownerId === this.game.humanPlayer.id) {
-                this.potentialCommandDrag = true;
-            }
-        }
-        
-        // Both left and right mouse buttons can drag the camera
-        // isDragging will be set to true in handleMouseMove once movement threshold is reached
     }
     
     handleMouseMove(e) {
-        const rect = this.game.canvas.getBoundingClientRect();
+        const rect = this.canvas.getBoundingClientRect();
         const newMousePos = {
             x: e.clientX - rect.left,
             y: e.clientY - rect.top
         };
         
-        // Calculate mouse movement delta for camera panning
-        const deltaX = newMousePos.x - this.lastMousePos.x;
-        const deltaY = newMousePos.y - this.lastMousePos.y;
-        
-        // Detect dragging based on movement distance and time
-        if (!this.isDragging && this.dragStartPos) {
-            const dragDistance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-            const dragTime = Date.now() - this.dragStartTime;
+        // Check for camera drag threshold
+        if (this.dragStartPos && !this.isDragging) {
+            const dragDistance = Math.sqrt(
+                Math.pow(newMousePos.x - this.dragStartPos.x, 2) + 
+                Math.pow(newMousePos.y - this.dragStartPos.y, 2)
+            );
             
-            if (dragDistance > 5 || dragTime > 100) {
+            if (dragDistance > 10) {
                 this.isDragging = true;
             }
         }
         
-        // Handle camera panning for both left and right mouse buttons while dragging
-        if (this.isDragging && (this.mouseButton === 0 || this.mouseButton === 2)) {
+        // Handle camera panning
+        if (this.isDragging) {
+            const deltaX = newMousePos.x - this.lastMousePos.x;
+            const deltaY = newMousePos.y - this.lastMousePos.y;
             this.game.camera.pan(-deltaX, -deltaY);
-        }
-        
-        // If we started a potential command drag, decide whether to convert to command drag or camera drag
-        if (this.isDragging && this.potentialCommandDrag && this.mouseButton === 0) {
-            // Convert to command drag if not already done
-            if (this.game.inputFSM.currentState !== 'CommandDrag') {
-                const worldPos = this.game.camera.screenToWorld(this.dragStartPos.x, this.dragStartPos.y);
-                const territory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
-                
-                this.game.inputFSM.handleInput('drag_start', {
-                    x: this.dragStartPos.x,
-                    y: this.dragStartPos.y,
-                    territory: territory,
-                    shiftKey: false,
-                    ctrlKey: false
-                });
-            }
-            
-            // Send drag move to FSM if in command drag state
-            if (this.game.inputFSM.currentState === 'CommandDrag') {
-                this.game.inputFSM.handleInput('drag_move', {
-                    x: newMousePos.x,
-                    y: newMousePos.y
-                });
-            }
         }
         
         // Update edge panning
         this.game.camera.updateEdgePanning(newMousePos.x, newMousePos.y, 16);
         
-        // Update hovered territory for tooltips
+        // Update hovered territory for tooltips and supply route highlighting
         const worldPos = this.game.camera.screenToWorld(newMousePos.x, newMousePos.y);
         const hoveredTerritory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
         this.hoveredTerritory = hoveredTerritory;
         this.game.hoveredTerritory = hoveredTerritory;
+        
+
         
         this.lastMousePos = newMousePos;
         this.mousePos = newMousePos;
     }
     
     handleMouseUp(e) {
+        const clickDuration = Date.now() - (this.dragStartTime || 0);
+        const wasQuickClick = clickDuration < 300 && !this.isDragging;
+        
         const worldPos = this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
         const targetTerritory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
         
-        // Handle different mouse buttons
-        if (e.button === 0) {
-            // Left-click: either fleet command (if not dragging) or send drag_end to FSM
-            if (!this.isDragging) {
-                console.log(`🖱️ LEFT-CLICK: Territory ${targetTerritory?.id}, fleet command`);
-                this.processSingleClick(e.button, targetTerritory, worldPos, e.shiftKey, e.ctrlKey);
+        if (wasQuickClick) {
+            const currentTime = Date.now();
+            
+            // Check for double-click for supply routes (can be same or different territory)
+            if (targetTerritory && 
+                this.lastClickedTerritory && 
+                currentTime - this.lastClickTime < this.doubleClickThreshold) {
+                
+                // Double-click detected - handle supply route creation/stopping
+                console.log(`Double-click detected: last=${this.lastClickedTerritory.id}, current=${targetTerritory.id}`);
+                this.handleDoubleClick(targetTerritory);
+                this.lastClickTime = 0; // Reset to prevent triple-click
+                this.lastClickedTerritory = null;
             } else {
-                console.log(`🖱️ LEFT-DRAG END: Checking if command drag`);
-                // Send drag_end event to FSM if we're in CommandDrag state
-                if (this.game.inputFSM.currentState === 'CommandDrag') {
-                    console.log(`🖱️ LEFT-DRAG END: Sending to FSM`);
-                    this.game.inputFSM.handleInput('drag_end', {
-                        startX: this.dragStartPos.x,
-                        startY: this.dragStartPos.y,
-                        endX: this.mousePos.x,
-                        endY: this.mousePos.y,
-                        shiftKey: e.shiftKey,
-                        ctrlKey: e.ctrlKey
-                    });
-                } else {
-                    console.log(`🖱️ LEFT-DRAG END: Camera pan completed`);
-                }
-            }
-        } else if (e.button === 2) {
-            // Right-click: camera drag only
-            if (!this.isDragging) {
-                console.log(`🖱️ RIGHT-CLICK: Camera drag (no fleet commands)`);
-            } else {
-                console.log(`🖱️ RIGHT-DRAG: Camera pan completed`);
+                // Single click - start timer for potential double-click
+                this.lastClickTime = currentTime;
+                this.lastClickedTerritory = targetTerritory;
+                
+                // Process single click after delay to check for double-click
+                setTimeout(() => {
+                    if (this.lastClickTime === currentTime) {
+                        // No double-click occurred, process as single click
+                        this.processSingleClick(e.button, targetTerritory, worldPos);
+                    }
+                }, this.doubleClickThreshold);
             }
         }
         
         this.resetDragState();
     }
     
-    processSingleClick(button, territory, worldPos, shiftKey = false, ctrlKey = false) {
-        console.log(`🖱️ PROCESS CLICK: button=${button}, territory=${territory?.id}, gameState=${this.game.gameState}`);
-        
+    processSingleClick(button, territory, worldPos) {
         // Check UI elements first
         if (this.game.handleUIClick(this.mousePos.x, this.mousePos.y)) {
-            console.log(`🖱️ UI CLICK HANDLED`);
             return;
         }
         
         // Skip game logic if not in playing state
         if (this.game.gameState !== 'playing') {
-            console.log(`🖱️ GAME NOT PLAYING: ${this.game.gameState}`);
             return;
         }
         
         if (button === 0) { // Left click
-            console.log(`🖱️ SENDING TO FSM: leftClick event`);
-            const result = this.inputFSM.handleInput('leftClick', {
+            this.inputFSM.handleInput('leftClick', {
                 territory: territory,
                 worldPos: worldPos,
-                screenPos: this.mousePos,
-                shiftKey: shiftKey,
-                ctrlKey: ctrlKey
+                screenPos: this.mousePos
             });
-            console.log(`🖱️ FSM RESULT: ${result}`);
-        } else if (button === 2) { // Right click (deprecated in single button control scheme)
-            // Right-click now just does camera dragging - all commands moved to left-click
-            console.log(`🖱️ RIGHT-CLICK: Territory ${territory?.id} - functionality moved to left-click with modifiers`);
-            return;
+        } else if (button === 2) { // Right click
+            console.log(`🖱️ RIGHT-CLICK: Territory ${territory?.id}, owner: ${territory?.ownerId}, human player: ${this.game.humanPlayer?.id}`);
+            
+            // Check for supply route cancellation first (only if territory exists and is owned)
+            if (territory && territory.ownerId === this.game.humanPlayer?.id) {
+                const routesToCancel = this.game.supplySystem.supplyRoutes.filter(route => route.from === territory.id);
+                if (routesToCancel.length > 0) {
+                    console.log(`🖱️ Cancelling supply routes from territory ${territory.id}`);
+                    this.game.supplySystem.stopSupplyRoutesFromTerritory(territory.id);
+                    return; // Supply route cancelled, don't process further
+                }
+            }
+            
+            // No supply routes to cancel, proceed with normal right-click behavior
+            console.log(`🖱️ Sending right-click to FSM: territory ${territory?.id}`);
+            this.inputFSM.handleInput('rightClick', {
+                territory: territory,
+                worldPos: worldPos,
+                screenPos: this.mousePos
+            });
         }
     }
     
@@ -243,38 +196,7 @@ export class InputHandler {
     handleDoubleClick(territory) {
         console.log(`handleDoubleClick called for territory ${territory.id}, owned by player ${territory.ownerId}`);
         
-        // NEW SINGLE BUTTON CONTROL: Double-click functionality
-        if (!this.lastClickedTerritory || !territory) return;
-        
-        const source = this.lastClickedTerritory;
-        const target = territory;
-        
-        // Only proceed if source is owned by player
-        if (source.ownerId === this.game.humanPlayer?.id) {
-            if (target.ownerId === this.game.humanPlayer?.id && source.id !== target.id) {
-                // Double-click between two friendly territories: toggle supply route
-                const routes = this.game.supplySystem.supplyRoutes || [];
-                const existingIndex = routes.findIndex(route => route.from === source.id && route.to === target.id);
-                if (existingIndex >= 0) {
-                    // Remove existing supply route
-                    this.game.supplySystem.supplyRoutes.splice(existingIndex, 1);
-                    console.log('Supply route removed between', source.id, 'and', target.id);
-                } else {
-                    // Create new supply route
-                    this.game.supplySystem.createSupplyRoute(source.id, target.id);
-                    console.log('Supply route created between', source.id, 'and', target.id);
-                }
-            } else if (target.ownerId !== this.game.humanPlayer?.id) {
-                // Double-click on enemy or neutral territory: long-range strike (send all available fleets)
-                const availableFleet = Math.max(0, source.armySize - 1);
-                if (availableFleet > 0) {
-                    console.log('Initiating long-range strike from', source.id, 'to target', target.id);
-                    this.game.launchLongRangeAttack(source, target, availableFleet);
-                }
-            }
-        }
-        
-        // Legacy double-click code for compatibility
+        // Double-click on owned territory
         if (territory.ownerId === this.game.humanPlayer?.id) {
             const selectedTerritory = this.inputFSM.getState().selectedTerritory;
             // Removed debug console logging (dead code cleanup)

@@ -31,21 +31,14 @@ export class InputStateMachine {
         this.stateHandlers = {
             'Default': new DefaultState(this),
             'TerritorySelected': new TerritorySelectedState(this),
-            'EnemySelected': new EnemySelectedState(this),
-            'CommandDrag': new CommandDragState(this)
+            'EnemySelected': new EnemySelectedState(this)
         };
-        
-        // Drag state tracking
-        this.dragSource = null;
-        this.dragStartPos = null;
         
         console.log('InputStateMachine initialized in Default state');
     }
     
     // Main input event processor
     handleInput(inputType, data) {
-        console.log(`🔧 FSM HANDLE INPUT: type=${inputType}, state=${this.currentState}, territory=${data?.territory?.id}`);
-        
         const currentHandler = this.stateHandlers[this.currentState];
         if (!currentHandler) {
             GameUtils.logError(`No handler for state: ${this.currentState}`);
@@ -53,7 +46,6 @@ export class InputStateMachine {
         }
         
         const result = currentHandler.handleInput(inputType, data);
-        console.log(`🔧 FSM RESULT: ${result}`);
         
         // Update UI cursor based on current state
         this.updateCursor();
@@ -153,7 +145,9 @@ class DefaultState extends BaseState {
     handleInput(inputType, data) {
         switch (inputType) {
             case 'leftClick':
-                return this.handleLeftClick(data.territory, data.worldPos, data);
+                return this.handleLeftClick(data.territory, data.worldPos);
+            case 'rightClick':
+                return this.handleRightClick(data.territory, data.worldPos);
             case 'keyPress':
                 return this.handleKeyPress(data.key);
             default:
@@ -161,27 +155,24 @@ class DefaultState extends BaseState {
         }
     }
     
-    handleLeftClick(territory, worldPos, data = {}) {
-        console.log(`🔧 DEBUG: DefaultState.handleLeftClick - territory: ${territory?.id}, modifiers: shift=${data.shiftKey}, ctrl=${data.ctrlKey}`);
-        
+    handleLeftClick(territory, worldPos) {
         if (!territory) {
             // Clicked empty space - stay in Default
-            console.log('🔧 DEBUG: Clicked empty space in default state');
             return true;
         }
         
         // Select only your own territory with >1 army
         if (territory && territory.ownerId === this.game.humanPlayer?.id && territory.armySize > 1) {
-            console.log(`🔧 DEBUG: Selecting owned territory ${territory.id} with ${territory.armySize} armies`);
             this.fsm.selectedTerritory = territory;
             this.fsm.transitionTo('TerritorySelected', { selectedTerritory: territory });
-        } else {
-            console.log(`🔧 DEBUG: Territory not selectable - owned: ${territory.ownerId === this.game.humanPlayer?.id}, armies: ${territory.armySize}`);
         }
         return true;  // consume left-click in default state
     }
     
-
+    handleRightClick(territory, worldPos) {
+        // Right click in default state - camera drag (handled elsewhere)
+        return false;
+    }
     
     handleKeyPress(key) {
         // No special keys in default state
@@ -200,9 +191,9 @@ class TerritorySelectedState extends BaseState {
     handleInput(inputType, data) {
         switch (inputType) {
             case 'leftClick':
-                return this.handleLeftClick(data.territory, data.worldPos, data);
-            case 'drag_start':
-                return this.handleDragStart(data);
+                return this.handleLeftClick(data.territory, data.worldPos);
+            case 'rightClick':
+                return this.handleRightClick(data.territory, data.worldPos);
             case 'keyPress':
                 return this.handleKeyPress(data.key);
             default:
@@ -210,22 +201,7 @@ class TerritorySelectedState extends BaseState {
         }
     }
     
-    handleDragStart(data) {
-        // Start a potential fleet-command drag ONLY if drag began on the
-        // currently selected friendly planet.
-        if (data.territory && data.territory.id === this.selectedTerritory.id &&
-            this.selectedTerritory.ownerId === this.game.humanPlayer.id) {
-            console.log(`🎯 DRAG START: Territory ${data.territory.id} matches selected ${this.selectedTerritory.id}`);
-            this.fsm.dragSource = this.selectedTerritory;
-            this.fsm.dragStartPos = { x: data.x, y: data.y };
-            this.fsm.transitionTo('CommandDrag');
-            return true;
-        }
-        console.log(`🎯 DRAG START: Not starting command drag - territory mismatch or not owned`);
-        return false;
-    }
-    
-    handleLeftClick(territory, worldPos, data = {}) {
+    handleLeftClick(territory, worldPos) {
         if (!territory) {
             // Clicked empty space - deselect
             this.fsm.transitionTo('Default');
@@ -237,36 +213,7 @@ class TerritorySelectedState extends BaseState {
             return true;
         }
         
-        // NEW SINGLE BUTTON CONTROL: Left-click on different territory = fleet command
-        if (territory.id !== this.selectedTerritory.id) {
-            // Determine fleet percentage based on modifier keys
-            let fleetPercentage = 0.5; // Default 50%
-            if (data.shiftKey) {
-                fleetPercentage = 1.0; // Send all (minus 1)
-                console.log('🔧 DEBUG: Shift+click detected - sending all fleet');
-            } else if (data.ctrlKey) {
-                fleetPercentage = 0.25; // Send 25%
-                console.log('🔧 DEBUG: Ctrl+click detected - sending 25% fleet');
-            } else {
-                console.log('🔧 DEBUG: Normal click detected - sending 50% fleet');
-            }
-            
-            console.log(`🔧 DEBUG: Attempting fleet command from ${this.selectedTerritory.id} to ${territory.id} with ${Math.floor(fleetPercentage * 100)}% fleet`);
-            
-            // Execute the appropriate fleet command
-            console.log(`🔧 DEBUG: Calling executeFleetCommand...`);
-            const success = this.executeFleetCommand(this.selectedTerritory, territory, fleetPercentage);
-            console.log(`🔧 DEBUG: executeFleetCommand returned: ${success}`);
-            if (success) {
-                console.log('🔧 DEBUG: Fleet command successful - keeping source selected');
-                // Keep source selected for potential follow-up commands
-                return true;
-            } else {
-                console.log('🔧 DEBUG: Fleet command failed - proceeding to selection behavior');
-            }
-        }
-        
-        // Fallback to selection behavior if fleet command wasn't executed
+        // Clicking another territory - select it
         if (this.isOwnedByPlayer(territory)) {
             this.fsm.selectedTerritory = territory;
             this.fsm.transitionTo('TerritorySelected', { selectedTerritory: territory });
@@ -277,52 +224,6 @@ class TerritorySelectedState extends BaseState {
             this.fsm.transitionTo('EnemySelected', { selectedTerritory: territory });
             return true;
         }
-    }
-    
-    executeFleetCommand(sourceTerritory, targetTerritory, fleetPercentage) {
-        console.log(`🔧 DEBUG: Fleet command: ${sourceTerritory?.id} -> ${targetTerritory?.id} (${Math.floor(fleetPercentage * 100)}%)`);
-        
-        // Basic validation
-        if (!sourceTerritory || !targetTerritory || sourceTerritory === targetTerritory) {
-            console.log('🔧 DEBUG: Invalid territories');
-            return false;
-        }
-        
-        if (sourceTerritory.ownerId !== this.game.humanPlayer.id) {
-            console.log(`🔧 DEBUG: Not your territory`);
-            return false;
-        }
-        
-        // Calculate fleet size
-        const availableFleets = Math.max(0, sourceTerritory.armySize - 1);
-        let fleetsToSend = Math.floor(availableFleets * fleetPercentage);
-        
-        if (fleetPercentage >= 1.0) {
-            fleetsToSend = availableFleets; // Send all available
-        }
-        
-        if (fleetsToSend <= 0) {
-            console.log('🔧 DEBUG: No fleets available to send');
-            return false;
-        }
-        
-        console.log(`🔧 DEBUG: Sending ${fleetsToSend} fleets from ${sourceTerritory.armySize} total`);
-        
-        // Execute the command through CombatSystem
-        if (targetTerritory.ownerId === this.game.humanPlayer.id) {
-            // Transfer to friendly territory
-            console.log(`🔧 DEBUG: Executing transfer`);
-            this.game.combatSystem.executeTransfer(sourceTerritory, targetTerritory, fleetsToSend);
-        } else {
-            // Attack enemy/neutral territory  
-            console.log(`🔧 DEBUG: Executing attack`);
-            this.game.combatSystem.executeAttack(sourceTerritory, targetTerritory, fleetsToSend);
-        }
-        
-        // Create visual animation
-        this.game.createShipAnimation(sourceTerritory, targetTerritory, targetTerritory.ownerId !== this.game.humanPlayer.id, fleetsToSend);
-        
-        return true;
     }
     
     async handleRightClick(territory, worldPos) {
@@ -499,8 +400,9 @@ class EnemySelectedState extends BaseState {
     handleInput(inputType, data) {
         switch (inputType) {
             case 'leftClick':
-                return this.handleLeftClick(data.territory, data.worldPos, data);
-
+                return this.handleLeftClick(data.territory, data.worldPos);
+            case 'rightClick':
+                return this.handleRightClick(data.territory, data.worldPos);
             case 'keyPress':
                 return this.handleKeyPress(data.key);
             default:
@@ -508,7 +410,7 @@ class EnemySelectedState extends BaseState {
         }
     }
     
-    handleLeftClick(territory, worldPos, data = {}) {
+    handleLeftClick(territory, worldPos) {
         if (!territory) {
             // Clicked empty space - go to default
             this.fsm.transitionTo('Default');
@@ -533,7 +435,10 @@ class EnemySelectedState extends BaseState {
         }
     }
     
-
+    handleRightClick(territory, worldPos) {
+        // Right-click in enemy selected - camera drag
+        return false;
+    }
     
     handleKeyPress(key) {
         switch (key) {
@@ -543,89 +448,5 @@ class EnemySelectedState extends BaseState {
             default:
                 return false;
         }
-    }
-}
-
-// Command Drag State: Dragging from selected territory to execute fleet commands
-class CommandDragState extends BaseState {
-    onEnter(data) {
-        console.log(`Entered CommandDrag state from territory ${this.fsm.dragSource?.id}`);
-    }
-    
-    handleInput(inputType, data) {
-        switch (inputType) {
-            case 'drag_move':
-                // Ignore drag movement - just visual feedback
-                return true;
-            case 'drag_end':
-                return this.handleDragEnd(data);
-            case 'leftClick':
-                // Ignore clicks during drag
-                return true;
-            default:
-                return false;
-        }
-    }
-    
-    handleDragEnd(data) {
-        const worldPos = this.game.camera.screenToWorld(data.endX, data.endY);
-        const target = this.game.findTerritoryAt(worldPos.x, worldPos.y);
-        
-        if (target && target.id !== this.fsm.dragSource.id) {
-            // Decide attack vs reinforce based on target ownership
-            const fleetPercentage = data.shiftKey ? 1.0 :
-                                   data.ctrlKey  ? 0.25 : 0.5;
-            
-            console.log(`🎯 DRAG COMMAND: ${this.fsm.dragSource.id} → ${target.id} (${Math.floor(fleetPercentage * 100)}%)`);
-            
-            // Execute fleet command
-            this.executeFleetCommand(this.fsm.dragSource, target, fleetPercentage);
-        } else {
-            console.log(`🎯 DRAG CANCELLED: No valid target or same territory`);
-        }
-        
-        // Clear drag state and return to TerritorySelected
-        this.fsm.dragSource = null;
-        this.fsm.transitionTo('TerritorySelected', { selectedTerritory: this.fsm.selectedTerritory });
-        return true;
-    }
-    
-    executeFleetCommand(sourceTerritory, targetTerritory, fleetPercentage) {
-        // Basic validation
-        if (!sourceTerritory || !targetTerritory || sourceTerritory === targetTerritory) {
-            return false;
-        }
-        
-        if (sourceTerritory.ownerId !== this.game.humanPlayer.id) {
-            return false;
-        }
-        
-        // Calculate fleet size
-        const availableFleets = Math.max(0, sourceTerritory.armySize - 1);
-        let fleetsToSend = Math.floor(availableFleets * fleetPercentage);
-        
-        if (fleetPercentage >= 1.0) {
-            fleetsToSend = availableFleets; // Send all available
-        }
-        
-        if (fleetsToSend <= 0) {
-            return false;
-        }
-        
-        console.log(`🚀 DRAG FLEET: Sending ${fleetsToSend} fleets from ${sourceTerritory.armySize} total`);
-        
-        // Execute the command through CombatSystem
-        if (targetTerritory.ownerId === this.game.humanPlayer.id) {
-            // Transfer to friendly territory
-            this.game.combatSystem.executeTransfer(sourceTerritory, targetTerritory, fleetsToSend);
-        } else {
-            // Attack enemy/neutral territory  
-            this.game.combatSystem.executeAttack(sourceTerritory, targetTerritory, fleetsToSend);
-        }
-        
-        // Create visual animation
-        this.game.createShipAnimation(sourceTerritory, targetTerritory, targetTerritory.ownerId !== this.game.humanPlayer.id, fleetsToSend);
-        
-        return true;
     }
 }
