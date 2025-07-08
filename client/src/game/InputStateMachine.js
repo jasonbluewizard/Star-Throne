@@ -169,9 +169,9 @@ class DefaultState extends BaseState {
         return true;  // consume left-click in default state
     }
     
-    handleRightClick(territory, worldPos) {
-        // Right click in default state - camera drag (handled elsewhere)
-        return false;
+    handleRightClick() { 
+        // Right-click is deprecated – do nothing
+        return false; 
     }
     
     handleKeyPress(key) {
@@ -459,9 +459,9 @@ class EnemySelectedState extends BaseState {
         }
     }
     
-    handleRightClick(territory, worldPos) {
-        // Right-click in enemy selected - camera drag
-        return false;
+    handleRightClick() { 
+        // noop – RMB unused
+        return false; 
     }
     
     handleKeyPress(key) {
