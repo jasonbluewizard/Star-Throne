@@ -10,8 +10,13 @@ import { InputStateMachine } from './InputStateMachine.js';
 export class InputHandler {
     constructor(game) {
         this.game = game;
+        this.canvas = game.canvas;      // ✅ real <canvas> element
+        if (!this.canvas) {
+            console.error('[InputHandler] game.canvas is undefined!');
+            return;                     // Bail early; nothing to attach to
+        }
+        
         this.hoveredTerritory = null;
-        this.canvas = game.canvas;
         
         // Simplified input state
         this.mousePos = { x: 0, y: 0 };
@@ -45,14 +50,14 @@ export class InputHandler {
         this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
         this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
         this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
-        this.canvas.addEventListener('wheel', (e) => this.handleWheel(e));
+        this.canvas.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
         this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
         
-        // Touch events
-        this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e));
-        this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e));
-        this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e));
-        this.canvas.addEventListener('touchcancel', (e) => this.handleTouchEnd(e));
+        // Touch events for trackpads / mobile (also need correct canvas ref)
+        this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
+        this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
+        this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e), { passive: false });
+        this.canvas.addEventListener('touchcancel', (e) => this.handleTouchEnd(e), { passive: false });
         
         // Keyboard events (simplified - no modifier key tracking)
         document.addEventListener('keydown', (e) => this.handleKeyDown(e));

@@ -1,0 +1,38 @@
+diff --git a/client/src/game/InputHandler.js b/client/src/game/InputHandler.js
+@@
+-// constructor(game)  (old)
+-//     this.canvas = null;      // ← left empty, listeners never attached
++// constructor(game)
++// ------------------------------------------------------------
++// Always reference the actual game canvas so event listeners fire
++constructor(game) {
++    this.game   = game;
++    this.canvas = game.canvas;      // ✅ real <canvas> element
++    if (!this.canvas) {
++        console.error('[InputHandler] game.canvas is undefined!');
++        return;                     // Bail early; nothing to attach to
++    }
++    this.initEventListeners();
++}
++
++//--------------------------------------------------------------
++// All listeners must attach to this.canvas (the game canvas)
+ initEventListeners() {
+-    this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+-    this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+-    this.canvas.addEventListener('mouseup',   (e) => this.handleMouseUp(e));
++    this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
++    this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
++    this.canvas.addEventListener('mouseup',   (e) => this.handleMouseUp(e));
+ 
+-    this.canvas.addEventListener('wheel',     (e) => this.handleWheel(e), { passive: false });
++    this.canvas.addEventListener('wheel',     (e) => this.handleWheel(e), { passive: false });
+ 
+     // Touch events for trackpads / mobile (also need correct canvas ref)
+-    this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
+-    this.canvas.addEventListener('touchmove',  (e) => this.handleTouchMove(e),  { passive: false });
+-    this.canvas.addEventListener('touchend',   (e) => this.handleTouchEnd(e),   { passive: false });
++    this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
++    this.canvas.addEventListener('touchmove',  (e) => this.handleTouchMove(e),  { passive: false });
++    this.canvas.addEventListener('touchend',   (e) => this.handleTouchEnd(e),   { passive: false });
+ }
