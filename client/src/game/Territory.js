@@ -323,7 +323,7 @@ export class Territory {
             ctx.textAlign = 'center';
             
             // Check if territory is inside a nebula (hide fleet count if so)
-            const isInNebula = gameData?.gameMap?.isInNebula?.(this.x, this.y) || false;
+            const isInNebula = gameData?.gameMap?.isInNebula?.(this.x, this.y, 15) || false;
             
             if (isInNebula) {
                 // Neutral territory in nebula - show purple question mark
@@ -361,7 +361,7 @@ export class Territory {
             if (player) {
                 const humanPlayerId = gameData?.humanPlayer?.id;
                 const isPlayerOwned = this.ownerId === humanPlayerId;
-                const isInNebula = gameData?.gameMap?.isInNebula?.(this.x, this.y) || false;
+                const isInNebula = gameData?.gameMap?.isInNebula?.(this.x, this.y, 15) || false;
                 
                 // Always show fleet counts for player's own territories, even in nebulas
                 if (isPlayerOwned || !isInNebula) {

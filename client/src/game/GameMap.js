@@ -886,11 +886,13 @@ export class GameMap {
         return map;
     }
     
-    isInNebula(x, y) {
-        // Check if a point is inside any nebula
+    isInNebula(x, y, territoryRadius = 15) {
+        // Check if a territory is FULLY inside any nebula (not just touching the edge)
+        // The territory must be completely contained within the nebula for fog of war to apply
         for (const nebula of this.nebulas) {
             const distance = Math.sqrt((x - nebula.x) ** 2 + (y - nebula.y) ** 2);
-            if (distance <= nebula.radius) {
+            // Territory is only "in nebula" if its entire circle fits inside the nebula
+            if (distance + territoryRadius <= nebula.radius) {
                 return true;
             }
         }

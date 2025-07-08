@@ -45,7 +45,7 @@ export class Probe {
             currentSpeed *= driveBonus;
         }
         
-        if (this.gameMap && this.gameMap.isInNebula(this.x, this.y)) {
+        if (this.gameMap && this.gameMap.isInNebula(this.x, this.y, 4)) {
             currentSpeed = currentSpeed / 3; // Slow to 1/3 speed in nebulas (after applying drive bonus)
         }
         
@@ -67,7 +67,7 @@ export class Probe {
     
     render(ctx) {
         // Check if probe is in nebula for fade effect
-        const inNebula = this.gameMap && this.gameMap.isInNebula(this.x, this.y);
+        const inNebula = this.gameMap && this.gameMap.isInNebula(this.x, this.y, 4);
         let baseOpacity = 1.0;
         
         if (inNebula) {

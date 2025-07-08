@@ -850,7 +850,7 @@ export class GameUI {
             const isMysteriousTerritory = isNeutralMystery || isEnemyMystery;
             
             // NEBULA FOG OF WAR: Check if territory is inside a nebula (applies to ALL territories)
-            const isInNebula = gameData?.gameMap?.isInNebula?.(territory.x, territory.y) || false;
+            const isInNebula = gameData?.gameMap?.isInNebula?.(territory.x, territory.y, 15) || false;
             const isPlayerOwned = territory.ownerId === humanPlayerId;
             const isNeutral = territory.ownerId === null;
             
