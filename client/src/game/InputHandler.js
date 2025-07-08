@@ -41,18 +41,28 @@ export class InputHandler {
     }
     
     setupEventListeners() {
-        // Mouse events
-        this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
-        this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
-        this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
-        this.canvas.addEventListener('wheel', (e) => this.handleWheel(e));
-        this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+        console.log('🖱️ SETTING UP EVENT LISTENERS on canvas:', this.game.canvas);
         
-        // Touch events
-        this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e));
-        this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e));
-        this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e));
-        this.canvas.addEventListener('touchcancel', (e) => this.handleTouchEnd(e));
+        // Mouse events with debug logging
+        this.game.canvas.addEventListener('mousedown', (e) => {
+            console.log('🖱️ CANVAS MOUSEDOWN:', e.button);
+            this.handleMouseDown(e);
+        });
+        this.game.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+        this.game.canvas.addEventListener('mouseup', (e) => {
+            console.log('🖱️ CANVAS MOUSEUP:', e.button);
+            this.handleMouseUp(e);
+        });
+        this.game.canvas.addEventListener('wheel', (e) => this.handleWheel(e));
+        this.game.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+        
+        // Touch events for mobile support
+        this.game.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e));
+        this.game.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e));
+        this.game.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e));
+        this.game.canvas.addEventListener('touchcancel', (e) => this.handleTouchEnd(e));
+        
+        console.log('🖱️ EVENT LISTENERS SETUP COMPLETE');
         
         // Keyboard events (simplified - no modifier key tracking)
         document.addEventListener('keydown', (e) => this.handleKeyDown(e));
@@ -62,7 +72,7 @@ export class InputHandler {
         e.preventDefault();
         this.isDragging = false;
         
-        const rect = this.canvas.getBoundingClientRect();
+        const rect = this.game.canvas.getBoundingClientRect();
         this.mousePos = {
             x: e.clientX - rect.left,
             y: e.clientY - rect.top
@@ -79,7 +89,7 @@ export class InputHandler {
     }
     
     handleMouseMove(e) {
-        const rect = this.canvas.getBoundingClientRect();
+        const rect = this.game.canvas.getBoundingClientRect();
         const newMousePos = {
             x: e.clientX - rect.left,
             y: e.clientY - rect.top
