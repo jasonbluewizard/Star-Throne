@@ -945,8 +945,25 @@ export class GameUI {
                             // Supply source territories redirect all armies, so they show +0/s generation
                             generationRate = 0;
                         } else {
-                            // Base generation rate (1 fleet per 3 seconds = 0.33/s)
-                            generationRate = 1000 / (territory.armyGenerationRate || 3000);
+                            // Calculate effective generation rate including tech bonuses
+                            let effectiveGenerationRate = territory.armyGenerationRate || 3000;
+                            
+                            // Apply production tech bonus: +10% per production tech level
+                            const territoryOwner = gameData.players.find(p => p.id === territory.ownerId);
+                            if (territoryOwner && territoryOwner.tech && territoryOwner.tech.production > 0) {
+                                effectiveGenerationRate /= (1 + territoryOwner.tech.production * 0.1);
+                            }
+                            
+                            // Apply planet-specific bonuses
+                            if (territory.discoveryBonus === 'factory') {
+                                effectiveGenerationRate *= 0.5; // 200% speed (half the time)
+                            } else if (territory.discoveryBonus === 'minerals') {
+                                effectiveGenerationRate *= 0.67; // 150% speed
+                            } else if (territory.discoveryBonus === 'void_storm') {
+                                effectiveGenerationRate *= 1.33; // 75% speed
+                            }
+                            
+                            generationRate = 1000 / effectiveGenerationRate;
                             
                             // Add supply route bonuses for destinations
                             if (gameData.supplySystem && gameData.supplySystem.supplyRoutes) {
