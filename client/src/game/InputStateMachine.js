@@ -253,17 +253,17 @@ class TerritorySelectedState extends BaseState {
     }
     
     executeFleetCommand(sourceTerritory, targetTerritory, fleetPercentage) {
-        console.log(`🔧 DEBUG: executeFleetCommand called - source: ${sourceTerritory?.id}, target: ${targetTerritory?.id}, percentage: ${fleetPercentage}`);
+        console.log(`🔧 DEBUG: Fleet command: ${sourceTerritory?.id} -> ${targetTerritory?.id} (${Math.floor(fleetPercentage * 100)}%)`);
         
-        // Validate command
+        // Basic validation
         if (!sourceTerritory || !targetTerritory || sourceTerritory === targetTerritory) {
-            console.log('🔧 DEBUG: Validation failed - invalid territories or same territory');
+            console.log('🔧 DEBUG: Invalid territories');
             return false;
         }
         
         if (sourceTerritory.ownerId !== this.game.humanPlayer.id) {
-            console.log(`🔧 DEBUG: Validation failed - source not owned by human player (${sourceTerritory.ownerId} vs ${this.game.humanPlayer.id})`);
-            return false; // Can only command own territories
+            console.log(`🔧 DEBUG: Not your territory`);
+            return false;
         }
         
         // Calculate fleet size
@@ -271,44 +271,29 @@ class TerritorySelectedState extends BaseState {
         let fleetsToSend = Math.floor(availableFleets * fleetPercentage);
         
         if (fleetPercentage >= 1.0) {
-            // "Send all" means all minus 1
-            fleetsToSend = availableFleets;
+            fleetsToSend = availableFleets; // Send all available
         }
         
-        console.log(`🔧 DEBUG: Fleet calculation - available: ${availableFleets}, to send: ${fleetsToSend}, army size: ${sourceTerritory.armySize}`);
-        
         if (fleetsToSend <= 0) {
-            console.log('🔧 DEBUG: No fleets to send - insufficient armies');
+            console.log('🔧 DEBUG: No fleets available to send');
             return false;
         }
         
-        // Check if territories are connected by visible warp lanes
-        const sourceId = sourceTerritory.id;
-        const targetId = targetTerritory.id;
-        const isConnected = this.game.gameMap.connections[sourceId]?.includes(targetId);
+        console.log(`🔧 DEBUG: Sending ${fleetsToSend} fleets from ${sourceTerritory.armySize} total`);
         
-        console.log(`🔧 DEBUG: Connection check - ${sourceId} -> ${targetId}: ${isConnected ? 'CONNECTED' : 'NOT CONNECTED'}`);
-        
-        if (!isConnected && targetTerritory.ownerId !== null) {
-            // Try multi-hop path for non-connected territories
-            console.log('🔧 DEBUG: Attempting pathfinding for non-connected territories');
-            const path = this.game.findPathBetweenTerritories?.(sourceTerritory, targetTerritory);
-            if (path && path.length > 1) {
-                // Multi-hop route available
-                const isAttack = targetTerritory.ownerId !== this.game.humanPlayer.id;
-                console.log(`🔧 DEBUG: Multi-hop path found with ${path.length} territories`);
-                this.game.executeFleetCommand(sourceTerritory, targetTerritory, fleetPercentage, 'multi-hop-transfer', path);
-                console.log(`🛸 Multi-hop ${isAttack ? 'attack' : 'transfer'}: ${fleetsToSend} ships via ${path.length} hops`);
-                return true;
-            } else {
-                console.log('🔧 DEBUG: No valid path found between territories');
-                return false;
-            }
+        // Execute the command through CombatSystem
+        if (targetTerritory.ownerId === this.game.humanPlayer.id) {
+            // Transfer to friendly territory
+            console.log(`🔧 DEBUG: Executing transfer`);
+            this.game.combatSystem.executeTransfer(sourceTerritory, targetTerritory, fleetsToSend);
+        } else {
+            // Attack enemy/neutral territory  
+            console.log(`🔧 DEBUG: Executing attack`);
+            this.game.combatSystem.executeAttack(sourceTerritory, targetTerritory, fleetsToSend);
         }
         
-        // Use StarThrone's unified fleet command system for all commands
-        console.log(`🔧 DEBUG: Executing fleet command via StarThrone.executeFleetCommand`);
-        this.game.executeFleetCommand(sourceTerritory, targetTerritory, fleetPercentage);
+        // Create visual animation
+        this.game.createShipAnimation(sourceTerritory, targetTerritory, targetTerritory.ownerId !== this.game.humanPlayer.id, fleetsToSend);
         
         return true;
     }
