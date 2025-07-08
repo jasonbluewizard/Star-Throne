@@ -145,7 +145,7 @@ class DefaultState extends BaseState {
     handleInput(inputType, data) {
         switch (inputType) {
             case 'leftClick':
-                return this.handleLeftClick(data.territory, data.worldPos);
+                return this.handleLeftClick(data.territory, data.worldPos, data);
             case 'rightClick':
                 return this.handleRightClick(data.territory, data.worldPos);
             case 'keyPress':

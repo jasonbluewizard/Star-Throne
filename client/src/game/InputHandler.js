@@ -192,16 +192,18 @@ export class InputHandler {
         if (source.ownerId === this.game.humanPlayer?.id) {
             if (target.ownerId === this.game.humanPlayer?.id && source.id !== target.id) {
                 // Double-click between two friendly territories: toggle supply route
-                const routes = this.game.supplySystem.supplyRoutes || [];
+                const routes = this.game.supplySystem?.supplyRoutes || [];
                 const existingIndex = routes.findIndex(route => route.from === source.id && route.to === target.id);
                 if (existingIndex >= 0) {
                     // Remove existing supply route
                     this.game.supplySystem.supplyRoutes.splice(existingIndex, 1);
                     console.log('Supply route removed between', source.id, 'and', target.id);
                 } else {
-                    // Create new supply route
-                    this.game.supplySystem.createSupplyRoute(source.id, target.id);
-                    console.log('Supply route created between', source.id, 'and', target.id);
+                    // Create new supply route using the territories themselves
+                    if (this.game.supplySystem) {
+                        this.game.supplySystem.createSupplyRoute(source, target);
+                        console.log('Supply route created between', source.id, 'and', target.id);
+                    }
                 }
             } else if (target.ownerId !== this.game.humanPlayer?.id) {
                 // Double-click on enemy or neutral territory: long-range strike (send all available fleets)
