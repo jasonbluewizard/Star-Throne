@@ -76,6 +76,16 @@ export class InputHandler {
         this.dragStartPos = { ...this.mousePos };
         this.dragStartTime = Date.now();
         this.lastMousePos = { ...this.mousePos };
+        
+        // Send drag_start event to FSM with territory and modifier key information
+        const worldPos = this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+        this.inputFSM.handleInput('drag_start', {
+            x: this.mousePos.x,
+            y: this.mousePos.y,
+            territory: this.game.findTerritoryAt(worldPos.x, worldPos.y),
+            shiftKey: e.shiftKey,
+            ctrlKey: e.ctrlKey
+        });
     }
     
     handleMouseMove(e) {
@@ -95,6 +105,14 @@ export class InputHandler {
             if (dragDistance > 10) {
                 this.isDragging = true;
             }
+        }
+        
+        // Send drag_move event to FSM
+        if (this.isDragging) {
+            this.inputFSM.handleInput('drag_move', {
+                x: this.mousePos.x,
+                y: this.mousePos.y
+            });
         }
         
         // Handle camera panning
@@ -125,6 +143,19 @@ export class InputHandler {
         
         const worldPos = this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
         const targetTerritory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
+        
+        // Send drag_end event to FSM if we were dragging
+        if (this.isDragging) {
+            this.inputFSM.handleInput('drag_end', {
+                startX: this.dragStartPos.x,
+                startY: this.dragStartPos.y,
+                endX: this.mousePos.x,
+                endY: this.mousePos.y,
+                territory: targetTerritory,
+                shiftKey: e.shiftKey,
+                ctrlKey: e.ctrlKey
+            });
+        }
         
         if (wasQuickClick) {
             const currentTime = Date.now();
