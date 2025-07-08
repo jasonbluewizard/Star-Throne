@@ -111,32 +111,40 @@ export class InputHandler {
         
         // Only process left-clicks as game commands (not drags)
         if (e.button === 0 && !this.isDragging) {
-            console.log(`🖱️ LEFT-CLICK: Territory ${targetTerritory?.id} with modifiers shift=${e.shiftKey}, ctrl=${e.ctrlKey}`);
+            console.log(`🖱️ MOUSE UP: Territory ${targetTerritory?.id} at world(${worldPos.x.toFixed(0)}, ${worldPos.y.toFixed(0)}) modifiers shift=${e.shiftKey}, ctrl=${e.ctrlKey}`);
             this.processSingleClick(e.button, targetTerritory, worldPos, e.shiftKey, e.ctrlKey);
+        } else {
+            console.log(`🖱️ MOUSE UP IGNORED: button=${e.button}, isDragging=${this.isDragging}`);
         }
         
         this.resetDragState();
     }
     
     processSingleClick(button, territory, worldPos, shiftKey = false, ctrlKey = false) {
+        console.log(`🖱️ PROCESS CLICK: button=${button}, territory=${territory?.id}, gameState=${this.game.gameState}`);
+        
         // Check UI elements first
         if (this.game.handleUIClick(this.mousePos.x, this.mousePos.y)) {
+            console.log(`🖱️ UI CLICK HANDLED`);
             return;
         }
         
         // Skip game logic if not in playing state
         if (this.game.gameState !== 'playing') {
+            console.log(`🖱️ GAME NOT PLAYING: ${this.game.gameState}`);
             return;
         }
         
         if (button === 0) { // Left click
-            this.inputFSM.handleInput('leftClick', {
+            console.log(`🖱️ SENDING TO FSM: leftClick event`);
+            const result = this.inputFSM.handleInput('leftClick', {
                 territory: territory,
                 worldPos: worldPos,
                 screenPos: this.mousePos,
                 shiftKey: shiftKey,
                 ctrlKey: ctrlKey
             });
+            console.log(`🖱️ FSM RESULT: ${result}`);
         } else if (button === 2) { // Right click (deprecated in single button control scheme)
             // Right-click now just does camera dragging - all commands moved to left-click
             console.log(`🖱️ RIGHT-CLICK: Territory ${territory?.id} - functionality moved to left-click with modifiers`);

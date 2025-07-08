@@ -39,6 +39,8 @@ export class InputStateMachine {
     
     // Main input event processor
     handleInput(inputType, data) {
+        console.log(`🔧 FSM HANDLE INPUT: type=${inputType}, state=${this.currentState}, territory=${data?.territory?.id}`);
+        
         const currentHandler = this.stateHandlers[this.currentState];
         if (!currentHandler) {
             GameUtils.logError(`No handler for state: ${this.currentState}`);
@@ -46,6 +48,7 @@ export class InputStateMachine {
         }
         
         const result = currentHandler.handleInput(inputType, data);
+        console.log(`🔧 FSM RESULT: ${result}`);
         
         // Update UI cursor based on current state
         this.updateCursor();
