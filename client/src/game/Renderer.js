@@ -5,7 +5,7 @@
  * Receives game state and renders it without modifying the state.
  */
 
-import { GAME_CONSTANTS } from '../../../common/gameConstants';
+import { GAME_CONSTANTS } from '../../../common/gameConstants.ts';
 
 export class Renderer {
     constructor(canvas, camera, game = null) {
