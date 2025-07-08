@@ -81,11 +81,10 @@ export class InputHandler {
         this.dragStartPos = { ...this.mousePos };
         this.dragStartTime = Date.now();
         this.lastMousePos = { ...this.mousePos };
+        this.mouseButton = e.button;
         
-        // Only start drag for right mouse button
-        if (e.button === 2) {
-            this.isDragging = true;
-        }
+        // Both left and right mouse buttons can drag the camera
+        // isDragging will be set to true in handleMouseMove once movement threshold is reached
     }
     
     handleMouseMove(e) {
@@ -95,10 +94,22 @@ export class InputHandler {
             y: e.clientY - rect.top
         };
         
-        // Handle camera panning only when already dragging (right-click drag)
-        if (this.isDragging) {
-            const deltaX = newMousePos.x - this.lastMousePos.x;
-            const deltaY = newMousePos.y - this.lastMousePos.y;
+        // Calculate mouse movement delta for camera panning
+        const deltaX = newMousePos.x - this.lastMousePos.x;
+        const deltaY = newMousePos.y - this.lastMousePos.y;
+        
+        // Detect dragging based on movement distance and time
+        if (!this.isDragging && this.dragStartPos) {
+            const dragDistance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+            const dragTime = Date.now() - this.dragStartTime;
+            
+            if (dragDistance > 5 || dragTime > 100) {
+                this.isDragging = true;
+            }
+        }
+        
+        // Handle camera panning for both left and right mouse buttons while dragging
+        if (this.isDragging && (this.mouseButton === 0 || this.mouseButton === 2)) {
             this.game.camera.pan(-deltaX, -deltaY);
         }
         
@@ -119,12 +130,23 @@ export class InputHandler {
         const worldPos = this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
         const targetTerritory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
         
-        // Only process left-clicks as game commands (not drags)
-        if (e.button === 0 && !this.isDragging) {
-            console.log(`🖱️ MOUSE UP: Territory ${targetTerritory?.id} at world(${worldPos.x.toFixed(0)}, ${worldPos.y.toFixed(0)}) modifiers shift=${e.shiftKey}, ctrl=${e.ctrlKey}`);
-            this.processSingleClick(e.button, targetTerritory, worldPos, e.shiftKey, e.ctrlKey);
-        } else {
-            console.log(`🖱️ MOUSE UP IGNORED: button=${e.button}, isDragging=${this.isDragging}`);
+        // Handle different mouse buttons
+        if (e.button === 0) {
+            // Left-click: either fleet command (if not dragging) or camera pan (if dragging)
+            if (!this.isDragging) {
+                console.log(`🖱️ LEFT-CLICK: Territory ${targetTerritory?.id}, fleet command`);
+                this.processSingleClick(e.button, targetTerritory, worldPos, e.shiftKey, e.ctrlKey);
+            } else {
+                console.log(`🖱️ LEFT-DRAG: Camera pan completed`);
+                // Camera dragging handled in handleMouseMove
+            }
+        } else if (e.button === 2) {
+            // Right-click: camera drag only
+            if (!this.isDragging) {
+                console.log(`🖱️ RIGHT-CLICK: Camera drag (no fleet commands)`);
+            } else {
+                console.log(`🖱️ RIGHT-DRAG: Camera pan completed`);
+            }
         }
         
         this.resetDragState();
