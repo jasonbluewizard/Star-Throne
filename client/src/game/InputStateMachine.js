@@ -272,6 +272,10 @@ class TerritorySelectedState extends BaseState {
                         const fleetSize = Math.floor((sourceStar.armySize + Math.floor(sourceStar.armySize * 0.5)) * 0.5);
                         this.game.createShipAnimation(sourceStar, targetStar, false, fleetSize);
                         console.log(`Sent reinforcements from ${sourceStar.id} to adjacent ${targetStar.id}`);
+                        
+                        // Auto-rollover: newly reinforced planet becomes the active source
+                        this.fsm.selectedTerritory = targetStar;
+                        this.fsm.transitionTo('TerritorySelected', { selectedTerritory: targetStar });
                     }
                 } else {
                     // Distant friendly star - find path and execute multi-hop transfer
@@ -286,6 +290,10 @@ class TerritorySelectedState extends BaseState {
                         if (path && path.length > 1) {
                             GameUtils.logDebug(`Multi-hop transfer path found: ${path.join(' -> ')}`);
                             this.game.executeFleetCommand(sourceStar, targetStar, 0.5, 'multi-hop-transfer', path);
+                            
+                            // Auto-rollover: newly reinforced planet becomes the active source
+                            this.fsm.selectedTerritory = targetStar;
+                            this.fsm.transitionTo('TerritorySelected', { selectedTerritory: targetStar });
                         } else {
                             this.showFeedback("No valid reinforcement path", sourceStar.x, sourceStar.y);
                             GameUtils.logDebug(`No path found from ${sourceStar.id} to ${targetStar.id}`);
@@ -305,6 +313,10 @@ class TerritorySelectedState extends BaseState {
                         const result = this.game.combatSystem.attackTerritory(sourceStar, targetStar, attackingArmies);
                         this.game.createShipAnimation(sourceStar, targetStar, true, attackingArmies);
                         console.log(`Attacked enemy ${targetStar.id} from ${sourceStar.id}`);
+                        
+                        // Auto-deselect after sending an attack
+                        this.fsm.selectedTerritory = null;
+                        this.fsm.transitionTo('Default');
                     }
                 } else {
                     // Non-adjacent enemy star - launch long-range attack
@@ -314,6 +326,10 @@ class TerritorySelectedState extends BaseState {
                         console.log(`🚀 ENEMY: Launching long-range attack from territory ${sourceStar.id} (owner: ${sourceStar.ownerId}) to ${targetStar.id} (owner: ${targetStar.ownerId})`);
                         this.game.launchLongRangeAttack(sourceStar, targetStar, attackingArmies);
                         console.log(`🚀 ENEMY: Launched long-range attack: ${sourceStar.id} -> ${targetStar.id} (${attackingArmies} ships)`);
+                        
+                        // Auto-deselect after sending an attack
+                        this.fsm.selectedTerritory = null;
+                        this.fsm.transitionTo('Default');
                     } else {
                         console.log(`❌ LONG-RANGE BLOCKED: Source has only ${sourceStar.armySize} armies`);
                         this.showFeedback("Need more armies for long-range attack", sourceStar.x, sourceStar.y);
@@ -331,6 +347,10 @@ class TerritorySelectedState extends BaseState {
                         const result = this.game.combatSystem.attackTerritory(sourceStar, targetStar, attackingArmies);
                         this.game.createShipAnimation(sourceStar, targetStar, true, attackingArmies);
                         console.log(`Attacked neutral garrison ${targetStar.id} from ${sourceStar.id}`);
+                        
+                        // Auto-deselect after sending an attack
+                        this.fsm.selectedTerritory = null;
+                        this.fsm.transitionTo('Default');
                     }
                 } else {
                     // Non-adjacent neutral star - launch long-range attack
@@ -340,6 +360,10 @@ class TerritorySelectedState extends BaseState {
                         console.log(`🚀 NEUTRAL: Launching long-range attack from territory ${sourceStar.id} (owner: ${sourceStar.ownerId}) to ${targetStar.id} (owner: ${targetStar.ownerId})`);
                         this.game.launchLongRangeAttack(sourceStar, targetStar, attackingArmies);
                         console.log(`🚀 NEUTRAL: Launched long-range attack: ${sourceStar.id} -> ${targetStar.id} (${attackingArmies} ships)`);
+                        
+                        // Auto-deselect after sending an attack
+                        this.fsm.selectedTerritory = null;
+                        this.fsm.transitionTo('Default');
                     } else {
                         console.log(`🚀 NEUTRAL: Not enough armies for long-range attack`);
                         this.showFeedback("Need more armies for long-range attack", sourceStar.x, sourceStar.y);
