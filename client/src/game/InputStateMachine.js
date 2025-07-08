@@ -13,6 +13,42 @@
 import { PathfindingService } from './PathfindingService.js';
 import { GameUtils } from './utils.js';
 
+// -------------------------------------------------------------
+// Add a new FSM sub‑state for drag‑to‑command
+// -------------------------------------------------------------
+class CommandDragState {
+    constructor(fsm) { this.fsm = fsm; }
+
+    enter(data) {
+        this.src        = data.source;          // selected friendly planet
+        this.shiftKey   = data.shiftKey;
+        this.ctrlKey    = data.ctrlKey;
+    }
+
+    handle(eventType, data) {
+        switch (eventType) {
+            case 'drag_move':
+                // (optional: draw provisional arrow here)
+                break;
+
+            case 'drag_end': {
+                const target = data.territory;
+                if (target && target.id !== this.src.id) {
+                    const pct = this.shiftKey ? 1.0 :
+                                this.ctrlKey  ? 0.25 : 0.5;
+                    this.fsm.game.issueFleetCommand(this.src, target, pct);
+                }
+                this.fsm.setState('territory_selected', { keepSelection: true });
+                break;
+            }
+
+            case 'drag_cancel':
+                this.fsm.setState('territory_selected', { keepSelection: true });
+                break;
+        }
+    }
+}
+
 export class InputStateMachine {
     constructor(game) {
         this.game = game;
@@ -31,7 +67,8 @@ export class InputStateMachine {
         this.stateHandlers = {
             'Default': new DefaultState(this),
             'TerritorySelected': new TerritorySelectedState(this),
-            'EnemySelected': new EnemySelectedState(this)
+            'EnemySelected': new EnemySelectedState(this),
+            'command_drag': new CommandDragState(this)
         };
         
         console.log('InputStateMachine initialized in Default state');
@@ -190,10 +227,21 @@ class TerritorySelectedState extends BaseState {
     
     handleInput(inputType, data) {
         switch (inputType) {
-            case 'leftClick':
+            case 'leftClick':   // plain click on another planet now just selects
                 return this.handleLeftClick(data.territory, data.worldPos);
-            case 'rightClick':
-                return this.handleRightClick(data.territory, data.worldPos);
+            case 'drag_start': {
+                // Begin fleet command if drag started on selected friendly planet
+                if (data.territory === this.fsm.selectedTerritory &&
+                    this.fsm.selectedTerritory.ownerId === this.fsm.game.humanPlayer.id) {
+                    this.fsm.setState('command_drag', {
+                        source:   this.fsm.selectedTerritory,
+                        shiftKey: data.shiftKey,
+                        ctrlKey:  data.ctrlKey
+                    });
+                }
+                break;
+            }
+            // RMB no longer used
             case 'keyPress':
                 return this.handleKeyPress(data.key);
             default:
@@ -226,140 +274,10 @@ class TerritorySelectedState extends BaseState {
         }
     }
     
-    async handleRightClick(territory, worldPos) {
-        if (!territory) {
-            // Right-click on empty space - do nothing, maintain selection
-            return true;
-        }
-        
-        // Right-click on the selected territory itself - cancel supply routes if any exist
-        if (territory.id === this.selectedTerritory.id) {
-            // Check if this territory has any outgoing supply routes (using SupplySystem module)
-            const outgoingRoutes = this.game.supplySystem.supplyRoutes.filter(route => route.from === territory.id);
-            if (outgoingRoutes.length > 0) {
-                outgoingRoutes.forEach(route => {
-                    this.game.supplySystem.removeSupplyRoute(route.id);
-                    console.log(`Cancelled supply route from ${territory.id} to ${route.to}`);
-                });
-                return true;
-            } else {
-                console.log(`No supply route to cancel from territory ${territory.id}`);
-            }
-            return true;
-        }
-        
-        const sourceStar = this.selectedTerritory;
-        const targetStar = territory;
-        const ownershipType = this.game.pathfindingService.getTerritoryOwnershipType(targetStar, this.game.humanPlayer?.id);
-        const isAdjacent = this.game.pathfindingService.areTerritoriesAdjacent(sourceStar, targetStar);
-        
-        console.log(`🎯 Right-click: ${sourceStar.id} (owner: ${sourceStar.ownerId}) -> ${targetStar.id} (owner: ${targetStar.ownerId}), ownership: ${ownershipType}, adjacent: ${isAdjacent}`);
-        console.log(`🎯 FSM STATE: Current state is ${this.fsm.currentState}, selected territory: ${this.selectedTerritory?.id}`);
-        
-        // Validate minimum fleet size for commands
-        if (sourceStar.armySize <= 1) {
-            this.showFeedback("Need more than 1 army to send fleet", sourceStar.x, sourceStar.y);
-            return true;
-        }
-        
-        // Handle different target types
-        switch (ownershipType) {
-            case 'friendly':
-                if (isAdjacent) {
-                    // Adjacent friendly star - send reinforcements (50%)
-                    const success = this.game.combatSystem.transferArmies(sourceStar, targetStar);
-                    if (success) {
-                        const fleetSize = Math.floor((sourceStar.armySize + Math.floor(sourceStar.armySize * 0.5)) * 0.5);
-                        this.game.createShipAnimation(sourceStar, targetStar, false, fleetSize);
-                        console.log(`Sent reinforcements from ${sourceStar.id} to adjacent ${targetStar.id}`);
-                    }
-                } else {
-                    // Distant friendly star - find path and execute multi-hop transfer
-                    try {
-                        const path = await this.game.pathfindingService.findShortestPath(
-                            sourceStar.id, 
-                            targetStar.id, 
-                            this.game.gameMap, 
-                            this.game.humanPlayer?.id
-                        );
-                        
-                        if (path && path.length > 1) {
-                            GameUtils.logDebug(`Multi-hop transfer path found: ${path.join(' -> ')}`);
-                            this.game.executeFleetCommand(sourceStar, targetStar, 0.5, 'multi-hop-transfer', path);
-                        } else {
-                            this.showFeedback("No valid reinforcement path", sourceStar.x, sourceStar.y);
-                            GameUtils.logDebug(`No path found from ${sourceStar.id} to ${targetStar.id}`);
-                        }
-                    } catch (error) {
-                        GameUtils.logError("Pathfinding error:", error);
-                        this.showFeedback("Pathfinding failed", sourceStar.x, sourceStar.y);
-                    }
-                }
-                break;
-                
-            case 'enemy':
-                if (isAdjacent) {
-                    // Adjacent enemy star - attack with 50% of fleet
-                    const attackingArmies = Math.floor((sourceStar.armySize - 1) * 0.5);
-                    if (attackingArmies > 0) {
-                        const result = this.game.combatSystem.attackTerritory(sourceStar, targetStar, attackingArmies);
-                        this.game.createShipAnimation(sourceStar, targetStar, true, attackingArmies);
-                        console.log(`Attacked enemy ${targetStar.id} from ${sourceStar.id}`);
-                    }
-                } else {
-                    // Non-adjacent enemy star - launch long-range attack
-                    const attackingArmies = Math.floor((sourceStar.armySize - 1) * 0.5);
-                    console.log(`🎯 LONG-RANGE ENEMY TRIGGER: Attacking ${targetStar.id} with ${attackingArmies} armies`);
-                    if (attackingArmies > 0) {
-                        console.log(`🚀 ENEMY: Launching long-range attack from territory ${sourceStar.id} (owner: ${sourceStar.ownerId}) to ${targetStar.id} (owner: ${targetStar.ownerId})`);
-                        this.game.launchLongRangeAttack(sourceStar, targetStar, attackingArmies);
-                        console.log(`🚀 ENEMY: Launched long-range attack: ${sourceStar.id} -> ${targetStar.id} (${attackingArmies} ships)`);
-                    } else {
-                        console.log(`❌ LONG-RANGE BLOCKED: Source has only ${sourceStar.armySize} armies`);
-                        this.showFeedback("Need more armies for long-range attack", sourceStar.x, sourceStar.y);
-                    }
-                }
-                break;
-                
-            case 'neutral':
-                console.log(`🎯 NEUTRAL CASE: isAdjacent=${isAdjacent}, sourceStar armies=${sourceStar.armySize}`);
-                if (isAdjacent) {
-                    // Adjacent neutral star with garrison - attack directly (no probe needed)
-                    const attackingArmies = Math.floor((sourceStar.armySize - 1) * 0.5);
-                    if (attackingArmies > 0) {
-                        console.log(`🎯 ADJACENT NEUTRAL: Attacking with ${attackingArmies} armies`);
-                        const result = this.game.combatSystem.attackTerritory(sourceStar, targetStar, attackingArmies);
-                        this.game.createShipAnimation(sourceStar, targetStar, true, attackingArmies);
-                        console.log(`Attacked neutral garrison ${targetStar.id} from ${sourceStar.id}`);
-                    }
-                } else {
-                    // Non-adjacent neutral star - launch long-range attack
-                    const attackingArmies = Math.floor((sourceStar.armySize - 1) * 0.5);
-                    console.log(`🎯 NON-ADJACENT NEUTRAL: Attempting long-range attack with ${attackingArmies} armies`);
-                    if (attackingArmies > 0) {
-                        console.log(`🚀 NEUTRAL: Launching long-range attack from territory ${sourceStar.id} (owner: ${sourceStar.ownerId}) to ${targetStar.id} (owner: ${targetStar.ownerId})`);
-                        this.game.launchLongRangeAttack(sourceStar, targetStar, attackingArmies);
-                        console.log(`🚀 NEUTRAL: Launched long-range attack: ${sourceStar.id} -> ${targetStar.id} (${attackingArmies} ships)`);
-                    } else {
-                        console.log(`🚀 NEUTRAL: Not enough armies for long-range attack`);
-                        this.showFeedback("Need more armies for long-range attack", sourceStar.x, sourceStar.y);
-                    }
-                }
-                break;
-                
-            case 'colonizable':
-                // Colonizable planets should no longer exist with the new system, but keep for safety
-                this.showFeedback("Invalid target type", sourceStar.x, sourceStar.y);
-                console.log(`Deprecated colonizable target: ${targetStar.id}`);
-                break;
-                
-            default:
-                console.log(`Invalid target: ${targetStar.id}`);
-                break;
-        }
-        
-        // Keep territory selected for multiple commands
-        return true;
+    // RMB no longer used - removed handleRightClick method
+    handleRightClick(territory, worldPos) {
+        // RMB no longer used - method disabled
+        return false;
     }
     
     handleKeyPress(key) {
