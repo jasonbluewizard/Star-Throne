@@ -2169,6 +2169,11 @@ export default class StarThrone {
     }
     
     checkWinConditions() {
+        // Don't check win conditions until game is fully initialized
+        if (!this.gameInitialized) {
+            return;
+        }
+        
         const alivePlayers = this.players.filter(p => !p.isEliminated);
         
         if (alivePlayers.length === 1) {

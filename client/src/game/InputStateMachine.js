@@ -213,13 +213,15 @@ class TerritorySelectedState extends BaseState {
     handleDragStart(data) {
         // Start a potential fleet-command drag ONLY if drag began on the
         // currently selected friendly planet.
-        if (data.territory === this.selectedTerritory &&
+        if (data.territory && data.territory.id === this.selectedTerritory.id &&
             this.selectedTerritory.ownerId === this.game.humanPlayer.id) {
+            console.log(`🎯 DRAG START: Territory ${data.territory.id} matches selected ${this.selectedTerritory.id}`);
             this.fsm.dragSource = this.selectedTerritory;
             this.fsm.dragStartPos = { x: data.x, y: data.y };
             this.fsm.transitionTo('CommandDrag');
             return true;
         }
+        console.log(`🎯 DRAG START: Not starting command drag - territory mismatch or not owned`);
         return false;
     }
     
