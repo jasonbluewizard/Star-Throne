@@ -71,6 +71,11 @@ export class InputHandler {
         this.dragStartPos = { ...this.mousePos };
         this.dragStartTime = Date.now();
         this.lastMousePos = { ...this.mousePos };
+        
+        // Only start drag for right mouse button
+        if (e.button === 2) {
+            this.isDragging = true;
+        }
     }
     
     handleMouseMove(e) {
@@ -80,19 +85,7 @@ export class InputHandler {
             y: e.clientY - rect.top
         };
         
-        // Check for camera drag threshold
-        if (this.dragStartPos && !this.isDragging) {
-            const dragDistance = Math.sqrt(
-                Math.pow(newMousePos.x - this.dragStartPos.x, 2) + 
-                Math.pow(newMousePos.y - this.dragStartPos.y, 2)
-            );
-            
-            if (dragDistance > 10) {
-                this.isDragging = true;
-            }
-        }
-        
-        // Handle camera panning
+        // Handle camera panning only when already dragging (right-click drag)
         if (this.isDragging) {
             const deltaX = newMousePos.x - this.lastMousePos.x;
             const deltaY = newMousePos.y - this.lastMousePos.y;
@@ -102,27 +95,22 @@ export class InputHandler {
         // Update edge panning
         this.game.camera.updateEdgePanning(newMousePos.x, newMousePos.y, 16);
         
-        // Update hovered territory for tooltips and supply route highlighting
+        // Update hovered territory for tooltips
         const worldPos = this.game.camera.screenToWorld(newMousePos.x, newMousePos.y);
         const hoveredTerritory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
         this.hoveredTerritory = hoveredTerritory;
         this.game.hoveredTerritory = hoveredTerritory;
-        
-
         
         this.lastMousePos = newMousePos;
         this.mousePos = newMousePos;
     }
     
     handleMouseUp(e) {
-        const clickDuration = Date.now() - (this.dragStartTime || 0);
-        const wasQuickClick = clickDuration < 300 && !this.isDragging;
-        
         const worldPos = this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
         const targetTerritory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
         
-        if (wasQuickClick) {
-            // Process click immediately for responsive controls
+        // Only process left-clicks as game commands (not drags)
+        if (e.button === 0 && !this.isDragging) {
             console.log(`🖱️ LEFT-CLICK: Territory ${targetTerritory?.id} with modifiers shift=${e.shiftKey}, ctrl=${e.ctrlKey}`);
             this.processSingleClick(e.button, targetTerritory, worldPos, e.shiftKey, e.ctrlKey);
         }
