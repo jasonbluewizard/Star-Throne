@@ -19,6 +19,10 @@ export class GameUI {
         this.warningColor = '#ff4444';
         this.successColor = '#44ff44';
         this.shadowColor = 'rgba(0, 0, 0, 0.8)';
+        
+        // Tech level tooltip system
+        this.techLevelAreas = {};
+        this.hoveredTechType = null;
     }
 
     // Helper function to render text with shadow for better readability
@@ -111,8 +115,18 @@ export class GameUI {
         
         // Zoom controls removed - using mousewheel only
         
+        // Check for tech level hover if mouse position is available
+        if (gameData.mousePos) {
+            this.checkTechLevelHover(gameData.mousePos.x, gameData.mousePos.y);
+        }
+        
         // Tooltip for hovered territory
         this.renderTooltip(ctx, gameData);
+        
+        // Tech level tooltip (render after main tooltip)
+        if (gameData.mousePos) {
+            this.renderTechTooltip(ctx, gameData.mousePos.x, gameData.mousePos.y);
+        }
         
         // Render notifications
         this.renderNotifications(ctx, gameData);
@@ -540,10 +554,9 @@ export class GameUI {
         const width = 320; // Wider for two columns
         const lineHeight = 20;
         const padding = 10;
-        const discoveryHeight = discoveryCount * lineHeight;
         const titleHeight = 25;
         const techHeight = 70; // Space for tech levels in two columns
-        const height = Math.max(120, titleHeight + techHeight + discoveryHeight + padding * 2);
+        const height = titleHeight + techHeight + padding * 2;
         const y = this.canvas.height - height - 20; // Bottom left positioning
         
         // Background with transparency
@@ -580,49 +593,79 @@ export class GameUI {
             currentY += 50; // Move past tech levels
         }
         
-        // Show empire-wide bonuses only (no temporary notifications)
-        ctx.font = '12px Arial';
+        // Store tech level positions for tooltip detection
+        if (humanPlayer && humanPlayer.tech) {
+            this.techLevelAreas = {
+                attack: { x: leftCol, y: currentY - 50, width: 120, height: 18, tech: humanPlayer.tech.attack },
+                defense: { x: leftCol, y: currentY - 30, width: 120, height: 18, tech: humanPlayer.tech.defense },
+                engines: { x: rightCol, y: currentY - 50, width: 120, height: 18, tech: humanPlayer.tech.engines },
+                production: { x: rightCol, y: currentY - 30, width: 120, height: 18, tech: humanPlayer.tech.production }
+            };
+        }
+    }
+    
+    // Check if mouse is hovering over tech level areas
+    checkTechLevelHover(mouseX, mouseY) {
+        this.hoveredTechType = null;
         
-        // Show empire-wide bonuses (with safety checks)
-        if (discoveries && discoveries.precursorWeapons > 0) {
-            this.renderTextWithShadow(ctx, `⚔️ Weapons Lvl ${discoveries.precursorWeapons}: +${discoveries.precursorWeapons * 10}% Attack`, x + padding, currentY, '#FF6B6B');
-            currentY += lineHeight;
+        for (const [techType, area] of Object.entries(this.techLevelAreas)) {
+            if (mouseX >= area.x && mouseX <= area.x + area.width &&
+                mouseY >= area.y && mouseY <= area.y + area.height) {
+                this.hoveredTechType = techType;
+                break;
+            }
+        }
+    }
+    
+    // Render tech level tooltip
+    renderTechTooltip(ctx, mouseX, mouseY) {
+        if (!this.hoveredTechType || !this.techLevelAreas[this.hoveredTechType]) return;
+        
+        const area = this.techLevelAreas[this.hoveredTechType];
+        const techLevel = area.tech;
+        
+        let tooltipText = '';
+        switch (this.hoveredTechType) {
+            case 'attack':
+                tooltipText = `+${techLevel * 5}% attack damage`;
+                break;
+            case 'defense':
+                tooltipText = `+${techLevel * 5}% defense strength`;
+                break;
+            case 'engines':
+                tooltipText = `+${techLevel * 10}% fleet speed`;
+                break;
+            case 'production':
+                tooltipText = `+${techLevel * 10}% army generation`;
+                break;
         }
         
-        if (discoveries && discoveries.precursorDrive > 0) {
-            this.renderTextWithShadow(ctx, `🚀 Drive Lvl ${discoveries.precursorDrive}: +${discoveries.precursorDrive * 20}% Speed`, x + padding, currentY, '#4ECDC4');
-            currentY += lineHeight;
+        if (tooltipText) {
+            // Position tooltip near mouse
+            const tooltipX = mouseX + 15;
+            const tooltipY = mouseY - 25;
+            const padding = 8;
+            
+            // Measure text
+            ctx.font = '12px Arial';
+            const textWidth = ctx.measureText(tooltipText).width;
+            const tooltipWidth = textWidth + padding * 2;
+            const tooltipHeight = 20;
+            
+            // Background
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+            ctx.fillRect(tooltipX, tooltipY, tooltipWidth, tooltipHeight);
+            
+            // Border
+            ctx.strokeStyle = '#FFD700';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(tooltipX, tooltipY, tooltipWidth, tooltipHeight);
+            
+            // Text
+            ctx.fillStyle = '#FFD700';
+            ctx.textAlign = 'left';
+            ctx.fillText(tooltipText, tooltipX + padding, tooltipY + 14);
         }
-        
-        if (discoveries && discoveries.precursorShield > 0) {
-            this.renderTextWithShadow(ctx, `🛡️ Shield Lvl ${discoveries.precursorShield}: +${discoveries.precursorShield * 10}% Defense`, x + padding, currentY, '#45B7D1');
-            currentY += lineHeight;
-        }
-        
-        if (discoveries && discoveries.precursorNanotech > 0) {
-            this.renderTextWithShadow(ctx, `🔬 Nanotech Lvl ${discoveries.precursorNanotech}: +${discoveries.precursorNanotech * 10}% Generation`, x + padding, currentY, '#96CEB4');
-            currentY += lineHeight;
-        }
-        
-        if (discoveries && discoveries.factoryPlanets && discoveries.factoryPlanets.size > 0) {
-            this.renderTextWithShadow(ctx, `🏭 Factory Worlds: ${discoveries.factoryPlanets.size} (+100% each)`, x + padding, currentY, '#FECA57');
-            currentY += lineHeight;
-        }
-        
-        if (discoveries && discoveries.friendlyAliens > 0) {
-            this.renderTextWithShadow(ctx, `👽 Friendly Aliens: +${discoveries.friendlyAliens * 50} Fleet Strength`, x + padding, currentY, '#9B59B6');
-            currentY += lineHeight;
-        }
-        
-        if (discoveries && discoveries.richMinerals > 0) {
-            this.renderTextWithShadow(ctx, `💎 Rich Minerals: ${discoveries.richMinerals} Worlds (+50% each)`, x + padding, currentY, '#F39C12');
-            currentY += lineHeight;
-        }
-        
-        // Discovery count summary
-        ctx.font = '10px Arial';
-        ctx.textAlign = 'right';
-        this.renderTextWithShadow(ctx, `Total: ${discoveryCount} discoveries`, x + width - padding, y + height - 5, '#888888');
     }
     
     hexToRgb(hex) {
