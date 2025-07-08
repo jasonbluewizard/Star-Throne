@@ -83,20 +83,20 @@ export class InputHandler {
         this.lastMousePos = { ...this.mousePos };
         this.mouseButton = e.button;
         
-        // Send drag_start event to FSM for left-click (but don't assume it's a command drag yet)
+        // Store initial drag state for camera panning
+        this.potentialCommandDrag = false;
+        
+        // Check if this might be a command drag (left-click on selected territory)
         if (e.button === 0) {
             const worldPos = this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
             const territory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
             
-            // Only send drag_start to FSM if we clicked on a territory
-            if (territory) {
-                this.game.inputFSM.handleInput('drag_start', {
-                    x: this.mousePos.x,
-                    y: this.mousePos.y,
-                    territory: territory,
-                    shiftKey: e.shiftKey,
-                    ctrlKey: e.ctrlKey
-                });
+            // Only mark as potential command drag if clicking on selected friendly territory
+            if (territory && 
+                this.game.inputFSM.selectedTerritory && 
+                territory.id === this.game.inputFSM.selectedTerritory.id &&
+                territory.ownerId === this.game.humanPlayer.id) {
+                this.potentialCommandDrag = true;
             }
         }
         
@@ -130,12 +130,29 @@ export class InputHandler {
             this.game.camera.pan(-deltaX, -deltaY);
         }
         
-        // Send drag_move events to FSM for left mouse button (only if FSM is in CommandDrag state)
-        if (this.isDragging && this.mouseButton === 0 && this.game.inputFSM.currentState === 'CommandDrag') {
-            this.game.inputFSM.handleInput('drag_move', {
-                x: newMousePos.x,
-                y: newMousePos.y
-            });
+        // If we started a potential command drag, decide whether to convert to command drag or camera drag
+        if (this.isDragging && this.potentialCommandDrag && this.mouseButton === 0) {
+            // Convert to command drag if not already done
+            if (this.game.inputFSM.currentState !== 'CommandDrag') {
+                const worldPos = this.game.camera.screenToWorld(this.dragStartPos.x, this.dragStartPos.y);
+                const territory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
+                
+                this.game.inputFSM.handleInput('drag_start', {
+                    x: this.dragStartPos.x,
+                    y: this.dragStartPos.y,
+                    territory: territory,
+                    shiftKey: false,
+                    ctrlKey: false
+                });
+            }
+            
+            // Send drag move to FSM if in command drag state
+            if (this.game.inputFSM.currentState === 'CommandDrag') {
+                this.game.inputFSM.handleInput('drag_move', {
+                    x: newMousePos.x,
+                    y: newMousePos.y
+                });
+            }
         }
         
         // Update edge panning
@@ -162,8 +179,8 @@ export class InputHandler {
                 console.log(`🖱️ LEFT-CLICK: Territory ${targetTerritory?.id}, fleet command`);
                 this.processSingleClick(e.button, targetTerritory, worldPos, e.shiftKey, e.ctrlKey);
             } else {
-                console.log(`🖱️ LEFT-DRAG END: Checking FSM state`);
-                // Only send drag_end event to FSM if we're in CommandDrag state
+                console.log(`🖱️ LEFT-DRAG END: Checking if command drag`);
+                // Send drag_end event to FSM if we're in CommandDrag state
                 if (this.game.inputFSM.currentState === 'CommandDrag') {
                     console.log(`🖱️ LEFT-DRAG END: Sending to FSM`);
                     this.game.inputFSM.handleInput('drag_end', {
