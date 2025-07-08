@@ -135,3 +135,6 @@ export const GAME_CONSTANTS = {
     ROOM_ID_GENERATION_SUBSTRING_END: 8,
     SERVER_TICK_RATE_MS: 1000 / 20, // 20 ticks per second
 };
+
+// Export individual constants for cleaner imports
+export const HOP_DELAY_PER_PIXEL_MS = GAME_CONSTANTS.HOP_DELAY_PER_PIXEL_MS;
