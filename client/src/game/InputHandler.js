@@ -195,7 +195,7 @@ export class InputHandler {
                 setTimeout(() => {
                     if (this.lastClickTime === currentTime) {
                         // No double-click occurred, process as single click
-                        this.processSingleClick(e.button, targetTerritory, worldPos);
+                        this.processSingleClick(e.button, targetTerritory, worldPos, e);
                     }
                 }, this.doubleClickThreshold);
             }
@@ -204,7 +204,7 @@ export class InputHandler {
         this.resetDragState();
     }
     
-    processSingleClick(button, territory, worldPos) {
+    processSingleClick(button, territory, worldPos, e) {
         // Check UI elements first
         if (this.game.handleUIClick(this.mousePos.x, this.mousePos.y)) {
             return;
@@ -216,10 +216,11 @@ export class InputHandler {
         }
         
         if (button === 0) { // Left click
-            this.inputFSM.handleInput('leftClick', {
-                territory: territory,
-                worldPos: worldPos,
-                screenPos: this.mousePos
+            this.inputFSM.handleInput('click_left', {
+                x: this.mousePos.x,
+                y: this.mousePos.y,
+                shiftKey: e.shiftKey,
+                ctrlKey:  e.ctrlKey
             });
         }
         // Right-click functionality removed - using left-click only controls

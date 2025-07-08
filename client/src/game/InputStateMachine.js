@@ -139,6 +139,24 @@ export class InputStateMachine {
         }
     }
     
+    // Territory selection methods
+    selectTerritory(territory) {
+        this.selectedTerritory = territory;
+        this.game.selectedTerritory = territory;
+        
+        if (territory.ownerId === this.game.humanPlayer?.id && territory.armySize > 1) {
+            this.transitionTo('TerritorySelected', { selectedTerritory: territory });
+        } else {
+            this.transitionTo('EnemySelected', { selectedTerritory: territory });
+        }
+    }
+    
+    deselect() {
+        this.transitionTo('Default');
+        this.selectedTerritory = null;
+        this.game.selectedTerritory = null;
+    }
+    
     // Force state reset (for game restart)
     reset() {
         this.transitionTo('Default');
@@ -271,13 +289,13 @@ class TerritorySelectedState extends BaseState {
 
         // ---------------- friendly target ----------------
         if (target.ownerId === source.ownerId) {
-            this.fsm.game.issueFleetCommand(source, target, pct);
+            this.fsm.game.executeFleetCommand(source, target, pct);
             // keep source selected so user can chain orders
             return;
         }
 
         // ---------------- enemy / neutral target --------
-        this.fsm.game.issueFleetCommand(source, target, pct);
+        this.fsm.game.executeFleetCommand(source, target, pct);
         // source stays selected (common RTS feel)
     }
     
