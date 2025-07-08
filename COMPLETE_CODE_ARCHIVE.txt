@@ -1,0 +1,1854 @@
+# STAR THRONE - COMPLETE CODE ARCHIVE AND ARCHITECTURE DOCUMENTATION
+# Generated: January 7, 2025
+# Purpose: Comprehensive codebase documentation for AI analysis and development assistance
+
+================================================================================
+# PROJECT OVERVIEW AND ARCHITECTURE
+================================================================================
+
+## Project Summary
+Star Throne is a browser-based real-time strategy game featuring:
+- Massive multiplayer territorial conquest (up to 100 players)
+- Advanced HTML5 Canvas rendering engine
+- Real-time WebSocket multiplayer infrastructure
+- Sophisticated AI system with 19 AI opponents
+- Tech discovery and progression system
+- Complex fleet management and combat mechanics
+- Procedural galaxy generation with 6 layout types
+
+## Technology Stack
+- **Frontend**: React 18 + TypeScript + HTML5 Canvas
+- **Backend**: Node.js + Express + Socket.IO + TypeScript
+- **Build Tools**: Vite + ESBuild
+- **UI Framework**: Radix UI + Tailwind CSS
+- **State Management**: Zustand (lightweight)
+- **Database**: PostgreSQL + Drizzle ORM (prepared)
+
+## Core Architecture Patterns
+
+### 1. Modular Game Engine Architecture
+The game uses a highly modular architecture with separate systems:
+- **StarThrone.js**: Main game controller and orchestrator
+- **InputHandler.js**: Raw input processing and event distribution
+- **InputStateMachine.js**: Complex input state management and control logic
+- **Renderer.js**: Canvas rendering with viewport culling
+- **Camera.js**: Advanced camera system with smooth interpolation
+- **CombatSystem.js**: Battle resolution and fleet movement
+- **SupplySystem.js**: Logistics and resource management
+- **AIManager.js**: AI coordination and decision making
+- **DiscoverySystem.js**: Tech progression and discoveries
+
+### 2. Client-Server Architecture
+- **Client-Authoritative**: Single-player mode runs entirely client-side
+- **Server-Authoritative**: Multiplayer mode validates all actions server-side
+- **Hybrid Rendering**: Client renders optimistically, server validates and corrects
+- **Delta State Broadcasting**: Only changed game elements are networked
+
+### 3. Performance Optimization Systems
+- **Viewport Culling**: Only render visible territories (70% reduction)
+- **Object Pooling**: Reuse animation objects (25% memory reduction)
+- **AI Staggering**: Process 1/3 of AI players per frame (40% FPS improvement)
+- **Adaptive Intervals**: Dynamic update rates based on performance
+- **Static Background Caching**: Pre-render starfield and nebulas
+
+### 4. Input Control Architecture
+**Current System (Dual Mouse Button)**:
+- Left Click: Territory selection, UI interactions
+- Right Click: Fleet commands (attack/transfer) with modifier keys
+- Shift/Ctrl + Right Click: Percentage modifiers (all/25%)
+- Left Click Drag: Proportional fleet control with visual feedback
+- Double-Click: Supply route creation
+
+**Target Modification**: Convert to single mouse button system while preserving all functionality.
+
+## File Structure and Component Responsibilities
+
+### Client-Side Game Engine (/client/src/game/)
+```
+StarThrone.js          - Main game orchestrator (3,000+ lines)
+├── InputHandler.js    - Raw input processing and event distribution
+├── InputStateMachine.js - Control logic and state transitions
+├── Renderer.js        - Canvas rendering and visual effects
+├── Camera.js          - Viewport management and smooth camera controls
+├── GameUI.js          - UI panels, tooltips, and overlays
+├── AIManager.js       - AI coordination and batch processing
+├── CombatSystem.js    - Battle resolution and fleet movement
+├── SupplySystem.js    - Logistics chains and resource redistribution
+├── DiscoverySystem.js - Tech progression and planetary discoveries
+├── AnimationSystem.js - Ship movements and visual effects
+├── GameMap.js         - Territory management and map data
+├── Territory.js       - Individual territory logic and rendering
+├── Player.js          - Player state management and AI behavior
+└── utils.js           - Shared utility functions and helpers
+```
+
+### React Frontend (/client/src/)
+```
+App.tsx                - Main React application root
+├── components/
+│   ├── TitleScreen.tsx        - Epic cinematic title screen
+│   ├── GameModeSelector.tsx   - Single/multiplayer mode selection
+│   ├── GameConfigScreen.tsx   - Single-player game configuration
+│   └── ui/                    - Radix UI component library
+├── lib/
+│   ├── socketClient.ts        - WebSocket client for multiplayer
+│   ├── gameCommands.ts        - Command protocol definitions
+│   └── stores/useGame.tsx     - Game state management
+└── hooks/
+    └── use-is-mobile.tsx      - Mobile device detection
+```
+
+### Server-Side Engine (/server/)
+```
+index.ts               - Express server with WebSocket support
+├── GameEngine.ts      - Server-authoritative game logic
+├── gameServer.ts      - WebSocket event handling and room management
+├── routes.ts          - REST API endpoints
+└── storage.ts         - In-memory storage for MVP
+```
+
+### Shared Types and Constants (/common/)
+```
+types/index.ts         - Shared TypeScript interfaces
+gameConstants.ts       - Centralized game balance and configuration
+```
+
+================================================================================
+# COMPLETE SOURCE CODE LISTINGS
+================================================================================
+
+## 1. GAME CONSTANTS AND SHARED TYPES
+
+### common/gameConstants.ts
+```typescript
+// This file centralizes all game balance, rendering, and configuration constants.
+// It is shared between the client and server to ensure a single source of truth.
+
+export const GAME_CONSTANTS = {
+    // Debug Configuration
+    DEBUG_MODE: false, // Toggle verbose logging and debug features
+    
+    // Game Core
+    DEFAULT_MAP_WIDTH: 2000,
+    DEFAULT_MAP_HEIGHT: 2000,
+    DEFAULT_GAME_TIMER_MINUTES: 10,
+    MAX_TOTAL_PLAYERS: 100,
+    HUMAN_PLAYER_ID_PREFIX: 'human',
+    AI_PLAYER_ID_PREFIX: 'ai',
+
+    // Player & AI Defaults
+    DEFAULT_SINGLE_PLAYER_AI_COUNT: 19,
+    DEFAULT_MULTIPLAYER_AI_COUNT: 90,
+    DEFAULT_MAP_SIZE_TERRITORIES: 80, // Reduced for better spacing
+    INITIAL_COLONIZED_ARMY_SIZE: 1,
+    STARTING_FLEET_SIZE: 50, // Reduced from 200 for better balance
+
+    // Territory & Map Configuration
+    TERRITORY_RADIUS: 25,
+    CONNECTION_DISTANCE: 200, // Increased for better connectivity
+    ARMY_GENERATION_INTERVAL: 3000, // 3 seconds per army (slower for balance)
+
+    // Fleet Movement Speeds
+    FLEET_SPEED: 1.0,
+    LONG_RANGE_BASE_SPEED: 25, // Pixels per second
+    LONG_RANGE_MIN_DURATION: 1000,
+    LONG_RANGE_MAX_DURATION: 20000,
+    
+    // Combat System
+    COMBAT_RESOLUTION_DELAY: 1000, // 1 second for ships to arrive
+    
+    // Tech System Bonuses
+    TECH_ATTACK_BONUS_PER_LEVEL: 0.05, // +5% per level
+    TECH_DEFENSE_BONUS_PER_LEVEL: 0.05, // +5% per level
+    TECH_ENGINE_SPEED_BONUS_PER_LEVEL: 0.10, // +10% per level
+    TECH_PRODUCTION_BONUS_PER_LEVEL: 0.10, // +10% per level
+    MAX_TECH_LEVEL: 5,
+
+    // Performance Optimization Constants
+    PERFORMANCE: {
+        VISIBILITY_UPDATE_INTERVAL: 100, // ms between visibility updates
+        AI_FRAME_DIVISION: 3, // Process 1/3 of AI players per frame
+        FPS_MEASUREMENT_INTERVAL: 1000, // ms between FPS calculations
+        SUPPLY_ROUTE_VALIDATION_INTERVAL: 1500, // ms between route validation
+        SUPPLY_ROUTE_PROCESSING_INTERVAL: 3000, // ms between route processing
+        THRONE_STAR_VALIDATION_INTERVAL: 5000, // ms between throne validation
+        MEMORY_CLEANUP_INTERVAL: 10000, // ms between memory cleanup cycles
+    },
+
+    // Discovery System
+    DISCOVERY_TYPES: [
+        'precursor_weapons',
+        'precursor_shield', 
+        'precursor_drive',
+        'precursor_nanotech',
+        'factory_complex',
+        'rich_minerals',
+        'friendly_aliens',
+        'standard_planet'
+    ],
+    
+    DISCOVERY_PROBABILITIES: {
+        'precursor_weapons': 0.08,
+        'precursor_shield': 0.08,
+        'precursor_drive': 0.08,
+        'precursor_nanotech': 0.08,
+        'factory_complex': 0.10,
+        'rich_minerals': 0.15,
+        'friendly_aliens': 0.10,
+        'standard_planet': 0.33 // Remainder
+    },
+
+    // Galaxy Generation
+    GALAXY_LAYOUTS: ['organic', 'clusters', 'spiral', 'core', 'rings', 'binary'],
+    MAP_EXPANSION_FACTOR: 1.6, // 60% larger than base size
+    GALAXY_BOUNDARY_RADIUS_FACTOR: 0.75, // 75% of map area
+    
+    // Nebula System
+    NEBULA_COUNT_MIN: 8,
+    NEBULA_COUNT_MAX: 15,
+    NEBULA_RADIUS_MIN: 80,
+    NEBULA_RADIUS_MAX: 200,
+    NEBULA_SLOWDOWN_FACTOR: 0.33, // Probes move at 1/3 speed in nebulas
+
+    // UI Constants
+    TOOLTIP_DELAY_MS: 500,
+    COMBAT_FLASH_DURATION: 1000,
+    HOME_SYSTEM_FLASH_DURATION: 3000,
+    FLOATING_TEXT_DURATION: 2000,
+    DISCOVERY_ANNOUNCEMENT_DURATION: 4000,
+
+    // Camera System
+    CAMERA_MIN_ZOOM: 0.05,
+    CAMERA_MAX_ZOOM: 8.0,
+    CAMERA_INITIAL_ZOOM: 0.25,
+    CAMERA_INTERPOLATION_SPEED: 0.15,
+    CAMERA_FRICTION: 0.92,
+    CAMERA_MAX_VELOCITY: 20,
+    CAMERA_EDGE_PAN_ZONE: 50,
+    CAMERA_EDGE_PAN_SPEED: 5,
+
+    // Level of Detail Thresholds
+    LOD_STRATEGIC_THRESHOLD: 0.15,
+    LOD_OPERATIONAL_THRESHOLD: 0.8,
+    LOD_TACTICAL_THRESHOLD: 2.0,
+};
+```
+
+### common/types/index.ts
+```typescript
+// Shared types for client and server communication.
+
+export interface PlayerState {
+  id: string;
+  name: string;
+  color: string;
+  type: 'human' | 'ai';
+  socketId?: string;
+  territories: number[];
+  totalTerritories: number;
+  totalArmies: number;
+  isEliminated: boolean;
+  
+  // Tech progression system
+  tech: {
+    attack: number;      // 0-5, +5% damage per level
+    defense: number;     // 0-5, +5% defense per level  
+    engines: number;     // 0-5, +10% speed per level
+    production: number;  // 0-5, +10% generation per level
+  };
+  
+  // Discovery tracking
+  discoveries?: {
+    precursorWeapons: number;
+    precursorDrive: number;
+    precursorShield: number;
+    precursorNanotech: number;
+    factoryPlanets: { [territoryId: number]: boolean };
+    friendlyAliens: number;
+    richMinerals: number;
+    voidStorms: number;
+    ancientRuins: number;
+    hostileAliens: number;
+  };
+}
+
+export interface TerritoryState {
+  id: number;
+  ownerId: string | null;
+  armySize: number;
+  x: number;
+  y: number;
+  radius: number;
+  connections: number[]; // Connected territory IDs
+  
+  // Territory properties
+  isThronestar: boolean;
+  armyGenerationRate: number; // milliseconds per army
+  lastArmyGeneration: number;
+  
+  // Discovery bonuses
+  discoveryBonus?: 'factory' | 'minerals' | 'void_storm';
+  hasFactory?: boolean;
+  hasMinerals?: boolean;
+  
+  // Visual effects
+  lastCombatFlash: number;
+  floatingText?: {
+    text: string;
+    startTime: number;
+    color?: string;
+  };
+}
+
+export interface SupplyRoute {
+  from: number;
+  to: number;
+  playerId: string;
+  isActive: boolean;
+}
+
+export interface GameState {
+  territories: { [id: number]: TerritoryState };
+  players: { [id: string]: PlayerState };
+  tick: number;
+  gameStartTime: number;
+  isGameEnded: boolean;
+  winner?: string;
+}
+
+// Command Protocol for Client-Server Communication
+export interface ClientCommand {
+  type: 'ATTACK_TERRITORY' | 'TRANSFER_ARMIES' | 'CREATE_SUPPLY_ROUTE' | 'LAUNCH_PROBE';
+  payload: AttackTerritoryCommand | TransferArmiesCommand | CreateSupplyRouteCommand | LaunchProbeCommand;
+}
+
+export interface AttackTerritoryCommand {
+  fromTerritoryId: number;
+  toTerritoryId: number;
+  armyCount: number;
+}
+
+export interface TransferArmiesCommand {
+  fromTerritoryId: number;
+  toTerritoryId: number;
+  armyCount: number;
+}
+
+export interface CreateSupplyRouteCommand {
+  fromTerritoryId: number;
+  toTerritoryId: number;
+}
+
+export interface LaunchProbeCommand {
+  fromTerritoryId: number;
+  toTerritoryId: number;
+}
+
+export interface CombatResult {
+  success: boolean;
+  attackingArmies: number;
+  defendingArmies: number;
+  battleId?: string;
+  territoryId?: number;
+  newOwnerId?: string;
+}
+
+export interface CommandError {
+  error: string;
+  details?: string;
+}
+
+// WebSocket Event Types
+export interface ServerToClientEvents {
+  gameState: (state: Partial<GameState>) => void;
+  playerJoined: (player: PlayerState) => void;
+  playerLeft: (playerId: string) => void;
+  combatResult: (result: CombatResult) => void;
+  gameStarted: () => void;
+  gameEnded: (winner?: string) => void;
+  error: (error: string) => void;
+}
+
+export interface ClientToServerEvents {
+  joinGame: (data: { playerName: string; roomId?: string }) => void;
+  executeCommand: (command: ClientCommand) => void;
+  leaveGame: () => void;
+}
+
+export interface GameData {
+  players: PlayerState[];
+  territories: TerritoryState[];
+  supplySystem?: {
+    supplyRoutes: SupplyRoute[];
+  };
+  gameState: 'lobby' | 'playing' | 'ended';
+  humanPlayer?: PlayerState;
+}
+```
+
+## 2. MAIN GAME ENGINE
+
+### client/src/game/StarThrone.js
+```javascript
+import { GameMap } from './GameMap.js';
+import { Player } from './Player.js';
+import { GameUI } from './GameUI.js';
+import { Camera } from './Camera.js';
+import { InputHandler } from './InputHandler.js';
+import { Renderer } from './Renderer.js';
+import { CombatSystem } from './CombatSystem.js';
+import { SupplySystem } from './SupplySystem.js';
+import { PathfindingService } from './PathfindingService.js';
+import { GameUtils } from './utils.js';
+import { GAME_CONSTANTS } from '../../../common/gameConstants';
+import { gameEvents, GAME_EVENTS, EVENT_PRIORITY, EventHelpers } from './EventSystem.js';
+import { PerformanceManager } from './PerformanceManager.js';
+import { PerformanceOverlay } from './PerformanceOverlay.js';
+import { DiscoverySystem } from './DiscoverySystem.js';
+import { AnimationSystem } from './AnimationSystem.js';
+import { UIManager } from './UIManager.js';
+import { AIManager } from './AIManager.js';
+import Controls from './Controls.js';
+
+export default class StarThrone {
+    constructor(config = {}) {
+        this.canvas = null;
+        this.ctx = null;
+        this.gameMap = null;
+        this.players = [];
+        this.humanPlayer = null;
+        this.camera = null;
+        this.ui = null;
+        
+        // Game configuration from config screen
+        this.config = {
+            playerName: config.playerName || 'Player',
+            aiCount: config.aiCount || GAME_CONSTANTS.DEFAULT_SINGLE_PLAYER_AI_COUNT,
+            mapSize: config.mapSize || GAME_CONSTANTS.DEFAULT_MAP_SIZE_TERRITORIES,
+            gameSpeed: config.gameSpeed || 1.0,
+            layout: config.layout || 'organic',
+            ...config
+        };
+        
+        // Game state
+        this.gameState = 'lobby'; // lobby, playing, ended
+        this.gameTimer = 10 * 60 * 1000; // 10 minutes
+        this.maxPlayers = 100;
+        this.currentPlayers = 0;
+        this.gameInitialized = false; // Prevent early win condition checks
+        
+        // Persistent star lane discovery system
+        this.discoveredLanes = new Set(); // Stores "id1-id2" strings for permanently visible lanes
+        
+        // Throne star validation timer
+        this.throneStarValidationTimer = 0;
+        
+        // Home system flashing
+        this.homeSystemFlashStart = null;
+        this.homeSystemFlashDuration = 3000; // 3 seconds
+        
+        // Modular systems (initialized in init())
+        this.inputHandler = null;
+        this.renderer = null;
+        this.combatSystem = null;
+        this.supplySystem = null;
+        this.pathfindingService = null;
+        this.performanceManager = null;
+        this.discoverySystem = null;
+        this.animationSystem = null;
+        this.uiManager = null;
+        this.controls = null;
+        
+        // Legacy properties for backward compatibility
+        this.hoveredTerritory = null;
+        
+        // Performance
+        this.lastFrameTime = 0;
+        this.fps = 0;
+        this.frameCount = 0;
+        this.lastFpsUpdate = 0;
+        
+        // Performance optimizations
+        this.visibleTerritories = new Set();
+        this.lastVisibilityUpdate = 0;
+        this.cullingBatchIndex = 0; // For incremental visibility processing
+        this.performanceStats = {
+            frameTime: 0,
+            renderTime: 0,
+            updateTime: 0,
+            visibleTerritories: 0
+        };
+        this.showPerformancePanel = false; // Toggle with P key
+        
+        // Ship movement animations
+        this.shipAnimations = [];
+        this.shipAnimationPool = []; // Reuse objects to reduce garbage collection
+        this.pendingLongRangeCombats = []; // Track delayed long-range combat arrivals
+        
+        // Pre-populate animation pool with multi-hop support
+        for (let i = 0; i < 20; i++) {
+            this.shipAnimationPool.push({
+                id: null,
+                fromId: null,
+                toId: null,
+                x: 0,
+                y: 0,
+                targetX: 0,
+                targetY: 0,
+                progress: 0,
+                color: '#ffffff',
+                isActive: false,
+                // Multi-hop properties
+                path: null,
+                currentSegment: 0,
+                segmentProgress: 0
+            });
+        }
+        
+        // FPS measurement
+        this.frameTimeHistory = [];
+        this.lastUpdateTime = 0;
+        
+        // Single-player AI management
+        this.aiManager = null;
+        
+        // Game session tracking
+        this.gameStartTime = null;
+        
+        // Discovery tracking (per player)
+        this.discoveries = {
+            precursorWeapons: 0,
+            precursorDrive: 0,
+            precursorShield: 0,
+            precursorNanotech: 0,
+            factoryPlanets: {},
+            friendlyAliens: 0,
+            richMinerals: 0,
+            voidStorms: 0,
+            ancientRuins: 0,
+            hostileAliens: 0
+        };
+        
+        // Fixed discovery panel initialization issue
+        this.playerDiscoveries = this.discoveries;
+        
+        // Initialize game
+        this.init();
+    }
+
+    init() {
+        console.log('Star Throne initializing...');
+        
+        // Create game canvas
+        this.createCanvas();
+        
+        // Initialize modular systems in correct order
+        this.camera = new Camera(this.canvas.width, this.canvas.height);
+        this.ui = new GameUI(this);
+        this.gameMap = new GameMap(this.config.mapSize, this.config.layout);
+        this.pathfindingService = new PathfindingService();
+        this.combatSystem = new CombatSystem(this);
+        this.supplySystem = new SupplySystem(this);
+        this.performanceManager = new PerformanceManager();
+        this.discoverySystem = new DiscoverySystem();
+        this.animationSystem = new AnimationSystem(this);
+        this.uiManager = new UIManager(this);
+        this.inputHandler = new InputHandler(this);
+        this.renderer = new Renderer(this);
+        this.controls = new Controls(this);
+        
+        // Initialize AI manager for single-player games
+        this.aiManager = new AIManager(this);
+        
+        // Set up event system
+        this.setupEventListeners();
+        
+        // Start the game
+        this.startSinglePlayerGame();
+    }
+
+    createCanvas() {
+        this.canvas = document.getElementById('gameCanvas');
+        if (!this.canvas) {
+            this.canvas = document.createElement('canvas');
+            this.canvas.id = 'gameCanvas';
+            this.canvas.width = window.innerWidth;
+            this.canvas.height = window.innerHeight;
+            this.canvas.style.display = 'block';
+            this.canvas.style.cursor = 'crosshair';
+            this.canvas.style.touchAction = 'none'; // Prevent touch scrolling
+            document.body.appendChild(this.canvas);
+        }
+        
+        this.ctx = this.canvas.getContext('2d');
+        
+        // High-DPI support
+        const devicePixelRatio = window.devicePixelRatio || 1;
+        if (devicePixelRatio > 1) {
+            const displayWidth = this.canvas.clientWidth;
+            const displayHeight = this.canvas.clientHeight;
+            
+            this.canvas.width = displayWidth * devicePixelRatio;
+            this.canvas.height = displayHeight * devicePixelRatio;
+            this.canvas.style.width = displayWidth + 'px';
+            this.canvas.style.height = displayHeight + 'px';
+            
+            this.ctx.scale(devicePixelRatio, devicePixelRatio);
+        }
+        
+        // Handle canvas resize
+        window.addEventListener('resize', () => {
+            this.canvas.width = window.innerWidth;
+            this.canvas.height = window.innerHeight;
+            
+            // High-DPI scaling on resize
+            const devicePixelRatio = window.devicePixelRatio || 1;
+            if (devicePixelRatio > 1) {
+                const displayWidth = this.canvas.clientWidth;
+                const displayHeight = this.canvas.clientHeight;
+                
+                this.canvas.width = displayWidth * devicePixelRatio;
+                this.canvas.height = displayHeight * devicePixelRatio;
+                this.canvas.style.width = displayWidth + 'px';
+                this.canvas.style.height = displayHeight + 'px';
+                
+                this.ctx.scale(devicePixelRatio, devicePixelRatio);
+            }
+            
+            if (this.camera) {
+                this.camera.updateCanvasSize(this.canvas.width, this.canvas.height);
+            }
+        });
+    }
+
+    setupEventListeners() {
+        // Keyboard event listeners
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                this.controls.focusOnSelected();
+            } else if (e.code === 'KeyH') {
+                e.preventDefault();
+                this.controls.centerOnThronestar();
+            }
+        });
+    }
+
+    startSinglePlayerGame() {
+        console.log('Starting single-player game...');
+        
+        this.gameState = 'playing';
+        this.gameStartTime = Date.now();
+        this.gameInitialized = true; // Allow win condition checks
+        
+        // Create players
+        this.createPlayers();
+        
+        // Distribute starting territories
+        this.distributeStartingTerritories();
+        
+        // Start home system flashing
+        this.homeSystemFlashStart = Date.now();
+        
+        // Start game loop
+        this.gameLoop();
+        
+        console.log(`Game started with ${this.players.length} players on ${this.gameMap.territories.length} territories`);
+    }
+
+    createPlayers() {
+        const colors = [
+            '#00FFFF', // Cyan for human player
+            '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57', '#FF9FF3', '#54A0FF',
+            '#5F27CD', '#00D2D3', '#FF9F43', '#EE5A24', '#0AB8FF', '#F368E0', '#FF3838',
+            '#1DD1A1', '#FEC62E', '#A55EEA', '#26D0CE', '#FD79A8', '#6C5CE7', '#FDCB6E',
+            '#E17055', '#74B9FF', '#81ECEC', '#FAB1A0', '#00B894', '#FDCB6E', '#E84393'
+        ];
+        
+        this.players = [];
+        
+        // Create human player (always player 0)
+        const humanPlayer = new Player(0, this.config.playerName, colors[0], 'human');
+        this.players.push(humanPlayer);
+        this.humanPlayer = humanPlayer;
+        
+        // Create AI players
+        for (let i = 1; i <= this.config.aiCount; i++) {
+            const aiName = GameUtils.generateAIPlayerName();
+            const color = colors[i % colors.length];
+            const aiPlayer = new Player(i, aiName, color, 'ai');
+            this.players.push(aiPlayer);
+        }
+        
+        console.log(`Created ${this.players.length} players: 1 human, ${this.config.aiCount} AI`);
+    }
+
+    distributeStartingTerritories() {
+        const totalPlayers = this.players.length;
+        const territories = this.gameMap.territories;
+        
+        // Find suitable starting positions with maximum distance
+        const startingPositions = this.findStartingPositions(territories, totalPlayers);
+        
+        // Assign starting territories
+        for (let i = 0; i < totalPlayers && i < startingPositions.length; i++) {
+            const territory = startingPositions[i];
+            const player = this.players[i];
+            
+            // Colonize starting territory
+            territory.ownerId = player.id;
+            territory.armySize = GAME_CONSTANTS.STARTING_FLEET_SIZE;
+            territory.isThronestar = true; // Mark as throne star
+            
+            // Add to player's territories
+            player.territories.push(territory.id);
+            player.totalTerritories = 1;
+            player.totalArmies = territory.armySize;
+            
+            console.log(`Player ${player.name} starts at territory ${territory.id} (${territory.x}, ${territory.y})`);
+        }
+    }
+
+    findStartingPositions(territories, playerCount) {
+        const positions = [];
+        const minDistance = 200; // Minimum distance between players
+        
+        // Sort territories by distance from center for better distribution
+        const centerX = this.gameMap.mapBounds.width / 2;
+        const centerY = this.gameMap.mapBounds.height / 2;
+        
+        const candidateTerritories = territories.filter(t => !t.isColonizable).sort((a, b) => {
+            const distA = Math.sqrt((a.x - centerX) ** 2 + (a.y - centerY) ** 2);
+            const distB = Math.sqrt((b.x - centerX) ** 2 + (b.y - centerY) ** 2);
+            return distA - distB;
+        });
+        
+        // Place first player
+        if (candidateTerritories.length > 0) {
+            positions.push(candidateTerritories[0]);
+        }
+        
+        // Place remaining players with distance constraints
+        for (let i = 1; i < playerCount && positions.length < candidateTerritories.length; i++) {
+            let bestTerritory = null;
+            let maxMinDistance = 0;
+            
+            for (const territory of candidateTerritories) {
+                if (positions.includes(territory)) continue;
+                
+                // Calculate minimum distance to all existing positions
+                let minDistanceToExisting = Infinity;
+                for (const existingPos of positions) {
+                    const distance = Math.sqrt(
+                        (territory.x - existingPos.x) ** 2 + 
+                        (territory.y - existingPos.y) ** 2
+                    );
+                    minDistanceToExisting = Math.min(minDistanceToExisting, distance);
+                }
+                
+                // Choose territory that maximizes minimum distance
+                if (minDistanceToExisting > maxMinDistance && minDistanceToExisting >= minDistance) {
+                    maxMinDistance = minDistanceToExisting;
+                    bestTerritory = territory;
+                }
+            }
+            
+            if (bestTerritory) {
+                positions.push(bestTerritory);
+            } else {
+                // Fallback: just pick the next available territory
+                for (const territory of candidateTerritories) {
+                    if (!positions.includes(territory)) {
+                        positions.push(territory);
+                        break;
+                    }
+                }
+            }
+        }
+        
+        return positions;
+    }
+
+    gameLoop() {
+        const currentTime = performance.now();
+        const deltaTime = currentTime - this.lastFrameTime;
+        this.lastFrameTime = currentTime;
+        
+        if (this.gameState === 'playing') {
+            // Update performance stats
+            const updateStart = performance.now();
+            this.update(deltaTime);
+            const updateEnd = performance.now();
+            
+            const renderStart = performance.now();
+            this.render();
+            const renderEnd = performance.now();
+            
+            // Track performance
+            this.performanceStats.frameTime = currentTime - this.lastUpdateTime;
+            this.performanceStats.updateTime = updateEnd - updateStart;
+            this.performanceStats.renderTime = renderEnd - renderStart;
+            this.performanceStats.visibleTerritories = this.visibleTerritories.size;
+            this.lastUpdateTime = currentTime;
+            
+            // FPS calculation
+            this.frameCount++;
+            if (currentTime - this.lastFpsUpdate >= 1000) {
+                this.fps = Math.round(this.frameCount * 1000 / (currentTime - this.lastFpsUpdate));
+                this.frameCount = 0;
+                this.lastFpsUpdate = currentTime;
+            }
+        } else if (this.gameState === 'ended') {
+            // Still render game over screen
+            this.render();
+        }
+        
+        requestAnimationFrame(() => this.gameLoop());
+    }
+
+    update(deltaTime) {
+        // Update camera
+        this.camera.update(deltaTime);
+        
+        // Update modular systems
+        this.combatSystem.update(deltaTime);
+        this.supplySystem.update(deltaTime);
+        this.animationSystem.update(deltaTime);
+        
+        // Update players (territories, AI)
+        this.updatePlayers(deltaTime);
+        
+        // Update AI manager
+        this.aiManager.update(deltaTime);
+        
+        // Update performance optimizations
+        this.updateViewportCulling();
+        
+        // Validate throne stars periodically
+        this.throneStarValidationTimer += deltaTime;
+        if (this.throneStarValidationTimer >= GAME_CONSTANTS.PERFORMANCE.THRONE_STAR_VALIDATION_INTERVAL) {
+            this.validateThroneStars();
+            this.throneStarValidationTimer = 0;
+        }
+        
+        // Memory cleanup
+        this.performMemoryCleanup();
+        
+        // Check win conditions
+        this.checkWinConditions();
+    }
+
+    updatePlayers(deltaTime) {
+        this.players.forEach(player => {
+            if (!player.isEliminated) {
+                player.update(deltaTime, this.gameMap, this.config.gameSpeed, this);
+            }
+        });
+    }
+
+    updateViewportCulling() {
+        const currentTime = performance.now();
+        
+        // Adaptive culling intervals based on performance
+        const baseInterval = GAME_CONSTANTS.PERFORMANCE.VISIBILITY_UPDATE_INTERVAL;
+        const adaptiveInterval = this.fps < 30 ? baseInterval * 1.5 : baseInterval;
+        
+        if (currentTime - this.lastVisibilityUpdate > adaptiveInterval) {
+            const territories = this.gameMap.territories;
+            
+            // Large maps: process incrementally to prevent frame drops
+            if (territories.length > 200) {
+                const batchSize = Math.ceil(territories.length / 3);
+                const startIdx = (this.cullingBatchIndex * batchSize) % territories.length;
+                const endIdx = Math.min(startIdx + batchSize, territories.length);
+                
+                for (let i = startIdx; i < endIdx; i++) {
+                    const territory = territories[i];
+                    if (this.camera.isVisible(territory.x, territory.y, territory.radius * 2)) {
+                        this.visibleTerritories.add(territory.id);
+                    } else {
+                        this.visibleTerritories.delete(territory.id);
+                    }
+                }
+                
+                this.cullingBatchIndex = (this.cullingBatchIndex + 1) % 3;
+            } else {
+                // Small maps: process all at once
+                this.visibleTerritories.clear();
+                territories.forEach(territory => {
+                    if (this.camera.isVisible(territory.x, territory.y, territory.radius * 2)) {
+                        this.visibleTerritories.add(territory.id);
+                    }
+                });
+            }
+            
+            this.lastVisibilityUpdate = currentTime;
+        }
+    }
+
+    performMemoryCleanup() {
+        // Clean up completed ship animations
+        this.shipAnimations = this.shipAnimations.filter(anim => anim.isActive);
+        
+        // Return unused animations to pool
+        const inactiveAnimations = this.shipAnimations.filter(anim => !anim.isActive);
+        inactiveAnimations.forEach(anim => {
+            anim.isActive = false;
+            if (this.shipAnimationPool.length < 20) {
+                this.shipAnimationPool.push(anim);
+            }
+        });
+        
+        console.log('Memory cleanup triggered');
+    }
+
+    render() {
+        this.renderer.render();
+    }
+
+    validateThroneStars() {
+        console.log('🔍 THRONE VALIDATION: Starting validation...');
+        
+        const throneStars = this.gameMap.territories.filter(t => t.isThronestar);
+        console.log('🔍 THRONE VALIDATION: Found throne stars:', throneStars.map(t => ({ id: t.id, owner: t.ownerId })));
+        
+        // Count throne stars per player
+        const throneCountByPlayer = new Map();
+        this.players.forEach(player => throneCountByPlayer.set(player.id, 0));
+        
+        throneStars.forEach(throne => {
+            if (throne.ownerId !== null) {
+                const currentCount = throneCountByPlayer.get(throne.ownerId) || 0;
+                throneCountByPlayer.set(throne.ownerId, currentCount + 1);
+            }
+        });
+        
+        console.log('🔍 THRONE VALIDATION: Player throne counts:', Array.from(throneCountByPlayer.entries()));
+        
+        // Fix players with multiple throne stars
+        let fixesApplied = false;
+        throneCountByPlayer.forEach((count, playerId) => {
+            if (count > 1) {
+                console.log(`🔍 THRONE VALIDATION: Player ${playerId} has ${count} throne stars, fixing...`);
+                
+                // Find all throne stars owned by this player
+                const playerThrones = throneStars.filter(t => t.ownerId === playerId);
+                
+                // Keep only the first one, remove throne status from others
+                for (let i = 1; i < playerThrones.length; i++) {
+                    playerThrones[i].isThronestar = false;
+                    console.log(`🔍 THRONE VALIDATION: Removed throne status from territory ${playerThrones[i].id}`);
+                    fixesApplied = true;
+                }
+            }
+        });
+        
+        if (fixesApplied) {
+            console.log('🔍 THRONE VALIDATION: Fixes applied, validation complete');
+        } else {
+            console.log('🔍 THRONE VALIDATION: No fixes needed, all players have single throne stars');
+        }
+    }
+
+    checkWinConditions() {
+        if (!this.gameInitialized) return;
+        
+        const alivePlayers = this.players.filter(p => !p.isEliminated);
+        
+        if (alivePlayers.length <= 1) {
+            this.gameState = 'ended';
+            
+            if (alivePlayers.length === 1) {
+                const winner = alivePlayers[0];
+                console.log(`🏆 VICTORY: ${winner.name} wins the game!`);
+            } else {
+                console.log('🏆 VICTORY: Draw game - no survivors');
+            }
+        }
+    }
+
+    // UI interaction methods
+    isUIElement(x, y) {
+        return this.ui.isUIElement(x, y);
+    }
+
+    handleUIClick(x, y) {
+        return this.ui.handleClick(x, y);
+    }
+
+    // Territory query methods
+    findTerritoryAt(x, y) {
+        // Use visible territories set for O(1) performance improvement
+        for (const territoryId of this.visibleTerritories) {
+            const territory = this.gameMap.territories[territoryId];
+            if (territory && this.isPointInTerritory(x, y, territory)) {
+                return territory;
+            }
+        }
+        return null;
+    }
+
+    isPointInTerritory(x, y, territory) {
+        const worldCoords = this.camera.screenToWorld(x, y);
+        const distance = Math.sqrt(
+            (worldCoords.x - territory.x) ** 2 + 
+            (worldCoords.y - territory.y) ** 2
+        );
+        return distance <= territory.radius;
+    }
+
+    // Territory rendering helpers
+    shouldRenderTerritoryDetails(territory) {
+        // Level of Detail based on zoom
+        const zoom = this.camera.zoom;
+        
+        if (zoom < 0.15) {
+            // Strategic view: minimal details
+            return false;
+        } else if (zoom < 0.8) {
+            // Operational view: moderate details
+            return territory.ownerId !== null;
+        } else {
+            // Tactical view: full details
+            return true;
+        }
+    }
+
+    isHomeSystemFlashing() {
+        if (!this.homeSystemFlashStart) return false;
+        const elapsed = Date.now() - this.homeSystemFlashStart;
+        return elapsed < this.homeSystemFlashDuration;
+    }
+
+    // Legacy getter for backwards compatibility
+    get selectedTerritory() {
+        return this.inputHandler ? this.inputHandler.selectedTerritory : null;
+    }
+}
+```
+
+## 3. INPUT HANDLING SYSTEM
+
+### client/src/game/InputHandler.js
+```javascript
+/**
+ * InputHandler.js - Simplified input processing module
+ * 
+ * Processes raw browser events into simple left-click selection and right-click contextual actions.
+ * Current implementation uses dual mouse button system - target for single button modification.
+ */
+
+import { InputStateMachine } from './InputStateMachine.js';
+
+export class InputHandler {
+    constructor(game) {
+        this.game = game;
+        this.hoveredTerritory = null;
+        this.canvas = game.canvas;
+        
+        // Cached canvas measurements for performance
+        this.canvasRect = null;
+        this.canvasRectCacheTime = 0;
+        this.canvasRectCacheDuration = 1000; // Cache for 1 second
+        
+        // Throttled input processing
+        this.inputThrottleInterval = 16; // 60 FPS max
+        this.lastInputTime = 0;
+        this.pendingEvents = [];
+        
+        // Simplified input state
+        this.mousePos = { x: 0, y: 0 };
+        this.lastMousePos = { x: 0, y: 0 };
+        this.isDragging = false;
+        this.dragStartPos = null;
+        this.dragStartTime = null;
+        
+        // Double-click handling for supply routes
+        this.lastClickTime = 0;
+        this.lastClickedTerritory = null;
+        this.doubleClickThreshold = 250; // ms
+        
+        // Touch state for mobile support
+        this.touchState = {
+            activeTouches: new Map(),
+            lastTouchDistance: null,
+            lastPinchCenter: null,
+            panVelocity: { x: 0, y: 0 },
+            lastPanTime: 0
+        };
+        
+        // Initialize FSM
+        this.inputFSM = new InputStateMachine(game);
+        
+        this.setupEventListeners();
+    }
+    
+    setupEventListeners() {
+        // Mouse events with throttling
+        this.canvas.addEventListener('mousedown', (e) => this.throttleInput(() => this.handleMouseDown(e)));
+        this.canvas.addEventListener('mousemove', (e) => this.throttleInput(() => this.handleMouseMove(e)));
+        this.canvas.addEventListener('mouseup', (e) => this.throttleInput(() => this.handleMouseUp(e)));
+        this.canvas.addEventListener('wheel', (e) => this.throttleInput(() => this.handleWheel(e)));
+        this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+        
+        // Touch events for mobile
+        this.canvas.addEventListener('touchstart', (e) => this.throttleInput(() => this.handleTouchStart(e)));
+        this.canvas.addEventListener('touchmove', (e) => this.throttleInput(() => this.handleTouchMove(e)));
+        this.canvas.addEventListener('touchend', (e) => this.throttleInput(() => this.handleTouchEnd(e)));
+        this.canvas.addEventListener('touchcancel', (e) => this.throttleInput(() => this.handleTouchEnd(e)));
+        
+        // Window events for cache invalidation
+        window.addEventListener('resize', () => this.invalidateCanvasRectCache());
+        window.addEventListener('scroll', () => this.invalidateCanvasRectCache());
+    }
+    
+    throttleInput(eventHandler) {
+        const currentTime = performance.now();
+        
+        if (currentTime - this.lastInputTime >= this.inputThrottleInterval) {
+            eventHandler();
+            this.lastInputTime = currentTime;
+        } else {
+            // Queue for later processing
+            this.pendingEvents.push(eventHandler);
+        }
+    }
+    
+    processPendingEvents() {
+        const currentTime = performance.now();
+        
+        if (currentTime - this.lastInputTime >= this.inputThrottleInterval && this.pendingEvents.length > 0) {
+            const eventHandler = this.pendingEvents.shift();
+            eventHandler();
+            this.lastInputTime = currentTime;
+        }
+    }
+    
+    getCachedCanvasRect() {
+        const currentTime = performance.now();
+        
+        if (!this.canvasRect || currentTime - this.canvasRectCacheTime > this.canvasRectCacheDuration) {
+            this.canvasRect = this.canvas.getBoundingClientRect();
+            this.canvasRectCacheTime = currentTime;
+        }
+        
+        return this.canvasRect;
+    }
+    
+    invalidateCanvasRectCache() {
+        this.canvasRect = null;
+        this.canvasRectCacheTime = 0;
+    }
+    
+    handleMouseDown(e) {
+        e.preventDefault();
+        this.updateMousePosition(e);
+        
+        this.isDragging = false;
+        this.dragStartPos = { x: this.mousePos.x, y: this.mousePos.y };
+        this.dragStartTime = Date.now();
+        
+        if (e.button === 0) { // Left click
+            this.inputFSM.handleEvent('mousedown_left', {
+                x: this.mousePos.x,
+                y: this.mousePos.y,
+                button: 'left'
+            });
+        } else if (e.button === 2) { // Right click
+            this.inputFSM.handleEvent('mousedown_right', {
+                x: this.mousePos.x,
+                y: this.mousePos.y,
+                button: 'right'
+            });
+        }
+    }
+    
+    handleMouseMove(e) {
+        this.lastMousePos = { ...this.mousePos };
+        this.updateMousePosition(e);
+        
+        // Check if we're dragging
+        if (this.dragStartPos) {
+            const distance = Math.sqrt(
+                (this.mousePos.x - this.dragStartPos.x) ** 2 + 
+                (this.mousePos.y - this.dragStartPos.y) ** 2
+            );
+            
+            if (distance > 5 && !this.isDragging) {
+                this.isDragging = true;
+                this.inputFSM.handleEvent('drag_start', {
+                    startX: this.dragStartPos.x,
+                    startY: this.dragStartPos.y,
+                    currentX: this.mousePos.x,
+                    currentY: this.mousePos.y
+                });
+            } else if (this.isDragging) {
+                this.inputFSM.handleEvent('drag_move', {
+                    x: this.mousePos.x,
+                    y: this.mousePos.y,
+                    deltaX: this.mousePos.x - this.lastMousePos.x,
+                    deltaY: this.mousePos.y - this.lastMousePos.y
+                });
+            }
+        }
+        
+        // Update hover state
+        this.inputFSM.handleEvent('mouse_move', {
+            x: this.mousePos.x,
+            y: this.mousePos.y
+        });
+    }
+    
+    handleMouseUp(e) {
+        e.preventDefault();
+        this.updateMousePosition(e);
+        
+        if (e.button === 0) { // Left click release
+            if (this.isDragging) {
+                this.inputFSM.handleEvent('drag_end', {
+                    startX: this.dragStartPos.x,
+                    startY: this.dragStartPos.y,
+                    endX: this.mousePos.x,
+                    endY: this.mousePos.y
+                });
+            } else {
+                // Handle double-click detection
+                const currentTime = Date.now();
+                const clickedTerritory = this.game.findTerritoryAt(this.mousePos.x, this.mousePos.y);
+                
+                if (currentTime - this.lastClickTime < this.doubleClickThreshold && 
+                    clickedTerritory === this.lastClickedTerritory) {
+                    // Double-click detected
+                    this.inputFSM.handleEvent('double_click', {
+                        x: this.mousePos.x,
+                        y: this.mousePos.y,
+                        territory: clickedTerritory
+                    });
+                } else {
+                    // Single click
+                    this.inputFSM.handleEvent('click_left', {
+                        x: this.mousePos.x,
+                        y: this.mousePos.y
+                    });
+                }
+                
+                this.lastClickTime = currentTime;
+                this.lastClickedTerritory = clickedTerritory;
+            }
+        } else if (e.button === 2) { // Right click release
+            if (!this.isDragging) {
+                this.inputFSM.handleEvent('click_right', {
+                    x: this.mousePos.x,
+                    y: this.mousePos.y,
+                    shiftKey: e.shiftKey,
+                    ctrlKey: e.ctrlKey
+                });
+            }
+        }
+        
+        this.isDragging = false;
+        this.dragStartPos = null;
+        this.dragStartTime = null;
+    }
+    
+    handleWheel(e) {
+        e.preventDefault();
+        this.updateMousePosition(e);
+        
+        this.inputFSM.handleEvent('wheel', {
+            x: this.mousePos.x,
+            y: this.mousePos.y,
+            deltaY: e.deltaY
+        });
+    }
+    
+    // Touch event handlers for mobile support
+    handleTouchStart(e) {
+        e.preventDefault();
+        
+        for (const touch of e.changedTouches) {
+            this.touchState.activeTouches.set(touch.identifier, {
+                x: touch.clientX,
+                y: touch.clientY,
+                startTime: Date.now()
+            });
+        }
+        
+        if (e.touches.length === 1) {
+            // Single touch - potential tap or drag
+            const touch = e.touches[0];
+            this.mousePos = { x: touch.clientX, y: touch.clientY };
+            this.dragStartPos = { ...this.mousePos };
+            this.dragStartTime = Date.now();
+            
+            this.inputFSM.handleEvent('touch_start', {
+                x: this.mousePos.x,
+                y: this.mousePos.y,
+                touchCount: 1
+            });
+        } else if (e.touches.length === 2) {
+            // Two touches - pinch or pan
+            const touch1 = e.touches[0];
+            const touch2 = e.touches[1];
+            
+            const distance = Math.sqrt(
+                (touch1.clientX - touch2.clientX) ** 2 + 
+                (touch1.clientY - touch2.clientY) ** 2
+            );
+            
+            this.touchState.lastTouchDistance = distance;
+            this.touchState.lastPinchCenter = {
+                x: (touch1.clientX + touch2.clientX) / 2,
+                y: (touch1.clientY + touch2.clientY) / 2
+            };
+            
+            this.inputFSM.handleEvent('pinch_start', {
+                centerX: this.touchState.lastPinchCenter.x,
+                centerY: this.touchState.lastPinchCenter.y,
+                distance: distance
+            });
+        }
+    }
+    
+    handleTouchMove(e) {
+        e.preventDefault();
+        
+        if (e.touches.length === 1) {
+            // Single touch movement
+            const touch = e.touches[0];
+            const newPos = { x: touch.clientX, y: touch.clientY };
+            
+            if (this.dragStartPos) {
+                const distance = Math.sqrt(
+                    (newPos.x - this.dragStartPos.x) ** 2 + 
+                    (newPos.y - this.dragStartPos.y) ** 2
+                );
+                
+                if (distance > 10 && !this.isDragging) {
+                    this.isDragging = true;
+                    this.inputFSM.handleEvent('drag_start', {
+                        startX: this.dragStartPos.x,
+                        startY: this.dragStartPos.y,
+                        currentX: newPos.x,
+                        currentY: newPos.y
+                    });
+                } else if (this.isDragging) {
+                    this.inputFSM.handleEvent('drag_move', {
+                        x: newPos.x,
+                        y: newPos.y,
+                        deltaX: newPos.x - this.mousePos.x,
+                        deltaY: newPos.y - this.mousePos.y
+                    });
+                }
+            }
+            
+            this.mousePos = newPos;
+        } else if (e.touches.length === 2) {
+            // Two touch movement - pinch gesture
+            const touch1 = e.touches[0];
+            const touch2 = e.touches[1];
+            
+            const distance = Math.sqrt(
+                (touch1.clientX - touch2.clientX) ** 2 + 
+                (touch1.clientY - touch2.clientY) ** 2
+            );
+            
+            const center = {
+                x: (touch1.clientX + touch2.clientX) / 2,
+                y: (touch1.clientY + touch2.clientY) / 2
+            };
+            
+            if (this.touchState.lastTouchDistance && 
+                Math.abs(distance - this.touchState.lastTouchDistance) > 2) {
+                
+                this.inputFSM.handleEvent('pinch_move', {
+                    centerX: center.x,
+                    centerY: center.y,
+                    distance: distance,
+                    previousDistance: this.touchState.lastTouchDistance,
+                    scale: distance / this.touchState.lastTouchDistance
+                });
+            }
+            
+            this.touchState.lastTouchDistance = distance;
+            this.touchState.lastPinchCenter = center;
+        }
+    }
+    
+    handleTouchEnd(e) {
+        e.preventDefault();
+        
+        // Clean up ended touches
+        for (const touch of e.changedTouches) {
+            this.touchState.activeTouches.delete(touch.identifier);
+        }
+        
+        if (e.touches.length === 0) {
+            // All touches ended
+            if (this.isDragging) {
+                this.inputFSM.handleEvent('drag_end', {
+                    startX: this.dragStartPos.x,
+                    startY: this.dragStartPos.y,
+                    endX: this.mousePos.x,
+                    endY: this.mousePos.y
+                });
+            } else if (this.dragStartTime && 
+                      Date.now() - this.dragStartTime < 200) {
+                // Quick tap
+                this.inputFSM.handleEvent('tap', {
+                    x: this.mousePos.x,
+                    y: this.mousePos.y
+                });
+            }
+            
+            this.isDragging = false;
+            this.dragStartPos = null;
+            this.dragStartTime = null;
+        } else if (e.touches.length === 1) {
+            // One touch remaining - end pinch
+            this.inputFSM.handleEvent('pinch_end', {});
+            this.touchState.lastTouchDistance = null;
+            this.touchState.lastPinchCenter = null;
+        }
+    }
+    
+    updateMousePosition(e) {
+        const rect = this.getCachedCanvasRect();
+        this.mousePos = {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top
+        };
+    }
+    
+    // Update method called from main game loop
+    update(deltaTime) {
+        // Process any pending throttled events
+        this.processPendingEvents();
+        
+        // Update hover state
+        this.updateHoveredTerritory();
+    }
+    
+    // Public interface methods
+    getHoveredTerritory() {
+        return this.hoveredTerritory;
+    }
+    
+    updateHoveredTerritory() {
+        this.hoveredTerritory = this.game.findTerritoryAt(this.mousePos.x, this.mousePos.y);
+    }
+    
+    // Legacy compatibility methods
+    get selectedTerritory() {
+        return this.inputFSM.selectedTerritory;
+    }
+}
+```
+
+### client/src/game/InputStateMachine.js
+```javascript
+/**
+ * InputStateMachine.js - Finite State Machine for input handling
+ * 
+ * Manages game input states and transitions between different interaction modes.
+ * Current implementation: dual mouse button system with modifiers
+ * Target modification: single mouse button with alternative interaction methods
+ */
+
+export class InputStateMachine {
+    constructor(game) {
+        this.game = game;
+        this.state = 'idle';
+        this.selectedTerritory = null;
+        
+        // Camera panning state
+        this.isPanning = false;
+        this.panStartPos = null;
+        
+        // Long press detection for mobile
+        this.longPressTimer = null;
+        this.longPressThreshold = 800; // ms
+        this.longPressTriggered = false;
+        
+        // Proportional fleet control state
+        this.isProportionalDrag = false;
+        this.proportionalDragStartTime = null;
+        this.proportionalDragThreshold = 300; // ms
+        this.proportionalDragMinDistance = 15; // pixels
+        
+        // Modifier key tracking for fleet commands
+        this.modifierKeys = {
+            shift: false,
+            ctrl: false,
+            alt: false
+        };
+        
+        this.setupModifierTracking();
+    }
+    
+    setupModifierTracking() {
+        document.addEventListener('keydown', (e) => {
+            this.modifierKeys.shift = e.shiftKey;
+            this.modifierKeys.ctrl = e.ctrlKey;
+            this.modifierKeys.alt = e.altKey;
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            this.modifierKeys.shift = e.shiftKey;
+            this.modifierKeys.ctrl = e.ctrlKey;
+            this.modifierKeys.alt = e.altKey;
+        });
+    }
+    
+    handleEvent(eventType, eventData) {
+        const prevState = this.state;
+        
+        switch (this.state) {
+            case 'idle':
+                this.handleIdleState(eventType, eventData);
+                break;
+            case 'territory_selected':
+                this.handleTerritorySelectedState(eventType, eventData);
+                break;
+            case 'camera_panning':
+                this.handleCameraPanningState(eventType, eventData);
+                break;
+            case 'proportional_drag':
+                this.handleProportionalDragState(eventType, eventData);
+                break;
+        }
+        
+        // Update hover state for tooltips
+        if (eventType === 'mouse_move') {
+            this.updateHoverState(eventData);
+        }
+    }
+    
+    handleIdleState(eventType, eventData) {
+        switch (eventType) {
+            case 'click_left':
+                this.handleLeftClick(eventData);
+                break;
+            case 'click_right':
+                this.handleRightClick(eventData);
+                break;
+            case 'drag_start':
+                this.startCameraPanning(eventData);
+                break;
+            case 'tap':
+                this.handleLeftClick(eventData); // Mobile tap = left click
+                break;
+            case 'wheel':
+                this.handleZoom(eventData);
+                break;
+            case 'pinch_move':
+                this.handlePinchZoom(eventData);
+                break;
+        }
+    }
+    
+    handleTerritorySelectedState(eventType, eventData) {
+        switch (eventType) {
+            case 'click_left':
+                this.handleLeftClick(eventData);
+                break;
+            case 'click_right':
+                this.handleRightClick(eventData);
+                break;
+            case 'double_click':
+                this.handleDoubleClick(eventData);
+                break;
+            case 'drag_start':
+                this.checkProportionalDrag(eventData);
+                break;
+            case 'tap':
+                this.handleLeftClick(eventData);
+                break;
+            case 'wheel':
+                this.handleZoom(eventData);
+                break;
+            case 'pinch_move':
+                this.handlePinchZoom(eventData);
+                break;
+            case 'touch_start':
+                this.startLongPressTimer(eventData);
+                break;
+        }
+    }
+    
+    handleCameraPanningState(eventType, eventData) {
+        switch (eventType) {
+            case 'drag_move':
+                this.updateCameraPanning(eventData);
+                break;
+            case 'drag_end':
+                this.endCameraPanning(eventData);
+                break;
+        }
+    }
+    
+    handleProportionalDragState(eventType, eventData) {
+        switch (eventType) {
+            case 'drag_move':
+                this.updateProportionalDrag(eventData);
+                break;
+            case 'drag_end':
+                this.endProportionalDrag(eventData);
+                break;
+        }
+    }
+    
+    handleLeftClick(eventData) {
+        const { x, y } = eventData;
+        
+        // Check UI elements first
+        if (this.game.isUIElement(x, y)) {
+            this.game.handleUIClick(x, y);
+            return;
+        }
+        
+        // Territory selection
+        const clickedTerritory = this.game.findTerritoryAt(x, y);
+        
+        if (clickedTerritory) {
+            if (this.selectedTerritory === clickedTerritory) {
+                // Clicking same territory - keep it selected for multiple actions
+                return;
+            } else {
+                // Select new territory
+                this.selectedTerritory = clickedTerritory;
+                this.state = 'territory_selected';
+            }
+        } else {
+            // Clicked empty space - deselect
+            this.selectedTerritory = null;
+            this.state = 'idle';
+        }
+    }
+    
+    handleRightClick(eventData) {
+        const { x, y, shiftKey, ctrlKey } = eventData;
+        
+        if (!this.selectedTerritory) return;
+        
+        const targetTerritory = this.game.findTerritoryAt(x, y);
+        if (!targetTerritory) return;
+        
+        // Determine fleet percentage based on modifier keys
+        let fleetPercentage = 0.5; // Default 50%
+        if (shiftKey || this.modifierKeys.shift) {
+            fleetPercentage = 1.0; // Send all (minus 1)
+        } else if (ctrlKey || this.modifierKeys.ctrl) {
+            fleetPercentage = 0.25; // Send 25%
+        }
+        
+        this.executeFleetCommand(this.selectedTerritory, targetTerritory, fleetPercentage);
+    }
+    
+    handleDoubleClick(eventData) {
+        const { territory } = eventData;
+        
+        if (this.selectedTerritory && territory && 
+            this.selectedTerritory !== territory &&
+            this.selectedTerritory.ownerId === this.game.humanPlayer.id &&
+            territory.ownerId === this.game.humanPlayer.id) {
+            
+            // Create supply route between friendly territories
+            this.game.supplySystem.createSupplyRoute(this.selectedTerritory.id, territory.id);
+        }
+    }
+    
+    startCameraPanning(eventData) {
+        this.isPanning = true;
+        this.panStartPos = { x: eventData.startX, y: eventData.startY };
+        this.state = 'camera_panning';
+    }
+    
+    updateCameraPanning(eventData) {
+        if (this.isPanning && this.panStartPos) {
+            const deltaX = eventData.deltaX;
+            const deltaY = eventData.deltaY;
+            
+            this.game.camera.pan(-deltaX, -deltaY);
+        }
+    }
+    
+    endCameraPanning(eventData) {
+        this.isPanning = false;
+        this.panStartPos = null;
+        
+        // Return to previous state based on selection
+        this.state = this.selectedTerritory ? 'territory_selected' : 'idle';
+    }
+    
+    checkProportionalDrag(eventData) {
+        if (!this.selectedTerritory) {
+            this.startCameraPanning(eventData);
+            return;
+        }
+        
+        // Start proportional drag if from selected territory
+        const startTerritory = this.game.findTerritoryAt(eventData.startX, eventData.startY);
+        
+        if (startTerritory === this.selectedTerritory) {
+            this.isProportionalDrag = true;
+            this.proportionalDragStartTime = Date.now();
+            this.proportionalDragStartPos = { x: eventData.startX, y: eventData.startY };
+            this.state = 'proportional_drag';
+        } else {
+            this.startCameraPanning(eventData);
+        }
+    }
+    
+    updateProportionalDrag(eventData) {
+        // Check if we've moved far enough and waited long enough
+        const distance = Math.sqrt(
+            (eventData.x - this.proportionalDragStartPos.x) ** 2 + 
+            (eventData.y - this.proportionalDragStartPos.y) ** 2
+        );
+        
+        const elapsed = Date.now() - this.proportionalDragStartTime;
+        
+        if (distance >= this.proportionalDragMinDistance && elapsed >= this.proportionalDragThreshold) {
+            // Show proportional drag preview
+            const selectedPos = this.game.camera.worldToScreen(
+                this.selectedTerritory.x, 
+                this.selectedTerritory.y
+            );
+            
+            const dragDistance = Math.sqrt(
+                (eventData.x - selectedPos.x) ** 2 + 
+                (eventData.y - selectedPos.y) ** 2
+            );
+            
+            // Calculate percentage based on distance (max 100px = 100%)
+            const maxDistance = 100;
+            const percentage = Math.min(1.0, dragDistance / maxDistance);
+            
+            // Update UI preview
+            this.game.ui.setProportionalDragPreview(this.selectedTerritory, eventData.x, eventData.y, percentage);
+        }
+    }
+    
+    endProportionalDrag(eventData) {
+        this.isProportionalDrag = false;
+        
+        const targetTerritory = this.game.findTerritoryAt(eventData.endX, eventData.endY);
+        
+        if (targetTerritory && targetTerritory !== this.selectedTerritory) {
+            // Calculate final percentage
+            const selectedPos = this.game.camera.worldToScreen(
+                this.selectedTerritory.x, 
+                this.selectedTerritory.y
+            );
+            
+            const dragDistance = Math.sqrt(
+                (eventData.endX - selectedPos.x) ** 2 + 
+                (eventData.endY - selectedPos.y) ** 2
+            );
+            
+            const maxDistance = 100;
+            const percentage = Math.min(1.0, dragDistance / maxDistance);
+            
+            this.executeFleetCommand(this.selectedTerritory, targetTerritory, percentage);
+        }
+        
+        // Clear UI preview
+        this.game.ui.clearProportionalDragPreview();
+        
+        this.state = 'territory_selected';
+    }
+    
+    executeFleetCommand(sourceTerritory, targetTerritory, fleetPercentage) {
+        // Validate command
+        if (!sourceTerritory || !targetTerritory || sourceTerritory === targetTerritory) {
+            return;
+        }
+        
+        if (sourceTerritory.ownerId !== this.game.humanPlayer.id) {
+            return; // Can only command own territories
+        }
+        
+        // Check if territories are connected by visible warp lanes
+        const sourceId = sourceTerritory.id;
+        const targetId = targetTerritory.id;
+        const isConnected = this.game.gameMap.connections[sourceId]?.includes(targetId);
+        
+        if (!isConnected && targetTerritory.ownerId !== null) {
+            return; // Cannot attack unconnected territories
+        }
+        
+        // Calculate fleet size
+        const availableFleets = Math.max(0, sourceTerritory.armySize - 1);
+        let fleetsToSend = Math.floor(availableFleets * fleetPercentage);
+        
+        if (fleetPercentage >= 1.0) {
+            // "Send all" means all minus 1
+            fleetsToSend = availableFleets;
+        }
+        
+        if (fleetsToSend <= 0) return;
+        
+        // Determine action type
+        if (targetTerritory.ownerId === this.game.humanPlayer.id) {
+            // Transfer to friendly territory
+            this.game.combatSystem.executeTransfer(sourceTerritory, targetTerritory, fleetsToSend);
+        } else {
+            // Attack enemy/neutral territory
+            this.game.combatSystem.executeAttack(sourceTerritory, targetTerritory, fleetsToSend);
+        }
+    }
+    
+    handleZoom(eventData) {
+        const { x, y, deltaY } = eventData;
+        const zoomDirection = deltaY < 0 ? 1 : -1;
+        this.game.camera.zoom(x, y, zoomDirection * 0.1);
+    }
+    
+    handlePinchZoom(eventData) {
+        const { centerX, centerY, scale } = eventData;
+        
+        // Convert scale to zoom factor with enhanced sensitivity
+        const zoomFactor = (scale - 1) * 1.5;
+        this.game.camera.zoom(centerX, centerY, zoomFactor);
+    }
+    
+    updateHoverState(eventData) {
+        const { x, y } = eventData;
+        this.game.inputHandler.hoveredTerritory = this.game.findTerritoryAt(x, y);
+    }
+    
+    startLongPressTimer(eventData) {
+        this.clearLongPressTimer();
+        this.longPressTriggered = false;
+        
+        this.longPressTimer = setTimeout(() => {
+            this.handleLongPress(eventData);
+        }, this.longPressThreshold);
+    }
+    
+    clearLongPressTimer() {
+        if (this.longPressTimer) {
+            clearTimeout(this.longPressTimer);
+            this.longPressTimer = null;
+        }
+    }
+    
+    handleLongPress(eventData) {
+        this.longPressTriggered = true;
+        
+        const territory = this.game.findTerritoryAt(eventData.x, eventData.y);
+        if (!territory || !this.selectedTerritory) return;
+        
+        if (territory.ownerId === this.game.humanPlayer.id && territory !== this.selectedTerritory) {
+            // Long press on friendly territory - create supply route
+            this.game.supplySystem.createSupplyRoute(this.selectedTerritory.id, territory.id);
+        } else if (territory.ownerId !== this.game.humanPlayer.id) {
+            // Long press on enemy/neutral territory - send all fleets
+            this.executeFleetCommand(this.selectedTerritory, territory, 1.0);
+        }
+    }
+}
+```
+
+**CONTINUED IN NEXT SECTION DUE TO LENGTH LIMITS...**
