@@ -122,31 +122,9 @@ export class InputHandler {
         const targetTerritory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
         
         if (wasQuickClick) {
-            const currentTime = Date.now();
-            
-            // Check for double-click for supply routes (can be same or different territory)
-            if (targetTerritory && 
-                this.lastClickedTerritory && 
-                currentTime - this.lastClickTime < this.doubleClickThreshold) {
-                
-                // Double-click detected - handle supply route creation/stopping
-                console.log(`Double-click detected: last=${this.lastClickedTerritory.id}, current=${targetTerritory.id}`);
-                this.handleDoubleClick(targetTerritory);
-                this.lastClickTime = 0; // Reset to prevent triple-click
-                this.lastClickedTerritory = null;
-            } else {
-                // Single click - start timer for potential double-click
-                this.lastClickTime = currentTime;
-                this.lastClickedTerritory = targetTerritory;
-                
-                // Process single click after delay to check for double-click
-                setTimeout(() => {
-                    if (this.lastClickTime === currentTime) {
-                        // No double-click occurred, process as single click with modifier keys
-                        this.processSingleClick(e.button, targetTerritory, worldPos, e.shiftKey, e.ctrlKey);
-                    }
-                }, this.doubleClickThreshold);
-            }
+            // Process click immediately for responsive controls
+            console.log(`🖱️ LEFT-CLICK: Territory ${targetTerritory?.id} with modifiers shift=${e.shiftKey}, ctrl=${e.ctrlKey}`);
+            this.processSingleClick(e.button, targetTerritory, worldPos, e.shiftKey, e.ctrlKey);
         }
         
         this.resetDragState();
