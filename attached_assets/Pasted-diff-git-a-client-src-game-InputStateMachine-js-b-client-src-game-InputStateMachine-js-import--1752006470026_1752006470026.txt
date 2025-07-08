@@ -1,0 +1,59 @@
+diff --git a/client/src/game/InputStateMachine.js b/client/src/game/InputStateMachine.js
+@@ import
+-import PathfindingService from './PathfindingService.js';
++import PathfindingService from './PathfindingService.js';   // unchanged
+@@ TerritorySelectedState.handleInput
+-            case 'click_left':
+-                this.handleLeftClick(eventData);
+-                break;
++            case 'click_left':   // single click now SENDS immediately
++                this.handleLeftClick(eventData);
++                break;
+@@ remove right‑click branch (no longer used)
+-            case 'click_right':
+-                this.handleRightClick(eventData);
+-                break;
++            // right‑click removed – all commands are single‑click
+@@ handleLeftClick(eventData)   /* REPLACE the whole method */
+-    handleLeftClick({ x, y }) {
+-        // old code...
+-    }
++    handleLeftClick({ x, y, shiftKey, ctrlKey }) {
++        const target = this.fsm.game.findTerritoryAt(x, y);
++        const source = this.fsm.selectedTerritory;
++
++        // ---------------- change selection ----------------
++        if (!source) {
++            if (target) {
++                this.fsm.selectTerritory(target);
++            }
++            return;
++        }
++
++        // ---------------- deselect ----------------
++        if (!target) {
++            this.fsm.deselect();
++            return;
++        }
++
++        // ---------------- same planet = no‑op -----------
++        if (target.id === source.id) return;
++
++        // ---------------- calculate send % --------------
++        let pct = 0.5;
++        if (shiftKey) pct = 1.0;
++        else if (ctrlKey) pct = 0.25;
++
++        // ---------------- friendly target ----------------
++        if (target.ownerId === source.ownerId) {
++            this.fsm.game.issueFleetCommand(source, target, pct);
++            // keep source selected so user can chain orders
++            return;
++        }
++
++        // ---------------- enemy / neutral target --------
++        this.fsm.game.issueFleetCommand(source, target, pct);
++        // source stays selected (common RTS feel)
++    }
+-
+-    // handleRightClick() removed completely

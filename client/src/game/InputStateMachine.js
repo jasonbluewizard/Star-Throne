@@ -232,21 +232,10 @@ class TerritorySelectedState extends BaseState {
     
     handleInput(inputType, data) {
         switch (inputType) {
-            case 'leftClick':   // plain click on another planet now just selects
-                return this.handleLeftClick(data.territory, data.worldPos);
-            case 'drag_start': {
-                // Begin fleet command if drag started on selected friendly planet
-                if (data.territory === this.fsm.selectedTerritory &&
-                    this.fsm.selectedTerritory.ownerId === this.fsm.game.humanPlayer.id) {
-                    this.fsm.setState('command_drag', {
-                        source:   this.fsm.selectedTerritory,
-                        shiftKey: data.shiftKey,
-                        ctrlKey:  data.ctrlKey
-                    });
-                }
+            case 'click_left':   // single click now SENDS immediately
+                this.handleLeftClick(data);
                 break;
-            }
-            // RMB no longer used
+            // right-click removed – all commands are single-click
             case 'keyPress':
                 return this.handleKeyPress(data.key);
             default:
@@ -254,36 +243,45 @@ class TerritorySelectedState extends BaseState {
         }
     }
     
-    handleLeftClick(territory, worldPos) {
-        if (!territory) {
-            // Clicked empty space - deselect
-            this.fsm.transitionTo('Default');
-            return true;
+    handleLeftClick({ x, y, shiftKey, ctrlKey }) {
+        const target = this.fsm.game.findTerritoryAt(x, y);
+        const source = this.fsm.selectedTerritory;
+
+        // ---------------- change selection ----------------
+        if (!source) {
+            if (target) {
+                this.fsm.selectTerritory(target);
+            }
+            return;
         }
-        
-        // Clicking same territory - keep selected (no deselect for better UX)
-        if (territory.id === this.selectedTerritory.id) {
-            return true;
+
+        // ---------------- deselect ----------------
+        if (!target) {
+            this.fsm.deselect();
+            return;
         }
-        
-        // Clicking another territory - select it
-        if (this.isOwnedByPlayer(territory)) {
-            this.fsm.selectedTerritory = territory;
-            this.fsm.transitionTo('TerritorySelected', { selectedTerritory: territory });
-            return true;
-        } else {
-            // Enemy, neutral, or colonizable territory
-            this.fsm.selectedTerritory = territory;
-            this.fsm.transitionTo('EnemySelected', { selectedTerritory: territory });
-            return true;
+
+        // ---------------- same planet = no‑op -----------
+        if (target.id === source.id) return;
+
+        // ---------------- calculate send % --------------
+        let pct = 0.5;
+        if (shiftKey) pct = 1.0;
+        else if (ctrlKey) pct = 0.25;
+
+        // ---------------- friendly target ----------------
+        if (target.ownerId === source.ownerId) {
+            this.fsm.game.issueFleetCommand(source, target, pct);
+            // keep source selected so user can chain orders
+            return;
         }
+
+        // ---------------- enemy / neutral target --------
+        this.fsm.game.issueFleetCommand(source, target, pct);
+        // source stays selected (common RTS feel)
     }
     
-    // RMB no longer used - removed handleRightClick method
-    handleRightClick(territory, worldPos) {
-        // RMB no longer used - method disabled
-        return false;
-    }
+    // handleRightClick() removed completely
     
     handleKeyPress(key) {
         switch (key) {
