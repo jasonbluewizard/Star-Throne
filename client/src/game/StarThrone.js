@@ -489,7 +489,9 @@ export default class StarThrone {
         this.ui = new GameUI(this.canvas, this.camera);
         
         // Initialize modular systems
+        console.log('🖱️ INITIALIZING INPUT HANDLER with canvas:', this.canvas);
         this.inputHandler = new InputHandler(this);
+        console.log('🖱️ INPUT HANDLER CREATED:', this.inputHandler);
         this.renderer = new Renderer(this.canvas, this.camera, this);
         this.combatSystem = new CombatSystem(this);
         this.supplySystem = new SupplySystem(this);
