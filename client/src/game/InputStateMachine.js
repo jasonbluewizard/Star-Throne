@@ -98,7 +98,8 @@ export class InputStateMachine {
                 if (territory && territory.ownerId === this.game.humanPlayer.id &&
                     territory.id !== this.selectedTerritory.id) {
                     console.log(`🔗 Creating supply route: ${this.selectedTerritory.id} -> ${territory.id}`);
-                    this.game.supplySystem.toggleSupplyRoute(this.selectedTerritory.id, territory.id);
+                    // Call createSupplyRoute with territory objects instead of IDs
+                    this.game.createSupplyRoute(this.selectedTerritory, territory);
                     this.state = 'source_selected';
                     this.game.ui?.exitSupplyMode?.();
                 } else if (!territory || territory.ownerId !== this.game.humanPlayer.id) {
