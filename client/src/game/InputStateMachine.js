@@ -8,7 +8,7 @@
 
 import { PathfindingService } from './PathfindingService';
 import { GameUtils } from './utils';
-import { GAME_CONSTANTS } from '../../../common/gameConstants.ts';
+import { GAME_CONSTANTS } from '../../../common/gameConstants';
 
 // helper to reset preview UI
 function clearPreview(game) { 

@@ -9,7 +9,7 @@ import { CombatSystem } from './CombatSystem';
 import { SupplySystem } from './SupplySystem';
 import { PathfindingService } from './PathfindingService';
 import { GameUtils } from './utils';
-import { GAME_CONSTANTS } from '../../../common/gameConstants.ts';
+import { GAME_CONSTANTS } from '../../../common/gameConstants';
 import { gameEvents, GAME_EVENTS, EVENT_PRIORITY, EventHelpers } from './EventSystem';
 import { PerformanceManager } from './PerformanceManager';
 import { PerformanceOverlay } from './PerformanceOverlay';
