@@ -3081,7 +3081,9 @@ export default class StarThrone {
                 messageTimer: this.messageTimer,
                 combatSystem: this.combatSystem,
                 supplySystem: this.supplySystem,
-                territories: this.gameMap.territories
+                territories: this.gameMap.territories,
+                gameMap: this.gameMap,
+                game: this // Add game reference for pathfindingService access
             });
         }
         

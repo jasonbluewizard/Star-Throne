@@ -115,7 +115,12 @@ export class GameUI {
     renderGameUI(ctx, gameData) {
         // Render preview arrow if active
         if (this.previewArrow) {
-            this.renderPreviewArrow(ctx, gameData);
+            // Call async renderPreviewArrow but don't wait for it
+            this.renderPreviewArrow(ctx, gameData).catch(error => {
+                console.error('Error rendering preview arrow:', error);
+                // Fallback to straight arrow on error
+                this.drawStraightArrow(ctx, this.previewArrow.source, this.previewArrow.target, '#ff4444', this.previewArrow.type);
+            });
         }
         
         // Supply mode indicator
@@ -870,6 +875,11 @@ export class GameUI {
     }
     
     renderTooltip(ctx, gameData) {
+        // Don't show tooltips during preview mode (when attack arrow is active)
+        if (this.previewArrow) {
+            return;
+        }
+        
         if (!gameData.hoveredTerritory || !gameData.mousePos) {
             return;
         }
@@ -1330,14 +1340,10 @@ export class GameUI {
     }
 
     // Render preview arrow for FSM confirmation mode
-    renderPreviewArrow(ctx, gameData) {
+    async renderPreviewArrow(ctx, gameData) {
         if (!this.previewArrow || !this.camera) return;
         
         const { source, target, type } = this.previewArrow;
-        
-        // Convert world coordinates to screen coordinates
-        const sourceScreen = this.camera.worldToScreen(source.x, source.y);
-        const targetScreen = this.camera.worldToScreen(target.x, target.y);
         
         ctx.save();
         
@@ -1349,12 +1355,107 @@ export class GameUI {
         };
         const color = colors[type] || '#ffffff';
         
-        // Draw animated dashed line
+        // Configure line style
         ctx.strokeStyle = color;
         ctx.lineWidth = 3;
         ctx.setLineDash([10, 5]);
         ctx.lineDashOffset = -this.animationPhase * 20; // Animate dash pattern
         
+        // For attack arrows, try to route through warp lanes
+        if (type === 'attack' && gameData.game?.pathfindingService) {
+            // Check if we have a cached attack path for this preview
+            if (!this.cachedAttackPath || 
+                this.cachedAttackPath.sourceId !== source.id || 
+                this.cachedAttackPath.targetId !== target.id) {
+                
+                // Find attack path through warp lanes
+                console.log(`🎯 Finding attack path from ${source.id} to ${target.id}`);
+                
+                try {
+                    const path = await gameData.game.pathfindingService.findAttackPath(
+                        source.id, 
+                        target.id, 
+                        gameData.gameMap, 
+                        gameData.humanPlayer?.id
+                    );
+                    
+                    this.cachedAttackPath = {
+                        sourceId: source.id,
+                        targetId: target.id,
+                        path: path
+                    };
+                } catch (error) {
+                    console.error('Error finding attack path:', error);
+                    this.cachedAttackPath = { sourceId: source.id, targetId: target.id, path: null };
+                }
+            }
+            
+            // Draw the attack path
+            if (this.cachedAttackPath.path && this.cachedAttackPath.path.length > 2) {
+                // Multi-hop attack - draw path through warp lanes
+                this.drawPathThroughWarpLanes(ctx, this.cachedAttackPath.path, gameData.gameMap, color);
+            } else {
+                // Direct attack or long-range attack - draw straight line
+                this.drawStraightArrow(ctx, source, target, color, type);
+            }
+        } else {
+            // Non-attack arrows or no pathfinding service - draw straight line
+            this.drawStraightArrow(ctx, source, target, color, type);
+        }
+        
+        ctx.restore();
+    }
+    
+    drawPathThroughWarpLanes(ctx, path, gameMap, color) {
+        if (!path || path.length < 2) return;
+        
+        ctx.beginPath();
+        
+        // Draw path through each waypoint
+        for (let i = 0; i < path.length - 1; i++) {
+            const currentTerritory = gameMap.territories[path[i]];
+            const nextTerritory = gameMap.territories[path[i + 1]];
+            
+            if (currentTerritory && nextTerritory) {
+                const currentScreen = this.camera.worldToScreen(currentTerritory.x, currentTerritory.y);
+                const nextScreen = this.camera.worldToScreen(nextTerritory.x, nextTerritory.y);
+                
+                if (i === 0) {
+                    ctx.moveTo(currentScreen.x, currentScreen.y);
+                }
+                ctx.lineTo(nextScreen.x, nextScreen.y);
+            }
+        }
+        
+        ctx.stroke();
+        
+        // Draw arrow head at final destination
+        const finalTerritory = gameMap.territories[path[path.length - 1]];
+        const secondToLastTerritory = gameMap.territories[path[path.length - 2]];
+        
+        if (finalTerritory && secondToLastTerritory) {
+            const finalScreen = this.camera.worldToScreen(finalTerritory.x, finalTerritory.y);
+            const secondToLastScreen = this.camera.worldToScreen(secondToLastTerritory.x, secondToLastTerritory.y);
+            
+            const angle = Math.atan2(finalScreen.y - secondToLastScreen.y, finalScreen.x - secondToLastScreen.x);
+            this.drawArrowHead(ctx, finalScreen, angle, color);
+            
+            // Draw action type text at midpoint of path
+            const midIndex = Math.floor(path.length / 2);
+            const midTerritory = gameMap.territories[path[midIndex]];
+            if (midTerritory) {
+                const midScreen = this.camera.worldToScreen(midTerritory.x, midTerritory.y);
+                this.drawActionText(ctx, midScreen.x, midScreen.y, 'ATTACK', color);
+            }
+        }
+    }
+    
+    drawStraightArrow(ctx, source, target, color, type) {
+        // Convert world coordinates to screen coordinates
+        const sourceScreen = this.camera.worldToScreen(source.x, source.y);
+        const targetScreen = this.camera.worldToScreen(target.x, target.y);
+        
+        // Draw straight line
         ctx.beginPath();
         ctx.moveTo(sourceScreen.x, sourceScreen.y);
         ctx.lineTo(targetScreen.x, targetScreen.y);
@@ -1362,36 +1463,41 @@ export class GameUI {
         
         // Draw arrow head
         const angle = Math.atan2(targetScreen.y - sourceScreen.y, targetScreen.x - sourceScreen.x);
+        this.drawArrowHead(ctx, targetScreen, angle, color);
+        
+        // Draw action type text
+        const midX = (sourceScreen.x + targetScreen.x) / 2;
+        const midY = (sourceScreen.y + targetScreen.y) / 2;
+        this.drawActionText(ctx, midX, midY, type.toUpperCase(), color);
+    }
+    
+    drawArrowHead(ctx, position, angle, color) {
         const arrowLength = 20;
         const arrowAngle = Math.PI / 6;
         
         ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.moveTo(targetScreen.x, targetScreen.y);
+        ctx.moveTo(position.x, position.y);
         ctx.lineTo(
-            targetScreen.x - arrowLength * Math.cos(angle - arrowAngle),
-            targetScreen.y - arrowLength * Math.sin(angle - arrowAngle)
+            position.x - arrowLength * Math.cos(angle - arrowAngle),
+            position.y - arrowLength * Math.sin(angle - arrowAngle)
         );
         ctx.lineTo(
-            targetScreen.x - arrowLength * Math.cos(angle + arrowAngle),
-            targetScreen.y - arrowLength * Math.sin(angle + arrowAngle)
+            position.x - arrowLength * Math.cos(angle + arrowAngle),
+            position.y - arrowLength * Math.sin(angle + arrowAngle)
         );
         ctx.closePath();
         ctx.fill();
-        
-        // Draw action type text
-        const midX = (sourceScreen.x + targetScreen.x) / 2;
-        const midY = (sourceScreen.y + targetScreen.y) / 2;
-        
+    }
+    
+    drawActionText(ctx, x, y, text, color) {
         ctx.font = 'bold 16px Arial';
         ctx.textAlign = 'center';
         ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-        ctx.fillRect(midX - 30, midY - 10, 60, 20);
+        ctx.fillRect(x - 30, y - 10, 60, 20);
         
         ctx.fillStyle = color;
-        ctx.fillText(type.toUpperCase(), midX, midY + 5);
-        
-        ctx.restore();
+        ctx.fillText(text, x, y + 5);
     }
     
     // Render supply mode indicator
