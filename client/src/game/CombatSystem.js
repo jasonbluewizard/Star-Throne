@@ -71,6 +71,9 @@ export class CombatSystem {
             arrivalTime: Date.now() + 1000, // Ships arrive in 1 second
             status: 'pending'
         };
+        
+        // Store the attacking player ID for particle system
+        this.lastAttackerId = attacker.id;
 
         this.pendingBattles.push(battle);
         
@@ -322,28 +325,17 @@ export class CombatSystem {
      * @param {string} context - 'attacker_dies' or 'defender_dies'
      */
     createCombatParticleEffect(territory, shipColor, context) {
-        // Only create particles for combat involving or adjacent to human player
-        const humanPlayerId = this.game.humanPlayer?.id;
-        if (!humanPlayerId) return;
+        // TEMP: Show particles for ALL combat to verify system works
+        const intensity = context === 'defender_dies' ? 1.2 : 1.0;
         
-        const isPlayerTerritory = territory.ownerId === humanPlayerId;
-        const isAdjacentToPlayer = territory.neighbors && territory.neighbors.some(neighborId => {
-            const neighbor = this.game.gameMap?.territories?.[neighborId];
-            return neighbor && neighbor.ownerId === humanPlayerId;
-        });
-        
-        if (isPlayerTerritory || isAdjacentToPlayer) {
-            // Create particle explosion at territory location
-            const intensity = context === 'defender_dies' ? 1.2 : 1.0; // Slightly more particles for defenders
-            
-            if (this.game.animationSystem && this.game.animationSystem.createCombatParticles) {
-                this.game.animationSystem.createCombatParticles(
-                    territory.x, 
-                    territory.y, 
-                    shipColor, 
-                    intensity
-                );
-            }
+        if (this.game.animationSystem && this.game.animationSystem.createCombatParticles) {
+            this.game.animationSystem.createCombatParticles(
+                territory.x, 
+                territory.y, 
+                shipColor, 
+                intensity
+            );
+            console.log(`✨ COMBAT FX: ${context} particles at territory ${territory.id} (temp: all combat)`);
         }
     }
 
