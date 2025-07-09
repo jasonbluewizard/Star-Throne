@@ -20,6 +20,9 @@ export class InputStateMachine {
         this.selectedTerritory = null;
         this.stateData = {};
         
+        // Track battles initiated by human player to manage selection state
+        this.pendingPlayerBattles = new Map(); // battleId -> { sourceTerritory, targetTerritory, battleId }
+        
         // Cursor modes for visual feedback
         this.cursorModes = {
             'Default': 'default',
@@ -102,6 +105,35 @@ export class InputStateMachine {
         this.transitionTo('Default');
         this.selectedTerritory = null;
         this.stateData = {};
+        this.pendingPlayerBattles.clear();
+    }
+    
+    // Track a battle initiated by the human player
+    trackPlayerBattle(battleId, sourceTerritory, targetTerritory) {
+        this.pendingPlayerBattles.set(battleId, {
+            sourceTerritory: sourceTerritory,
+            targetTerritory: targetTerritory,
+            battleId: battleId
+        });
+    }
+    
+    // Handle battle completion - called by CombatSystem when battles finish
+    onBattleComplete(battleId, attackerWins, attackingTerritoryId) {
+        const battleData = this.pendingPlayerBattles.get(battleId);
+        if (!battleData) return; // Not a human player battle
+        
+        // Remove from tracking
+        this.pendingPlayerBattles.delete(battleId);
+        
+        // Only deselect if the attack succeeded (territory was conquered)
+        if (attackerWins && this.selectedTerritory && this.selectedTerritory.id === attackingTerritoryId) {
+            console.log(`🎯 Battle won - deselecting territory ${attackingTerritoryId}`);
+            this.selectedTerritory = null;
+            this.transitionTo('Default');
+        } else if (!attackerWins) {
+            console.log(`🎯 Battle lost - keeping territory ${attackingTerritoryId} selected`);
+            // Keep the source territory selected for failed attacks
+        }
     }
 }
 
@@ -305,9 +337,12 @@ class TerritorySelectedState extends BaseState {
                         this.game.createShipAnimation(sourceStar, targetStar, true, attackingArmies);
                         console.log(`Attacked enemy ${targetStar.id} from ${sourceStar.id}`);
                         
-                        // Auto-deselect after sending an attack
-                        this.fsm.selectedTerritory = null;
-                        this.fsm.transitionTo('Default');
+                        // Track battle to handle deselection based on outcome
+                        if (result.success && result.battleId) {
+                            this.fsm.trackPlayerBattle(result.battleId, sourceStar, targetStar);
+                            console.log(`🎯 Tracking battle ${result.battleId} for territory ${sourceStar.id}`);
+                        }
+                        // No immediate deselection - wait for battle outcome
                     }
                 } else {
                     // Non-adjacent enemy star - launch long-range attack
@@ -315,12 +350,15 @@ class TerritorySelectedState extends BaseState {
                     console.log(`🎯 LONG-RANGE ENEMY TRIGGER: Attacking ${targetStar.id} with ${attackingArmies} armies`);
                     if (attackingArmies > 0) {
                         console.log(`🚀 ENEMY: Launching long-range attack from territory ${sourceStar.id} (owner: ${sourceStar.ownerId}) to ${targetStar.id} (owner: ${targetStar.ownerId})`);
-                        this.game.launchLongRangeAttack(sourceStar, targetStar, attackingArmies);
+                        const result = this.game.launchLongRangeAttack(sourceStar, targetStar, attackingArmies);
                         console.log(`🚀 ENEMY: Launched long-range attack: ${sourceStar.id} -> ${targetStar.id} (${attackingArmies} ships)`);
                         
-                        // Auto-deselect after sending an attack
-                        this.fsm.selectedTerritory = null;
-                        this.fsm.transitionTo('Default');
+                        // Track long-range battle if available
+                        if (result && result.battleId) {
+                            this.fsm.trackPlayerBattle(result.battleId, sourceStar, targetStar);
+                            console.log(`🎯 Tracking long-range enemy battle ${result.battleId} for territory ${sourceStar.id}`);
+                        }
+                        // No immediate deselection - wait for battle outcome
                     } else {
                         console.log(`❌ LONG-RANGE BLOCKED: Source has only ${sourceStar.armySize} armies`);
                         this.showFeedback("Need more armies for long-range attack", sourceStar.x, sourceStar.y);
@@ -339,9 +377,12 @@ class TerritorySelectedState extends BaseState {
                         this.game.createShipAnimation(sourceStar, targetStar, true, attackingArmies);
                         console.log(`Attacked neutral garrison ${targetStar.id} from ${sourceStar.id}`);
                         
-                        // Auto-deselect after sending an attack
-                        this.fsm.selectedTerritory = null;
-                        this.fsm.transitionTo('Default');
+                        // Track battle to handle deselection based on outcome
+                        if (result.success && result.battleId) {
+                            this.fsm.trackPlayerBattle(result.battleId, sourceStar, targetStar);
+                            console.log(`🎯 Tracking neutral battle ${result.battleId} for territory ${sourceStar.id}`);
+                        }
+                        // No immediate deselection - wait for battle outcome
                     }
                 } else {
                     // Non-adjacent neutral star - launch long-range attack
@@ -349,12 +390,15 @@ class TerritorySelectedState extends BaseState {
                     console.log(`🎯 NON-ADJACENT NEUTRAL: Attempting long-range attack with ${attackingArmies} armies`);
                     if (attackingArmies > 0) {
                         console.log(`🚀 NEUTRAL: Launching long-range attack from territory ${sourceStar.id} (owner: ${sourceStar.ownerId}) to ${targetStar.id} (owner: ${targetStar.ownerId})`);
-                        this.game.launchLongRangeAttack(sourceStar, targetStar, attackingArmies);
+                        const result = this.game.launchLongRangeAttack(sourceStar, targetStar, attackingArmies);
                         console.log(`🚀 NEUTRAL: Launched long-range attack: ${sourceStar.id} -> ${targetStar.id} (${attackingArmies} ships)`);
                         
-                        // Auto-deselect after sending an attack
-                        this.fsm.selectedTerritory = null;
-                        this.fsm.transitionTo('Default');
+                        // Track long-range battle if available
+                        if (result && result.battleId) {
+                            this.fsm.trackPlayerBattle(result.battleId, sourceStar, targetStar);
+                            console.log(`🎯 Tracking long-range neutral battle ${result.battleId} for territory ${sourceStar.id}`);
+                        }
+                        // No immediate deselection - wait for battle outcome
                     } else {
                         console.log(`🚀 NEUTRAL: Not enough armies for long-range attack`);
                         this.showFeedback("Need more armies for long-range attack", sourceStar.x, sourceStar.y);

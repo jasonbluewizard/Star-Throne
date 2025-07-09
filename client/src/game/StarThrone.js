@@ -930,6 +930,9 @@ export default class StarThrone {
         console.log(`🔧 Human player ID: ${this.humanPlayer?.id}, From territory owner: ${fromTerritory.ownerId}, To territory owner: ${toTerritory.ownerId}`);
         console.log(`🔧 AnimationSystem available: ${!!this.animationSystem}`);
         
+        // Generate unique battleId for tracking
+        const battleId = `longrange_${Date.now()}_${Math.random()}`;
+        
         // Reduce attacking territory's armies immediately
         fromTerritory.armySize = Math.max(1, fromTerritory.armySize - fleetSize);
         
@@ -944,7 +947,7 @@ export default class StarThrone {
         const animationDuration = this.calculateLongRangeAnimationDuration(fromTerritory, toTerritory);
         const startTime = Date.now();
         const arrivalTime = startTime + animationDuration;
-        this.scheduleLongRangeCombat(fromTerritory, toTerritory, fleetSize, arrivalTime, distance, startTime);
+        this.scheduleLongRangeCombat(fromTerritory, toTerritory, fleetSize, arrivalTime, distance, startTime, battleId);
         
         // Show visual feedback with accurate arrival time
         this.showMessage(`Long-range attack launched: ${fleetSize} ships (arriving in ${Math.round(animationDuration/1000)}s)`, 3000);
@@ -953,10 +956,13 @@ export default class StarThrone {
         this.flashTerritory(fromTerritory.id, '#ff0000', 300);
         
         console.log(`Long-range attack launched successfully: ${fromTerritory.id} -> ${toTerritory.id} (${fleetSize} ships) - arriving in ${Math.round(animationDuration/1000)}s`);
+        
+        // Return battleId for tracking
+        return { battleId: battleId };
     }
     
     // Schedule delayed combat resolution for long-range attacks
-    scheduleLongRangeCombat(fromTerritory, toTerritory, fleetSize, arrivalTime, distance, startTime) {
+    scheduleLongRangeCombat(fromTerritory, toTerritory, fleetSize, arrivalTime, distance, startTime, battleId) {
         if (!this.pendingLongRangeCombats) {
             this.pendingLongRangeCombats = [];
         }
@@ -970,10 +976,11 @@ export default class StarThrone {
             arrivalTime: arrivalTime,
             distance: distance,
             startTime: startTime,
-            fromOwnerId: fromTerritory.ownerId // Store attacking player ID
+            fromOwnerId: fromTerritory.ownerId, // Store attacking player ID
+            battleId: battleId // Store battleId for tracking
         });
         
-        console.log(`⏰ Long-range combat scheduled: ${fromTerritory.id} -> ${toTerritory.id} distance=${distance.toFixed(1)}px, travel=${(arrivalTime-startTime)/1000}s`);
+        console.log(`⏰ Long-range combat scheduled: ${fromTerritory.id} -> ${toTerritory.id} distance=${distance.toFixed(1)}px, travel=${(arrivalTime-startTime)/1000}s, battleId=${battleId}`);
     }
     
     // Process pending long-range combat arrivals
@@ -1044,6 +1051,14 @@ export default class StarThrone {
         console.log(`🔍 LONG-RANGE COMBAT: Calling attackTerritory with temp attacking territory (${tempAttackingTerritory.id}, owner: ${tempAttackingTerritory.ownerId}, armies: ${tempAttackingTerritory.armySize}) vs target (${targetTerritory.id}, owner: ${targetTerritory.ownerId}, armies: ${targetTerritory.armySize})`);
         const result = this.combatSystem.attackTerritory(tempAttackingTerritory, targetTerritory);
         console.log(`🔍 LONG-RANGE RESULT:`, result);
+        
+        // Notify InputStateMachine about long-range battle outcome if there's a tracked battle
+        if (combat.battleId && this.inputHandler && this.inputHandler.inputFSM) {
+            // For long-range attacks, we need to check the battle outcome after it's resolved
+            // Since long-range uses delayed combat, check if territory ownership changed
+            const attackerWins = targetTerritory.ownerId === combat.fromOwnerId;
+            this.inputHandler.inputFSM.onBattleComplete(combat.battleId, attackerWins, sourceTerritory.id);
+        }
         
         if (result.success) {
             console.log(`🏆 Long-range attack successful! Territory ${targetTerritory.id} captured by player ${combat.fromOwnerId}`);

@@ -183,6 +183,11 @@ export class CombatSystem {
     completeBattle(battle) {
         const attackerWins = battle.attackersRemaining > 0 && battle.defendersRemaining <= 0;
         
+        // Notify InputStateMachine about battle outcome for human player attacks
+        if (this.game.inputHandler && this.game.inputHandler.inputFSM) {
+            this.game.inputHandler.inputFSM.onBattleComplete(battle.id, attackerWins, battle.attackingTerritory.id);
+        }
+        
         if (attackerWins) {
             // Territory captured
             const oldOwner = battle.defender;
