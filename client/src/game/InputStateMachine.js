@@ -352,6 +352,8 @@ class TerritorySelectedState extends BaseState {
                     if (attackingArmies > 0) {
                         // Try to find a path through warp lanes
                         try {
+                            console.log(`🛣️ CALLING findAttackPath for ENEMY: source=${sourceStar.id}, target=${targetStar.id}, playerId=${this.game.humanPlayer?.id}`);
+                            console.log(`🛣️ GameMap structure:`, typeof this.game.gameMap, Object.keys(this.game.gameMap || {}));
                             const path = await this.game.pathfindingService.findAttackPath(
                                 sourceStar.id,
                                 targetStar.id,

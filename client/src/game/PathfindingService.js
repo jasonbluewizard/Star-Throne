@@ -35,19 +35,27 @@ export class PathfindingService {
             const endTerritory = territories[endNodeId];
 
             console.log(`🛣️ ATTACK PATH: Finding path from ${startNodeId} (player ${playerId}) to ${endNodeId}`);
+            console.log(`🛣️ DEBUG: Start territory:`, startTerritory?.id, 'owner:', startTerritory?.ownerId);
+            console.log(`🛣️ DEBUG: End territory:`, endTerritory?.id, 'owner:', endTerritory?.ownerId);
+            console.log(`🛣️ DEBUG: Total territories:`, territories.length);
 
             // Validate start territory is player-owned, end territory exists
             if (!startTerritory || !endTerritory || startTerritory.ownerId !== playerId) {
                 clearTimeout(timeout);
-                console.log('PathfindingService: attack path validation failed');
+                console.log(`🛣️ VALIDATION FAILED: start=${!!startTerritory}, end=${!!endTerritory}, startOwner=${startTerritory?.ownerId}, expectedPlayer=${playerId}`);
                 resolve(null);
                 return;
             }
 
             // Check if target is adjacent to any player territory
+            console.log(`🛣️ DEBUG: Checking adjacency to target ${endNodeId}`);
+            const playerTerritories = territories.filter(t => t && t.ownerId === playerId);
+            console.log(`🛣️ DEBUG: Player owns ${playerTerritories.length} territories:`, playerTerritories.map(t => t.id));
+            
             for (let territory of territories) {
                 if (territory && territory.ownerId === playerId) {
                     const isAdjacent = territory.neighbors && territory.neighbors.includes(endNodeId);
+                    console.log(`🛣️ DEBUG: Territory ${territory.id} neighbors:`, territory.neighbors, 'adjacent to target:', isAdjacent);
                     if (isAdjacent) {
                         // Found a player territory adjacent to target
                         if (territory.id === startNodeId) {
