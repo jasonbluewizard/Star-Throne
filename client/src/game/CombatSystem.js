@@ -27,9 +27,23 @@ export class CombatSystem {
             return { success: false, reason: 'Invalid attack' };
         }
 
-        // Calculate attacking force - hardcoded 50% of available fleet
-        const maxAttackers = Math.max(1, attackingTerritory.armySize - 1);
-        const actualAttackers = Math.floor(maxAttackers * 0.5);
+        // Calculate attacking force - use provided army count or default to 50%
+        let actualAttackers;
+        if (armyCount !== undefined && armyCount !== null) {
+            actualAttackers = armyCount;
+        } else {
+            const maxAttackers = Math.max(0, attackingTerritory.armySize - 1);
+            actualAttackers = Math.floor(maxAttackers * 0.5);
+            // Apply minimum 1 ship rule
+            if (actualAttackers < 1 && attackingTerritory.armySize > 1) {
+                actualAttackers = 1;
+            }
+        }
+        
+        // Validate we have enough ships to attack
+        if (actualAttackers <= 0 || attackingTerritory.armySize <= 1) {
+            return { success: false, reason: `Territory ${attackingTerritory.id} only has ${attackingTerritory.armySize} ship(s) - cannot attack` };
+        }
         
         // Get player objects
         const attacker = this.game.players[attackingTerritory.ownerId];
@@ -469,23 +483,37 @@ export class CombatSystem {
      * @param {Object} toTerritory - Destination territory
      * @returns {boolean} Success status
      */
-    transferArmies(fromTerritory, toTerritory) {
+    transferArmies(fromTerritory, toTerritory, transferAmount = null) {
         // Validate transfer
         if (fromTerritory.ownerId !== toTerritory.ownerId) {
             return false;
         }
         
         if (fromTerritory.armySize <= 1) {
+            console.log(`❌ Cannot transfer from territory ${fromTerritory.id} - only has ${fromTerritory.armySize} ship(s)`);
             return false;
         }
         
-        // Calculate transfer amount - hardcoded 50% of available fleet
-        const maxTransfer = fromTerritory.armySize - 1;
-        const actualTransfer = Math.floor(maxTransfer * 0.5);
+        // Calculate transfer amount - use provided amount or default to 50%
+        let actualTransfer;
+        if (transferAmount !== null) {
+            actualTransfer = transferAmount;
+        } else {
+            const maxTransfer = fromTerritory.armySize - 1;
+            actualTransfer = Math.floor(maxTransfer * 0.5);
+            // Apply minimum 1 ship rule
+            if (actualTransfer < 1 && fromTerritory.armySize > 1) {
+                actualTransfer = 1;
+            }
+        }
         
         if (actualTransfer <= 0) {
             return false;
         }
+        
+        // Don't transfer more than available
+        const maxAvailable = fromTerritory.armySize - 1;
+        actualTransfer = Math.min(actualTransfer, maxAvailable);
         
         // Execute transfer
         fromTerritory.armySize -= actualTransfer;
@@ -499,7 +527,7 @@ export class CombatSystem {
             startY: toTerritory.y
         };
         
-        console.log(`Transferred ${actualTransfer} armies (50%) from territory ${fromTerritory.id} to ${toTerritory.id}`);
+        console.log(`Transferred ${actualTransfer} armies from territory ${fromTerritory.id} to ${toTerritory.id}`);
         return true;
     }
 }

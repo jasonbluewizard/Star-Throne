@@ -343,7 +343,18 @@ export class Player {
         }
         
         // Delegate to centralized CombatSystem (AI uses 70% of armies)
-        const attackingArmies = Math.floor(attackingTerritory.armySize * 0.7);
+        // Apply minimum 1 ship rule: don't attack if territory only has 1 ship
+        if (attackingTerritory.armySize <= 1) {
+            console.log(`❌ AI cannot attack from territory ${attackingTerritory.id} - only has ${attackingTerritory.armySize} ship(s)`);
+            return;
+        }
+        
+        let attackingArmies = Math.floor(attackingTerritory.armySize * 0.7);
+        // Ensure minimum 1 ship is sent if territory has more than 1 ship
+        if (attackingArmies < 1 && attackingTerritory.armySize > 1) {
+            attackingArmies = 1;
+        }
+        
         const result = gameMap.game?.combatSystem?.attackTerritory(attackingTerritory, defendingTerritory, attackingArmies);
         
         if (!result) {

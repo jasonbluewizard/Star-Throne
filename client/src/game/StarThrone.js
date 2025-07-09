@@ -3431,8 +3431,20 @@ export default class StarThrone {
         }
         
         // Calculate ships to send based on requested percentage
+        // Rule: minimum 1 ship sent unless territory only has 1 ship (then send 0)
         const availableShips = Math.max(0, fromTerritory.armySize - 1);
-        const shipsToSend = Math.max(1, Math.floor(availableShips * fleetPercentage));
+        let shipsToSend = Math.floor(availableShips * fleetPercentage);
+        
+        // Apply minimum ship rule: send at least 1 ship if we have more than 1 total
+        if (fromTerritory.armySize > 1 && shipsToSend < 1) {
+            shipsToSend = 1;
+        }
+        
+        // If territory only has 1 ship, don't send anything
+        if (fromTerritory.armySize <= 1) {
+            console.log(`❌ Cannot send ships from territory ${fromTerritory.id} - only has ${fromTerritory.armySize} ship(s)`);
+            return;
+        }
         
         // Visual feedback - show number flying off
         this.showFleetCommandFeedback(fromTerritory, shipsToSend, fleetPercentage);
@@ -3459,7 +3471,7 @@ export default class StarThrone {
                 
             case 'transfer':
                 if (toTerritory.ownerId === this.humanPlayer?.id) {
-                    this.combatSystem.transferArmies(fromTerritory, toTerritory);
+                    this.combatSystem.transferArmies(fromTerritory, toTerritory, shipsToSend);
                     this.createShipAnimation(fromTerritory, toTerritory, false, shipsToSend);
                     console.log(`Direct transfer: ${shipsToSend} ships from ${fromTerritory.id} to ${toTerritory.id}`);
                 }
@@ -3467,7 +3479,7 @@ export default class StarThrone {
                 
             case 'attack':
                 if (toTerritory.ownerId !== this.humanPlayer?.id) { // Simplified condition (isColonizable check redundant in attack context)
-                    this.combatSystem.attackTerritory(fromTerritory, toTerritory);
+                    this.combatSystem.attackTerritory(fromTerritory, toTerritory, shipsToSend);
                     this.createShipAnimation(fromTerritory, toTerritory, true, shipsToSend);
                     console.log(`Attack: ${shipsToSend} ships from ${fromTerritory.id} to ${toTerritory.id}`);
                 }
@@ -3477,10 +3489,10 @@ export default class StarThrone {
             default:
                 // Legacy auto-detection mode
                 if (toTerritory.ownerId === this.humanPlayer?.id) {
-                    this.combatSystem.transferArmies(fromTerritory, toTerritory);
+                    this.combatSystem.transferArmies(fromTerritory, toTerritory, shipsToSend);
                     this.createShipAnimation(fromTerritory, toTerritory, false, shipsToSend);
                 } else {
-                    this.combatSystem.attackTerritory(fromTerritory, toTerritory);
+                    this.combatSystem.attackTerritory(fromTerritory, toTerritory, shipsToSend);
                     this.createShipAnimation(fromTerritory, toTerritory, true, shipsToSend);
                 }
                 break;
