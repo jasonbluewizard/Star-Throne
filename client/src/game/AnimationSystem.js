@@ -137,6 +137,7 @@ export class AnimationSystem {
         }
         
         console.log(`💥 PARTICLES: Created ${particleCount} combat particles at (${x.toFixed(1)}, ${y.toFixed(1)}) in color ${color}`);
+        console.log(`💥 PARTICLES: Active particles now: ${this.combatParticles.length}, Pool size: ${this.particlePool.length}`);
     }
     
     // FOG OF WAR: Check if ship animation should be visible

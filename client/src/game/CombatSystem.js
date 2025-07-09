@@ -325,42 +325,21 @@ export class CombatSystem {
         console.log(`🎆 PARTICLE DEBUG: Attempting to create particles for ${context} at territory ${territory.id}`);
         console.log(`🎆 PARTICLE DEBUG: Ship color: ${shipColor}, Animation system available: ${!!this.game.animationSystem}`);
         
-        // Only create particles for combat involving or adjacent to human player
-        const humanPlayerId = this.game.humanPlayer?.id;
-        console.log(`🎆 PARTICLE DEBUG: Human player ID: ${humanPlayerId}, Territory owner: ${territory.ownerId}`);
+        // TEMPORARY: Create particles for ALL combat to test the system
+        console.log(`🎆 PARTICLE DEBUG: Creating particles at (${territory.x}, ${territory.y}) for ALL combat (testing)`);
         
-        if (!humanPlayerId) {
-            console.log(`🎆 PARTICLE DEBUG: No human player found, skipping particles`);
-            return;
-        }
-        
-        const isPlayerTerritory = territory.ownerId === humanPlayerId;
-        const isAdjacentToPlayer = territory.neighbors && territory.neighbors.some(neighborId => {
-            const neighbor = this.game.gameMap?.territories?.[neighborId];
-            return neighbor && neighbor.ownerId === humanPlayerId;
-        });
-        
-        console.log(`🎆 PARTICLE DEBUG: Is player territory: ${isPlayerTerritory}, Is adjacent: ${isAdjacentToPlayer}`);
-        
-        if (isPlayerTerritory || isAdjacentToPlayer) {
-            // Create particle explosion at territory location
-            const intensity = context === 'defender_dies' ? 1.2 : 1.0; // Slightly more particles for defenders
-            
-            console.log(`🎆 PARTICLE DEBUG: Creating particles at (${territory.x}, ${territory.y}) with intensity ${intensity}`);
-            
-            if (this.game.animationSystem && this.game.animationSystem.createCombatParticles) {
-                this.game.animationSystem.createCombatParticles(
-                    territory.x, 
-                    territory.y, 
-                    shipColor, 
-                    intensity
-                );
-                console.log(`✨ COMBAT FX: ${context} particles created at territory ${territory.id} in ${shipColor}`);
-            } else {
-                console.log(`🎆 PARTICLE DEBUG: AnimationSystem or createCombatParticles method not available`);
-            }
+        if (this.game.animationSystem && this.game.animationSystem.createCombatParticles) {
+            const intensity = context === 'defender_dies' ? 1.2 : 1.0;
+            this.game.animationSystem.createCombatParticles(
+                territory.x, 
+                territory.y, 
+                shipColor, 
+                intensity
+            );
+            console.log(`✨ COMBAT FX: ${context} particles created at territory ${territory.id} in ${shipColor}`);
         } else {
-            console.log(`🎆 PARTICLE DEBUG: Territory not eligible for particles (not player territory or adjacent)`);
+            console.log(`🎆 PARTICLE DEBUG: AnimationSystem or createCombatParticles method not available`);
+            console.log(`🎆 PARTICLE DEBUG: Animation system object:`, this.game.animationSystem);
         }
     }
 

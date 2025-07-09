@@ -2266,6 +2266,11 @@ export default class StarThrone {
             // this.renderProbes(); // Probe rendering disabled
         }
         
+        // Combat particles should always render regardless of LOD level
+        if (this.animationSystem) {
+            this.animationSystem.renderCombatParticles(this.ctx, this.camera);
+        }
+        
         // Use DiscoverySystem for floating discovery texts
         if (this.discoverySystem) {
             this.discoverySystem.renderFloatingDiscoveries(this.ctx, this.camera);
