@@ -365,6 +365,88 @@ export class CombatSystem {
     }
 
     /**
+     * Calculate detailed combat preview with casualty estimates
+     * @param {Object} attackingTerritory - Source territory
+     * @param {Object} defendingTerritory - Target territory
+     * @param {number} attackingArmies - Number of attacking armies
+     * @returns {Object} Combat preview with odds, casualties, and outcome
+     */
+    calculateCombatPreview(attackingTerritory, defendingTerritory, attackingArmies) {
+        if (!attackingTerritory || !defendingTerritory) {
+            return null;
+        }
+
+        // Get player objects
+        const attacker = this.game.players[attackingTerritory.ownerId];
+        const defender = defendingTerritory.ownerId ? this.game.players[defendingTerritory.ownerId] : null;
+
+        if (!attacker) {
+            return null;
+        }
+
+        // Calculate win chance
+        const winChance = this.calculateBattleOdds(attacker, defender);
+        const attackerWinChance = winChance / 100;
+
+        // Simulate battle outcome multiple times to get average casualties
+        const simulations = 100;
+        let totalAttackerLosses = 0;
+        let totalDefenderLosses = 0;
+        let victories = 0;
+
+        for (let i = 0; i < simulations; i++) {
+            let attackersRemaining = attackingArmies;
+            let defendersRemaining = defendingTerritory.armySize;
+            let attackerLosses = 0;
+            let defenderLosses = 0;
+
+            // Simulate battle rounds
+            while (attackersRemaining > 0 && defendersRemaining > 0) {
+                if (Math.random() < attackerWinChance) {
+                    // Attacker wins round
+                    defendersRemaining--;
+                    defenderLosses++;
+                } else {
+                    // Defender wins round
+                    attackersRemaining--;
+                    attackerLosses++;
+                }
+            }
+
+            totalAttackerLosses += attackerLosses;
+            totalDefenderLosses += defenderLosses;
+
+            if (attackersRemaining > 0) {
+                victories++;
+            }
+        }
+
+        // Calculate average casualties
+        const avgAttackerLosses = Math.round(totalAttackerLosses / simulations);
+        const avgDefenderLosses = Math.round(totalDefenderLosses / simulations);
+        const actualWinChance = Math.round((victories / simulations) * 100);
+
+        // Determine outcome text
+        let outcomeText = '';
+        if (actualWinChance >= 60) {
+            outcomeText = `PROJ VICTORY (lose ${avgAttackerLosses} ships)`;
+        } else if (actualWinChance >= 40) {
+            outcomeText = `UNCERTAIN (lose ${avgAttackerLosses} ships)`;
+        } else {
+            outcomeText = `PROJ DEFEAT (destroy ${avgDefenderLosses} enemies)`;
+        }
+
+        return {
+            winChance: actualWinChance,
+            outcomeText: outcomeText,
+            attackerLosses: avgAttackerLosses,
+            defenderLosses: avgDefenderLosses,
+            attackingArmies: attackingArmies,
+            defendingArmies: defendingTerritory.armySize
+        };
+    }
+
+    /**
      * Validates if an attack is legal - now allows long-range attacks
      */
     validateAttack(attackingTerritory, defendingTerritory) {

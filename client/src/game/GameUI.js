@@ -1393,21 +1393,86 @@ export class GameUI {
             // Draw the attack path
             if (this.cachedAttackPath.path && this.cachedAttackPath.path.length > 2) {
                 // Multi-hop attack - draw path through warp lanes
-                this.drawPathThroughWarpLanes(ctx, this.cachedAttackPath.path, gameData.gameMap, color);
+                this.drawPathThroughWarpLanes(ctx, this.cachedAttackPath.path, gameData.gameMap, color, gameData.camera);
             } else {
                 // Direct attack or long-range attack - draw straight line
-                this.drawStraightArrow(ctx, source, target, color, type);
+                this.drawStraightArrow(ctx, source, target, color, type, gameData.camera);
             }
+            
+            // Add combat preview for attacks
+            this.renderCombatPreview(ctx, gameData, source, target);
         } else {
             // Non-attack arrows or no pathfinding service - draw straight line
-            this.drawStraightArrow(ctx, source, target, color, type);
+            this.drawStraightArrow(ctx, source, target, color, type, gameData.camera);
         }
         
         ctx.restore();
     }
     
-    drawPathThroughWarpLanes(ctx, path, gameMap, color) {
-        if (!path || path.length < 2) return;
+    /**
+     * Render combat preview information for attack arrows
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {Object} gameData - Game state data
+     * @param {Object} source - Source territory
+     * @param {Object} target - Target territory
+     */
+    renderCombatPreview(ctx, gameData, source, target) {
+        if (!gameData.combatSystem || !gameData.inputState) return;
+        
+        // Calculate attacking armies - use the same logic as the actual attack system
+        const fleetPercentage = gameData.inputState.fleetPercentage || 0.5;
+        const maxAttackers = Math.max(0, source.armySize - 1);
+        let attackingArmies = Math.floor(maxAttackers * fleetPercentage);
+        
+        // Apply minimum 1 ship rule
+        if (attackingArmies < 1 && source.armySize > 1) {
+            attackingArmies = 1;
+        }
+        
+        // Get combat preview
+        const preview = gameData.combatSystem.calculateCombatPreview(source, target, attackingArmies);
+        if (!preview) return;
+        
+        // Position text on target star
+        const targetScreen = gameData.camera.worldToScreen(target.x, target.y);
+        
+        ctx.save();
+        ctx.setLineDash([]); // Clear dashed lines
+        
+        // "ATTACK" text directly on target star
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#ff4444';
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 3;
+        ctx.strokeText('ATTACK', targetScreen.x, targetScreen.y - 25);
+        ctx.fillText('ATTACK', targetScreen.x, targetScreen.y - 25);
+        
+        // Combat odds text below attack text
+        const winText = `WIN ${preview.winChance}%`;
+        ctx.font = 'bold 12px Arial';
+        ctx.fillStyle = preview.winChance >= 60 ? '#44ff44' : preview.winChance >= 40 ? '#ffff44' : '#ff4444';
+        ctx.strokeText(winText, targetScreen.x, targetScreen.y - 10);
+        ctx.fillText(winText, targetScreen.x, targetScreen.y - 10);
+        
+        // Outcome projection text
+        ctx.font = '11px Arial';
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeText(preview.outcomeText, targetScreen.x, targetScreen.y + 5);
+        ctx.fillText(preview.outcomeText, targetScreen.x, targetScreen.y + 5);
+        
+        // Force details for better tactical understanding
+        const forceText = `${attackingArmies} vs ${preview.defendingArmies}`;
+        ctx.font = '10px Arial';
+        ctx.fillStyle = '#cccccc';
+        ctx.strokeText(forceText, targetScreen.x, targetScreen.y + 18);
+        ctx.fillText(forceText, targetScreen.x, targetScreen.y + 18);
+        
+        ctx.restore();
+    }
+    
+    drawPathThroughWarpLanes(ctx, path, gameMap, color, camera) {
+        if (!path || path.length < 2 || !camera) return;
         
         ctx.beginPath();
         
@@ -1417,8 +1482,8 @@ export class GameUI {
             const nextTerritory = gameMap.territories[path[i + 1]];
             
             if (currentTerritory && nextTerritory) {
-                const currentScreen = this.camera.worldToScreen(currentTerritory.x, currentTerritory.y);
-                const nextScreen = this.camera.worldToScreen(nextTerritory.x, nextTerritory.y);
+                const currentScreen = camera.worldToScreen(currentTerritory.x, currentTerritory.y);
+                const nextScreen = camera.worldToScreen(nextTerritory.x, nextTerritory.y);
                 
                 if (i === 0) {
                     ctx.moveTo(currentScreen.x, currentScreen.y);
@@ -1434,26 +1499,22 @@ export class GameUI {
         const secondToLastTerritory = gameMap.territories[path[path.length - 2]];
         
         if (finalTerritory && secondToLastTerritory) {
-            const finalScreen = this.camera.worldToScreen(finalTerritory.x, finalTerritory.y);
-            const secondToLastScreen = this.camera.worldToScreen(secondToLastTerritory.x, secondToLastTerritory.y);
+            const finalScreen = camera.worldToScreen(finalTerritory.x, finalTerritory.y);
+            const secondToLastScreen = camera.worldToScreen(secondToLastTerritory.x, secondToLastTerritory.y);
             
             const angle = Math.atan2(finalScreen.y - secondToLastScreen.y, finalScreen.x - secondToLastScreen.x);
             this.drawArrowHead(ctx, finalScreen, angle, color);
             
-            // Draw action type text at midpoint of path
-            const midIndex = Math.floor(path.length / 2);
-            const midTerritory = gameMap.territories[path[midIndex]];
-            if (midTerritory) {
-                const midScreen = this.camera.worldToScreen(midTerritory.x, midTerritory.y);
-                this.drawActionText(ctx, midScreen.x, midScreen.y, 'ATTACK', color);
-            }
+            // Skip action text - handled by combat preview instead
         }
     }
     
-    drawStraightArrow(ctx, source, target, color, type) {
+    drawStraightArrow(ctx, source, target, color, type, camera) {
+        if (!camera) return;
+        
         // Convert world coordinates to screen coordinates
-        const sourceScreen = this.camera.worldToScreen(source.x, source.y);
-        const targetScreen = this.camera.worldToScreen(target.x, target.y);
+        const sourceScreen = camera.worldToScreen(source.x, source.y);
+        const targetScreen = camera.worldToScreen(target.x, target.y);
         
         // Draw straight line
         ctx.beginPath();
@@ -1465,10 +1526,12 @@ export class GameUI {
         const angle = Math.atan2(targetScreen.y - sourceScreen.y, targetScreen.x - sourceScreen.x);
         this.drawArrowHead(ctx, targetScreen, angle, color);
         
-        // Draw action type text
-        const midX = (sourceScreen.x + targetScreen.x) / 2;
-        const midY = (sourceScreen.y + targetScreen.y) / 2;
-        this.drawActionText(ctx, midX, midY, type.toUpperCase(), color);
+        // Skip action text for attacks - handled by combat preview instead
+        if (type !== 'attack') {
+            const midX = (sourceScreen.x + targetScreen.x) / 2;
+            const midY = (sourceScreen.y + targetScreen.y) / 2;
+            this.drawActionText(ctx, midX, midY, type.toUpperCase(), color);
+        }
     }
     
     drawArrowHead(ctx, position, angle, color) {
