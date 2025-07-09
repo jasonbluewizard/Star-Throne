@@ -61,11 +61,13 @@ export class InputStateMachine {
                     break;
                 }
 
-                // friendly target – start preview
+                // friendly target – immediate transfer (no preview needed)
                 if (territory.ownerId === this.game.humanPlayer.id) {
-                    this.enterPreview(territory, 'reinforce');
+                    this.game.issueFleetCommand(this.selectedTerritory, territory, 0.5, false);
+                    console.log(`🚀 Immediate transfer: ${this.selectedTerritory.id} -> ${territory.id}`);
+                    // Stay in source_selected state for chaining commands
                 }
-                // hostile/neutral target – start preview
+                // hostile/neutral target – start preview for confirmation
                 else {
                     this.enterPreview(territory, 'attack');
                 }
@@ -128,11 +130,9 @@ export class InputStateMachine {
     // ---------- helper: execute ----------
     executePendingAction(target) {
         const pct = 0.5;   // default 50 %
-        if (target.ownerId === this.game.humanPlayer.id) {
-            this.game.issueFleetCommand(this.selectedTerritory, target, pct);
-        } else {
-            this.game.issueFleetCommand(this.selectedTerritory, target, pct, true /*attack*/);
-        }
+        // This should only be called for attacks now since transfers are immediate
+        this.game.issueFleetCommand(this.selectedTerritory, target, pct, true /*attack*/);
+        console.log(`🎯 Attack confirmed: ${this.selectedTerritory.id} -> ${target.id}`);
         clearPreview(this.game);
         // outcome: stay source_selected for reinforce, deselect on successful attack handled elsewhere
         this.state         = 'source_selected';
