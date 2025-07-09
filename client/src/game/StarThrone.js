@@ -3614,42 +3614,69 @@ export default class StarThrone {
         // Execute attack on source territory (remove ships immediately)
         fromTerritory.armySize -= shipsToSend;
         
-        // Create multi-hop animation following the path
-        this.createSupplyRouteAnimation(path.map(id => this.gameMap.territories[id]), this.humanPlayer.color);
+        // Process the path segment by segment, stopping at first hostile territory
+        this.processSegmentedAttack(fromTerritory, path, shipsToSend, 0);
+    }
+    
+    processSegmentedAttack(originTerritory, path, shipsToSend, segmentIndex) {
+        // Check if we've reached the end of the path
+        if (segmentIndex >= path.length - 1) {
+            console.log(`🎯 SEGMENTED ATTACK: Reached end of path at segment ${segmentIndex}`);
+            return;
+        }
         
-        // Calculate travel delay based on path length (0.8 seconds per hop to match animation)
-        const travelDelay = (path.length - 1) * 800;
+        const currentTerritoryId = path[segmentIndex];
+        const nextTerritoryId = path[segmentIndex + 1];
+        const currentTerritory = this.gameMap.territories[currentTerritoryId];
+        const nextTerritory = this.gameMap.territories[nextTerritoryId];
         
-        // Schedule attack at destination
+        console.log(`🎯 SEGMENTED ATTACK: Processing segment ${segmentIndex}: ${currentTerritoryId} -> ${nextTerritoryId}`);
+        console.log(`🎯 SEGMENTED ATTACK: Current territory owner: ${currentTerritory.ownerId}, Next territory owner: ${nextTerritory.ownerId}, Human player: ${this.humanPlayer?.id}`);
+        
+        // Create animation for this segment
+        this.createShipAnimation(currentTerritory, nextTerritory, true, shipsToSend);
+        
+        // Calculate travel time for this segment (800ms per hop)
+        const segmentTravelTime = 800;
+        
+        // Schedule arrival at next territory
         setTimeout(() => {
-            console.log(`🎯 MULTI-HOP ATTACK ARRIVAL: ${shipsToSend} ships attacking territory ${toTerritory.id}`);
+            // Check if the next territory is hostile (enemy or neutral)
+            const isHostile = nextTerritory.ownerId !== this.humanPlayer?.id;
             
-            // Create a temporary attacking territory for the multi-hop attack
-            const tempAttackingTerritory = {
-                id: fromTerritory.id,
-                ownerId: this.humanPlayer?.id,
-                armySize: shipsToSend + 1, // +1 so the attack system can deduct armies
-                x: fromTerritory.x,
-                y: fromTerritory.y,
-                neighbors: [toTerritory.id] // Temporary connection for attack validation
-            };
-            
-            // Trigger combat flash effects
-            toTerritory.triggerCombatFlash();
-            
-            // Execute the attack using combat system - results will show during actual battle
-            const result = this.combatSystem.attackTerritory(tempAttackingTerritory, toTerritory);
-            console.log(`🎯 MULTI-HOP ATTACK QUEUED: ${shipsToSend} ships attacking territory ${toTerritory.id}`);
-            
-            if (!result.success) {
-                console.log(`🛡️ Multi-hop attack failed to queue: ${result.reason}`);
+            if (isHostile) {
+                console.log(`🎯 HOSTILE ENCOUNTER: Fleet encounters hostile territory ${nextTerritoryId} (owner: ${nextTerritory.ownerId})`);
+                
+                // Create a temporary attacking territory for the combat
+                const tempAttackingTerritory = {
+                    id: originTerritory.id,
+                    ownerId: this.humanPlayer?.id,
+                    armySize: shipsToSend + 1, // +1 so the attack system can deduct armies
+                    x: currentTerritory.x,
+                    y: currentTerritory.y,
+                    neighbors: [nextTerritory.id] // Temporary connection for attack validation
+                };
+                
+                // Trigger combat flash effects
+                nextTerritory.triggerCombatFlash();
+                
+                // Execute the attack using combat system
+                const result = this.combatSystem.attackTerritory(tempAttackingTerritory, nextTerritory);
+                console.log(`🎯 HOSTILE COMBAT QUEUED: ${shipsToSend} ships attacking territory ${nextTerritory.id}`);
+                
+                if (!result.success) {
+                    console.log(`🛡️ Hostile encounter attack failed to queue: ${result.reason}`);
+                }
+                
+                // Combat initiated - stop the multi-hop attack here
+                return;
+            } else {
+                console.log(`🎯 FRIENDLY PASSAGE: Fleet passes through friendly territory ${nextTerritoryId}`);
+                
+                // Territory is friendly, continue to next segment
+                this.processSegmentedAttack(originTerritory, path, shipsToSend, segmentIndex + 1);
             }
-            
-            // Update player stats
-            if (this.players) {
-                this.players.forEach(player => player.updateStats());
-            }
-        }, travelDelay);
+        }, segmentTravelTime);
     }
     
     // Visual feedback for fleet commands
