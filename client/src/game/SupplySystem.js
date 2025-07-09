@@ -306,6 +306,11 @@ export class SupplySystem {
         return route ? route.to : null;
     }
     
+    // Get the full supply route for a source territory
+    getSupplyRoute(territoryId) {
+        return this.supplyRoutes.find(route => route.active && route.from === territoryId);
+    }
+    
     // Public interface
     getActiveSupplyRoutes() {
         return this.supplyRoutes.filter(route => route.active);

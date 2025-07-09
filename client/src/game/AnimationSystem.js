@@ -34,7 +34,11 @@ export class AnimationSystem {
             isLongRange: false, // Long-range attack flag
             armyCount: 0, // Army count for display
             targetTerritory: null, // Target territory for dotted line
-            fromOwnerId: null // Track attacking player for AI limits
+            fromOwnerId: null, // Track attacking player for AI limits
+            isSupplyShip: false, // Supply ship flag
+            isPaused: false, // Pause state for supply ships
+            pauseEndTime: 0, // When pause ends
+            finalDestination: null // Final destination territory ID
         };
     }
 
@@ -57,6 +61,10 @@ export class AnimationSystem {
         animation.armyCount = 0;
         animation.targetTerritory = null;
         animation.fromOwnerId = null;
+        animation.isSupplyShip = false;
+        animation.isPaused = false;
+        animation.pauseEndTime = 0;
+        animation.finalDestination = null;
         
         if (this.shipAnimationPool.length < this.maxPoolSize) {
             this.shipAnimationPool.push(animation);
@@ -119,6 +127,49 @@ export class AnimationSystem {
         this.shipAnimations.push(animation);
         return animation;
     }
+    
+    // Create individual supply ship animation with hop-by-hop movement
+    createSupplyShipAnimation(routePath, color) {
+        const animation = this.getPooledShipAnimation();
+        
+        // Build path segments for hop-by-hop movement
+        const segments = [];
+        for (let i = 0; i < routePath.length - 1; i++) {
+            const fromTerritory = this.game.gameMap.territories[routePath[i]];
+            const toTerritory = this.game.gameMap.territories[routePath[i + 1]];
+            
+            if (fromTerritory && toTerritory) {
+                segments.push({
+                    from: { x: fromTerritory.x, y: fromTerritory.y },
+                    to: { x: toTerritory.x, y: toTerritory.y },
+                    fromId: fromTerritory.id,
+                    toId: toTerritory.id,
+                    duration: 600, // Ship movement duration per hop
+                    pauseDuration: 500 // Half-second pause at each intermediate stop
+                });
+            }
+        }
+        
+        if (segments.length > 0) {
+            animation.segments = segments;
+            animation.currentSegment = 0;
+            animation.from = segments[0].from;
+            animation.to = segments[0].to;
+            animation.progress = 0;
+            animation.duration = segments[0].duration;
+            animation.startTime = Date.now();
+            animation.color = color;
+            animation.isSupplyShip = true;
+            animation.isPaused = false;
+            animation.pauseEndTime = 0;
+            animation.finalDestination = routePath[routePath.length - 1]; // Track final destination
+            
+            this.shipAnimations.push(animation);
+            return animation;
+        }
+        
+        return null;
+    }
 
     // Create multi-hop supply route animation
     createSupplyRouteAnimation(supplyRoute, color) {
@@ -179,21 +230,73 @@ export class AnimationSystem {
                 animation.progress += adjustedDeltaTime;
             }
             
-            // Check if current segment is complete
-            if (animation.progress >= animation.duration) {
-                if (animation.segments && animation.currentSegment < animation.segments.length - 1) {
-                    // Move to next segment
-                    animation.currentSegment++;
-                    const nextSegment = animation.segments[animation.currentSegment];
-                    animation.from = nextSegment.from;
-                    animation.to = nextSegment.to;
-                    animation.progress = 0;
-                    animation.duration = nextSegment.duration;
-                    animation.startTime = currentTime; // Reset start time for new segment
-                } else {
-                    // Animation complete
-                    this.returnToPool(animation);
-                    this.shipAnimations.splice(i, 1);
+            // Handle supply ship hop-by-hop movement with pauses
+            if (animation.isSupplyShip) {
+                // Check if currently paused at intermediate stop
+                if (animation.isPaused) {
+                    if (currentTime >= animation.pauseEndTime) {
+                        // End pause, move to next segment
+                        animation.isPaused = false;
+                        animation.currentSegment++;
+                        
+                        if (animation.currentSegment < animation.segments.length) {
+                            const nextSegment = animation.segments[animation.currentSegment];
+                            animation.from = nextSegment.from;
+                            animation.to = nextSegment.to;
+                            animation.progress = 0;
+                            animation.duration = nextSegment.duration;
+                            animation.startTime = currentTime;
+                        } else {
+                            // Reached final destination - increment army count
+                            const finalTerritory = this.game.gameMap.territories[animation.finalDestination];
+                            if (finalTerritory) {
+                                finalTerritory.armySize += 1;
+                            }
+                            
+                            // Animation complete
+                            this.returnToPool(animation);
+                            this.shipAnimations.splice(i, 1);
+                        }
+                    }
+                    continue; // Skip progress update while paused
+                }
+                
+                // Check if current segment is complete
+                if (animation.progress >= animation.duration) {
+                    if (animation.currentSegment < animation.segments.length - 1) {
+                        // Start pause at intermediate stop (not the final destination)
+                        animation.isPaused = true;
+                        animation.pauseEndTime = currentTime + animation.segments[animation.currentSegment].pauseDuration;
+                        animation.progress = animation.duration; // Stay at end of current segment
+                    } else {
+                        // Reached final destination - increment army count
+                        const finalTerritory = this.game.gameMap.territories[animation.finalDestination];
+                        if (finalTerritory) {
+                            finalTerritory.armySize += 1;
+                        }
+                        
+                        // Animation complete
+                        this.returnToPool(animation);
+                        this.shipAnimations.splice(i, 1);
+                    }
+                }
+            } else {
+                // Original logic for non-supply ships
+                if (animation.progress >= animation.duration) {
+                    if (animation.segments && animation.currentSegment < animation.segments.length - 1) {
+                        // Move to next segment
+                        animation.currentSegment++;
+                        const nextSegment = animation.segments[animation.currentSegment];
+                        animation.from = nextSegment.from;
+                        animation.to = nextSegment.to;
+                        animation.progress = 0;
+                        animation.duration = nextSegment.duration;
+                        animation.startTime = currentTime; // Reset start time for new segment
+                    } else {
+                        // Animation complete
+                        this.returnToPool(animation);
+                        this.shipAnimations.splice(i, 1);
+                    }
                 }
             }
         }

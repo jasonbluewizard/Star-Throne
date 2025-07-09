@@ -118,9 +118,19 @@ export class Territory {
                 const destinationTerritory = game.gameMap.territories[destinationId];
                 
                 if (destinationTerritory && destinationTerritory.ownerId === this.ownerId) {
-                    // Redirect army generation to destination
-                    destinationTerritory.armySize += armiesGenerated;
-                    // Supply route redirection (logging disabled for cleaner console output)
+                    // Get the full route path for visual ship movement
+                    const route = game.supplySystem.getSupplyRoute(this.id);
+                    if (route && route.path && route.path.length > 1) {
+                        // Create visual ship animations for each generated army
+                        for (let i = 0; i < armiesGenerated; i++) {
+                            if (game.animationSystem) {
+                                game.animationSystem.createSupplyShipAnimation(route.path, player.color);
+                            }
+                        }
+                    } else {
+                        // Fallback to direct generation if no valid path
+                        destinationTerritory.armySize += armiesGenerated;
+                    }
                     
                     // Visual feedback disabled to prevent text spam on heavily reinforced territories
                 } else {
