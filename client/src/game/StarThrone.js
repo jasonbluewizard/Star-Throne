@@ -3581,8 +3581,8 @@ export default class StarThrone {
         // Create multi-hop animation following the path
         this.createSupplyRouteAnimation(path.map(id => this.gameMap.territories[id]), this.humanPlayer.color);
         
-        // Calculate delivery delay based on path length (2 seconds per hop)
-        const deliveryDelay = (path.length - 1) * 2000;
+        // Calculate delivery delay based on path length (0.8 seconds per hop to match animation)
+        const deliveryDelay = (path.length - 1) * 800;
         
         // Schedule delivery to destination
         setTimeout(() => {
@@ -3617,8 +3617,8 @@ export default class StarThrone {
         // Create multi-hop animation following the path
         this.createSupplyRouteAnimation(path.map(id => this.gameMap.territories[id]), this.humanPlayer.color);
         
-        // Calculate travel delay based on path length (2 seconds per hop)
-        const travelDelay = (path.length - 1) * 2000;
+        // Calculate travel delay based on path length (0.8 seconds per hop to match animation)
+        const travelDelay = (path.length - 1) * 800;
         
         // Schedule attack at destination
         setTimeout(() => {
