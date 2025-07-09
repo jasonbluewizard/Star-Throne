@@ -2050,11 +2050,12 @@ export default class StarThrone {
             this.inputHandler.update();
         }
         
-        // Update ship animations and probes with normal delta time (speed applied internally)
+        // Update ship animations and particles with normal delta time (speed applied internally)
         try {
-            // Update AnimationSystem (new modular system for long-range attacks)
+            // Update AnimationSystem (new modular system for long-range attacks and particles)
             if (this.animationSystem) {
                 this.animationSystem.updateShipAnimations(deltaTime);
+                this.animationSystem.updateCombatParticles(deltaTime);
             }
             
             // Update legacy ship animations (for backwards compatibility)
@@ -3015,6 +3016,7 @@ export default class StarThrone {
         // Render new AnimationSystem ship animations (supply ships, enhanced rendering) - INSIDE camera transform
         if (this.animationSystem) {
             this.animationSystem.renderShipAnimations(this.ctx, this.camera);
+            this.animationSystem.renderCombatParticles(this.ctx, this.camera);
         }
         
         // Render long-range attacks

@@ -13,9 +13,18 @@ export class AnimationSystem {
         this.starfieldLayers = [];
         this.backgroundStars = null; // Pre-rendered background canvas
         
-        // Initialize pool
+        // Combat particle system
+        this.combatParticles = [];
+        this.particlePool = [];
+        this.maxParticlePoolSize = 200;
+        
+        // Initialize pools
         for (let i = 0; i < this.maxPoolSize; i++) {
             this.shipAnimationPool.push(this.createShipAnimation());
+        }
+        
+        for (let i = 0; i < this.maxParticlePoolSize; i++) {
+            this.particlePool.push(this.createParticle());
         }
     }
 
@@ -69,6 +78,65 @@ export class AnimationSystem {
         if (this.shipAnimationPool.length < this.maxPoolSize) {
             this.shipAnimationPool.push(animation);
         }
+    }
+
+    // Combat particle system
+    createParticle() {
+        return {
+            x: 0,
+            y: 0,
+            vx: 0,
+            vy: 0,
+            life: 0,
+            maxLife: 0,
+            size: 0,
+            color: '#ffffff',
+            isActive: false
+        };
+    }
+
+    getPooledParticle() {
+        const particle = this.particlePool.pop();
+        if (particle) {
+            particle.isActive = true;
+            return particle;
+        }
+        return this.createParticle();
+    }
+
+    returnParticleToPool(particle) {
+        particle.isActive = false;
+        if (this.particlePool.length < this.maxParticlePoolSize) {
+            this.particlePool.push(particle);
+        }
+    }
+
+    // Create particle explosion at combat location
+    createCombatParticles(x, y, color, intensity = 1.0) {
+        const particleCount = Math.floor(8 + Math.random() * 12) * intensity; // 8-20 particles
+        
+        for (let i = 0; i < particleCount; i++) {
+            const particle = this.getPooledParticle();
+            if (!particle) continue;
+            
+            // Random direction and speed
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 50 + Math.random() * 100; // 50-150 pixels/second
+            
+            particle.x = x + (Math.random() - 0.5) * 10; // Small initial spread
+            particle.y = y + (Math.random() - 0.5) * 10;
+            particle.vx = Math.cos(angle) * speed;
+            particle.vy = Math.sin(angle) * speed;
+            particle.life = 0;
+            particle.maxLife = 800 + Math.random() * 400; // 0.8-1.2 seconds
+            particle.size = 2 + Math.random() * 3; // 2-5 pixel particles
+            particle.color = color;
+            particle.isActive = true;
+            
+            this.combatParticles.push(particle);
+        }
+        
+        console.log(`💥 PARTICLES: Created ${particleCount} combat particles at (${x.toFixed(1)}, ${y.toFixed(1)}) in color ${color}`);
     }
     
     // FOG OF WAR: Check if ship animation should be visible
@@ -207,6 +275,29 @@ export class AnimationSystem {
         }
         
         return animation;
+    }
+
+    // Update combat particles
+    updateCombatParticles(deltaTime) {
+        for (let i = this.combatParticles.length - 1; i >= 0; i--) {
+            const particle = this.combatParticles[i];
+            
+            // Update particle physics
+            particle.life += deltaTime;
+            particle.x += particle.vx * (deltaTime / 1000);
+            particle.y += particle.vy * (deltaTime / 1000);
+            
+            // Apply gravity/deceleration
+            particle.vy += 80 * (deltaTime / 1000); // Gravity
+            particle.vx *= 0.98; // Air resistance
+            particle.vy *= 0.98;
+            
+            // Remove dead particles
+            if (particle.life >= particle.maxLife) {
+                this.combatParticles.splice(i, 1);
+                this.returnParticleToPool(particle);
+            }
+        }
     }
 
     // Update all ship animations
@@ -416,6 +507,48 @@ export class AnimationSystem {
         }
     }
 
+    // Render combat particles
+    renderCombatParticles(ctx, camera) {
+        ctx.save();
+        
+        for (const particle of this.combatParticles) {
+            if (!particle.isActive) continue;
+            
+            // Convert world coordinates to screen coordinates
+            const screenPos = camera.worldToScreen(particle.x, particle.y);
+            
+            // Skip particles outside viewport
+            if (screenPos.x < -20 || screenPos.x > ctx.canvas.width + 20 ||
+                screenPos.y < -20 || screenPos.y > ctx.canvas.height + 20) {
+                continue;
+            }
+            
+            // Calculate alpha based on particle life
+            const lifeProgress = particle.life / particle.maxLife;
+            const alpha = Math.max(0, 1.0 - lifeProgress); // Fade out over time
+            
+            // Set particle color with fade
+            const rgba = this.hexToRgba(particle.color, alpha);
+            ctx.fillStyle = rgba;
+            
+            // Draw particle with camera-adjusted size
+            const adjustedSize = particle.size * camera.zoom;
+            ctx.beginPath();
+            ctx.arc(screenPos.x, screenPos.y, adjustedSize, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        ctx.restore();
+    }
+
+    // Helper to convert hex color to rgba with alpha
+    hexToRgba(hex, alpha) {
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
     // Initialize parallax starfield
     initializeStarfield() {
         const mapWidth = this.game.gameMap.width;
@@ -560,6 +693,7 @@ export class AnimationSystem {
     // Update animations based on game speed
     update(deltaTime) {
         this.updateShipAnimations(deltaTime);
+        this.updateCombatParticles(deltaTime);
         
         // Update starfield twinkling (handled in render for performance)
         // No heavy calculations here, just timing
@@ -573,6 +707,12 @@ export class AnimationSystem {
         }
         this.shipAnimations = [];
         
+        // Return all active particles to pool
+        for (const particle of this.combatParticles) {
+            this.returnParticleToPool(particle);
+        }
+        this.combatParticles = [];
+        
         // Clear starfield
         this.starfieldLayers = [];
         this.backgroundStars = null;
@@ -583,6 +723,8 @@ export class AnimationSystem {
         return {
             activeAnimations: this.shipAnimations.length,
             poolSize: this.shipAnimationPool.length,
+            activeParticles: this.combatParticles.length,
+            particlePoolSize: this.particlePool.length,
             starCount: this.starfieldLayers.reduce((sum, layer) => sum + layer.stars.length, 0)
         };
     }
