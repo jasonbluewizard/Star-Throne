@@ -183,6 +183,16 @@ export class Territory {
             }
         }
         
+        // Add supply route flash effect for newly created routes
+        if (this.supplyFlashStart && currentTime - this.supplyFlashStart < this.supplyFlashDuration) {
+            const flashProgress = (currentTime - this.supplyFlashStart) / this.supplyFlashDuration;
+            const flashIntensity = Math.sin(flashProgress * Math.PI * 4) * (1 - flashProgress);
+            if (flashIntensity > 0) {
+                // Cyan flash for supply routes
+                fillColor = this.adjustColorBrightness('#00ffff', 1 + flashIntensity * 0.6);
+            }
+        }
+        
         // Add selection highlighting
         if (isSelected) {
             // Pulsing selection effect

@@ -82,10 +82,46 @@ export class SupplySystem {
         
         console.log(`Supply route created: ${fromTerritory.id} → ${toTerritory.id} (${path.length} hops)`);
         
-        // Visual feedback
-        this.game.showMessage(`Supply route established: ${path.length - 1} hop${path.length > 2 ? 's' : ''}`, 2000);
+        // Enhanced visual feedback with specific territory names/IDs
+        const hopText = path.length > 2 ? `${path.length - 1} hops` : 'direct';
+        this.game.showMessage(`REINFORCEMENTS ROUTED FROM STAR ${fromTerritory.id} TO STAR ${toTerritory.id} (${hopText})`, 3000);
+        
+        // Flash both territories to show the connection
+        this.flashSupplyRouteConnection(fromTerritory, toTerritory, path);
         
         return true;
+    }
+    
+    flashSupplyRouteConnection(fromTerritory, toTerritory, path) {
+        // Flash the source and destination territories
+        const flashDuration = 2000; // 2 seconds
+        const flashStartTime = Date.now();
+        
+        // Add flash effect to both territories
+        if (this.game.gameMap && this.game.gameMap.territories) {
+            // Flash source territory
+            const sourceTerritory = this.game.gameMap.territories[fromTerritory.id];
+            if (sourceTerritory) {
+                sourceTerritory.supplyFlashStart = flashStartTime;
+                sourceTerritory.supplyFlashDuration = flashDuration;
+            }
+            
+            // Flash destination territory
+            const destTerritory = this.game.gameMap.territories[toTerritory.id];
+            if (destTerritory) {
+                destTerritory.supplyFlashStart = flashStartTime;
+                destTerritory.supplyFlashDuration = flashDuration;
+            }
+        }
+        
+        // Create a temporary route flash for visual feedback
+        this.routeFlash = {
+            path: path,
+            startTime: flashStartTime,
+            duration: flashDuration
+        };
+        
+        console.log(`🔗 Flashing supply route connection from ${fromTerritory.id} to ${toTerritory.id}`);
     }
     
     validateSupplyRouteCreation(fromTerritory, toTerritory) {
@@ -253,9 +289,56 @@ export class SupplySystem {
         return false;
     }
     
+    renderSupplyFlash(ctx, territories) {
+        // Render flashing route path for newly created supply routes
+        if (!this.routeFlash) return;
+        
+        const currentTime = Date.now();
+        const elapsed = currentTime - this.routeFlash.startTime;
+        
+        if (elapsed >= this.routeFlash.duration) {
+            // Flash expired, remove it
+            this.routeFlash = null;
+            return;
+        }
+        
+        // Calculate flash intensity
+        const flashProgress = elapsed / this.routeFlash.duration;
+        const flashIntensity = Math.sin(flashProgress * Math.PI * 6) * (1 - flashProgress * 0.5);
+        
+        if (flashIntensity > 0 && this.routeFlash.path) {
+            ctx.save();
+            
+            // Bright cyan flash for the route path
+            ctx.strokeStyle = `rgba(0, 255, 255, ${flashIntensity})`;
+            ctx.lineWidth = 8 + flashIntensity * 4; // Thicker line when flashing
+            ctx.setLineDash([]);
+            
+            // Draw flashing path segments
+            for (let i = 0; i < this.routeFlash.path.length - 1; i++) {
+                const currentId = this.routeFlash.path[i];
+                const nextId = this.routeFlash.path[i + 1];
+                const current = territories[currentId];
+                const next = territories[nextId];
+                
+                if (current && next) {
+                    ctx.beginPath();
+                    ctx.moveTo(current.x, current.y);
+                    ctx.lineTo(next.x, next.y);
+                    ctx.stroke();
+                }
+            }
+            
+            ctx.restore();
+        }
+    }
+    
     // Removed unused: removeAllSupplyRoutes (no callers found)
     
     renderSupplyRoutes(ctx, territories) {
+        // Render flash effect for newly created routes
+        this.renderSupplyFlash(ctx, territories);
+        
         // Render active supply routes with animated arrows
         this.supplyRoutes.forEach(route => {
             if (!route.active) return;

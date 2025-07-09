@@ -1416,7 +1416,7 @@ export class GameUI {
         ctx.fillText('SUPPLY MODE', this.canvas.width / 2, 45);
         
         ctx.font = '14px Arial';
-        ctx.fillText('Tap a friendly territory to create supply route', this.canvas.width / 2, 75);
+        ctx.fillText('CLICK TARGET STAR TO REINFORCE', this.canvas.width / 2, 75);
         
         ctx.restore();
     }

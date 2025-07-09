@@ -744,6 +744,10 @@ Changelog:
   * Cleaned up obsolete probe/colonization code by removing isColonizable checks and launchProbe method calls
   * Simplified fleet command logic to treat all non-owned territories as attackable targets without probe requirements
   * Removed probe cursor mode and associated UI elements for cleaner attack/transfer logic
+  * Fixed supply route system by correcting InputStateMachine to call createSupplyRoute() instead of non-existent toggleSupplyRoute()
+  * Enhanced supply route UX with improved messaging: "CLICK TARGET STAR TO REINFORCE" and "REINFORCEMENTS ROUTED FROM STAR X TO STAR Y"
+  * Added visual feedback system: territories flash cyan when supply routes are created, route paths flash brightly for 2 seconds
+  * Implemented comprehensive supply route visual effects including territory flash rendering and animated route path highlighting
 - January 7, 2025. Tech discovery system implementation with persistent upgrades:
   * Added comprehensive tech level system (Attack, Defense, Engines, Production) capped at level 5
   * Each player gains permanent tech bonuses when conquering neutral territories and discovering precursor technologies
