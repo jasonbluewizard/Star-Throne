@@ -30,14 +30,16 @@ export class PathfindingService {
                 return;
             }
 
-            const territories = graph.territories;
-            const startTerritory = territories[startNodeId];
-            const endTerritory = territories[endNodeId];
+            // Handle gameMap.territories which is an object, not array
+            const territoriesObject = graph.territories;
+            const territoriesArray = Object.values(territoriesObject);
+            const startTerritory = territoriesObject[startNodeId];
+            const endTerritory = territoriesObject[endNodeId];
 
             console.log(`🛣️ ATTACK PATH: Finding path from ${startNodeId} (player ${playerId}) to ${endNodeId}`);
             console.log(`🛣️ DEBUG: Start territory:`, startTerritory?.id, 'owner:', startTerritory?.ownerId);
             console.log(`🛣️ DEBUG: End territory:`, endTerritory?.id, 'owner:', endTerritory?.ownerId);
-            console.log(`🛣️ DEBUG: Total territories:`, territories.length);
+            console.log(`🛣️ DEBUG: Total territories:`, territoriesArray.length);
 
             // Validate start territory is player-owned, end territory exists
             if (!startTerritory || !endTerritory || startTerritory.ownerId !== playerId) {
@@ -49,10 +51,10 @@ export class PathfindingService {
 
             // Check if target is adjacent to any player territory
             console.log(`🛣️ DEBUG: Checking adjacency to target ${endNodeId}`);
-            const playerTerritories = territories.filter(t => t && t.ownerId === playerId);
+            const playerTerritories = territoriesArray.filter(t => t && t.ownerId === playerId);
             console.log(`🛣️ DEBUG: Player owns ${playerTerritories.length} territories:`, playerTerritories.map(t => t.id));
             
-            for (let territory of territories) {
+            for (let territory of territoriesArray) {
                 if (territory && territory.ownerId === playerId) {
                     const isAdjacent = territory.neighbors && territory.neighbors.includes(endNodeId);
                     console.log(`🛣️ DEBUG: Territory ${territory.id} neighbors:`, territory.neighbors, 'adjacent to target:', isAdjacent);
@@ -122,11 +124,13 @@ export class PathfindingService {
                 return;
             }
 
-            const territories = graph.territories;
-            const startTerritory = territories[startNodeId];
-            const endTerritory = territories[endNodeId];
+            // Handle gameMap.territories which is an object, not array
+            const territoriesObject = graph.territories;
+            const territoriesArray = Object.values(territoriesObject);
+            const startTerritory = territoriesObject[startNodeId];
+            const endTerritory = territoriesObject[endNodeId];
 
-            console.log('PathfindingService: territories array length:', territories.length);
+            console.log('PathfindingService: territories array length:', territoriesArray.length);
             console.log('PathfindingService: startTerritory:', startTerritory);
             console.log('PathfindingService: endTerritory:', endTerritory);
             console.log('PathfindingService: playerId:', playerId);
@@ -147,7 +151,7 @@ export class PathfindingService {
             const unvisited = new Set();
 
             // Initialize all player-owned territories
-            for (let territory of territories) {
+            for (let territory of territoriesArray) {
                 if (territory && territory.ownerId === playerId) {
                     distances.set(territory.id, territory.id === startNodeId ? 0 : Infinity);
                     previous.set(territory.id, null);
@@ -193,10 +197,10 @@ export class PathfindingService {
                 }
 
                 // Examine neighbors of current node
-                const currentTerritory = territories[currentNode];
+                const currentTerritory = territoriesObject[currentNode];
                 if (currentTerritory && currentTerritory.neighbors) {
                     for (let neighborId of currentTerritory.neighbors) {
-                        const neighborTerritory = territories[neighborId];
+                        const neighborTerritory = territoriesObject[neighborId];
                         
                         // Only consider neighbors owned by the same player
                         if (neighborTerritory && 
