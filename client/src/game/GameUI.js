@@ -1439,7 +1439,7 @@ export class GameUI {
         ctx.save();
         ctx.setLineDash([]); // Clear dashed lines
         
-        // "ATTACK" text directly on target star
+        // "ATTACK" text at top of target star
         ctx.font = 'bold 14px Arial';
         ctx.textAlign = 'center';
         ctx.fillStyle = '#ff4444';
@@ -1448,25 +1448,26 @@ export class GameUI {
         ctx.strokeText('ATTACK', targetScreen.x, targetScreen.y - 25);
         ctx.fillText('ATTACK', targetScreen.x, targetScreen.y - 25);
         
-        // Combat odds text below attack text
-        const winText = `WIN ${preview.winChance}%`;
+        // Attack force on left side
         ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#44ff44';
+        ctx.strokeText(`Attack ${attackingArmies}`, targetScreen.x - 20, targetScreen.y);
+        ctx.fillText(`Attack ${attackingArmies}`, targetScreen.x - 20, targetScreen.y);
+        
+        // Defense force on right side
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#ff4444';
+        ctx.strokeText(`Defence ${preview.defendingArmies}`, targetScreen.x + 20, targetScreen.y);
+        ctx.fillText(`Defence ${preview.defendingArmies}`, targetScreen.x + 20, targetScreen.y);
+        
+        // Win percentage centered below
+        const winText = `${preview.winChance}% win`;
+        ctx.font = 'bold 11px Arial';
+        ctx.textAlign = 'center';
         ctx.fillStyle = preview.winChance >= 60 ? '#44ff44' : preview.winChance >= 40 ? '#ffff44' : '#ff4444';
-        ctx.strokeText(winText, targetScreen.x, targetScreen.y - 10);
-        ctx.fillText(winText, targetScreen.x, targetScreen.y - 10);
-        
-        // Outcome projection text
-        ctx.font = '11px Arial';
-        ctx.fillStyle = '#ffffff';
-        ctx.strokeText(preview.outcomeText, targetScreen.x, targetScreen.y + 5);
-        ctx.fillText(preview.outcomeText, targetScreen.x, targetScreen.y + 5);
-        
-        // Force details for better tactical understanding
-        const forceText = `${attackingArmies} vs ${preview.defendingArmies}`;
-        ctx.font = '10px Arial';
-        ctx.fillStyle = '#cccccc';
-        ctx.strokeText(forceText, targetScreen.x, targetScreen.y + 18);
-        ctx.fillText(forceText, targetScreen.x, targetScreen.y + 18);
+        ctx.strokeText(winText, targetScreen.x, targetScreen.y + 15);
+        ctx.fillText(winText, targetScreen.x, targetScreen.y + 15);
         
         ctx.restore();
     }
