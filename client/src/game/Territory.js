@@ -121,10 +121,18 @@ export class Territory {
                     // Get the full route path for visual ship movement
                     const route = game.supplySystem.getSupplyRoute(this.id);
                     if (route && route.path && route.path.length > 1) {
+                        console.log(`🚢 SUPPLY SHIP: Creating ${armiesGenerated} ships from territory ${this.id} to destination ${route.destinationId}`);
+                        console.log(`🚢 SUPPLY PATH: ${route.path.join(' → ')}`);
+                        
                         // Create visual ship animations for each generated army
                         for (let i = 0; i < armiesGenerated; i++) {
                             if (game.animationSystem) {
-                                game.animationSystem.createSupplyShipAnimation(route.path, player.color);
+                                const animation = game.animationSystem.createSupplyShipAnimation(route.path, player.color);
+                                if (animation) {
+                                    console.log(`🚢 SHIP CREATED: Animation ${i+1}/${armiesGenerated} from ${route.path[0]} to ${route.path[route.path.length-1]}`);
+                                } else {
+                                    console.log(`❌ SHIP FAILED: Could not create animation ${i+1}/${armiesGenerated}`);
+                                }
                             }
                         }
                     } else {

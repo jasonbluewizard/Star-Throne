@@ -165,6 +165,8 @@ export class AnimationSystem {
             animation.finalDestination = routePath[routePath.length - 1]; // Track final destination
             
             this.shipAnimations.push(animation);
+            console.log(`🚢 ANIMATION CREATED: Supply ship with ${segments.length} segments, path: ${routePath.join(' → ')}`);
+            console.log(`🚢 TOTAL ANIMATIONS: ${this.shipAnimations.length} ships active`);
             return animation;
         }
         
@@ -232,6 +234,11 @@ export class AnimationSystem {
             
             // Handle supply ship hop-by-hop movement with pauses
             if (animation.isSupplyShip) {
+                // Debug supply ship progress occasionally
+                if (Math.random() < 0.01) {
+                    console.log(`🚢 SUPPLY UPDATE: Ship at segment ${animation.currentSegment}/${animation.segments.length-1}, progress ${animation.progress}/${animation.duration}, paused: ${animation.isPaused}`);
+                }
+                
                 // Check if currently paused at intermediate stop
                 if (animation.isPaused) {
                     if (currentTime >= animation.pauseEndTime) {
@@ -332,14 +339,29 @@ export class AnimationSystem {
         
         // Then draw ships
         for (const animation of this.shipAnimations) {
+            // Debug supply ship rendering occasionally
+            if (animation.isSupplyShip && Math.random() < 0.05) {
+                console.log(`🚢 RENDER: Supply ship segment ${animation.currentSegment}/${animation.segments?.length || 0}, progress ${animation.progress}/${animation.duration}, paused: ${animation.isPaused}`);
+            }
+            
             // FOG OF WAR: Check if animation should be visible
             if (!this.shouldRenderAnimation(animation)) {
                 continue;
             }
             
-            const t = Math.min(animation.progress / animation.duration, 1.0);
-            const currentX = animation.from.x + (animation.to.x - animation.from.x) * t;
-            const currentY = animation.from.y + (animation.to.y - animation.from.y) * t;
+            // Handle supply ship position calculation (may be paused)
+            let t, currentX, currentY;
+            
+            if (animation.isSupplyShip && animation.isPaused) {
+                // If paused, stay at end of current segment
+                t = 1.0;
+                currentX = animation.to.x;
+                currentY = animation.to.y;
+            } else {
+                t = Math.min(animation.progress / animation.duration, 1.0);
+                currentX = animation.from.x + (animation.to.x - animation.from.x) * t;
+                currentY = animation.from.y + (animation.to.y - animation.from.y) * t;
+            }
             
             const screenPos = camera.worldToScreen(currentX, currentY);
             
@@ -362,7 +384,21 @@ export class AnimationSystem {
             ctx.lineWidth = 2;
             
             // Draw ship as circle with trail
-            const size = animation.isLongRange ? 3 : (animation.isAttack ? 4 : 3); // Smaller for long-range (half size)
+            let size = animation.isLongRange ? 3 : (animation.isAttack ? 4 : 3); // Smaller for long-range (half size)
+            
+            // Special rendering for supply ships - make them more visible
+            if (animation.isSupplyShip) {
+                size = 5; // Larger supply ships
+                ctx.shadowColor = animation.color;
+                ctx.shadowBlur = 8;
+                
+                // Add pulsing effect if paused
+                if (animation.isPaused) {
+                    const pulseIntensity = 0.7 + 0.3 * Math.sin(Date.now() * 0.01);
+                    ctx.globalAlpha = pulseIntensity;
+                }
+            }
+            
             ctx.beginPath();
             ctx.arc(screenPos.x, screenPos.y, size, 0, Math.PI * 2);
             ctx.fill();
