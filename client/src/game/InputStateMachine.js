@@ -345,23 +345,51 @@ class TerritorySelectedState extends BaseState {
                         // No immediate deselection - wait for battle outcome
                     }
                 } else {
-                    // Non-adjacent enemy star - launch long-range attack
+                    // Non-adjacent enemy star - check for warp lane path first
                     const attackingArmies = Math.floor((sourceStar.armySize - 1) * 0.5);
-                    console.log(`🎯 LONG-RANGE ENEMY TRIGGER: Attacking ${targetStar.id} with ${attackingArmies} armies`);
+                    console.log(`🎯 NON-ADJACENT ENEMY: Checking path to ${targetStar.id} with ${attackingArmies} armies`);
+                    
                     if (attackingArmies > 0) {
-                        console.log(`🚀 ENEMY: Launching long-range attack from territory ${sourceStar.id} (owner: ${sourceStar.ownerId}) to ${targetStar.id} (owner: ${targetStar.ownerId})`);
-                        const result = this.game.launchLongRangeAttack(sourceStar, targetStar, attackingArmies);
-                        console.log(`🚀 ENEMY: Launched long-range attack: ${sourceStar.id} -> ${targetStar.id} (${attackingArmies} ships)`);
-                        
-                        // Track long-range battle if available
-                        if (result && result.battleId) {
-                            this.fsm.trackPlayerBattle(result.battleId, sourceStar, targetStar);
-                            console.log(`🎯 Tracking long-range enemy battle ${result.battleId} for territory ${sourceStar.id}`);
+                        // Try to find a path through warp lanes
+                        try {
+                            const path = await this.game.pathfindingService.findShortestPath(
+                                sourceStar.id,
+                                targetStar.id,
+                                this.game.gameMap
+                            );
+                            
+                            if (path && path.length > 1) {
+                                console.log(`🛣️ ENEMY: Found warp lane path: ${path.join(' -> ')}`);
+                                this.game.executeFleetCommand(sourceStar, targetStar, 0.5, 'multi-hop-attack', path);
+                                
+                                // Track the attack for battle outcome
+                                const result = { success: true, battleId: `multihop_${Date.now()}_${Math.random()}` };
+                                this.fsm.trackPlayerBattle(result.battleId, sourceStar, targetStar);
+                                console.log(`🎯 Tracking multi-hop enemy attack ${result.battleId} for territory ${sourceStar.id}`);
+                            } else {
+                                // No path found - use long-range attack
+                                console.log(`🚀 ENEMY: No path found, launching long-range attack from territory ${sourceStar.id} to ${targetStar.id}`);
+                                const result = this.game.launchLongRangeAttack(sourceStar, targetStar, attackingArmies);
+                                console.log(`🚀 ENEMY: Launched long-range attack: ${sourceStar.id} -> ${targetStar.id} (${attackingArmies} ships)`);
+                                
+                                // Track long-range battle if available
+                                if (result && result.battleId) {
+                                    this.fsm.trackPlayerBattle(result.battleId, sourceStar, targetStar);
+                                    console.log(`🎯 Tracking long-range enemy battle ${result.battleId} for territory ${sourceStar.id}`);
+                                }
+                            }
+                        } catch (error) {
+                            console.error("Pathfinding error for enemy attack:", error);
+                            // Fall back to long-range attack on pathfinding failure
+                            const result = this.game.launchLongRangeAttack(sourceStar, targetStar, attackingArmies);
+                            if (result && result.battleId) {
+                                this.fsm.trackPlayerBattle(result.battleId, sourceStar, targetStar);
+                            }
                         }
                         // No immediate deselection - wait for battle outcome
                     } else {
-                        console.log(`❌ LONG-RANGE BLOCKED: Source has only ${sourceStar.armySize} armies`);
-                        this.showFeedback("Need more armies for long-range attack", sourceStar.x, sourceStar.y);
+                        console.log(`❌ ENEMY ATTACK BLOCKED: Source has only ${sourceStar.armySize} armies`);
+                        this.showFeedback("Need more armies for attack", sourceStar.x, sourceStar.y);
                     }
                 }
                 break;
@@ -385,23 +413,51 @@ class TerritorySelectedState extends BaseState {
                         // No immediate deselection - wait for battle outcome
                     }
                 } else {
-                    // Non-adjacent neutral star - launch long-range attack
+                    // Non-adjacent neutral star - check for warp lane path first
                     const attackingArmies = Math.floor((sourceStar.armySize - 1) * 0.5);
-                    console.log(`🎯 NON-ADJACENT NEUTRAL: Attempting long-range attack with ${attackingArmies} armies`);
+                    console.log(`🎯 NON-ADJACENT NEUTRAL: Checking path to ${targetStar.id} with ${attackingArmies} armies`);
+                    
                     if (attackingArmies > 0) {
-                        console.log(`🚀 NEUTRAL: Launching long-range attack from territory ${sourceStar.id} (owner: ${sourceStar.ownerId}) to ${targetStar.id} (owner: ${targetStar.ownerId})`);
-                        const result = this.game.launchLongRangeAttack(sourceStar, targetStar, attackingArmies);
-                        console.log(`🚀 NEUTRAL: Launched long-range attack: ${sourceStar.id} -> ${targetStar.id} (${attackingArmies} ships)`);
-                        
-                        // Track long-range battle if available
-                        if (result && result.battleId) {
-                            this.fsm.trackPlayerBattle(result.battleId, sourceStar, targetStar);
-                            console.log(`🎯 Tracking long-range neutral battle ${result.battleId} for territory ${sourceStar.id}`);
+                        // Try to find a path through warp lanes
+                        try {
+                            const path = await this.game.pathfindingService.findShortestPath(
+                                sourceStar.id,
+                                targetStar.id,
+                                this.game.gameMap
+                            );
+                            
+                            if (path && path.length > 1) {
+                                console.log(`🛣️ NEUTRAL: Found warp lane path: ${path.join(' -> ')}`);
+                                this.game.executeFleetCommand(sourceStar, targetStar, 0.5, 'multi-hop-attack', path);
+                                
+                                // Track the attack for battle outcome
+                                const result = { success: true, battleId: `multihop_${Date.now()}_${Math.random()}` };
+                                this.fsm.trackPlayerBattle(result.battleId, sourceStar, targetStar);
+                                console.log(`🎯 Tracking multi-hop neutral attack ${result.battleId} for territory ${sourceStar.id}`);
+                            } else {
+                                // No path found - use long-range attack
+                                console.log(`🚀 NEUTRAL: No path found, launching long-range attack from territory ${sourceStar.id} to ${targetStar.id}`);
+                                const result = this.game.launchLongRangeAttack(sourceStar, targetStar, attackingArmies);
+                                console.log(`🚀 NEUTRAL: Launched long-range attack: ${sourceStar.id} -> ${targetStar.id} (${attackingArmies} ships)`);
+                                
+                                // Track long-range battle if available
+                                if (result && result.battleId) {
+                                    this.fsm.trackPlayerBattle(result.battleId, sourceStar, targetStar);
+                                    console.log(`🎯 Tracking long-range neutral battle ${result.battleId} for territory ${sourceStar.id}`);
+                                }
+                            }
+                        } catch (error) {
+                            console.error("Pathfinding error for neutral attack:", error);
+                            // Fall back to long-range attack on pathfinding failure
+                            const result = this.game.launchLongRangeAttack(sourceStar, targetStar, attackingArmies);
+                            if (result && result.battleId) {
+                                this.fsm.trackPlayerBattle(result.battleId, sourceStar, targetStar);
+                            }
                         }
                         // No immediate deselection - wait for battle outcome
                     } else {
-                        console.log(`🚀 NEUTRAL: Not enough armies for long-range attack`);
-                        this.showFeedback("Need more armies for long-range attack", sourceStar.x, sourceStar.y);
+                        console.log(`🚀 NEUTRAL: Not enough armies for attack`);
+                        this.showFeedback("Need more armies for attack", sourceStar.x, sourceStar.y);
                     }
                 }
                 break;
