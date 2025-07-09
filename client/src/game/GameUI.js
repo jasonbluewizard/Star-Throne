@@ -1433,6 +1433,18 @@ export class GameUI {
         const preview = gameData.combatSystem.calculateCombatPreview(source, target, attackingArmies);
         if (!preview) return;
         
+        // Calculate total attacking ships including ships en route/fighting
+        let totalAttackingShips = attackingArmies;
+        
+        // Add ships already en route to this target from this source
+        if (gameData.shipAnimations) {
+            for (const animation of gameData.shipAnimations) {
+                if (animation.from === source.id && animation.to === target.id && animation.isActive) {
+                    totalAttackingShips += animation.shipCount || 0;
+                }
+            }
+        }
+        
         // Calculate tech advantage
         const humanPlayer = gameData.humanPlayer;
         const targetPlayer = gameData.players[target.ownerId];
@@ -1480,6 +1492,16 @@ export class GameUI {
         ctx.fillStyle = techColor;
         ctx.strokeText(`${techSign}${techAdvantage}`, targetScreen.x - 20, targetScreen.y);
         ctx.fillText(`${techSign}${techAdvantage}`, targetScreen.x - 20, targetScreen.y);
+        
+        // Attacking ship count at bottom
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#44ff44';
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 2;
+        const shipText = `${totalAttackingShips} ships`;
+        ctx.strokeText(shipText, targetScreen.x, targetScreen.y + 18);
+        ctx.fillText(shipText, targetScreen.x, targetScreen.y + 18);
         
         ctx.restore();
     }
