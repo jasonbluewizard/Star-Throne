@@ -722,6 +722,15 @@ Changelog:
    * Fixed missing supply route indicators (+ symbols) by rendering them at all zoom levels instead of only zoom > 0.3
    * Fixed H key first-press bug with enhanced throne star detection including fallback search through owned territories
    * Supply route reinforcement indicators now visible regardless of camera zoom level
+- January 9, 2025. Fleet pathfinding and supply mode improvements:
+  * Ships now follow warp lane networks instead of flying across empty space for realistic movement
+  * Implemented pathfinding system using connected star lanes for multi-hop attacks and transfers
+  * Fixed supply mode activation to work with single tap-and-hold (removed double-tap requirement)
+  * Added repeat attack system - first attack requires confirmation, subsequent attacks on same target are immediate
+  * Enhanced input state machine with proper long-press detection and timer management
+  * Confirmed attack targets cleared when deselecting source territory for safety
+  * Multi-hop ship animations travel planet-to-planet along actual warp lane paths
+  * Long-range attacks only used as fallback when no warp lane path exists
 - January 7, 2025. Tech discovery system implementation with persistent upgrades:
   * Added comprehensive tech level system (Attack, Defense, Engines, Production) capped at level 5
   * Each player gains permanent tech bonuses when conquering neutral territories and discovering precursor technologies

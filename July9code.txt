@@ -1,0 +1,2618 @@
+# Star Throne - Complete Codebase Documentation
+# Generated: January 9, 2025
+# Recent Changes and Architecture Overview
+
+## RECENT CHANGES SUMMARY
+
+### Fleet Movement via Warp Lanes (Latest Update)
+- Ships now follow warp lane networks instead of flying across empty space
+- Implemented pathfinding system that uses connected star lanes for realistic movement
+- Multi-hop attacks travel planet-to-planet along shortest warp lane paths
+- Direct connections use simple movement, distant targets use pathfinding
+- Long-range attacks only as fallback when no warp lane path exists
+
+### Supply Mode Fixes
+- Fixed supply mode activation to work with single tap-and-hold (no double-tap required)
+- Long press on any owned territory now activates supply mode immediately
+- Enhanced supply mode target selection to properly create routes
+- Improved timer management to prevent conflicts between dragging and long-press
+
+### Attack System Improvements
+- Added repeat attack system for confirmed targets
+- First attack on enemy territory requires confirmation click
+- Subsequent attacks on same target from same source are immediate
+- Confirmed targets cleared when deselecting attacking planet
+- System maintains safety while improving attack flow
+
+## ARCHITECTURE OVERVIEW
+
+Star Throne is a browser-based real-time strategy game built with a modular architecture:
+
+### Frontend Stack
+- React 18 with TypeScript for UI components
+- HTML5 Canvas for high-performance 2D game rendering
+- Custom JavaScript game engine for game logic
+- Socket.IO client for real-time multiplayer communication
+- Zustand for lightweight state management
+- Radix UI components for accessible interface elements
+- Tailwind CSS for styling
+
+### Backend Stack
+- Express.js server with TypeScript
+- Socket.IO WebSocket server for multiplayer
+- In-memory storage using Map-based data structures
+- Session management with connect-pg-simple
+- Drizzle ORM configured for PostgreSQL
+
+### Game Engine Architecture
+The game uses a modular system with these core components:
+
+1. **StarThrone.js** - Main game controller and coordinator
+2. **GameMap.js** - Territory generation and map management
+3. **InputHandler.js** - Mouse/touch input processing
+4. **InputStateMachine.js** - Finite state machine for player actions
+5. **Renderer.js** - Canvas rendering system
+6. **CombatSystem.js** - Battle calculations and army management
+7. **SupplySystem.js** - Supply route management
+8. **PathfindingService.js** - Warp lane pathfinding for ship movement
+9. **Player.js** - Player state and AI behavior
+10. **Camera.js** - Viewport management with smooth controls
+
+===============================================================================
+
+## client/src/App.tsx
+
+```typescript
+import React, { useState } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Helmet, HelmetProvider } from 'react-helmet-async';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Toaster } from '@/components/ui/sonner';
+import TitleScreen from './components/TitleScreen';
+import GameModeSelector from './components/GameModeSelector';
+import GameConfigScreen from './components/GameConfigScreen';
+import MultiplayerScreen from './components/MultiplayerScreen';
+import Game from './components/Game';
+import './index.css';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60 * 1000,
+    },
+  },
+});
+
+interface GameData {
+  mode: 'single' | 'multiplayer';
+  playerName?: string;
+  aiCount?: number;
+  mapSize?: number;
+  gameSpeed?: number;
+  layout?: string;
+  roomCode?: string;
+}
+
+function App() {
+  const [currentScreen, setCurrentScreen] = useState<'title' | 'mode' | 'config' | 'multiplayer' | 'game'>('title');
+  const [gameData, setGameData] = useState<GameData | null>(null);
+
+  const handleModeSelect = (mode: 'single' | 'multiplayer') => {
+    if (mode === 'single') {
+      setCurrentScreen('config');
+    } else {
+      setCurrentScreen('multiplayer');
+    }
+    setGameData({ mode });
+  };
+
+  const handleConfigComplete = (config: any) => {
+    setGameData(prev => ({ ...prev, ...config }));
+    setCurrentScreen('game');
+  };
+
+  const handleMultiplayerJoin = (roomCode: string, playerName: string) => {
+    setGameData(prev => ({ ...prev, roomCode, playerName }));
+    setCurrentScreen('game');
+  };
+
+  const handleBackToMode = () => {
+    setCurrentScreen('mode');
+    setGameData(null);
+  };
+
+  const handleBackToTitle = () => {
+    setCurrentScreen('title');
+    setGameData(null);
+  };
+
+  return (
+    <HelmetProvider>
+      <QueryClientProvider client={queryClient}>
+        <div className="min-h-screen bg-gray-950">
+          <Helmet>
+            <title>Star Throne</title>
+            <meta name="description" content="Massive multiplayer strategy game in space" />
+          </Helmet>
+          
+          {currentScreen === 'title' && (
+            <TitleScreen onComplete={() => setCurrentScreen('mode')} />
+          )}
+          
+          {currentScreen === 'mode' && (
+            <GameModeSelector 
+              onModeSelect={handleModeSelect}
+              onBack={handleBackToTitle}
+            />
+          )}
+          
+          {currentScreen === 'config' && (
+            <GameConfigScreen
+              onConfigComplete={handleConfigComplete}
+              onBack={handleBackToMode}
+            />
+          )}
+          
+          {currentScreen === 'multiplayer' && (
+            <MultiplayerScreen
+              onJoinRoom={handleMultiplayerJoin}
+              onBack={handleBackToMode}
+            />
+          )}
+          
+          {currentScreen === 'game' && gameData && (
+            <Game 
+              gameData={gameData}
+              onBack={handleBackToMode}
+            />
+          )}
+          
+          <Toaster />
+        </div>
+      </QueryClientProvider>
+    </HelmetProvider>
+  );
+}
+
+export default App;
+```
+
+===============================================================================
+
+## client/src/components/Game.tsx
+
+```typescript
+import React, { useEffect, useRef, useState } from 'react';
+import StarThrone from '../game/StarThrone';
+
+interface GameProps {
+  gameData: {
+    mode: 'single' | 'multiplayer';
+    playerName?: string;
+    aiCount?: number;
+    mapSize?: number;
+    gameSpeed?: number;
+    layout?: string;
+    roomCode?: string;
+  };
+  onBack: () => void;
+}
+
+const Game: React.FC<GameProps> = ({ gameData, onBack }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const gameRef = useRef<StarThrone | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadingMessage, setLoadingMessage] = useState('Initializing game...');
+
+  useEffect(() => {
+    if (canvasRef.current) {
+      setLoadingMessage('Generating galaxy map, please wait...');
+      
+      // Add a small delay to show the loading message
+      setTimeout(() => {
+        try {
+          gameRef.current = new StarThrone({
+            canvas: canvasRef.current!,
+            mode: gameData.mode,
+            playerName: gameData.playerName || 'Player',
+            aiCount: gameData.aiCount || 19,
+            mapSize: gameData.mapSize || 80,
+            gameSpeed: gameData.gameSpeed || 1.0,
+            layout: gameData.layout || 'organic',
+            roomCode: gameData.roomCode
+          });
+          
+          gameRef.current.init();
+          setIsLoading(false);
+        } catch (error) {
+          console.error('Game initialization error:', error);
+          setLoadingMessage('Error loading game. Please try again.');
+        }
+      }, 100);
+    }
+
+    return () => {
+      if (gameRef.current) {
+        gameRef.current.cleanup?.();
+      }
+    };
+  }, [gameData]);
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-950 text-white">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500 mb-4"></div>
+        <p className="text-xl">{loadingMessage}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative w-full h-screen bg-black overflow-hidden">
+      <canvas
+        ref={canvasRef}
+        style={{
+          display: 'block',
+          width: '100%',
+          height: '100%',
+          touchAction: 'none'
+        }}
+      />
+      
+      {/* Back button - only show in single player mode */}
+      {gameData.mode === 'single' && (
+        <button
+          onClick={onBack}
+          className="absolute top-4 left-4 z-10 px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-700 transition-colors"
+        >
+          ← Back to Menu
+        </button>
+      )}
+    </div>
+  );
+};
+
+export default Game;
+```
+
+===============================================================================
+
+## client/src/game/StarThrone.js
+
+```javascript
+import { GameMap } from './GameMap';
+import { Player } from './Player';
+import { GameUI } from './GameUI';
+import { Camera } from './Camera';
+// Removed disabled Probe import (dead code cleanup)
+import { InputHandler } from './InputHandler';
+import { Renderer } from './Renderer';
+import { CombatSystem } from './CombatSystem';
+import { SupplySystem } from './SupplySystem';
+import { PathfindingService } from './PathfindingService';
+import { GameUtils } from './utils';
+import { GAME_CONSTANTS } from '../../../common/gameConstants';
+import { gameEvents, GAME_EVENTS, EVENT_PRIORITY, EventHelpers } from './EventSystem';
+import { PerformanceManager } from './PerformanceManager';
+import { PerformanceOverlay } from './PerformanceOverlay';
+import { DiscoverySystem } from './DiscoverySystem';
+import { AnimationSystem } from './AnimationSystem';
+import { UIManager } from './UIManager';
+import { AIManager } from './AIManager';
+import Controls from './Controls';
+
+export default class StarThrone {
+    constructor(config = {}) {
+        this.canvas = null;
+        this.ctx = null;
+        this.gameMap = null;
+        this.players = [];
+        this.humanPlayer = null;
+        this.camera = null;
+        this.ui = null;
+        
+        // Game configuration from config screen
+        this.config = {
+            playerName: config.playerName || 'Player',
+            aiCount: config.aiCount || GAME_CONSTANTS.DEFAULT_SINGLE_PLAYER_AI_COUNT,
+            mapSize: config.mapSize || GAME_CONSTANTS.DEFAULT_MAP_SIZE_TERRITORIES,
+            gameSpeed: config.gameSpeed || 1.0,
+            layout: config.layout || 'organic',
+            ...config
+        };
+        
+        // Game state
+        this.gameState = 'lobby'; // lobby, playing, ended
+        this.gameTimer = 10 * 60 * 1000; // 10 minutes
+        this.maxPlayers = 100;
+        this.currentPlayers = 0;
+        this.gameInitialized = false; // Prevent early win condition checks
+        
+        // Persistent star lane discovery system
+        this.discoveredLanes = new Set(); // Stores "id1-id2" strings for permanently visible lanes
+        
+        // Throne star validation timer
+        this.throneStarValidationTimer = 0;
+        
+        // Home system flashing
+        this.homeSystemFlashStart = null;
+        this.homeSystemFlashDuration = 3000; // 3 seconds
+        
+        // Modular systems (initialized in init())
+        this.inputHandler = null;
+        this.renderer = null;
+        this.combatSystem = null;
+        this.supplySystem = null;
+        this.pathfindingService = null;
+        this.performanceManager = null;
+        this.discoverySystem = null;
+        this.animationSystem = null;
+        this.uiManager = null;
+        this.controls = null;
+        
+        // Legacy properties for backward compatibility
+        this.hoveredTerritory = null;
+        
+        // Performance
+        this.lastFrameTime = 0;
+        this.fps = 0;
+        this.frameCount = 0;
+        this.lastFpsUpdate = 0;
+        
+        // Performance optimizations
+        this.visibleTerritories = new Set();
+        this.lastVisibilityUpdate = 0;
+        this.cullingBatchIndex = 0; // For incremental visibility processing
+        this.performanceStats = {
+            frameTime: 0,
+            renderTime: 0,
+            updateTime: 0,
+            visibleTerritories: 0
+        };
+        this.showPerformancePanel = false; // Toggle with P key
+        
+        // Ship movement animations
+        this.shipAnimations = [];
+        this.shipAnimationPool = []; // Reuse objects to reduce garbage collection
+        this.pendingLongRangeCombats = []; // Track delayed long-range combat arrivals
+        
+        // Removed legacy long-range attacks array (dead code cleanup)
+        
+        // Pre-populate animation pool with multi-hop support
+        for (let i = 0; i < 20; i++) {
+            this.shipAnimationPool.push({
+                fromX: 0, fromY: 0,
+                toX: 0, toY: 0,
+                progress: 0,
+                isAttack: false,
+                playerColor: '#ffffff',
+                shipCount: 0,
+                id: i,
+                
+                // Multi-hop animation support
+                isMultiHop: false,
+                hopIndex: 0,
+                path: [],
+                segmentProgress: 0
+            });
+        }
+        
+        // Mouse and keyboard states
+        this.mousePos = { x: 0, y: 0 };
+        this.keys = {};
+        
+        // UI messages
+        this.messageText = '';
+        this.messageTimer = 0;
+        
+        // Notifications system
+        this.notifications = [];
+        
+        // Human player discoveries for tech levels and bonuses
+        this.playerDiscoveries = {
+            precursorWeapons: 0,
+            precursorDrive: 0,
+            precursorShield: 0,
+            precursorNanotech: 0,
+            factoryPlanets: {},
+            friendlyAliens: 0,
+            richMinerals: 0,
+            voidStorms: 0,
+            ancientRuins: 0,
+            hostileAliens: 0
+        };
+        
+        // Recent discoveries log (for UI display)
+        this.recentDiscoveries = [];
+        
+        // Game sounds (to be implemented)
+        this.sounds = {
+            attack: null,
+            victory: null,
+            defeat: null
+        };
+        
+        // Background image
+        this.backgroundImage = null;
+        this.backgroundLoaded = false;
+        
+        // Cached canvas rect for performance optimization
+        this.cachedCanvasRect = null;
+        this.lastCanvasRectUpdate = 0;
+        this.CANVAS_RECT_CACHE_DURATION = 1000; // 1 second cache
+        
+        // Input event throttling for performance
+        this.lastInputProcessTime = 0;
+        this.INPUT_THROTTLE_MS = 16; // 60 FPS limit
+        this.pendingInputEvents = [];
+        
+        console.log('StarThrone game instance created with config:', this.config);
+    }
+    
+    cleanup() {
+        if (this.inputHandler) {
+            this.inputHandler.cleanup?.();
+        }
+        
+        // Clear intervals and timeouts
+        if (this.gameLoopId) {
+            cancelAnimationFrame(this.gameLoopId);
+        }
+        
+        // Clear event listeners
+        if (this.canvas) {
+            this.canvas.removeEventListener('mousedown', this.handleMouseDown);
+            this.canvas.removeEventListener('mousemove', this.handleMouseMove);
+            this.canvas.removeEventListener('mouseup', this.handleMouseUp);
+            this.canvas.removeEventListener('wheel', this.handleWheel);
+            this.canvas.removeEventListener('contextmenu', (e) => e.preventDefault());
+        }
+        
+        document.removeEventListener('keydown', this.handleKeyDown);
+        
+        console.log('StarThrone game instance cleaned up');
+    }
+    
+    setupCanvas() {
+        this.canvas = this.config.canvas || document.getElementById('gameCanvas');
+        if (!this.canvas) {
+            console.error('Canvas element not found');
+            return;
+        }
+        
+        this.ctx = this.canvas.getContext('2d');
+        
+        // Set canvas size to full window
+        this.resizeCanvas();
+        
+        // Disable context menu
+        this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    }
+    
+    resizeCanvas() {
+        if (!this.canvas) return;
+        
+        const pixelRatio = window.devicePixelRatio || 1;
+        const displayWidth = window.innerWidth;
+        const displayHeight = window.innerHeight;
+        
+        // Set actual canvas size (with high DPI scaling)
+        this.canvas.width = displayWidth * pixelRatio;
+        this.canvas.height = displayHeight * pixelRatio;
+        
+        // Set CSS display size
+        this.canvas.style.width = displayWidth + 'px';
+        this.canvas.style.height = displayHeight + 'px';
+        
+        // Scale context for high DPI displays
+        this.ctx.scale(pixelRatio, pixelRatio);
+        
+        // Update camera if it exists
+        if (this.camera) {
+            this.camera.width = displayWidth;
+            this.camera.height = displayHeight;
+        }
+        
+        // Invalidate cached canvas rect
+        this.cachedCanvasRect = null;
+    }
+    
+    setupEventListeners() {
+        window.addEventListener('resize', () => this.resizeCanvas());
+    }
+    
+    addNotification(text, type = 'info', duration = 3000) {
+        this.notifications.push({
+            text,
+            type,
+            duration,
+            timestamp: Date.now(),
+            opacity: 1
+        });
+    }
+    
+    updateNotifications() {
+        const currentTime = Date.now();
+        this.notifications = this.notifications.filter(notification => {
+            const age = currentTime - notification.timestamp;
+            
+            // Remove expired notifications
+            if (age > notification.duration) {
+                return false;
+            }
+            
+            // Fade out in the last 500ms
+            if (age > notification.duration - 500) {
+                notification.opacity = (notification.duration - age) / 500;
+            }
+            
+            return true;
+        });
+    }
+    
+    // Message display system for FSM feedback
+    showMessage(text, duration = 3000) {
+        this.messageText = text;
+        this.messageTimer = duration;
+        console.log(`Message: ${text}`);
+    }
+    
+    hideMessage() {
+        this.messageText = '';
+        this.messageTimer = 0;
+    }
+    
+    showError(text) {
+        this.showMessage(`❌ ${text}`, 2000);
+    }
+    
+    updateMessage(deltaTime) {
+        if (this.messageTimer > 0) {
+            this.messageTimer -= deltaTime;
+            if (this.messageTimer <= 0) {
+                this.hideMessage();
+            }
+        }
+    }
+    
+    init() {
+        this.setupCanvas();
+        this.setupEventListeners();
+        this.gameMap = new GameMap(2000, 1500, this.config); // Large map with advanced configuration
+        this.gameMap.game = this; // Reference for AI animations
+        
+        // Use logical dimensions for camera, not physical canvas dimensions
+        const logicalWidth = this.canvas.style.width ? parseInt(this.canvas.style.width) : window.innerWidth;
+        const logicalHeight = this.canvas.style.height ? parseInt(this.canvas.style.height) : window.innerHeight;
+        this.camera = new Camera(logicalWidth, logicalHeight);
+        
+        // Update camera map boundaries to match actual expanded map size
+        this.camera.mapWidth = this.gameMap.width;
+        this.camera.mapHeight = this.gameMap.height;
+        
+        // Center camera on map and set appropriate zoom
+        this.camera.centerOn(this.gameMap.width / 2, this.gameMap.height / 2); // Center of expanded map
+        this.camera.targetZoom = 0.25; // Zoom out further to see more territories
+        this.camera.zoom = 0.25;
+        
+        this.ui = new GameUI(this.canvas, this.camera);
+        
+        // Initialize modular systems
+        this.inputHandler = new InputHandler(this);
+        this.renderer = new Renderer(this.canvas, this.camera, this);
+        this.combatSystem = new CombatSystem(this);
+        this.supplySystem = new SupplySystem(this);
+        this.pathfindingService = new PathfindingService(this);
+        this.performanceManager = new PerformanceManager(this);
+        this.performanceOverlay = new PerformanceOverlay(this.canvas, this.performanceManager);
+        this.discoverySystem = new DiscoverySystem(this);
+        this.animationSystem = new AnimationSystem(this);
+        this.uiManager = new UIManager(this);
+        this.aiManager = new AIManager(this);
+        this.controls = new Controls(this);
+        
+        // Removed deprecated global game reference (dead code cleanup)
+        window.game = this; // Temporary global access - to be replaced with dependency injection
+        
+        // Auto-detect optimal performance profile
+        this.performanceManager.detectOptimalProfile();
+        
+        this.gameStartTime = Date.now(); // Track when game actually starts
+        this.startGame();
+        this.gameLoop();
+    }
+    
+    // Define discovery types and their probabilities
+    getDiscoveryTypes() {
+        return [
+            {
+                id: 'hostile_aliens',
+                name: 'Hostile Aliens',
+                description: 'Hostile alien life destroys your probe!',
+                probability: 0.15,
+                type: 'negative',
+                effect: 'probe_lost'
+            },
+            {
+                id: 'friendly_aliens',
+                name: 'Friendly Aliens',
+                description: 'Friendly aliens join your empire!',
+                probability: 0.12,
+                type: 'positive',
+                effect: 'extra_fleet',
+                bonus: 50
+            },
+            {
+                id: 'precursor_weapons',
+                name: 'Precursor Weapons Cache',
+                description: 'Ancient weapon technology discovered!',
+                probability: 0.08,
+                type: 'empire_bonus',
+                effect: 'attack_bonus',
+                bonus: 10 // +10% attack
+            },
+            {
+                id: 'precursor_drive',
+                name: 'Precursor Drive System',
+                description: 'Advanced propulsion technology found!',
+                probability: 0.08,
+                type: 'empire_bonus',
+                effect: 'speed_bonus',
+                bonus: 20 // +20% speed
+            },
+            {
+                id: 'precursor_shield',
+                name: 'Precursor Shield Matrix',
+                description: 'Defensive technology enhances your empire!',
+                probability: 0.08,
+                type: 'empire_bonus',
+                effect: 'defense_bonus',
+                bonus: 10 // +10% defense
+            },
+            {
+                id: 'precursor_factory',
+                name: 'Precursor Factory Complex',
+                description: 'Ancient manufacturing facility still operational!',
+                probability: 0.06,
+                type: 'planet_bonus',
+                effect: 'factory_planet',
+                bonus: 100 // +100% generation (200% total)
+            },
+            {
+                id: 'precursor_nanotech',
+                name: 'Precursor Nanotechnology',
+                description: 'Self-replicating technology enhances your empire!',
+                probability: 0.06,
+                type: 'empire_bonus',
+                effect: 'production_bonus',
+                bonus: 10 // +10% fleet generation
+            },
+            {
+                id: 'rich_minerals',
+                name: 'Rich Mineral Deposits',
+                description: 'Valuable minerals enhance fleet production!',
+                probability: 0.10,
+                type: 'planet_bonus',
+                effect: 'mineral_planet',
+                bonus: 50 // +50% generation (150% total)
+            },
+            {
+                id: 'void_storms',
+                name: 'Void Storms',
+                description: 'Electromagnetic storms slow fleet production.',
+                probability: 0.08,
+                type: 'planet_penalty',
+                effect: 'storm_planet',
+                bonus: -25 // -25% generation (75% total)
+            },
+            {
+                id: 'ancient_ruins',
+                name: 'Ancient Ruins',
+                description: 'Mysterious ruins of an unknown civilization.',
+                probability: 0.05,
+                type: 'neutral',
+                effect: 'lore'
+            },
+            {
+                id: 'standard_planet',
+                name: 'Standard Colony',
+                description: 'A typical habitable world suitable for colonization.',
+                probability: 0.17,
+                type: 'neutral',
+                effect: 'none'
+            }
+        ];
+    }
+    
+    // Load background image
+    loadBackgroundImage() {
+        this.backgroundImage = new Image();
+        this.backgroundImage.onload = () => {
+            this.backgroundLoaded = true;
+            console.log('Background image loaded successfully');
+        };
+        this.backgroundImage.onerror = () => {
+            console.log('Background image failed to load, continuing without it');
+            this.backgroundLoaded = false;
+        };
+        this.backgroundImage.src = '/galaxy-background.jpg';
+    }
+    
+    startGame() {
+        this.gameState = 'playing';
+        this.gameStartTime = Date.now();
+        
+        // Load background image
+        this.loadBackgroundImage();
+        
+        // Create players
+        this.createPlayers();
+        
+        // Assign starting territories to all players
+        this.assignStartingTerritories();
+        
+        // Initialize starfield in animation system
+        this.animationSystem.initializeStarfield();
+        
+        // Initialize discovery system
+        this.discoverySystem.initialize();
+        
+        console.log(`Game started with ${this.players.length} players on ${this.gameMap.territories.length} territories`);
+        
+        // Set game as initialized after a brief delay to allow everything to settle
+        setTimeout(() => {
+            this.gameInitialized = true;
+            console.log('Game fully initialized - win conditions now active');
+        }, 1000);
+        
+        // Start home system flashing for human player
+        if (this.humanPlayer) {
+            this.homeSystemFlashStart = Date.now();
+            console.log('Home system flashing started for human player');
+        }
+    }
+    
+    createPlayers() {
+        this.players = [];
+        
+        // Create human player first
+        this.humanPlayer = new Player(0, this.config.playerName || 'Player', 'human', '#00ffff');
+        this.players.push(this.humanPlayer);
+        
+        // Create AI players
+        const aiCount = this.config.aiCount || GAME_CONSTANTS.DEFAULT_SINGLE_PLAYER_AI_COUNT;
+        for (let i = 1; i <= aiCount; i++) {
+            const aiName = GameUtils.generateAIName(i);
+            const aiColor = GameUtils.generateAIColor(i);
+            const aiPlayer = new Player(i, aiName, 'ai', aiColor);
+            this.players.push(aiPlayer);
+        }
+        
+        console.log(`Created ${this.players.length} players: 1 human, ${aiCount} AI`);
+    }
+    
+    assignStartingTerritories() {
+        const territories = Object.values(this.gameMap.territories);
+        const totalPlayers = this.players.length;
+        
+        // Find territories with maximum distance between them
+        const selectedTerritories = [];
+        
+        // First, add a random territory for the first player
+        let firstTerritory = territories[Math.floor(Math.random() * territories.length)];
+        selectedTerritories.push(firstTerritory);
+        
+        // For each remaining player, find the territory with maximum minimum distance to all selected territories
+        for (let i = 1; i < totalPlayers; i++) {
+            let bestTerritory = null;
+            let bestMinDistance = 0;
+            
+            for (let territory of territories) {
+                // Skip if already selected
+                if (selectedTerritories.includes(territory)) continue;
+                
+                // Calculate minimum distance to all selected territories
+                let minDistance = Infinity;
+                for (let selectedTerritory of selectedTerritories) {
+                    const distance = Math.sqrt(
+                        Math.pow(territory.x - selectedTerritory.x, 2) + 
+                        Math.pow(territory.y - selectedTerritory.y, 2)
+                    );
+                    minDistance = Math.min(minDistance, distance);
+                }
+                
+                // If this territory has a better minimum distance, select it
+                if (minDistance > bestMinDistance) {
+                    bestMinDistance = minDistance;
+                    bestTerritory = territory;
+                }
+            }
+            
+            if (bestTerritory) {
+                selectedTerritories.push(bestTerritory);
+            }
+        }
+        
+        // Assign selected territories to players
+        for (let i = 0; i < totalPlayers && i < selectedTerritories.length; i++) {
+            const territory = selectedTerritories[i];
+            const player = this.players[i];
+            
+            territory.ownerId = player.id;
+            territory.armySize = GAME_CONSTANTS.STARTING_ARMY_SIZE;
+            territory.isThronestar = true; // Mark as throne star
+            
+            console.log(`Player ${player.name} (${player.id}) starts at territory ${territory.id} (${territory.x}, ${territory.y})`);
+        }
+        
+        console.log(`Assigned starting territories with minimum distance: ${Math.floor(selectedTerritories.length > 1 ? Math.sqrt(Math.pow(selectedTerritories[0].x - selectedTerritories[1].x, 2) + Math.pow(selectedTerritories[0].y - selectedTerritories[1].y, 2)) : 0)} pixels`);
+    }
+    
+    update(deltaTime) {
+        if (this.gameState !== 'playing') return;
+        
+        // Update message timer
+        this.updateMessage(deltaTime);
+        
+        // Update camera
+        this.camera.update(deltaTime);
+        
+        // Update AI players in batches for performance
+        this.aiManager.updateAI(deltaTime);
+        
+        // Update supply system with throttling
+        this.supplySystem.update();
+        
+        // Update ship animations
+        this.animationSystem.updateShipAnimations(deltaTime);
+        
+        // Update territories (army generation)
+        this.updateTerritories(deltaTime);
+        
+        // Update notifications
+        this.updateNotifications();
+        
+        // Update visibility culling
+        this.updateVisibilityCulling();
+        
+        // Update throne star validation (every 5 seconds)
+        this.throneStarValidationTimer += deltaTime;
+        if (this.throneStarValidationTimer >= 5000) {
+            this.validateThroneStars();
+            this.throneStarValidationTimer = 0;
+        }
+        
+        // Check win condition
+        if (this.gameInitialized) {
+            this.checkWinCondition();
+        }
+    }
+    
+    validateThroneStars() {
+        console.log('🔍 THRONE VALIDATION: Starting validation...');
+        
+        // Get all throne stars
+        const throneStars = Object.values(this.gameMap.territories).filter(t => t.isThronestar);
+        console.log('🔍 THRONE VALIDATION: Found throne stars:', throneStars.length, throneStars.map(t => ({id: t.id, owner: t.ownerId})));
+        
+        // Count throne stars per player
+        const throneCountPerPlayer = new Map();
+        this.players.forEach(player => throneCountPerPlayer.set(player.id, 0));
+        
+        throneStars.forEach(throne => {
+            const currentCount = throneCountPerPlayer.get(throne.ownerId) || 0;
+            throneCountPerPlayer.set(throne.ownerId, currentCount + 1);
+        });
+        
+        console.log('🔍 THRONE VALIDATION: Player throne counts:', Array.from(throneCountPerPlayer.entries()));
+        
+        // Fix players with no throne stars or multiple throne stars
+        let fixesApplied = false;
+        
+        this.players.forEach(player => {
+            const throneCount = throneCountPerPlayer.get(player.id) || 0;
+            
+            if (throneCount === 0) {
+                // Player has no throne star - find their first territory and make it a throne
+                const playerTerritories = Object.values(this.gameMap.territories).filter(t => t.ownerId === player.id);
+                if (playerTerritories.length > 0) {
+                    playerTerritories[0].isThronestar = true;
+                    console.log(`🔍 THRONE VALIDATION: Fixed player ${player.id} (${player.name}) - made territory ${playerTerritories[0].id} their throne star`);
+                    fixesApplied = true;
+                }
+            } else if (throneCount > 1) {
+                // Player has multiple throne stars - remove extras
+                const playerThrones = throneStars.filter(t => t.ownerId === player.id);
+                for (let i = 1; i < playerThrones.length; i++) {
+                    playerThrones[i].isThronestar = false;
+                    console.log(`🔍 THRONE VALIDATION: Fixed player ${player.id} (${player.name}) - removed extra throne star from territory ${playerThrones[i].id}`);
+                    fixesApplied = true;
+                }
+            }
+        });
+        
+        if (!fixesApplied) {
+            console.log('🔍 THRONE VALIDATION: No fixes needed, all players have single throne stars');
+        }
+    }
+    
+    updateTerritories(deltaTime) {
+        const territories = Object.values(this.gameMap.territories);
+        
+        for (let territory of territories) {
+            if (territory.ownerId !== null) {
+                territory.generateArmies(deltaTime, this.config.gameSpeed, this);
+            }
+        }
+    }
+    
+    updateVisibilityCulling() {
+        const currentTime = Date.now();
+        
+        // Adaptive culling interval based on performance
+        const avgFPS = this.performanceManager.getAverageFPS();
+        const cullingInterval = avgFPS < 30 ? 
+            GAME_CONSTANTS.PERFORMANCE.VISIBILITY_UPDATE_MS * 1.5 : 
+            GAME_CONSTANTS.PERFORMANCE.VISIBILITY_UPDATE_MS;
+        
+        if (currentTime - this.lastVisibilityUpdate > cullingInterval) {
+            const territories = Object.values(this.gameMap.territories);
+            const totalTerritories = territories.length;
+            
+            // For large maps, process territories incrementally
+            if (totalTerritories > 200) {
+                const batchSize = Math.ceil(totalTerritories / 3);
+                const startIndex = this.cullingBatchIndex * batchSize;
+                const endIndex = Math.min(startIndex + batchSize, totalTerritories);
+                
+                for (let i = startIndex; i < endIndex; i++) {
+                    const territory = territories[i];
+                    if (this.camera.isVisible(territory.x, territory.y, territory.radius + 20)) {
+                        this.visibleTerritories.add(territory.id);
+                    } else {
+                        this.visibleTerritories.delete(territory.id);
+                    }
+                }
+                
+                this.cullingBatchIndex = (this.cullingBatchIndex + 1) % 3;
+            } else {
+                // Process all territories at once for smaller maps
+                this.visibleTerritories.clear();
+                for (let territory of territories) {
+                    if (this.camera.isVisible(territory.x, territory.y, territory.radius + 20)) {
+                        this.visibleTerritories.add(territory.id);
+                    }
+                }
+            }
+            
+            this.lastVisibilityUpdate = currentTime;
+            this.performanceStats.visibleTerritories = this.visibleTerritories.size;
+        }
+    }
+    
+    checkWinCondition() {
+        const humanTerritories = Object.values(this.gameMap.territories).filter(
+            territory => territory.ownerId === this.humanPlayer.id
+        );
+        
+        if (humanTerritories.length === 0) {
+            this.endGame('defeat');
+        }
+    }
+    
+    endGame(result) {
+        if (this.gameState === 'ended') return; // Prevent multiple calls
+        
+        this.gameState = 'ended';
+        console.log(`Game ended: ${result}`);
+        
+        // Calculate final scores
+        const finalScores = this.players.map(player => {
+            const territories = Object.values(this.gameMap.territories).filter(
+                territory => territory.ownerId === player.id
+            );
+            const totalArmies = territories.reduce((sum, territory) => sum + territory.armySize, 0);
+            
+            return {
+                player: player,
+                territories: territories.length,
+                armies: totalArmies,
+                score: territories.length * 100 + totalArmies
+            };
+        }).sort((a, b) => b.score - a.score);
+        
+        this.finalScores = finalScores;
+        this.gameResult = result;
+        
+        // Show game over message
+        if (result === 'victory') {
+            this.showMessage('🎉 Victory! You have conquered the galaxy!', 10000);
+        } else {
+            this.showMessage('💀 Defeat! Your empire has fallen...', 10000);
+        }
+    }
+    
+    render() {
+        if (!this.ctx) return;
+        
+        const renderStart = performance.now();
+        
+        // Clear canvas
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Use modular renderer
+        this.renderer.render();
+        
+        // Update performance stats
+        this.performanceStats.renderTime = performance.now() - renderStart;
+    }
+    
+    gameLoop() {
+        const currentTime = performance.now();
+        const deltaTime = currentTime - this.lastFrameTime;
+        
+        this.performanceStats.frameTime = deltaTime;
+        
+        // Update
+        const updateStart = performance.now();
+        this.update(deltaTime);
+        this.performanceStats.updateTime = performance.now() - updateStart;
+        
+        // Render
+        this.render();
+        
+        // Update FPS counter
+        this.frameCount++;
+        if (currentTime - this.lastFpsUpdate >= 1000) {
+            this.fps = this.frameCount;
+            this.frameCount = 0;
+            this.lastFpsUpdate = currentTime;
+            
+            // Update performance manager
+            this.performanceManager.updateFrameTime(deltaTime);
+        }
+        
+        this.lastFrameTime = currentTime;
+        this.gameLoopId = requestAnimationFrame(() => this.gameLoop());
+    }
+    
+    // Create ship animation between territories
+    createShipAnimation(fromTerritory, toTerritory, isAttack, shipCount = 0) {
+        // Get animation object from pool
+        let animation = this.shipAnimationPool.pop();
+        if (!animation) {
+            animation = {
+                fromX: 0, fromY: 0,
+                toX: 0, toY: 0,
+                progress: 0,
+                isAttack: false,
+                playerColor: '#ffffff',
+                shipCount: 0,
+                id: Math.random(),
+                
+                // Multi-hop animation support
+                isMultiHop: false,
+                hopIndex: 0,
+                path: [],
+                segmentProgress: 0
+            };
+        }
+        
+        // Set animation properties
+        animation.fromX = fromTerritory.x;
+        animation.fromY = fromTerritory.y;
+        animation.toX = toTerritory.x;
+        animation.toY = toTerritory.y;
+        animation.progress = 0;
+        animation.isAttack = isAttack;
+        animation.playerColor = this.humanPlayer.color;
+        animation.shipCount = shipCount;
+        animation.isMultiHop = false;
+        
+        this.shipAnimations.push(animation);
+    }
+    
+    // Create supply route animation that follows a path
+    createSupplyRouteAnimation(pathTerritories, playerColor) {
+        if (!pathTerritories || pathTerritories.length < 2) return;
+        
+        // Get animation object from pool
+        let animation = this.shipAnimationPool.pop();
+        if (!animation) {
+            animation = {
+                fromX: 0, fromY: 0,
+                toX: 0, toY: 0,
+                progress: 0,
+                isAttack: false,
+                playerColor: '#ffffff',
+                shipCount: 0,
+                id: Math.random(),
+                
+                // Multi-hop animation support
+                isMultiHop: false,
+                hopIndex: 0,
+                path: [],
+                segmentProgress: 0
+            };
+        }
+        
+        // Configure for multi-hop animation
+        animation.isMultiHop = true;
+        animation.path = pathTerritories;
+        animation.hopIndex = 0;
+        animation.segmentProgress = 0;
+        animation.progress = 0;
+        animation.isAttack = false;
+        animation.playerColor = playerColor;
+        animation.shipCount = 10; // Visual representation
+        
+        // Set initial segment
+        animation.fromX = pathTerritories[0].x;
+        animation.fromY = pathTerritories[0].y;
+        animation.toX = pathTerritories[1].x;
+        animation.toY = pathTerritories[1].y;
+        
+        this.shipAnimations.push(animation);
+    }
+    
+    // Territory lookup with visibility optimization
+    findTerritoryAt(x, y) {
+        // Use visible territories for performance when available
+        if (this.visibleTerritories.size > 0) {
+            for (let territoryId of this.visibleTerritories) {
+                const territory = this.gameMap.territories[territoryId];
+                if (territory && territory.containsPoint && territory.containsPoint(x, y)) {
+                    return territory;
+                }
+            }
+            return null;
+        }
+        
+        // Fallback to spatial indexing if visibility culling not available
+        return this.gameMap.findTerritoryAt(x, y);
+    }
+    
+    // Core fleet command execution with percentage control
+    executeFleetCommand(fromTerritory, toTerritory, fleetPercentage, commandType = 'auto', path = null) {
+        if (!fromTerritory || !toTerritory || fromTerritory.ownerId !== this.humanPlayer?.id) {
+            return;
+        }
+        
+        // Calculate ships to send - hardcoded 50% for new system
+        const availableShips = Math.max(0, fromTerritory.armySize - 1);
+        const shipsToSend = Math.max(1, Math.floor(availableShips * 0.5));
+        
+        // Visual feedback - show number flying off
+        this.showFleetCommandFeedback(fromTerritory, shipsToSend, 0.5);
+        
+        // Handle different command types
+        switch (commandType) {
+            case 'multi-hop-transfer':
+                if (path && path.length > 1) {
+                    this.executeMultiHopTransfer(fromTerritory, toTerritory, shipsToSend, path);
+                    console.log(`Multi-hop transfer: ${shipsToSend} ships from ${fromTerritory.id} to ${toTerritory.id} via path: ${path.join(' -> ')}`);
+                } else {
+                    console.error('Multi-hop transfer requires valid path');
+                }
+                break;
+                
+            case 'multi-hop-attack':
+                if (path && path.length > 1) {
+                    this.executeMultiHopAttack(fromTerritory, toTerritory, shipsToSend, path);
+                    console.log(`Multi-hop attack: ${shipsToSend} ships from ${fromTerritory.id} to ${toTerritory.id} via path: ${path.join(' -> ')}`);
+                } else {
+                    console.error('Multi-hop attack requires valid path');
+                }
+                break;
+                
+            case 'transfer':
+                if (toTerritory.ownerId === this.humanPlayer?.id) {
+                    this.combatSystem.transferArmies(fromTerritory, toTerritory);
+                    this.createShipAnimation(fromTerritory, toTerritory, false, shipsToSend);
+                    console.log(`Direct transfer: ${shipsToSend} ships from ${fromTerritory.id} to ${toTerritory.id}`);
+                }
+                break;
+                
+            case 'attack':
+                if (toTerritory.ownerId !== this.humanPlayer?.id) { // Simplified condition (isColonizable check redundant in attack context)
+                    this.combatSystem.attackTerritory(fromTerritory, toTerritory);
+                    this.createShipAnimation(fromTerritory, toTerritory, true, shipsToSend);
+                    console.log(`Attack: ${shipsToSend} ships from ${fromTerritory.id} to ${toTerritory.id}`);
+                }
+                break;
+                
+            case 'auto':
+            default:
+                // Legacy auto-detection mode
+                if (toTerritory.ownerId === this.humanPlayer?.id) {
+                    this.combatSystem.transferArmies(fromTerritory, toTerritory);
+                    this.createShipAnimation(fromTerritory, toTerritory, false, shipsToSend);
+                } else if (toTerritory.isColonizable) {
+                    this.launchProbe(fromTerritory, toTerritory);
+                } else {
+                    this.combatSystem.attackTerritory(fromTerritory, toTerritory);
+                    this.createShipAnimation(fromTerritory, toTerritory, true, shipsToSend);
+                }
+                break;
+        }
+    }
+
+    // Wrapper method for compatibility with InputStateMachine calls
+    async issueFleetCommand(fromTerritory, toTerritory, fleetPercentage, isAttack = false) {
+        console.log(`🚀 issueFleetCommand called: ${fromTerritory.id} -> ${toTerritory.id}, attack=${isAttack}`);
+        
+        // Check if territories are directly connected by warp lanes
+        const isDirectlyConnected = fromTerritory.neighbors && fromTerritory.neighbors.includes(toTerritory.id);
+        
+        if (isDirectlyConnected) {
+            // Direct connection - use simple command
+            const commandType = isAttack ? 'attack' : 'transfer';
+            console.log(`🛣️ Direct connection: using ${commandType}`);
+            this.executeFleetCommand(fromTerritory, toTerritory, fleetPercentage, commandType);
+        } else {
+            // Not directly connected - find path through warp lanes
+            if (isAttack) {
+                // For attacks, find path through any territory to get to target
+                const attackPath = await this.pathfindingService.findAttackPath(
+                    fromTerritory.id, 
+                    toTerritory.id, 
+                    this.gameMap, 
+                    this.humanPlayer.id
+                );
+                
+                if (attackPath && attackPath.length > 1) {
+                    console.log(`🛣️ Multi-hop attack path: ${attackPath.join(' -> ')}`);
+                    this.executeFleetCommand(fromTerritory, toTerritory, fleetPercentage, 'multi-hop-attack', attackPath);
+                } else {
+                    // No path found - use long-range attack as fallback
+                    console.log(`🛣️ No warp lane path found, using long-range attack`);
+                    this.executeFleetCommand(fromTerritory, toTerritory, fleetPercentage, 'attack');
+                }
+            } else {
+                // For transfers, find path through friendly territories only
+                const transferPath = await this.pathfindingService.findShortestPath(
+                    fromTerritory.id, 
+                    toTerritory.id, 
+                    this.gameMap, 
+                    this.humanPlayer.id
+                );
+                
+                if (transferPath && transferPath.length > 1) {
+                    console.log(`🛣️ Multi-hop transfer path: ${transferPath.join(' -> ')}`);
+                    this.executeFleetCommand(fromTerritory, toTerritory, fleetPercentage, 'multi-hop-transfer', transferPath);
+                } else {
+                    console.log(`🛣️ No friendly path found for transfer ${fromTerritory.id} -> ${toTerritory.id}`);
+                    // No path means territories aren't connected through friendly space
+                    return;
+                }
+            }
+        }
+    }
+    
+    executeMultiHopTransfer(fromTerritory, toTerritory, shipsToSend, path) {
+        // Validate path
+        if (!path || path.length < 2) {
+            console.error('Invalid path for multi-hop transfer');
+            return;
+        }
+        
+        // Execute transfer on source territory
+        fromTerritory.armySize -= shipsToSend;
+        
+        // Create multi-hop animation following the path
+        this.createSupplyRouteAnimation(path.map(id => this.gameMap.territories[id]), this.humanPlayer.color);
+        
+        // Calculate delivery delay based on path length (0.8 seconds per hop to match animation)
+        const deliveryDelay = (path.length - 1) * 800;
+        
+        // Schedule delivery to destination
+        setTimeout(() => {
+            if (toTerritory.ownerId === this.humanPlayer?.id) {
+                toTerritory.armySize += shipsToSend;
+                
+                // Add visual feedback
+                toTerritory.floatingText = {
+                    text: `+${shipsToSend}`,
+                    startTime: Date.now(),
+                    duration: 2000,
+                    startY: toTerritory.y
+                };
+                
+                console.log(`Multi-hop transfer completed: ${shipsToSend} ships delivered to territory ${toTerritory.id}`);
+            }
+        }, deliveryDelay);
+    }
+    
+    executeMultiHopAttack(fromTerritory, toTerritory, shipsToSend, path) {
+        // Validate path
+        if (!path || path.length < 2) {
+            console.error('Invalid path for multi-hop attack');
+            return;
+        }
+        
+        console.log(`🎯 MULTI-HOP ATTACK: Starting ${shipsToSend} ships from ${fromTerritory.id} to ${toTerritory.id} via path: ${path.join(' -> ')}`);
+        
+        // Execute attack on source territory (remove ships immediately)
+        fromTerritory.armySize -= shipsToSend;
+        
+        // Process the path segment by segment, stopping at first hostile territory
+        this.processSegmentedAttack(fromTerritory, path, shipsToSend, 0);
+    }
+    
+    processSegmentedAttack(originalSource, path, remainingShips, segmentIndex) {
+        if (segmentIndex >= path.length - 1 || remainingShips <= 0) {
+            console.log(`🎯 MULTI-HOP ATTACK: Attack path completed or no ships remaining`);
+            return;
+        }
+        
+        const currentTerritoryId = path[segmentIndex];
+        const nextTerritoryId = path[segmentIndex + 1];
+        const currentTerritory = this.gameMap.territories[currentTerritoryId];
+        const nextTerritory = this.gameMap.territories[nextTerritoryId];
+        
+        if (!currentTerritory || !nextTerritory) {
+            console.error(`🎯 MULTI-HOP ATTACK: Invalid territory in path: ${currentTerritoryId} -> ${nextTerritoryId}`);
+            return;
+        }
+        
+        console.log(`🎯 MULTI-HOP ATTACK: Segment ${segmentIndex}: ${remainingShips} ships moving from ${currentTerritoryId} to ${nextTerritoryId}`);
+        
+        // Create visual animation for this segment
+        this.createShipAnimation(currentTerritory, nextTerritory, true, remainingShips);
+        
+        // Calculate travel time for this segment (based on distance)
+        const distance = Math.sqrt(
+            Math.pow(nextTerritory.x - currentTerritory.x, 2) + 
+            Math.pow(nextTerritory.y - currentTerritory.y, 2)
+        );
+        const travelTime = Math.max(800, distance * 2); // Minimum 800ms, scale with distance
+        
+        // Schedule the attack resolution for this segment
+        setTimeout(() => {
+            // Check if next territory is still hostile (could have changed ownership during travel)
+            if (nextTerritory.ownerId === this.humanPlayer.id) {
+                // Territory became friendly during travel - ships arrive as reinforcements
+                nextTerritory.armySize += remainingShips;
+                console.log(`🎯 MULTI-HOP ATTACK: Territory ${nextTerritoryId} became friendly, ${remainingShips} ships reinforcing`);
+                return;
+            }
+            
+            // Territory is still hostile - conduct battle
+            const battleResult = this.combatSystem.resolveBattle(remainingShips, nextTerritory.armySize, this.humanPlayer.id, nextTerritory.ownerId);
+            
+            if (battleResult.attackerWins) {
+                // Attacker wins - capture territory and continue with survivors if there are more segments
+                const survivors = battleResult.attackerSurvivors;
+                nextTerritory.ownerId = this.humanPlayer.id;
+                nextTerritory.armySize = survivors;
+                
+                console.log(`🎯 MULTI-HOP ATTACK: Territory ${nextTerritoryId} captured with ${survivors} survivors`);
+                
+                // Check if this was the final target
+                if (segmentIndex === path.length - 2) {
+                    console.log(`🎯 MULTI-HOP ATTACK: Final target ${nextTerritoryId} captured successfully!`);
+                } else {
+                    // Continue attack with survivors to next segment
+                    this.processSegmentedAttack(originalSource, path, survivors, segmentIndex + 1);
+                }
+            } else {
+                // Attacker loses - attack stops here
+                nextTerritory.armySize = battleResult.defenderSurvivors;
+                console.log(`🎯 MULTI-HOP ATTACK: Attack failed at territory ${nextTerritoryId}, ${battleResult.defenderSurvivors} defenders remain`);
+            }
+        }, travelTime);
+    }
+    
+    // Visual feedback for fleet commands
+    showFleetCommandFeedback(territory, shipCount, percentage) {
+        // Add floating text showing ships being sent
+        territory.floatingText = {
+            text: `-${shipCount}`,
+            startTime: Date.now(),
+            duration: 1500,
+            startY: territory.y
+        };
+        
+        // Flash the territory briefly
+        territory.flashEffect = {
+            startTime: Date.now(),
+            duration: 300,
+            color: this.humanPlayer.color
+        };
+    }
+    
+    // Removed probe system functions (dead code cleanup)
+    // launchProbe, handleProbeArrival, processDiscovery, etc.
+    
+    // Get current frame rate for debugging
+    getFPS() {
+        return this.fps;
+    }
+    
+    // Get performance stats
+    getPerformanceStats() {
+        return {
+            fps: this.fps,
+            frameTime: this.performanceStats.frameTime.toFixed(2),
+            renderTime: this.performanceStats.renderTime.toFixed(2),
+            updateTime: this.performanceStats.updateTime.toFixed(2),
+            visibleTerritories: this.performanceStats.visibleTerritories,
+            totalTerritories: Object.keys(this.gameMap.territories).length
+        };
+    }
+    
+    // Get cached canvas bounding rect with performance optimization
+    getCanvasRect() {
+        const currentTime = Date.now();
+        
+        if (!this.cachedCanvasRect || currentTime - this.lastCanvasRectUpdate > this.CANVAS_RECT_CACHE_DURATION) {
+            this.cachedCanvasRect = this.canvas.getBoundingClientRect();
+            this.lastCanvasRectUpdate = currentTime;
+        }
+        
+        return this.cachedCanvasRect;
+    }
+    
+    // Throttled input processing for performance
+    processInputEvent(eventType, eventData) {
+        const currentTime = Date.now();
+        
+        if (currentTime - this.lastInputProcessTime < this.INPUT_THROTTLE_MS) {
+            // Queue the event for later processing
+            this.pendingInputEvents.push({ type: eventType, data: eventData, timestamp: currentTime });
+            return;
+        }
+        
+        // Process the current event immediately
+        this.handleInputEvent(eventType, eventData);
+        
+        // Process any queued events
+        while (this.pendingInputEvents.length > 0) {
+            const pendingEvent = this.pendingInputEvents.shift();
+            this.handleInputEvent(pendingEvent.type, pendingEvent.data);
+        }
+        
+        this.lastInputProcessTime = currentTime;
+    }
+    
+    handleInputEvent(eventType, eventData) {
+        // Delegate to appropriate handler based on event type
+        switch (eventType) {
+            case 'mousemove':
+                this.handleMouseMoveThrottled(eventData);
+                break;
+            case 'mousedown':
+                this.handleMouseDownThrottled(eventData);
+                break;
+            // Add other input event types as needed
+        }
+    }
+    
+    handleMouseMoveThrottled(eventData) {
+        // Update hovered territory for tooltips
+        const worldPos = this.camera.screenToWorld(eventData.x, eventData.y);
+        this.hoveredTerritory = this.findTerritoryAt(worldPos.x, worldPos.y);
+    }
+    
+    handleMouseDownThrottled(eventData) {
+        // Process mouse down events with throttling
+        if (this.inputHandler) {
+            this.inputHandler.processMouseDown(eventData);
+        }
+    }
+}
+```
+
+===============================================================================
+
+## client/src/game/InputHandler.js
+
+```javascript
+import { InputStateMachine } from './InputStateMachine';
+import { GAME_CONSTANTS } from '../../../common/gameConstants';
+
+export class InputHandler {
+    constructor(game) {
+        this.game = game;
+        this.canvas = game.canvas;
+        
+        // Mouse state
+        this.mousePos = { x: 0, y: 0 };
+        this.lastMousePos = { x: 0, y: 0 };
+        this.isDragging = false;
+        this.dragStartPos = null;
+        this.dragStartTime = 0;
+        this.hoveredTerritory = null;
+        
+        // Click detection
+        this.lastClickTime = 0;
+        this.lastClickedTerritory = null;
+        this.doubleClickThreshold = GAME_CONSTANTS.DOUBLE_CLICK_THRESHOLD_MS;
+        
+        // Long-press timer
+        this.longPressTimer = null;
+        
+        // Touch state for mobile support
+        this.touchState = {
+            activeTouches: new Map(),
+            lastTouchDistance: null,
+            lastPinchCenter: null,
+            panVelocity: { x: 0, y: 0 },
+            lastPanTime: 0
+        };
+        
+        // Initialize FSM
+        this.inputFSM = new InputStateMachine(game);
+        
+        this.setupEventListeners();
+    }
+    
+    setupEventListeners() {
+        // Mouse events
+        this.game.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+        this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+        this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+        this.canvas.addEventListener('wheel', (e) => this.handleWheel(e));
+        this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+        
+        // Touch events
+        this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e));
+        this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e));
+        this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e));
+        this.canvas.addEventListener('touchcancel', (e) => this.handleTouchEnd(e));
+        
+        // Keyboard events (simplified - no modifier key tracking)
+        document.addEventListener('keydown', (e) => this.handleKeyDown(e));
+    }
+    
+    handleMouseDown(e) {
+        e.preventDefault();
+        this.isDragging = false;
+        
+        const rect = this.canvas.getBoundingClientRect();
+        this.mousePos = {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top
+        };
+        
+        this.dragStartPos = { ...this.mousePos };
+        this.dragStartTime = Date.now();
+        this.lastMousePos = { ...this.mousePos };
+        
+        // start long‑press timer only for LMB
+        if (e.button === 0) {
+            this.longPressTimer = setTimeout(() => {
+                // Only trigger long press if we haven't started dragging
+                if (!this.isDragging) {
+                    const worldPos = this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+                    const terr = this.game.findTerritoryAt(worldPos.x, worldPos.y);
+                    this.inputFSM.handleEvent('long_press', { territory: terr });
+                }
+            }, GAME_CONSTANTS.LONG_PRESS_MS);
+        }
+    }
+    
+    handleMouseMove(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const newMousePos = {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top
+        };
+        
+        // Check for camera drag threshold
+        if (this.dragStartPos && !this.isDragging) {
+            const dragDistance = Math.sqrt(
+                Math.pow(newMousePos.x - this.dragStartPos.x, 2) + 
+                Math.pow(newMousePos.y - this.dragStartPos.y, 2)
+            );
+            
+            if (dragDistance > 10) {
+                this.isDragging = true;
+                // cancel long‑press when starting to drag
+                clearTimeout(this.longPressTimer);
+            }
+        }
+        
+        // Handle camera panning
+        if (this.isDragging) {
+            const deltaX = newMousePos.x - this.lastMousePos.x;
+            const deltaY = newMousePos.y - this.lastMousePos.y;
+            this.game.camera.pan(-deltaX, -deltaY);
+        }
+        
+        // Update edge panning
+        this.game.camera.updateEdgePanning(newMousePos.x, newMousePos.y, 16);
+        
+        // Update hovered territory for tooltips and supply route highlighting
+        const worldPos = this.game.camera.screenToWorld(newMousePos.x, newMousePos.y);
+        const hoveredTerritory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
+        this.hoveredTerritory = hoveredTerritory;
+        this.game.hoveredTerritory = hoveredTerritory;
+        
+
+        
+        this.lastMousePos = newMousePos;
+        this.mousePos = newMousePos;
+    }
+    
+    handleMouseUp(e) {
+        // Clear long press timer when mouse is released
+        clearTimeout(this.longPressTimer);
+        
+        const clickDuration = Date.now() - (this.dragStartTime || 0);
+        const wasQuickClick = clickDuration < 300 && !this.isDragging;
+        
+        const worldPos = this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+        const targetTerritory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
+        
+        if (wasQuickClick) {
+            const currentTime = Date.now();
+            
+            // Check for double click
+            const isDoubleClick = 
+                this.lastClickedTerritory && 
+                targetTerritory && 
+                this.lastClickedTerritory.id === targetTerritory.id &&
+                (currentTime - this.lastClickTime) < this.doubleClickThreshold;
+                
+            if (isDoubleClick) {
+                this.inputFSM.handleEvent('double_tap', { territory: targetTerritory });
+            } else {
+                this.inputFSM.handleEvent('tap', { territory: targetTerritory });
+            }
+            
+            this.lastClickTime = currentTime;
+            this.lastClickedTerritory = targetTerritory;
+        }
+        
+        this.resetDragState();
+    }
+    
+    handleWheel(e) {
+        e.preventDefault();
+        
+        const delta = e.deltaY > 0 ? -1 : 1;
+        const zoomFactor = Math.pow(1.1, delta);
+        
+        // Get mouse position relative to canvas
+        const rect = this.canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        
+        this.game.camera.zoomAt(mouseX, mouseY, zoomFactor);
+    }
+    
+    // Touch event handlers
+    handleTouchStart(e) {
+        e.preventDefault();
+        
+        const touches = Array.from(e.touches);
+        touches.forEach(touch => {
+            this.touchState.activeTouches.set(touch.identifier, {
+                startX: touch.clientX,
+                startY: touch.clientY,
+                currentX: touch.clientX,
+                currentY: touch.clientY,
+                startTime: Date.now()
+            });
+        });
+        
+        if (touches.length === 1) {
+            this.handleSingleTouchStart(touches[0]);
+        } else if (touches.length === 2) {
+            this.initializePinchGesture();
+        }
+    }
+    
+    handleSingleTouchStart(touch) {
+        const rect = this.canvas.getBoundingClientRect();
+        this.mousePos = {
+            x: touch.clientX - rect.left,
+            y: touch.clientY - rect.top
+        };
+        
+        this.dragStartPos = { ...this.mousePos };
+        this.dragStartTime = Date.now();
+        this.isDragging = false;
+        
+        // Start long-press timer
+        this.longPressTimer = setTimeout(() => {
+            if (!this.isDragging) {
+                const worldPos = this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+                const territory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
+                this.inputFSM.handleEvent('long_press', { territory });
+            }
+        }, GAME_CONSTANTS.LONG_PRESS_MS);
+    }
+    
+    handleTouchMove(e) {
+        e.preventDefault();
+        
+        const touches = Array.from(e.touches);
+        
+        // Update touch positions
+        touches.forEach(touch => {
+            const touchData = this.touchState.activeTouches.get(touch.identifier);
+            if (touchData) {
+                touchData.currentX = touch.clientX;
+                touchData.currentY = touch.clientY;
+            }
+        });
+        
+        if (touches.length === 1) {
+            this.handleSingleTouchMove(e);
+        } else if (touches.length === 2) {
+            this.handlePinchGesture(e);
+        }
+    }
+    
+    handleSingleTouchMove(e) {
+        const touch = e.touches[0];
+        const rect = this.canvas.getBoundingClientRect();
+        const newPos = {
+            x: touch.clientX - rect.left,
+            y: touch.clientY - rect.top
+        };
+        
+        // Check if we should start dragging
+        if (!this.isDragging && this.dragStartPos) {
+            const distance = Math.sqrt(
+                Math.pow(newPos.x - this.dragStartPos.x, 2) + 
+                Math.pow(newPos.y - this.dragStartPos.y, 2)
+            );
+            
+            if (distance > 10) {
+                this.isDragging = true;
+                clearTimeout(this.longPressTimer);
+            }
+        }
+        
+        // Handle camera panning
+        if (this.isDragging) {
+            const deltaX = newPos.x - this.mousePos.x;
+            const deltaY = newPos.y - this.mousePos.y;
+            this.game.camera.pan(-deltaX, -deltaY);
+        }
+        
+        this.mousePos = newPos;
+    }
+    
+    initializePinchGesture() {
+        const touches = Array.from(this.touchState.activeTouches.values());
+        if (touches.length >= 2) {
+            const distance = Math.sqrt(
+                Math.pow(touches[0].currentX - touches[1].currentX, 2) + 
+                Math.pow(touches[0].currentY - touches[1].currentY, 2)
+            );
+            
+            this.touchState.lastTouchDistance = distance;
+            this.touchState.lastPinchCenter = {
+                x: (touches[0].currentX + touches[1].currentX) / 2,
+                y: (touches[0].currentY + touches[1].currentY) / 2
+            };
+            
+            // Cancel long press when starting pinch
+            clearTimeout(this.longPressTimer);
+            this.isDragging = true;
+        }
+    }
+    
+    handlePinchGesture(e) {
+        const touches = Array.from(this.touchState.activeTouches.values());
+        if (touches.length < 2) return;
+        
+        const currentDistance = Math.sqrt(
+            Math.pow(touches[0].currentX - touches[1].currentX, 2) + 
+            Math.pow(touches[0].currentY - touches[1].currentY, 2)
+        );
+        
+        const currentCenter = {
+            x: (touches[0].currentX + touches[1].currentX) / 2,
+            y: (touches[0].currentY + touches[1].currentY) / 2
+        };
+        
+        if (this.touchState.lastTouchDistance && Math.abs(currentDistance - this.touchState.lastTouchDistance) > 2) {
+            const zoomFactor = currentDistance / this.touchState.lastTouchDistance;
+            const rect = this.canvas.getBoundingClientRect();
+            const centerX = currentCenter.x - rect.left;
+            const centerY = currentCenter.y - rect.top;
+            
+            this.game.camera.zoomAt(centerX, centerY, Math.pow(zoomFactor, 1.5));
+        }
+        
+        // Handle two-finger pan
+        if (this.touchState.lastPinchCenter) {
+            const deltaX = currentCenter.x - this.touchState.lastPinchCenter.x;
+            const deltaY = currentCenter.y - this.touchState.lastPinchCenter.y;
+            this.game.camera.pan(-deltaX * 0.7, -deltaY * 0.7);
+        }
+        
+        this.touchState.lastTouchDistance = currentDistance;
+        this.touchState.lastPinchCenter = currentCenter;
+    }
+    
+    handleTouchEnd(e) {
+        const endedTouches = Array.from(e.changedTouches);
+        
+        endedTouches.forEach(touch => {
+            const touchData = this.touchState.activeTouches.get(touch.identifier);
+            if (touchData) {
+                this.handleTouchTap(touch, touchData);
+                this.touchState.activeTouches.delete(touch.identifier);
+            }
+        });
+        
+        // Reset pinch state if no touches remain
+        if (this.touchState.activeTouches.size === 0) {
+            this.touchState.lastTouchDistance = null;
+            this.touchState.lastPinchCenter = null;
+            this.resetDragState();
+        } else if (this.touchState.activeTouches.size === 1) {
+            // Switch back to single touch mode
+            this.touchState.lastTouchDistance = null;
+            this.touchState.lastPinchCenter = null;
+        }
+    }
+    
+    handleTouchTap(touch, touchData) {
+        const touchDuration = Date.now() - touchData.startTime;
+        const touchDistance = Math.sqrt(
+            Math.pow(touch.clientX - touchData.startX, 2) + 
+            Math.pow(touch.clientY - touchData.startY, 2)
+        );
+        
+        // Only register as tap if it was quick and didn't move much
+        if (touchDuration < 300 && touchDistance < 20 && !this.isDragging) {
+            const rect = this.canvas.getBoundingClientRect();
+            const worldPos = this.game.camera.screenToWorld(
+                touch.clientX - rect.left,
+                touch.clientY - rect.top
+            );
+            const territory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
+            
+            this.inputFSM.handleEvent('tap', { territory });
+        }
+        
+        clearTimeout(this.longPressTimer);
+    }
+    
+    handleKeyDown(e) {
+        switch (e.key) {
+            case ' ': // Spacebar - focus on selected territory
+                e.preventDefault();
+                if (this.inputFSM.selectedTerritory) {
+                    this.game.camera.focusOn(this.inputFSM.selectedTerritory.x, this.inputFSM.selectedTerritory.y);
+                }
+                break;
+                
+            case 'h':
+            case 'H':
+                // Focus on human player's throne star (home system)
+                e.preventDefault();
+                const humanThroneStars = Object.values(this.game.gameMap.territories).filter(
+                    t => t.isThronestar && t.ownerId === this.game.humanPlayer.id
+                );
+                if (humanThroneStars.length > 0) {
+                    this.game.camera.focusOn(humanThroneStars[0].x, humanThroneStars[0].y);
+                } else {
+                    // Fallback to first owned territory
+                    const humanTerritories = Object.values(this.game.gameMap.territories).filter(
+                        t => t.ownerId === this.game.humanPlayer.id
+                    );
+                    if (humanTerritories.length > 0) {
+                        this.game.camera.focusOn(humanTerritories[0].x, humanTerritories[0].y);
+                    }
+                }
+                break;
+                
+            case 'Escape':
+                // Deselect territory
+                this.inputFSM.reset();
+                break;
+                
+            case 'm':
+            case 'M':
+                // Toggle minimap (removed - minimap feature disabled)
+                break;
+                
+            case 'p':
+            case 'P':
+                // Toggle performance panel
+                this.game.showPerformancePanel = !this.game.showPerformancePanel;
+                break;
+        }
+    }
+    
+    resetDragState() {
+        this.isDragging = false;
+        this.dragStartPos = null;
+        this.dragStartTime = 0;
+        clearTimeout(this.longPressTimer);
+    }
+    
+    getInputState() {
+        return {
+            mousePos: this.mousePos,
+            isDragging: this.isDragging,
+            hoveredTerritory: this.hoveredTerritory,
+            fsmState: this.inputFSM.getState()
+        };
+    }
+    
+    update() {
+        // Update any time-based input logic here
+    }
+}
+```
+
+===============================================================================
+
+## client/src/game/InputStateMachine.js
+
+```javascript
+/**
+ * Player Input Finite State Machine (FSM)
+ * 
+ * ---------------- FSM STATES ----------------
+ * idle → source_selected → pending_preview → (execute|cancel) → idle
+ * idle → source_selected → supply_mode → tap target → create/remove route
+ */
+
+// Clear any preview UI elements
+function clearPreview(game) { 
+    game.ui?.hidePreviewArrow?.();
+}
+
+export class InputStateMachine {
+    constructor(game) {
+        this.game = game;
+        this.state = 'idle';
+        this.selectedTerritory = null;
+        this.pendingTarget = null;
+        this.previewStart = 0;
+        
+        // Track confirmed attack targets for repeat attacks
+        this.confirmedAttackTargets = new Set();
+    }
+
+    // Main input event processor
+    handleEvent(eventType, data) {
+        switch (eventType) {
+            case 'tap':          this.handleTap(data);          break;
+            case 'double_tap':   this.handleDoubleTap(data);    break;
+            case 'long_press':   this.handleLongPress(data);    break;
+            case 'timeout':      this.handleTimeout();          break;
+            default:
+                console.log(`Unknown event type: ${eventType}`);
+                break;
+        }
+    }
+
+    // ---------- tap ----------
+    handleTap({ territory }) {
+        switch (this.state) {
+            case 'idle':
+                if (territory && territory.ownerId === this.game.humanPlayer.id && territory.armySize > 1) {
+                    this.selectedTerritory = territory;
+                    this.state = 'source_selected';
+                }
+                break;
+
+            case 'source_selected':
+                if (!territory) { this.reset(); break; }          // tap empty = deselect
+
+                if (territory.id === this.selectedTerritory.id) { // tap source again = no‑op
+                    break;
+                }
+
+                // friendly target – immediate transfer (no preview needed)
+                if (territory.ownerId === this.game.humanPlayer.id) {
+                    this.game.issueFleetCommand(this.selectedTerritory, territory, 0.5, false);
+                    console.log(`🚀 Immediate transfer: ${this.selectedTerritory.id} -> ${territory.id}`);
+                    // Stay in source_selected state for chaining commands
+                }
+                // hostile/neutral target – check if already confirmed for immediate attack
+                else {
+                    const targetKey = `${this.selectedTerritory.id}->${territory.id}`;
+                    if (this.confirmedAttackTargets.has(targetKey)) {
+                        // Already confirmed - attack immediately
+                        this.game.issueFleetCommand(this.selectedTerritory, territory, 0.5, true);
+                        console.log(`🎯 Immediate repeat attack: ${this.selectedTerritory.id} -> ${territory.id}`);
+                    } else {
+                        // First attack - require confirmation
+                        this.enterPreview(territory, 'attack');
+                    }
+                }
+                break;
+
+            case 'pending_preview':      // this is the CONFIRM tap
+                if (territory && territory.id === this.pendingTarget.id) {
+                    this.executePendingAction( territory );
+                } else {
+                    clearPreview(this.game);           // tapped elsewhere → cancel
+                    this.state = territory ? 'source_selected' : 'idle';
+                    this.pendingTarget = null;
+                }
+                break;
+
+            case 'supply_mode':
+                if (territory && territory.ownerId === this.game.humanPlayer.id &&
+                    territory.id !== this.selectedTerritory.id) {
+                    console.log(`🔗 Creating supply route: ${this.selectedTerritory.id} -> ${territory.id}`);
+                    this.game.supplySystem.toggleSupplyRoute(this.selectedTerritory.id, territory.id);
+                    this.state = 'source_selected';
+                    this.game.ui?.exitSupplyMode?.();
+                } else if (!territory || territory.ownerId !== this.game.humanPlayer.id) {
+                    // Clicked empty space or invalid target - exit supply mode
+                    console.log(`🔗 Exiting supply mode - invalid target`);
+                    this.state = 'source_selected';
+                    this.game.ui?.exitSupplyMode?.();
+                }
+                break;
+        }
+    }
+
+    // ---------- double‑tap ----------
+    handleDoubleTap({ territory, shiftKey, ctrlKey }) {
+        if (this.state !== 'source_selected' || !territory ||
+            territory.id === this.selectedTerritory?.id) return;
+
+        const pct = shiftKey ? 1.0 : ctrlKey ? 0.25 : 0.5;
+
+        if (territory.ownerId === this.game.humanPlayer.id) {
+            this.game.issueFleetCommand(this.selectedTerritory, territory, pct);
+        } else {
+            this.game.issueFleetCommand(this.selectedTerritory, territory, pct, true /*attack*/);
+        }
+        // remain in source_selected so player can chain
+    }
+
+    // ---------- long‑press ----------
+    handleLongPress({ territory }) {
+        // Long press on any owned territory can enter supply mode
+        if (territory && territory.ownerId === this.game.humanPlayer.id && territory.armySize > 1) {
+            this.selectedTerritory = territory;
+            this.state = 'supply_mode';
+            this.game.ui?.enterSupplyMode?.();
+            console.log(`🔗 Supply mode activated for territory ${territory.id}`);
+        }
+    }
+
+    // ---------- helper: preview ----------
+    enterPreview(target, type) {
+        this.pendingTarget = target;
+        this.state         = 'pending_preview';
+        this.previewStart  = Date.now();
+        this.game.ui?.showPreviewArrow?.(this.selectedTerritory, target, type);
+    }
+
+    // ---------- helper: execute ----------
+    executePendingAction(target) {
+        const pct = 0.5;   // default 50 %
+        // This should only be called for attacks now since transfers are immediate
+        this.game.issueFleetCommand(this.selectedTerritory, target, pct, true /*attack*/);
+        
+        // Mark this attack route as confirmed for future immediate attacks
+        const targetKey = `${this.selectedTerritory.id}->${target.id}`;
+        this.confirmedAttackTargets.add(targetKey);
+        
+        console.log(`🎯 Attack confirmed: ${this.selectedTerritory.id} -> ${target.id} (added to confirmed targets)`);
+        clearPreview(this.game);
+        // outcome: stay source_selected for reinforce, deselect on successful attack handled elsewhere
+        this.state         = 'source_selected';
+        this.pendingTarget = null;
+    }
+
+    // ---------- timeout ----------
+    handleTimeout() {
+        if (this.state === 'pending_preview') {
+            // auto‑cancel
+            clearPreview(this.game);
+            this.state = 'source_selected';
+            this.pendingTarget = null;
+        }
+    }
+
+    reset() { 
+        clearPreview(this.game);
+        
+        // Clear confirmed attacks when deselecting source territory
+        if (this.selectedTerritory) {
+            const territoryPrefix = `${this.selectedTerritory.id}->`;
+            this.confirmedAttackTargets.forEach(targetKey => {
+                if (targetKey.startsWith(territoryPrefix)) {
+                    this.confirmedAttackTargets.delete(targetKey);
+                }
+            });
+            console.log(`🎯 Cleared confirmed attacks for territory ${this.selectedTerritory.id}`);
+        }
+        
+        this.state = 'idle';
+        this.selectedTerritory = null;
+        this.pendingTarget = null;
+        this.previewStart = 0;
+        this.game.ui?.exitSupplyMode?.();
+    }
+
+    getState() {
+        return {
+            state: this.state,
+            selectedTerritory: this.selectedTerritory,
+            pendingTarget: this.pendingTarget,
+            confirmedAttackTargets: Array.from(this.confirmedAttackTargets)
+        };
+    }
+
+    transitionTo(newState, data = {}) {
+        console.log(`FSM: ${this.state} → ${newState}`);
+        this.state = newState;
+        
+        // Handle state-specific initialization
+        if (data.selectedTerritory) {
+            this.selectedTerritory = data.selectedTerritory;
+        }
+    }
+
+    // Track active player battles
+    trackPlayerBattle(battleId, sourceTerritory, targetTerritory) {
+        // For future use - tracking ongoing battles
+    }
+
+    onBattleComplete(battleId, attackerWins, attackingTerritoryId) {
+        // For future use - handling battle outcomes
+    }
+
+    // Updated input handling interface
+    handleInput(inputType, data) {
+        this.handleEvent(inputType, data);
+    }
+}
+```
+
+===============================================================================
+
+## client/src/game/PathfindingService.js
+
+```javascript
+/**
+ * PathfindingService.js - Reusable pathfinding module for Star Throne
+ * Extracted from SupplySystem.js to provide generic pathfinding capabilities
+ * Uses Dijkstra's algorithm to find shortest paths through friendly territory
+ */
+
+export class PathfindingService {
+    constructor(game) {
+        this.game = game;
+    }
+
+    /**
+     * Find attack path from player territory to enemy/neutral territory via warp lanes
+     * @param {number} startNodeId - Starting territory ID (must be player-owned)
+     * @param {number} endNodeId - Target territory ID (enemy/neutral)
+     * @param {Object} graph - Game graph containing territories and ownership
+     * @param {string} playerId - Player ID for territory ownership validation
+     * @returns {Promise<Array|null>} Array of territory IDs representing path, or null if no path exists
+     */
+    async findAttackPath(startNodeId, endNodeId, graph, playerId) {
+        return new Promise((resolve) => {
+            const timeout = setTimeout(() => {
+                console.log('PathfindingService: findAttackPath timeout');
+                resolve(null);
+            }, 5000);
+            
+            if (!graph || !graph.territories || startNodeId === endNodeId) {
+                clearTimeout(timeout);
+                resolve(null);
+                return;
+            }
+
+            // Handle gameMap.territories which is an object, not array
+            const territoriesObject = graph.territories;
+            const territoriesArray = Object.values(territoriesObject);
+            const startTerritory = territoriesObject[startNodeId];
+            const endTerritory = territoriesObject[endNodeId];
+
+            console.log(`🛣️ ATTACK PATH: Finding path from ${startNodeId} (player ${playerId}) to ${endNodeId}`);
+            console.log(`🛣️ DEBUG: Start territory:`, startTerritory?.id, 'owner:', startTerritory?.ownerId);
+            console.log(`🛣️ DEBUG: End territory:`, endTerritory?.id, 'owner:', endTerritory?.ownerId);
+            console.log(`🛣️ DEBUG: Total territories:`, territoriesArray.length);
+
+            // Validate start territory is player-owned, end territory exists
+            if (!startTerritory || !endTerritory || startTerritory.ownerId !== playerId) {
+                clearTimeout(timeout);
+                console.log(`🛣️ VALIDATION FAILED: start=${!!startTerritory}, end=${!!endTerritory}, startOwner=${startTerritory?.ownerId}, expectedPlayer=${playerId}`);
+                resolve(null);
+                return;
+            }
+
+            // Check if target is adjacent to any player territory
+            console.log(`🛣️ DEBUG: Checking adjacency to target ${endNodeId}`);
+            const playerTerritories = territoriesArray.filter(t => t && t.ownerId === playerId);
+            console.log(`🛣️ DEBUG: Player owns ${playerTerritories.length} territories:`, playerTerritories.map(t => t.id));
+            
+            for (let territory of territoriesArray) {
+                if (territory && territory.ownerId === playerId) {
+                    const isAdjacent = territory.neighbors && territory.neighbors.includes(endNodeId);
+                    console.log(`🛣️ DEBUG: Territory ${territory.id} neighbors:`, territory.neighbors, 'adjacent to target:', isAdjacent);
+                    if (isAdjacent) {
+                        // Found a player territory adjacent to target
+                        if (territory.id === startNodeId) {
+                            // Direct attack - no path needed
+                            clearTimeout(timeout);
+                            console.log(`🛣️ DIRECT: Target ${endNodeId} is adjacent to source ${startNodeId}`);
+                            resolve(null);
+                            return;
+                        } else {
+                            // Multi-hop attack: find path from start to adjacent territory
+                            console.log(`🛣️ MULTI-HOP: Target ${endNodeId} is adjacent to player territory ${territory.id}`);
+                            this.findShortestPath(startNodeId, territory.id, graph, playerId).then(pathToAdjacent => {
+                                if (pathToAdjacent && pathToAdjacent.length > 1) {
+                                    // Add target to the end of path
+                                    const fullPath = [...pathToAdjacent, endNodeId];
+                                    clearTimeout(timeout);
+                                    console.log(`🛣️ ATTACK PATH FOUND: ${fullPath.join(' -> ')}`);
+                                    resolve(fullPath);
+                                    return;
+                                } else {
+                                    // No path found from start to adjacent territory
+                                    clearTimeout(timeout);
+                                    console.log(`🛣️ NO PATH: Could not find path from ${startNodeId} to adjacent territory ${territory.id}`);
+                                    resolve(null);
+                                }
+                            }).catch(error => {
+                                console.error('PathfindingService: Error finding path to adjacent territory:', error);
+                                clearTimeout(timeout);
+                                resolve(null);
+                            });
+                            return; // Exit the loop once we found an adjacent territory
+                        }
+                    }
+                }
+            }
+
+            clearTimeout(timeout);
+            console.log(`🛣️ NO ATTACK PATH: No route found to ${endNodeId}`);
+            resolve(null);
+        });
+    }
+
+    /**
+     * Find shortest path between two nodes using Dijkstra's algorithm
+     * Only travels through territories owned by the specified player
+     * @param {number} startNodeId - Starting node ID
+     * @param {number} endNodeId - Target node ID  
+     * @param {Object} graph - Game graph containing territories and ownership
+     * @param {string} playerId - Player ID for territory ownership validation
+     * @returns {Promise<Array|null>} Array of node IDs representing path, or null if no path exists
+     */
+    async findShortestPath(startNodeId, endNodeId, graph, playerId) {
+        return new Promise((resolve) => {
+            const timeout = setTimeout(() => {
+                console.log('PathfindingService: findShortestPath timeout');
+                resolve(null);
+            }, 5000);
+            
+            if (!graph || !graph.territories || startNodeId === endNodeId) {
+                clearTimeout(timeout);
+                resolve(null);
+                return;
+            }
+
+            // Handle gameMap.territories which is an object, not array
+            const territoriesObject = graph.territories;
+            const startTerritory = territoriesObject[startNodeId];
+            const endTerritory = territoriesObject[endNodeId];
+
+            // Validate both territories exist and are owned by the player
+            if (!startTerritory || !endTerritory || 
+                startTerritory.ownerId !== playerId || endTerritory.ownerId !== playerId) {
+                clearTimeout(timeout);
+                resolve(null);
+                return;
+            }
+
+            // Dijkstra's algorithm implementation
+            const distances = {};
+            const previous = {};
+            const unvisited = new Set();
+
+            // Initialize distances and add all player territories to unvisited set
+            const allTerritories = Object.values(territoriesObject);
+            for (let territory of allTerritories) {
+                if (territory.ownerId === playerId) {
+                    distances[territory.id] = territory.id === startNodeId ? 0 : Infinity;
+                    previous[territory.id] = null;
+                    unvisited.add(territory.id);
+                }
+            }
+
+            while (unvisited.size > 0) {
+                // Find unvisited node with minimum distance
+                let currentNodeId = null;
+                let minDistance = Infinity;
+                
+                for (let nodeId of unvisited) {
+                    if (distances[nodeId] < minDistance) {
+                        minDistance = distances[nodeId];
+                        currentNodeId = nodeId;
+                    }
+                }
+
+                if (currentNodeId === null || minDistance === Infinity) {
+                    // No more reachable nodes
+                    break;
+                }
+
+                unvisited.delete(currentNodeId);
+
+                // If we reached the target, reconstruct path
+                if (currentNodeId === endNodeId) {
+                    const path = [];
+                    let nodeId = endNodeId;
+                    
+                    while (nodeId !== null) {
+                        path.unshift(nodeId);
+                        nodeId = previous[nodeId];
+                    }
+                    
+                    clearTimeout(timeout);
+                    resolve(path.length > 1 ? path : null);
+                    return;
+                }
+
+                // Check all neighbors of current node
+                const currentTerritory = territoriesObject[currentNodeId];
+                if (currentTerritory && currentTerritory.neighbors) {
+                    for (let neighborId of currentTerritory.neighbors) {
+                        const neighborTerritory = territoriesObject[neighborId];
+                        
+                        // Only consider neighbors owned by the same player
+                        if (neighborTerritory && 
+                            neighborTerritory.ownerId === playerId && 
+                            unvisited.has(neighborId)) {
+                            
+                            // Calculate distance (using Euclidean distance)
+                            const distance = Math.sqrt(
+                                Math.pow(currentTerritory.x - neighborTerritory.x, 2) + 
+                                Math.pow(currentTerritory.y - neighborTerritory.y, 2)
+                            );
+                            
+                            const altDistance = distances[currentNodeId] + distance;
+                            
+                            if (altDistance < distances[neighborId]) {
+                                distances[neighborId] = altDistance;
+                                previous[neighborId] = currentNodeId;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // No path found
+            clearTimeout(timeout);
+            resolve(null);
+        });
+    }
+}
+```
+
+===============================================================================
+
+## client/src/game/CombatSystem.js
+
+```javascript
+import { GAME_CONSTANTS } from '../../../common/gameConstants';
+import { GameUtils } from './utils';
+
+export class CombatSystem {
+    constructor(game) {
+        this.game = game;
+    }
+
+    // Attack a territory
+    attackTerritory(attacker, defender) {
+        const attackingArmies = Math.floor(attacker.armySize * 0.5);
+        const defendingArmies = defender.armySize;
+
+        // Remove attacking armies from source
+        attacker.armySize -= attackingArmies;
+
+        // Resolve combat
+        const battleResult = this.resolveBattle(
+            attackingArmies, 
+            defendingArmies,
+            attacker.ownerId,
+            defender.ownerId
+        );
+
+        if (battleResult.attackerWins) {
+            // Territory captured
+            const previousOwner = defender.ownerId;
+            defender.ownerId = attacker.ownerId;
+            defender.armySize = battleResult.attackerSurvivors;
+
+            console.log(`Territory ${defender.id} captured by player ${attacker.ownerId}`);
+
+            // Check for throne star capture (empire collapse)
+            if (defender.isThronestar) {
+                this.handleThroneCapture(defender, attacker.ownerId, previousOwner);
+            }
+
+            // Check for conquest-based discovery (20% chance)
+            if (Math.random() < 0.2 && attacker.ownerId === this.game.humanPlayer?.id) {
+                GameUtils.processDiscovery(defender, this.game);
+            }
+        } else {
+            // Attack failed
+            defender.armySize = battleResult.defenderSurvivors;
+        }
+
+        // Visual feedback
+        this.addCombatFlash(defender, battleResult.attackerWins);
+
+        return battleResult;
+    }
+
+    // Handle throne star capture and empire collapse
+    handleThroneCapture(throneTerritory, captorId, previousOwnerId) {
+        console.log(`🏰 THRONE CAPTURED: Territory ${throneTerritory.id} throne captured by player ${captorId} from player ${previousOwnerId}`);
+        
+        // Find all territories owned by the defeated player
+        const defeatedPlayerTerritories = Object.values(this.game.gameMap.territories).filter(
+            territory => territory.ownerId === previousOwnerId
+        );
+        
+        console.log(`🏰 EMPIRE COLLAPSE: Transferring ${defeatedPlayerTerritories.length} territories from player ${previousOwnerId} to player ${captorId}`);
+        
+        // Transfer all territories to the captor
+        defeatedPlayerTerritories.forEach(territory => {
+            territory.ownerId = captorId;
+            console.log(`🏰 TRANSFER: Territory ${territory.id} transferred to player ${captorId}`);
+        });
+        
+        // Mark the defeated player as eliminated
+        const defeatedPlayer = this.game.players.find(p => p.id === previousOwnerId);
+        if (defeatedPlayer) {
+            defeatedPlayer.isEliminated = true;
+            console.log(`🏰 PLAYER ELIMINATED: ${defeatedPlayer.name} (${defeatedPlayer.id}) has been eliminated`);
+            
+            // Update AI cache when player is eliminated
+            if (this.game.aiManager) {
+                this.game.aiManager.invalidateCache();
+            }
+        }
+        
+        // Destroy the captured throne star to prevent multiple thrones
+        throneTerritory.isThronestar = false;
+        console.log(`🏰 THRONE DESTROYED: Throne star ${throneTerritory.id} destroyed to prevent multiple thrones`);
+        
+        // Check if human player was defeated
+        if (previousOwnerId === this.game.humanPlayer?.id) {
+            console.log(`🏰 HUMAN PLAYER DEFEATED: Game over triggered`);
+            this.game.endGame('defeat');
+        }
+        
+        // Show notification
+        if (captorId === this.game.humanPlayer?.id) {
+            this.game.addNotification(`🏰 Empire Conquered! ${defeatedPlayer?.name || 'Unknown'} has been eliminated!`, 'victory', 5000);
+        } else if (previousOwnerId === this.game.humanPlayer?.id) {
+            this.game.addNotification(`💀 Your throne has fallen! Empire collapsed!`, 'defeat', 5000);
+        }
+    }
+
+    // Transfer armies between friendly territories
+    transferArmies(source, destination) {
+        const transferAmount = Math.floor(source.armySize * 0.5);
+        source.armySize -= transferAmount;
+        destination.armySize += transferAmount;
+
+        console.log(`Transferred ${transferAmount} armies from ${source.id} to ${destination.id}`);
+    }
+
+    // Resolve battle between attacking and defending armies
+    resolveBattle(attackingArmies, defendingArmies, attackerId, defenderId) {
+        // Get player discoveries for bonuses
+        const attackerPlayer = this.game.players.find(p => p.id === attackerId);
+        const defenderPlayer = this.game.players.find(p => p.id === defenderId);
+        
+        // Calculate tech bonuses (only for human player)
+        let attackBonus = 1.0;
+        let defenseBonus = 1.0;
+        
+        if (attackerId === this.game.humanPlayer?.id && this.game.playerDiscoveries) {
+            attackBonus += this.game.playerDiscoveries.precursorWeapons * 0.05; // +5% per weapon tech level
+        }
+        
+        if (defenderId === this.game.humanPlayer?.id && this.game.playerDiscoveries) {
+            defenseBonus += this.game.playerDiscoveries.precursorShield * 0.05; // +5% per shield tech level
+        }
+        
+        // Apply bonuses
+        const effectiveAttackingArmies = Math.round(attackingArmies * attackBonus);
+        const effectiveDefendingArmies = Math.round(defendingArmies * defenseBonus);
+        
+        // Calculate win chance based on army ratio
+        const ratio = effectiveAttackingArmies / Math.max(1, effectiveDefendingArmies);
+        let winChance = Math.min(0.9, Math.max(0.1, 0.5 + (ratio - 1) * 0.2));
+        
+        console.log(`⚔️ COMBAT: ${effectiveAttackingArmies} vs ${effectiveDefendingArmies} armies, round win chance: ${(winChance * 100).toFixed(1)}%`);
+        
+        let attackerArmies = effectiveAttackingArmies;
+        let defenderArmies = effectiveDefendingArmies;
+        
+        // Simulate battle rounds
+        while (attackerArmies > 0 && defenderArmies > 0) {
+            if (Math.random() < winChance) {
+                defenderArmies--;
+            } else {
+                attackerArmies--;
+            }
+        }
+        
+        const attackerWins = attackerArmies > 0;
+        
+        return {
+            attackerWins: attackerWins,
+            attackerSurvivors: attackerArmies,
+            defenderSurvivors: defenderArmies
+        };
+    }
+
+    // Add visual combat flash effect
+    addCombatFlash(territory, attackerWins) {
+        const flashColor = attackerWins ? '#00ff00' : '#ff0000';
+        territory.combatFlash = {
+            startTime: Date.now(),
+            duration: 1000,
+            color: flashColor
+        };
+
+        // Debug logging for combat flash
+        if (attackerWins) {
+            console.log(`💥 GREEN FLASH: Territory ${territory.id} flashing GREEN (attacker wins)`);
+        } else {
+            console.log(`💥 RED FLASH: Territory ${territory.id} flashing RED (attacker dies)`);
+        }
+    }
+}
+```
+
+## ADDITIONAL FILES SUMMARY
+
+The codebase also includes many other important files:
+
+- **GameMap.js** - Advanced procedural map generation with 6 galaxy layouts
+- **Territory.js** - Individual territory logic with army generation and rendering
+- **Player.js** - Player state management and sophisticated AI behavior
+- **Camera.js** - Strategic camera system with zoom levels and smooth controls
+- **Renderer.js** - Modular canvas rendering with performance optimizations
+- **SupplySystem.js** - Supply route management for army generation redirection
+- **AnimationSystem.js** - Ship animations, starfield, and visual effects
+- **UIManager.js** - User interface management and notification system
+- **AIManager.js** - AI player coordination and performance optimization
+- **DiscoverySystem.js** - Technology discovery system with empire bonuses
+- **GameUI.js** - In-game overlay UI rendering
+- **PerformanceManager.js** - Performance monitoring and optimization
+- **EventSystem.js** - Game event management and coordination
+- **Utils.js** - Centralized utility functions and game constants
+
+## MULTIPLAYER INFRASTRUCTURE
+
+The game includes a complete multiplayer system:
+
+- **server/index.ts** - Express server with Socket.IO WebSocket support
+- **Room management** - 6-digit room codes for game sessions
+- **Real-time synchronization** - Player actions broadcast to all clients
+- **Server-authoritative architecture** - Secure game state validation
+
+## KEY ARCHITECTURAL DECISIONS
+
+1. **Modular Design** - Separated concerns into focused modules for maintainability
+2. **Performance Optimization** - Viewport culling, object pooling, AI batching
+3. **Warp Lane Movement** - Realistic ship pathfinding along connected star lanes
+4. **State Machine Input** - Clean separation of input handling and game logic
+5. **Discovery System** - Technology progression through territorial conquest
+6. **Throne Star Mechanics** - High-stakes gameplay with empire collapse
+7. **Supply Routes** - Strategic logistics for army generation redirection
+
+This architecture provides a solid foundation for further development while maintaining clean code organization and optimal performance.
