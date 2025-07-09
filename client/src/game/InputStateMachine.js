@@ -122,50 +122,41 @@ export class InputStateMachine {
     handleDoubleTap({ territory, shiftKey, ctrlKey }) {
         if (!territory) return;
 
-        // Double-click from idle state: immediately select friendly territory
-        if (this.state === 'idle') {
-            if (territory.ownerId === this.game.humanPlayer.id && territory.armySize > 1) {
-                this.selectedTerritory = territory;
-                this.state = 'source_selected';
-                console.log(`🎯 Double-click selection: Territory ${territory.id} selected immediately`);
-                return;
+        // Double-click on SELECTED territory: enter reinforce mode
+        if (this.state === 'source_selected' && territory.id === this.selectedTerritory?.id) {
+            this.enterSupplyMode(territory);
+            console.log(`🔗 Double-click reinforce mode: Territory ${territory.id} entering supply mode`);
+            return;
+        }
+
+        // Double-click from source_selected state on different territory: execute fleet command
+        if (this.state === 'source_selected' && territory.id !== this.selectedTerritory?.id) {
+            const pct = shiftKey ? 1.0 : ctrlKey ? 0.25 : 0.5;
+
+            if (territory.ownerId === this.game.humanPlayer.id) {
+                this.game.issueFleetCommand(this.selectedTerritory, territory, pct);
+            } else {
+                this.game.issueFleetCommand(this.selectedTerritory, territory, pct, true /*attack*/);
             }
+            // remain in source_selected so player can chain
         }
-
-        // Double-click from source_selected state: execute fleet command
-        if (this.state !== 'source_selected' || territory.id === this.selectedTerritory?.id) return;
-
-        const pct = shiftKey ? 1.0 : ctrlKey ? 0.25 : 0.5;
-
-        if (territory.ownerId === this.game.humanPlayer.id) {
-            this.game.issueFleetCommand(this.selectedTerritory, territory, pct);
-        } else {
-            this.game.issueFleetCommand(this.selectedTerritory, territory, pct, true /*attack*/);
-        }
-        // remain in source_selected so player can chain
     }
 
     // ---------- long‑press ----------
     handleLongPress({ territory }) {
-        // Long press on any owned territory can enter supply mode
-        if (territory && territory.ownerId === this.game.humanPlayer.id && territory.armySize > 1) {
+        if (!territory || territory.ownerId !== this.game.humanPlayer.id || territory.armySize <= 1) return;
+
+        // Long press on unselected territory: select it
+        if (this.state === 'idle' || (this.selectedTerritory && this.selectedTerritory.id !== territory.id)) {
             this.selectedTerritory = territory;
-            this.state = 'supply_mode';
-            this.game.ui?.enterSupplyMode?.();
-            
-            // Check if territory is already supplying reinforcements
-            const isCurrentlySupplying = this.game.supplySystem?.isSupplySource?.(territory.id);
-            
-            // Show contextual message based on current supply status
-            if (this.game.uiManager) {
-                if (isCurrentlySupplying) {
-                    this.game.uiManager.showMessage(`🔗 SUPPLY MODE: Star ${territory.id} currently supplying. Click different star to reroute, or blank space to cancel`, 4000);
-                } else {
-                    this.game.uiManager.showMessage(`🔗 SUPPLY MODE: Click target star to reinforce from Star ${territory.id}`, 3000);
-                }
-            }
-            
-            console.log(`🔗 Supply mode activated for territory ${territory.id}, currently supplying: ${isCurrentlySupplying}`);
+            this.state = 'source_selected';
+            console.log(`🎯 Long press selection: Territory ${territory.id} selected`);
+            return;
+        }
+
+        // Long press on already selected territory: enter supply mode (if not already in it)
+        if (this.state === 'source_selected' && this.selectedTerritory && this.selectedTerritory.id === territory.id) {
+            this.enterSupplyMode(territory);
         }
     }
 
@@ -202,6 +193,26 @@ export class InputStateMachine {
             this.pendingTarget = null;
             this.state = 'source_selected';
         }
+    }
+
+    // ---------- supply mode helper ----------
+    enterSupplyMode(territory) {
+        this.state = 'supply_mode';
+        this.game.ui?.enterSupplyMode?.();
+        
+        // Check if territory is already supplying reinforcements
+        const isCurrentlySupplying = this.game.supplySystem?.isSupplySource?.(territory.id);
+        
+        // Show contextual message based on current supply status
+        if (this.game.uiManager) {
+            if (isCurrentlySupplying) {
+                this.game.uiManager.showMessage(`🔗 SUPPLY MODE: Star ${territory.id} currently supplying. Click different star to reroute, or blank space to cancel`, 4000);
+            } else {
+                this.game.uiManager.showMessage(`🔗 SUPPLY MODE: Click target star to reinforce from Star ${territory.id}`, 3000);
+            }
+        }
+        
+        console.log(`🔗 Supply mode activated for territory ${territory.id}, currently supplying: ${isCurrentlySupplying}`);
     }
 
     // Reset state completely
