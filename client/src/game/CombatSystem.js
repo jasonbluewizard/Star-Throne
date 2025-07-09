@@ -325,8 +325,8 @@ export class CombatSystem {
      * @param {string} context - 'attacker_dies' or 'defender_dies'
      */
     createCombatParticleEffect(territory, shipColor, context, battleInfo = null) {
-        // Show dramatic particle explosions for ALL combat
-        const intensity = context === 'defender_dies' ? 1.8 : 1.2; // Enhanced intensity
+        // Show subtle particle explosions for ALL combat
+        const intensity = context === 'defender_dies' ? 1.3 : 1.0; // Moderate intensity
         
         if (this.game.animationSystem && this.game.animationSystem.createCombatParticles) {
             this.game.animationSystem.createCombatParticles(

@@ -113,27 +113,27 @@ export class AnimationSystem {
 
     // Create particle explosion at combat location
     createCombatParticles(x, y, color, intensity = 1.0) {
-        const particleCount = Math.floor(12 + Math.random() * 16) * intensity; // 12-28 particles for more drama
+        const particleCount = Math.floor(6 + Math.random() * 8) * intensity; // 6-14 particles, more reasonable
         
         for (let i = 0; i < particleCount; i++) {
             const particle = this.getPooledParticle();
             if (!particle) continue;
             
-            // Random direction and speed with wider spread
+            // Random direction and speed
             const angle = Math.random() * Math.PI * 2;
-            const speed = 60 + Math.random() * 120; // Faster, more dramatic (60-180 pixels/second)
+            const speed = 40 + Math.random() * 60; // Moderate speed (40-100 pixels/second)
             
-            particle.x = x + (Math.random() - 0.5) * 25; // Wider initial spread
-            particle.y = y + (Math.random() - 0.5) * 25;
+            particle.x = x + (Math.random() - 0.5) * 15; // Moderate initial spread
+            particle.y = y + (Math.random() - 0.5) * 15;
             particle.vx = Math.cos(angle) * speed;
             particle.vy = Math.sin(angle) * speed;
             particle.life = 0;
-            particle.maxLife = 1000 + Math.random() * 800; // Longer lasting (1.0-1.8 seconds)
-            particle.size = 3 + Math.random() * 5; // Bigger particles (3-8 pixels)
+            particle.maxLife = 600 + Math.random() * 400; // Shorter duration (0.6-1.0 seconds)
+            particle.size = 2 + Math.random() * 2; // Smaller particles (2-4 pixels)
             particle.color = color;
             particle.isActive = true;
-            particle.gravity = 25; // Stronger gravity for better arcs
-            particle.airResistance = 0.96; // More air resistance for realistic trails
+            particle.gravity = 15; // Moderate gravity
+            particle.airResistance = 0.98; // Less air resistance for cleaner arcs
             
             this.combatParticles.push(particle);
         }
