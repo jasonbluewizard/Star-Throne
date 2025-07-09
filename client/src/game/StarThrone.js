@@ -3637,33 +3637,12 @@ export default class StarThrone {
             // Trigger combat flash effects
             toTerritory.triggerCombatFlash();
             
-            // Execute the attack using combat system
+            // Execute the attack using combat system - results will show during actual battle
             const result = this.combatSystem.attackTerritory(tempAttackingTerritory, toTerritory);
-            console.log(`🎯 MULTI-HOP ATTACK RESULT:`, result);
+            console.log(`🎯 MULTI-HOP ATTACK QUEUED: ${shipsToSend} ships attacking territory ${toTerritory.id}`);
             
-            if (result.success) {
-                console.log(`🏆 Multi-hop attack successful! Territory ${toTerritory.id} captured by player ${this.humanPlayer?.id}`);
-                
-                // Visual feedback
-                if (this.flashTerritory) {
-                    this.flashTerritory(toTerritory.id, '#00ff00', 500);
-                }
-                if (this.uiManager && this.uiManager.showMessage) {
-                    this.uiManager.showMessage(`Multi-hop attack successful! Territory captured`, 3000);
-                }
-                
-                // Check for game end conditions
-                this.checkWinConditions();
-            } else {
-                console.log(`🛡️ Multi-hop attack failed! Territory ${toTerritory.id} defended`);
-                
-                // Visual feedback for failed attack
-                if (this.flashTerritory) {
-                    this.flashTerritory(toTerritory.id, '#ff0000', 500);
-                }
-                if (this.uiManager && this.uiManager.showMessage) {
-                    this.uiManager.showMessage(`Multi-hop attack failed! Defense held`, 2000);
-                }
+            if (!result.success) {
+                console.log(`🛡️ Multi-hop attack failed to queue: ${result.reason}`);
             }
             
             // Update player stats
