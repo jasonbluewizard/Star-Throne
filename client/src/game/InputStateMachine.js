@@ -120,8 +120,20 @@ export class InputStateMachine {
 
     // ---------- double‑tap ----------
     handleDoubleTap({ territory, shiftKey, ctrlKey }) {
-        if (this.state !== 'source_selected' || !territory ||
-            territory.id === this.selectedTerritory?.id) return;
+        if (!territory) return;
+
+        // Double-click from idle state: immediately select friendly territory
+        if (this.state === 'idle') {
+            if (territory.ownerId === this.game.humanPlayer.id && territory.armySize > 1) {
+                this.selectedTerritory = territory;
+                this.state = 'source_selected';
+                console.log(`🎯 Double-click selection: Territory ${territory.id} selected immediately`);
+                return;
+            }
+        }
+
+        // Double-click from source_selected state: execute fleet command
+        if (this.state !== 'source_selected' || territory.id === this.selectedTerritory?.id) return;
 
         const pct = shiftKey ? 1.0 : ctrlKey ? 0.25 : 0.5;
 
