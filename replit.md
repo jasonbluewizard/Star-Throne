@@ -732,14 +732,16 @@ Changelog:
   * Multi-hop ship animations travel planet-to-planet along actual warp lane paths
   * Long-range attacks only used as fallback when no warp lane path exists
 - January 9, 2025. Combat particle effects system implementation:
-  * Implemented explosive particle effects for combat visual feedback when ships die in battle
+  * Implemented dramatic explosive particle effects for combat visual feedback when ships die in battle
   * Added object pooling system for particles to optimize performance and prevent memory leaks
-  * Particles spray out in player colors with realistic physics (gravity, air resistance, fade-out)
-  * Effects only appear for battles involving human player or adjacent to player territories
-  * Fixed coordinate system issues ensuring particles appear at correct world positions
+  * Enhanced particles with realistic physics: gravity, air resistance, and natural arcing trajectories
+  * Larger, faster, longer-lasting particles (12-28 per explosion, 3-8 pixel size, 1.0-1.8 second duration)
+  * Particles spray out in player colors with wider spread and more dramatic intensity
+  * Fixed coordinate system issues ensuring particles appear at correct battle locations
   * Gray particles show for neutral territory defenders, colored particles for player forces
-  * Enhanced combat system with null-safety for neutral territory battles
+  * Enhanced combat system with comprehensive debugging and error handling
   * Integrated particle rendering into main game loop with proper camera transform handling
+  * Particles now visible for ALL combat across the galaxy for maximum visual impact
 - January 9, 2025. Critical memory leak and architecture fixes:
   * Fixed memory leak from unremoved event listeners in InputHandler by binding event handler references
   * Added comprehensive cleanup methods to InputHandler and StarThrone for proper resource disposal

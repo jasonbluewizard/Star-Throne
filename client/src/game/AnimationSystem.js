@@ -113,35 +113,30 @@ export class AnimationSystem {
 
     // Create particle explosion at combat location
     createCombatParticles(x, y, color, intensity = 1.0) {
-        const particleCount = Math.floor(8 + Math.random() * 12) * intensity; // 8-20 particles
-        
-        console.log(`💥 CREATING PARTICLES: ${particleCount} particles at (${x}, ${y}) color ${color} intensity ${intensity}`);
+        const particleCount = Math.floor(12 + Math.random() * 16) * intensity; // 12-28 particles for more drama
         
         for (let i = 0; i < particleCount; i++) {
             const particle = this.getPooledParticle();
-            if (!particle) {
-                console.log(`❌ Failed to get pooled particle ${i}`);
-                continue;
-            }
+            if (!particle) continue;
             
-            // Random direction and speed
+            // Random direction and speed with wider spread
             const angle = Math.random() * Math.PI * 2;
-            const speed = 50 + Math.random() * 100; // 50-150 pixels/second
+            const speed = 60 + Math.random() * 120; // Faster, more dramatic (60-180 pixels/second)
             
-            particle.x = x + (Math.random() - 0.5) * 10; // Small initial spread
-            particle.y = y + (Math.random() - 0.5) * 10;
+            particle.x = x + (Math.random() - 0.5) * 25; // Wider initial spread
+            particle.y = y + (Math.random() - 0.5) * 25;
             particle.vx = Math.cos(angle) * speed;
             particle.vy = Math.sin(angle) * speed;
             particle.life = 0;
-            particle.maxLife = 800 + Math.random() * 400; // 0.8-1.2 seconds
-            particle.size = 2 + Math.random() * 3; // 2-5 pixel particles
+            particle.maxLife = 1000 + Math.random() * 800; // Longer lasting (1.0-1.8 seconds)
+            particle.size = 3 + Math.random() * 5; // Bigger particles (3-8 pixels)
             particle.color = color;
             particle.isActive = true;
+            particle.gravity = 25; // Stronger gravity for better arcs
+            particle.airResistance = 0.96; // More air resistance for realistic trails
             
             this.combatParticles.push(particle);
         }
-        
-        console.log(`💥 PARTICLES CREATED: Total active particles: ${this.combatParticles.length}`);
     }
     
     // FOG OF WAR: Check if ship animation should be visible
@@ -282,25 +277,36 @@ export class AnimationSystem {
         return animation;
     }
 
-    // Update combat particles
+    // Update combat particles with enhanced physics
     updateCombatParticles(deltaTime) {
+        const dt = deltaTime / 1000; // Convert to seconds
+        
         for (let i = this.combatParticles.length - 1; i >= 0; i--) {
             const particle = this.combatParticles[i];
+            if (!particle.isActive) continue;
             
-            // Update particle physics
+            // Apply gravity (downward acceleration)
+            if (particle.gravity) {
+                particle.vy += particle.gravity * dt;
+            }
+            
+            // Apply air resistance
+            if (particle.airResistance) {
+                particle.vx *= particle.airResistance;
+                particle.vy *= particle.airResistance;
+            }
+            
+            // Update position
+            particle.x += particle.vx * dt;
+            particle.y += particle.vy * dt;
+            
+            // Update lifetime
             particle.life += deltaTime;
-            particle.x += particle.vx * (deltaTime / 1000);
-            particle.y += particle.vy * (deltaTime / 1000);
             
-            // Apply gravity/deceleration
-            particle.vy += 80 * (deltaTime / 1000); // Gravity
-            particle.vx *= 0.98; // Air resistance
-            particle.vy *= 0.98;
-            
-            // Remove dead particles
+            // Remove expired particles
             if (particle.life >= particle.maxLife) {
-                this.combatParticles.splice(i, 1);
                 this.returnParticleToPool(particle);
+                this.combatParticles.splice(i, 1);
             }
         }
     }

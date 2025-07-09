@@ -171,7 +171,6 @@ export class CombatSystem {
             
             // Create particle explosion when defender ship dies
             const defenderColor = battle.defender ? battle.defender.color : '#999999'; // Gray for neutral
-            console.log(`🚀 COMBAT ROUND: Attacker wins, creating defender death particles`);
             this.createCombatParticleEffect(battle.defendingTerritory, defenderColor, 'defender_dies', battle);
             
             console.log(`💥 RED FLASH: Territory ${battle.defendingTerritory.id} flashing with attacker color ${battle.attacker.color}`);
@@ -185,7 +184,6 @@ export class CombatSystem {
             this.flashPlanet(battle.defendingTerritory, '#ff0000');
             
             // Create particle explosion when attacker ship dies
-            console.log(`🚀 COMBAT ROUND: Defender wins, creating attacker death particles`);
             this.createCombatParticleEffect(battle.defendingTerritory, battle.attacker.color, 'attacker_dies', battle);
             
             console.log(`💥 RED FLASH: Territory ${battle.defendingTerritory.id} flashing RED (attacker dies)`);
@@ -327,12 +325,8 @@ export class CombatSystem {
      * @param {string} context - 'attacker_dies' or 'defender_dies'
      */
     createCombatParticleEffect(territory, shipColor, context, battleInfo = null) {
-        // Show particles for ALL combat with debug logging
-        const intensity = context === 'defender_dies' ? 1.5 : 1.0;
-        
-        console.log(`🎆 PARTICLE DEBUG: Creating particles at (${territory.x}, ${territory.y}) color ${shipColor} context ${context}`);
-        console.log(`🎆 PARTICLE DEBUG: AnimationSystem exists: ${!!this.game.animationSystem}`);
-        console.log(`🎆 PARTICLE DEBUG: createCombatParticles method exists: ${!!(this.game.animationSystem && this.game.animationSystem.createCombatParticles)}`);
+        // Show dramatic particle explosions for ALL combat
+        const intensity = context === 'defender_dies' ? 1.8 : 1.2; // Enhanced intensity
         
         if (this.game.animationSystem && this.game.animationSystem.createCombatParticles) {
             this.game.animationSystem.createCombatParticles(
@@ -341,9 +335,6 @@ export class CombatSystem {
                 shipColor, 
                 intensity
             );
-            console.log(`✅ PARTICLE DEBUG: Called createCombatParticles successfully`);
-        } else {
-            console.log(`❌ PARTICLE DEBUG: Failed to create particles - missing system or method`);
         }
     }
     
