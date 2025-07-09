@@ -3009,7 +3009,10 @@ export default class StarThrone {
         // Render probes (disabled - no active probes)
         // this.renderProbes();
         
-        // AnimationSystem rendering is now handled in renderShipAnimations() using working coordinate system
+        // Render new AnimationSystem ship animations (supply ships, enhanced rendering)
+        if (this.animationSystem) {
+            this.animationSystem.renderShipAnimations(this.ctx, this.camera);
+        }
         
         // Render legacy ship animations (for backwards compatibility)
         this.renderShipAnimations();
