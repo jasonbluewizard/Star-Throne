@@ -115,9 +115,14 @@ export class AnimationSystem {
     createCombatParticles(x, y, color, intensity = 1.0) {
         const particleCount = Math.floor(8 + Math.random() * 12) * intensity; // 8-20 particles
         
+        console.log(`💥 CREATING PARTICLES: ${particleCount} particles at (${x}, ${y}) color ${color} intensity ${intensity}`);
+        
         for (let i = 0; i < particleCount; i++) {
             const particle = this.getPooledParticle();
-            if (!particle) continue;
+            if (!particle) {
+                console.log(`❌ Failed to get pooled particle ${i}`);
+                continue;
+            }
             
             // Random direction and speed
             const angle = Math.random() * Math.PI * 2;
@@ -136,8 +141,7 @@ export class AnimationSystem {
             this.combatParticles.push(particle);
         }
         
-        // Debug disabled for performance
-        // console.log(`💥 PARTICLES: Created ${particleCount} combat particles at (${x.toFixed(1)}, ${y.toFixed(1)}) in color ${color}`);
+        console.log(`💥 PARTICLES CREATED: Total active particles: ${this.combatParticles.length}`);
     }
     
     // FOG OF WAR: Check if ship animation should be visible
