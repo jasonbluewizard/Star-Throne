@@ -3572,6 +3572,13 @@ export default class StarThrone {
                 break;
         }
     }
+
+    // Wrapper method for compatibility with InputStateMachine calls
+    issueFleetCommand(fromTerritory, toTerritory, fleetPercentage, isAttack = false) {
+        const commandType = isAttack ? 'attack' : 'transfer';
+        console.log(`🚀 issueFleetCommand called: ${fromTerritory.id} -> ${toTerritory.id}, attack=${isAttack}, type=${commandType}`);
+        this.executeFleetCommand(fromTerritory, toTerritory, fleetPercentage, commandType);
+    }
     
     executeMultiHopTransfer(fromTerritory, toTerritory, shipsToSend, path) {
         // Validate path
