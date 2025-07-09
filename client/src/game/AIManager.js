@@ -1,4 +1,4 @@
-import { GAME_CONSTANTS } from '../../../common/gameConstants';
+import { GAME_CONSTANTS } from '../../../common/gameConstants.ts';
 import { GameUtils } from './utils';
 
 export class AIManager {

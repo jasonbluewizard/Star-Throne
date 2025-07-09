@@ -6,7 +6,7 @@
  */
 
 import { InputStateMachine } from './InputStateMachine';
-import { GAME_CONSTANTS } from '../../../common/gameConstants';
+import { GAME_CONSTANTS } from '../../../common/gameConstants.ts';
 
 export class InputHandler {
     constructor(game) {
