@@ -273,10 +273,22 @@ export class Territory {
         
         // Set stroke properties based on state
         if (isSelected) {
-            // Pulsating selection outline for enemies/neutrals
-            const pulseIntensity = 0.7 + 0.3 * Math.sin(Date.now() * 0.005);
-            ctx.strokeStyle = `rgba(255, 255, 255, ${pulseIntensity})`;
-            ctx.lineWidth = 4;
+            // Draw large outer selection ring in player color
+            const outerPulseIntensity = 0.6 + 0.4 * Math.sin(Date.now() * 0.003);
+            ctx.strokeStyle = player ? player.color : '#ffffff';
+            ctx.lineWidth = 6;
+            ctx.globalAlpha = outerPulseIntensity * 0.8;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, renderRadius + 8, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // Reset alpha for inner ring
+            ctx.globalAlpha = renderAlpha;
+            
+            // Inner pulsating selection outline
+            const innerPulseIntensity = 0.7 + 0.3 * Math.sin(Date.now() * 0.005);
+            ctx.strokeStyle = `rgba(255, 255, 255, ${innerPulseIntensity})`;
+            ctx.lineWidth = 3;
         } else if (isHovered) {
             // Bright white hover outline
             ctx.strokeStyle = '#ffffff';
