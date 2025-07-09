@@ -28,6 +28,9 @@ export class InputStateMachine {
         // Track battles initiated by human player to manage selection state
         this.pendingPlayerBattles = new Map();
         
+        // Track territories that have been confirmed for attack (no re-confirmation needed)
+        this.confirmedAttackTargets = new Set();
+        
         console.log('InputStateMachine initialized in idle state');
     }
 
@@ -67,9 +70,17 @@ export class InputStateMachine {
                     console.log(`🚀 Immediate transfer: ${this.selectedTerritory.id} -> ${territory.id}`);
                     // Stay in source_selected state for chaining commands
                 }
-                // hostile/neutral target – start preview for confirmation
+                // hostile/neutral target – check if already confirmed for immediate attack
                 else {
-                    this.enterPreview(territory, 'attack');
+                    const targetKey = `${this.selectedTerritory.id}->${territory.id}`;
+                    if (this.confirmedAttackTargets.has(targetKey)) {
+                        // Already confirmed - attack immediately
+                        this.game.issueFleetCommand(this.selectedTerritory, territory, 0.5, true);
+                        console.log(`🎯 Immediate repeat attack: ${this.selectedTerritory.id} -> ${territory.id}`);
+                    } else {
+                        // First attack - require confirmation
+                        this.enterPreview(territory, 'attack');
+                    }
                 }
                 break;
 
@@ -132,7 +143,12 @@ export class InputStateMachine {
         const pct = 0.5;   // default 50 %
         // This should only be called for attacks now since transfers are immediate
         this.game.issueFleetCommand(this.selectedTerritory, target, pct, true /*attack*/);
-        console.log(`🎯 Attack confirmed: ${this.selectedTerritory.id} -> ${target.id}`);
+        
+        // Mark this attack route as confirmed for future immediate attacks
+        const targetKey = `${this.selectedTerritory.id}->${target.id}`;
+        this.confirmedAttackTargets.add(targetKey);
+        
+        console.log(`🎯 Attack confirmed: ${this.selectedTerritory.id} -> ${target.id} (added to confirmed targets)`);
         clearPreview(this.game);
         // outcome: stay source_selected for reinforce, deselect on successful attack handled elsewhere
         this.state         = 'source_selected';
@@ -155,6 +171,7 @@ export class InputStateMachine {
         this.selectedTerritory = null; 
         this.pendingTarget = null;
         this.pendingPlayerBattles.clear();
+        this.confirmedAttackTargets.clear(); // Clear confirmed attack targets when deselecting
         clearPreview(this.game); 
     }
 
