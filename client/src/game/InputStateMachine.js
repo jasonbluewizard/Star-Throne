@@ -134,6 +134,12 @@ export class InputStateMachine {
             this.selectedTerritory = territory;
             this.state = 'supply_mode';
             this.game.ui?.enterSupplyMode?.();
+            
+            // Show immediate message feedback when entering supply mode
+            if (this.game.uiManager) {
+                this.game.uiManager.showMessage(`🔗 SUPPLY MODE: Click target star to reinforce from Star ${territory.id}`, 3000);
+            }
+            
             console.log(`🔗 Supply mode activated for territory ${territory.id}`);
         }
     }
