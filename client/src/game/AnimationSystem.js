@@ -136,8 +136,8 @@ export class AnimationSystem {
             this.combatParticles.push(particle);
         }
         
-        console.log(`💥 PARTICLES: Created ${particleCount} combat particles at (${x.toFixed(1)}, ${y.toFixed(1)}) in color ${color}`);
-        console.log(`💥 PARTICLES: Active particles now: ${this.combatParticles.length}, Pool size: ${this.particlePool.length}`);
+        // Debug disabled for performance
+        // console.log(`💥 PARTICLES: Created ${particleCount} combat particles at (${x.toFixed(1)}, ${y.toFixed(1)}) in color ${color}`);
     }
     
     // FOG OF WAR: Check if ship animation should be visible
@@ -515,12 +515,11 @@ export class AnimationSystem {
         for (const particle of this.combatParticles) {
             if (!particle.isActive) continue;
             
-            // Convert world coordinates to screen coordinates
-            const screenPos = camera.worldToScreen(particle.x, particle.y);
+            // Particles are already in world coordinates, camera transform is already applied
+            // So we render directly at particle x,y position
             
-            // Skip particles outside viewport
-            if (screenPos.x < -20 || screenPos.x > ctx.canvas.width + 20 ||
-                screenPos.y < -20 || screenPos.y > ctx.canvas.height + 20) {
+            // Skip particles outside viewport (using world coordinates)
+            if (!camera.isPointVisible(particle.x, particle.y, 50)) {
                 continue;
             }
             
@@ -532,10 +531,9 @@ export class AnimationSystem {
             const rgba = this.hexToRgba(particle.color, alpha);
             ctx.fillStyle = rgba;
             
-            // Draw particle with camera-adjusted size
-            const adjustedSize = particle.size * camera.zoom;
+            // Draw particle at world coordinates (camera transform handles conversion)
             ctx.beginPath();
-            ctx.arc(screenPos.x, screenPos.y, adjustedSize, 0, Math.PI * 2);
+            ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
             ctx.fill();
         }
         
