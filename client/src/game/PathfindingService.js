@@ -59,15 +59,26 @@ export class PathfindingService {
                         } else {
                             // Multi-hop attack: find path from start to adjacent territory
                             console.log(`🛣️ MULTI-HOP: Target ${endNodeId} is adjacent to player territory ${territory.id}`);
-                            const pathToAdjacent = await this.findShortestPath(startNodeId, territory.id, graph, playerId);
-                            if (pathToAdjacent && pathToAdjacent.length > 1) {
-                                // Add target to the end of path
-                                const fullPath = [...pathToAdjacent, endNodeId];
+                            this.findShortestPath(startNodeId, territory.id, graph, playerId).then(pathToAdjacent => {
+                                if (pathToAdjacent && pathToAdjacent.length > 1) {
+                                    // Add target to the end of path
+                                    const fullPath = [...pathToAdjacent, endNodeId];
+                                    clearTimeout(timeout);
+                                    console.log(`🛣️ ATTACK PATH FOUND: ${fullPath.join(' -> ')}`);
+                                    resolve(fullPath);
+                                    return;
+                                } else {
+                                    // No path found from start to adjacent territory
+                                    clearTimeout(timeout);
+                                    console.log(`🛣️ NO PATH: Could not find path from ${startNodeId} to adjacent territory ${territory.id}`);
+                                    resolve(null);
+                                }
+                            }).catch(error => {
+                                console.error('PathfindingService: Error finding path to adjacent territory:', error);
                                 clearTimeout(timeout);
-                                console.log(`🛣️ ATTACK PATH FOUND: ${fullPath.join(' -> ')}`);
-                                resolve(fullPath);
-                                return;
-                            }
+                                resolve(null);
+                            });
+                            return; // Exit the loop once we found an adjacent territory
                         }
                     }
                 }

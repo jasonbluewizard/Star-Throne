@@ -581,6 +581,14 @@ Changelog:
    * Modernized error handling: updated AIManager, EventSystem, and InputStateMachine to use centralized logging
    * Console output optimization: production builds now show only essential game events (discoveries, throne captures)
    * Error handling consistency: all modules now respect DEBUG_MODE flag for toggling development vs production logging
+- January 7, 2025. Multi-hop warp lane attack system implementation:
+   * Implemented intelligent pathfinding system that uses warp lane networks instead of long-range attacks
+   * Added findAttackPath() method in PathfindingService for enemy/neutral territory targeting
+   * Created multi-hop attack functionality: ships travel star-to-star along shortest warp lane paths
+   * Enhanced battle tracking system: failed attacks keep source territory selected for immediate retry
+   * Attack priority system: Adjacent→direct, connected via lanes→multi-hop, isolated→long-range fallback
+   * Ships now move realistically through controlled territory networks rather than flying across empty space
+   * Fixed critical syntax error in PathfindingService preventing game initialization
 - January 3, 2025. Supply route system overhaul - Army generation redirection implementation:
    * Completely redesigned supply routes from army transfer system to army generation redirection
    * Source territories stop growing armies when supplying - armies generate directly at destination instead
