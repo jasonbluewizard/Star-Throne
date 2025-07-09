@@ -3574,10 +3574,55 @@ export default class StarThrone {
     }
 
     // Wrapper method for compatibility with InputStateMachine calls
-    issueFleetCommand(fromTerritory, toTerritory, fleetPercentage, isAttack = false) {
-        const commandType = isAttack ? 'attack' : 'transfer';
-        console.log(`🚀 issueFleetCommand called: ${fromTerritory.id} -> ${toTerritory.id}, attack=${isAttack}, type=${commandType}`);
-        this.executeFleetCommand(fromTerritory, toTerritory, fleetPercentage, commandType);
+    async issueFleetCommand(fromTerritory, toTerritory, fleetPercentage, isAttack = false) {
+        console.log(`🚀 issueFleetCommand called: ${fromTerritory.id} -> ${toTerritory.id}, attack=${isAttack}`);
+        
+        // Check if territories are directly connected by warp lanes
+        const isDirectlyConnected = fromTerritory.neighbors && fromTerritory.neighbors.includes(toTerritory.id);
+        
+        if (isDirectlyConnected) {
+            // Direct connection - use simple command
+            const commandType = isAttack ? 'attack' : 'transfer';
+            console.log(`🛣️ Direct connection: using ${commandType}`);
+            this.executeFleetCommand(fromTerritory, toTerritory, fleetPercentage, commandType);
+        } else {
+            // Not directly connected - find path through warp lanes
+            if (isAttack) {
+                // For attacks, find path through any territory to get to target
+                const attackPath = await this.pathfindingService.findAttackPath(
+                    fromTerritory.id, 
+                    toTerritory.id, 
+                    this.gameMap, 
+                    this.humanPlayer.id
+                );
+                
+                if (attackPath && attackPath.length > 1) {
+                    console.log(`🛣️ Multi-hop attack path: ${attackPath.join(' -> ')}`);
+                    this.executeFleetCommand(fromTerritory, toTerritory, fleetPercentage, 'multi-hop-attack', attackPath);
+                } else {
+                    // No path found - use long-range attack as fallback
+                    console.log(`🛣️ No warp lane path found, using long-range attack`);
+                    this.executeFleetCommand(fromTerritory, toTerritory, fleetPercentage, 'attack');
+                }
+            } else {
+                // For transfers, find path through friendly territories only
+                const transferPath = await this.pathfindingService.findShortestPath(
+                    fromTerritory.id, 
+                    toTerritory.id, 
+                    this.gameMap, 
+                    this.humanPlayer.id
+                );
+                
+                if (transferPath && transferPath.length > 1) {
+                    console.log(`🛣️ Multi-hop transfer path: ${transferPath.join(' -> ')}`);
+                    this.executeFleetCommand(fromTerritory, toTerritory, fleetPercentage, 'multi-hop-transfer', transferPath);
+                } else {
+                    console.log(`🛣️ No friendly path found for transfer ${fromTerritory.id} -> ${toTerritory.id}`);
+                    // No path means territories aren't connected through friendly space
+                    return;
+                }
+            }
+        }
     }
     
     executeMultiHopTransfer(fromTerritory, toTerritory, shipsToSend, path) {
