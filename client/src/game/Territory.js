@@ -384,7 +384,7 @@ export class Territory {
                     let displayText = this.armySize.toString();
                     
                     // Add black dot indicator for reinforcing stars
-                    if (window.game?.supplySystem?.isSupplySource(this.id)) {
+                    if (gameData?.supplySystem?.isSupplySource(this.id)) {
                         displayText = `● ${displayText}`;
                     }
                     

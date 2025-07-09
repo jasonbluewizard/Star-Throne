@@ -498,8 +498,8 @@ export default class StarThrone {
         this.aiManager = new AIManager(this);
         this.controls = new Controls(this);
         
-        // Removed deprecated global game reference (dead code cleanup)
-        window.game = this; // Temporary global access - to be replaced with dependency injection
+        // Global reference removed for better encapsulation and memory management
+
         
         // Auto-detect optimal performance profile
         this.performanceManager.detectOptimalProfile();
@@ -2453,6 +2453,7 @@ export default class StarThrone {
                     homeSystemFlashStart: this.homeSystemFlashStart,
                     homeSystemFlashDuration: this.homeSystemFlashDuration,
                     gameMap: this.gameMap, // Include game map for fog of war logic
+                    supplySystem: this.supplySystem, // Include supply system for proper encapsulation
                     isDisconnectedFromThrone: (territoryId) => this.isDisconnectedFromThrone(territoryId)
                 }, this.hoveredTerritory);
             }

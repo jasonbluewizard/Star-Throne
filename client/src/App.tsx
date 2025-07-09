@@ -35,8 +35,6 @@ function App() {
       };
       
       gameRef.current = new StarThrone(gameConfig);
-      // Make game globally accessible for mobile zoom buttons
-      (window as any).game = gameRef.current;
       // Initialize the game
       gameRef.current.init();
       console.log('Single-player Star Throne game initialized with config:', gameConfig);
@@ -51,8 +49,6 @@ function App() {
       // For now, we'll use the same game engine but prepare for multiplayer integration
       const { default: StarThrone } = await import('./game/StarThrone.js');
       gameRef.current = new StarThrone(data);
-      // Make game globally accessible for mobile zoom buttons
-      (window as any).game = gameRef.current;
       // Initialize the game
       gameRef.current.init();
       console.log('Multiplayer-ready Star Throne game initialized');
@@ -94,10 +90,7 @@ function App() {
       }
       gameRef.current = null;
       
-      // Clear global game reference
-      if ((window as any).game) {
-        (window as any).game = null;
-      }
+      // Global game reference removed for better encapsulation
       
       // Remove game-active class when component unmounts
       document.body.classList.remove('game-active');
