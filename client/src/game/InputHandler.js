@@ -37,8 +37,10 @@ export class InputHandler {
         this.lastClickedTerritory = null;
         this.doubleClickThreshold = GAME_CONSTANTS.DOUBLE_CLICK_THRESHOLD_MS;
         
-        // Long-press timer
-        this.longPressTimer = null;
+        // Progressive long-press timers
+        this.longPressSelectionTimer = null;  // 0.5s for selection
+        this.longPressSupplyTimer = null;     // 1.5s for supply mode
+        this.hasTriggeredSelection = false;   // Track if selection already occurred
         
         // Touch state for mobile support
         this.touchState = {
@@ -87,16 +89,34 @@ export class InputHandler {
         this.dragStartTime = Date.now();
         this.lastMousePos = { ...this.mousePos };
         
-        // start long‑press timer only for LMB
+        // start progressive long‑press timers only for LMB
         if (e.button === 0) {
-            this.longPressTimer = setTimeout(() => {
-                // Only trigger long press if we haven't started dragging
+            this.hasTriggeredSelection = false;
+            
+            // Timer 1: Selection after 0.5s
+            this.longPressSelectionTimer = setTimeout(() => {
                 if (!this.isDragging) {
                     const worldPos = this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
                     const terr = this.game.findTerritoryAt(worldPos.x, worldPos.y);
-                    this.inputFSM.handleEvent('long_press', { territory: terr });
+                    if (terr && terr.ownerId === this.game.humanPlayer.id && terr.armySize > 1) {
+                        this.inputFSM.handleEvent('long_press_select', { territory: terr });
+                        this.hasTriggeredSelection = true;
+                        console.log(`🎯 Long press selection triggered at 0.5s for territory ${terr.id}`);
+                    }
                 }
-            }, GAME_CONSTANTS.LONG_PRESS_MS);
+            }, 500); // 0.5 seconds
+            
+            // Timer 2: Supply mode after 1.5s total
+            this.longPressSupplyTimer = setTimeout(() => {
+                if (!this.isDragging && this.hasTriggeredSelection) {
+                    const worldPos = this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+                    const terr = this.game.findTerritoryAt(worldPos.x, worldPos.y);
+                    if (terr && terr.ownerId === this.game.humanPlayer.id && terr.armySize > 1) {
+                        this.inputFSM.handleEvent('long_press_supply', { territory: terr });
+                        console.log(`🔗 Long press supply mode triggered at 1.5s for territory ${terr.id}`);
+                    }
+                }
+            }, 1500); // 1.5 seconds total
         }
     }
     
@@ -116,8 +136,10 @@ export class InputHandler {
             
             if (dragDistance > 10) {
                 this.isDragging = true;
-                // cancel long‑press when starting to drag
-                clearTimeout(this.longPressTimer);
+                // cancel long‑press timers when starting to drag
+                clearTimeout(this.longPressSelectionTimer);
+                clearTimeout(this.longPressSupplyTimer);
+                this.hasTriggeredSelection = false;
             }
         }
         
@@ -143,8 +165,10 @@ export class InputHandler {
     }
     
     handleMouseUp(e) {
-        // Clear long press timer when mouse is released
-        clearTimeout(this.longPressTimer);
+        // Clear long press timers when mouse is released
+        clearTimeout(this.longPressSelectionTimer);
+        clearTimeout(this.longPressSupplyTimer);
+        this.hasTriggeredSelection = false;
         
         const clickDuration = Date.now() - (this.dragStartTime || 0);
         const wasQuickClick = clickDuration < 300 && !this.isDragging;

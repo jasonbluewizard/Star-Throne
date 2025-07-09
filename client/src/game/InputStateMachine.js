@@ -37,10 +37,12 @@ export class InputStateMachine {
     // Main input event processor
     handleEvent(eventType, data) {
         switch (eventType) {
-            case 'tap':          this.handleTap(data);          break;
-            case 'double_tap':   this.handleDoubleTap(data);    break;
-            case 'long_press':   this.handleLongPress(data);    break;
-            case 'timeout':      this.handleTimeout();          break;
+            case 'tap':                this.handleTap(data);             break;
+            case 'double_tap':         this.handleDoubleTap(data);       break;
+            case 'long_press':         this.handleLongPress(data);       break;
+            case 'long_press_select':  this.handleLongPressSelect(data); break;
+            case 'long_press_supply':  this.handleLongPressSupply(data); break;
+            case 'timeout':            this.handleTimeout();             break;
             default:
                 console.log(`Unknown event type: ${eventType}`);
                 break;
@@ -142,22 +144,30 @@ export class InputStateMachine {
         }
     }
 
-    // ---------- long‑press ----------
-    handleLongPress({ territory }) {
+    // ---------- progressive long‑press ----------
+    handleLongPressSelect({ territory }) {
         if (!territory || territory.ownerId !== this.game.humanPlayer.id || territory.armySize <= 1) return;
 
-        // Long press on unselected territory: select it
-        if (this.state === 'idle' || (this.selectedTerritory && this.selectedTerritory.id !== territory.id)) {
-            this.selectedTerritory = territory;
-            this.state = 'source_selected';
-            console.log(`🎯 Long press selection: Territory ${territory.id} selected`);
-            return;
-        }
+        // Long press selection: always select the territory
+        this.selectedTerritory = territory;
+        this.state = 'source_selected';
+        console.log(`🎯 Long press selection (0.5s): Territory ${territory.id} selected`);
+    }
 
-        // Long press on already selected territory: enter supply mode (if not already in it)
+    handleLongPressSupply({ territory }) {
+        if (!territory || territory.ownerId !== this.game.humanPlayer.id || territory.armySize <= 1) return;
+
+        // Long press supply mode: enter supply mode if territory is selected
         if (this.state === 'source_selected' && this.selectedTerritory && this.selectedTerritory.id === territory.id) {
             this.enterSupplyMode(territory);
+            console.log(`🔗 Long press supply mode (1.5s): Territory ${territory.id} entering supply mode`);
         }
+    }
+
+    // Legacy long press handler for compatibility
+    handleLongPress({ territory }) {
+        // Fallback to selection for any existing calls
+        this.handleLongPressSelect({ territory });
     }
 
     // ---------- helper: preview ----------
