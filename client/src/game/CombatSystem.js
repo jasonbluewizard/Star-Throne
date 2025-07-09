@@ -325,31 +325,16 @@ export class CombatSystem {
      * @param {string} context - 'attacker_dies' or 'defender_dies'
      */
     createCombatParticleEffect(territory, shipColor, context, battleInfo = null) {
-        // Show particles for human player battles or battles within 2 star lanes of player territories
-        const humanPlayerId = this.game.humanPlayer?.id;
-        if (!humanPlayerId) return;
+        // Show particles for ALL combat - full galaxy warfare experience
+        const intensity = context === 'defender_dies' ? 1.5 : 1.0;
         
-        // Check if human player is directly involved in this battle
-        const isPlayerInvolved = (battleInfo && (
-            battleInfo.attacker?.id === humanPlayerId || 
-            battleInfo.defender?.id === humanPlayerId ||
-            territory.ownerId === humanPlayerId
-        ));
-        
-        // Check if battle is near human player territories (within 2 hops)
-        const isNearPlayer = this.isBattleNearPlayer(territory, humanPlayerId, 2);
-        
-        if (isPlayerInvolved || isNearPlayer) {
-            const intensity = context === 'defender_dies' ? 1.5 : 1.0; // More particles for defenders
-            
-            if (this.game.animationSystem && this.game.animationSystem.createCombatParticles) {
-                this.game.animationSystem.createCombatParticles(
-                    territory.x, 
-                    territory.y, 
-                    shipColor, 
-                    intensity
-                );
-            }
+        if (this.game.animationSystem && this.game.animationSystem.createCombatParticles) {
+            this.game.animationSystem.createCombatParticles(
+                territory.x, 
+                territory.y, 
+                shipColor, 
+                intensity
+            );
         }
     }
     
