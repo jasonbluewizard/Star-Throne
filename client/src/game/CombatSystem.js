@@ -4,8 +4,8 @@
  * Features delayed combat with coin-flip battles and visual feedback
  */
 
-import { GameUtils } from './utils.js';
-import { gameEvents, GAME_EVENTS, EVENT_PRIORITY, EventHelpers } from './EventSystem.js';
+import { GameUtils } from './utils';
+import { gameEvents, GAME_EVENTS, EVENT_PRIORITY, EventHelpers } from './EventSystem';
 
 export class CombatSystem {
     constructor(game) {

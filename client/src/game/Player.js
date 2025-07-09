@@ -1,5 +1,5 @@
 // Import the new advanced AI strategy system
-import { AIStrategist } from './AIStrategist.js';
+import { AIStrategist } from './AIStrategist';
 import { GAME_CONSTANTS } from '../../../common/gameConstants';
 
 // AI Finite State Machine states for enhanced strategic behavior (legacy - being replaced)

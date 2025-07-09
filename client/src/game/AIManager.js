@@ -1,5 +1,5 @@
 import { GAME_CONSTANTS } from '../../../common/gameConstants';
-import { GameUtils } from './utils.js';
+import { GameUtils } from './utils';
 
 export class AIManager {
     constructor(game) {

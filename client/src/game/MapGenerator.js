@@ -13,7 +13,7 @@
 
 import Delaunator from 'delaunator';
 import { GAME_CONSTANTS } from '../../../common/gameConstants';
-import { Territory } from './Territory.js';
+import { Territory } from './Territory';
 
 /**
  * Helper: Returns true if line segment AB intersects circle centered at C with radius R

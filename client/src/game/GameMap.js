@@ -1,5 +1,5 @@
-import { Territory } from './Territory.js';
-import MapGenerator from './MapGenerator.js';
+import { Territory } from './Territory';
+import MapGenerator from './MapGenerator';
 
 export class GameMap {
     constructor(width, height, config = {}) {

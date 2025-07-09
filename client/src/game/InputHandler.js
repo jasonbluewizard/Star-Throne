@@ -5,8 +5,8 @@
  * Removes complex proportional drag and modifier key logic per new architecture.
  */
 
-import { InputStateMachine } from './InputStateMachine.js';
-import { GAME_CONSTANTS } from '../../../common/gameConstants.js';
+import { InputStateMachine } from './InputStateMachine';
+import { GAME_CONSTANTS } from '../../../common/gameConstants';
 
 export class InputHandler {
     constructor(game) {

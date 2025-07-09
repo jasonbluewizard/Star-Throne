@@ -1,4 +1,4 @@
-import { GameUtils } from './utils.js';
+import { GameUtils } from './utils';
 import { GAME_CONSTANTS } from '../../../common/gameConstants';
 
 export class DiscoverySystem {

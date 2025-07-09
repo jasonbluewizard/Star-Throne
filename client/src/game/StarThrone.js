@@ -1,23 +1,23 @@
-import { GameMap } from './GameMap.js';
-import { Player } from './Player.js';
-import { GameUI } from './GameUI.js';
-import { Camera } from './Camera.js';
+import { GameMap } from './GameMap';
+import { Player } from './Player';
+import { GameUI } from './GameUI';
+import { Camera } from './Camera';
 // Removed disabled Probe import (dead code cleanup)
-import { InputHandler } from './InputHandler.js';
-import { Renderer } from './Renderer.js';
-import { CombatSystem } from './CombatSystem.js';
-import { SupplySystem } from './SupplySystem.js';
-import { PathfindingService } from './PathfindingService.js';
-import { GameUtils } from './utils.js';
+import { InputHandler } from './InputHandler';
+import { Renderer } from './Renderer';
+import { CombatSystem } from './CombatSystem';
+import { SupplySystem } from './SupplySystem';
+import { PathfindingService } from './PathfindingService';
+import { GameUtils } from './utils';
 import { GAME_CONSTANTS } from '../../../common/gameConstants';
-import { gameEvents, GAME_EVENTS, EVENT_PRIORITY, EventHelpers } from './EventSystem.js';
-import { PerformanceManager } from './PerformanceManager.js';
-import { PerformanceOverlay } from './PerformanceOverlay.js';
-import { DiscoverySystem } from './DiscoverySystem.js';
-import { AnimationSystem } from './AnimationSystem.js';
-import { UIManager } from './UIManager.js';
-import { AIManager } from './AIManager.js';
-import Controls from './Controls.js';
+import { gameEvents, GAME_EVENTS, EVENT_PRIORITY, EventHelpers } from './EventSystem';
+import { PerformanceManager } from './PerformanceManager';
+import { PerformanceOverlay } from './PerformanceOverlay';
+import { DiscoverySystem } from './DiscoverySystem';
+import { AnimationSystem } from './AnimationSystem';
+import { UIManager } from './UIManager';
+import { AIManager } from './AIManager';
+import Controls from './Controls';
 
 export default class StarThrone {
     constructor(config = {}) {

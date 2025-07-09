@@ -6,9 +6,9 @@
  * idle → source_selected → supply_mode → tap target → create/remove route
  */
 
-import { PathfindingService } from './PathfindingService.js';
-import { GameUtils } from './utils.js';
-import { GAME_CONSTANTS } from '../../../common/gameConstants.js';
+import { PathfindingService } from './PathfindingService';
+import { GameUtils } from './utils';
+import { GAME_CONSTANTS } from '../../../common/gameConstants';
 
 // helper to reset preview UI
 function clearPreview(game) { 

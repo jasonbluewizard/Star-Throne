@@ -3,7 +3,7 @@
  * Centralizes event handling to decouple components and improve maintainability
  */
 
-import { GameUtils } from './utils.js';
+import { GameUtils } from './utils';
 
 // Game Event Types
 export const GAME_EVENTS = {

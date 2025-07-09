@@ -3,7 +3,7 @@
  * Optimizes performance for Chromebook compatibility and large-scale gameplay
  */
 
-import { gameEvents, GAME_EVENTS, EVENT_PRIORITY } from './EventSystem.js';
+import { gameEvents, GAME_EVENTS, EVENT_PRIORITY } from './EventSystem';
 
 // Performance profiles for different device capabilities
 export const PERFORMANCE_PROFILES = {
