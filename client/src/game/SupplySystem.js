@@ -84,7 +84,11 @@ export class SupplySystem {
         
         // Enhanced visual feedback with specific territory names/IDs
         const hopText = path.length > 2 ? `${path.length - 1} hops` : 'direct';
-        this.game.showMessage(`REINFORCEMENTS ROUTED FROM STAR ${fromTerritory.id} TO STAR ${toTerritory.id} (${hopText})`, 3000);
+        if (this.game.uiManager) {
+            this.game.uiManager.showMessage(`REINFORCEMENTS ROUTED FROM STAR ${fromTerritory.id} TO STAR ${toTerritory.id} (${hopText})`, 3000);
+        } else {
+            this.game.showMessage(`REINFORCEMENTS ROUTED FROM STAR ${fromTerritory.id} TO STAR ${toTerritory.id} (${hopText})`, 3000);
+        }
         
         // Flash both territories to show the connection
         this.flashSupplyRouteConnection(fromTerritory, toTerritory, path);
