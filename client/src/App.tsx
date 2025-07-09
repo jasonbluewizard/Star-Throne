@@ -88,9 +88,17 @@ function App() {
 
   useEffect(() => {
     return () => {
-      if (gameRef.current) {
-        gameRef.current = null;
+      // Properly cleanup game instance to prevent memory leaks
+      if (gameRef.current && typeof gameRef.current.cleanup === 'function') {
+        gameRef.current.cleanup();
       }
+      gameRef.current = null;
+      
+      // Clear global game reference
+      if ((window as any).game) {
+        (window as any).game = null;
+      }
+      
       // Remove game-active class when component unmounts
       document.body.classList.remove('game-active');
     };

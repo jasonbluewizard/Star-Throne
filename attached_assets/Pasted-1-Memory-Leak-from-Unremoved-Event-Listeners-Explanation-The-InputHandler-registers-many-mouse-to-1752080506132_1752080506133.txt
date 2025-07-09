@@ -1,0 +1,50 @@
+1. Memory Leak from Unremoved Event Listeners
+Explanation: The InputHandler registers many mouse, touch, and keyboard event listeners with anonymous arrow functions, but the cleanup process does not remove the same references. In StarThrone.cleanup, it attempts to remove listeners by referring to class methods (or new arrow functions), which do not match the originally attached handlers. This can cause event handlers to persist across game sessions, leading to memory leaks or duplicate event processing. The fix is to bind and store references for each event handler so they can be removed properly (or implement an InputHandler.cleanup that removes them). This improves long-term stability by preventing accumulating listeners. Patch Diff:
+diff
+Copy
+*** InputHandler.js (store handler references and use them for add/remove) ***
+@@ constructor(game) {
+-        // Mouse state and other properties...
++        // Bind event handlers for later removal
++        this._onMouseDown = e => this.handleMouseDown(e);
++        this._onMouseMove = e => this.handleMouseMove(e);
++        this._onMouseUp = e => this.handleMouseUp(e);
++        this._onWheel = e => this.handleWheel(e);
++        this._onContextMenu = e => e.preventDefault();
++        this._onKeyDown = e => this.handleKeyDown(e);
+@@ setupEventListeners() {
+-        this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+-        this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+-        this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+-        this.canvas.addEventListener('wheel', (e) => this.handleWheel(e));
+-        this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+-        document.addEventListener('keydown', (e) => this.handleKeyDown(e));
++        this.canvas.addEventListener('mousedown', this._onMouseDown);
++        this.canvas.addEventListener('mousemove', this._onMouseMove);
++        this.canvas.addEventListener('mouseup', this._onMouseUp);
++        this.canvas.addEventListener('wheel', this._onWheel);
++        this.canvas.addEventListener('contextmenu', this._onContextMenu);
++        document.addEventListener('keydown', this._onKeyDown);
+@@ end of class InputHandler
++    cleanup() {
++        // Remove all event listeners added in setupEventListeners
++        this.canvas.removeEventListener('mousedown', this._onMouseDown);
++        this.canvas.removeEventListener('mousemove', this._onMouseMove);
++        this.canvas.removeEventListener('mouseup', this._onMouseUp);
++        this.canvas.removeEventListener('wheel', this._onWheel);
++        this.canvas.removeEventListener('contextmenu', this._onContextMenu);
++        document.removeEventListener('keydown', this._onKeyDown);
++    }
+diff
+Copy
+*** StarThrone.js (cleanup method removes redundant direct unbinding) ***
+@@ cleanup() {
+-        if (this.canvas) {
+-            this.canvas.removeEventListener('mousedown', this.handleMouseDown);
+-            this.canvas.removeEventListener('mousemove', this.handleMouseMove);
+-            this.canvas.removeEventListener('mouseup', this.handleMouseUp);
+-            this.canvas.removeEventListener('wheel', this.handleWheel);
+-            this.canvas.removeEventListener('contextmenu', (e) => e.preventDefault());
+-        }
++        // All input event listeners removed via InputHandler.cleanup()
+(Now StarThrone.cleanup() relies on this.inputHandler.cleanup() – which is already called – to properly remove event handlers.)

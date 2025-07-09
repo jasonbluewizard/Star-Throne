@@ -4125,4 +4125,62 @@ export default class StarThrone {
             console.log('🔍 THRONE VALIDATION: No fixes needed, all players have single throne stars');
         }
     }
+    
+    // Cleanup method to properly dispose of resources and prevent memory leaks
+    cleanup() {
+        console.log('🧹 StarThrone cleanup: Disposing of game resources...');
+        
+        // Stop game loop
+        if (this.animationFrameId) {
+            cancelAnimationFrame(this.animationFrameId);
+            this.animationFrameId = null;
+        }
+        
+        // Clear all timers
+        if (this.longPressTimer) {
+            clearTimeout(this.longPressTimer);
+            this.longPressTimer = null;
+        }
+        
+        // Clean up input handler (removes event listeners)
+        if (this.inputHandler && typeof this.inputHandler.cleanup === 'function') {
+            this.inputHandler.cleanup();
+        }
+        
+        // Clean up event system
+        if (this.eventSystem && typeof this.eventSystem.reset === 'function') {
+            this.eventSystem.reset();
+        }
+        
+        // Clear arrays and maps
+        this.players = [];
+        this.territories = [];
+        this.shipAnimations = [];
+        this.longRangeAttacks = [];
+        this.floatingTexts = [];
+        this.notifications = [];
+        this.playerDiscoveries.clear();
+        this.discoveredLanes.clear();
+        
+        // Clear canvas and DOM references
+        if (this.canvas) {
+            const ctx = this.canvas.getContext('2d');
+            if (ctx) {
+                ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            }
+            this.canvas = null;
+        }
+        this.ctx = null;
+        
+        // Clear references to prevent memory leaks
+        this.gameMap = null;
+        this.camera = null;
+        this.inputHandler = null;
+        this.eventSystem = null;
+        this.humanPlayer = null;
+        this.selectedTerritory = null;
+        this.hoveredTerritory = null;
+        
+        console.log('✅ StarThrone cleanup complete');
+    }
 }

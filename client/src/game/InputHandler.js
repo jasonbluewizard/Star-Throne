@@ -14,6 +14,17 @@ export class InputHandler {
         this.hoveredTerritory = null;
         this.canvas = game.canvas;
         
+        // Bind event handlers for proper cleanup (fixes memory leak)
+        this._onMouseDown = (e) => this.handleMouseDown(e);
+        this._onMouseMove = (e) => this.handleMouseMove(e);
+        this._onMouseUp = (e) => this.handleMouseUp(e);
+        this._onWheel = (e) => this.handleWheel(e);
+        this._onContextMenu = (e) => e.preventDefault();
+        this._onTouchStart = (e) => this.handleTouchStart(e);
+        this._onTouchMove = (e) => this.handleTouchMove(e);
+        this._onTouchEnd = (e) => this.handleTouchEnd(e);
+        this._onKeyDown = (e) => this.handleKeyDown(e);
+        
         // Simplified input state
         this.mousePos = { x: 0, y: 0 };
         this.lastMousePos = { x: 0, y: 0 };
@@ -45,21 +56,21 @@ export class InputHandler {
     }
     
     setupEventListeners() {
-        // Mouse events
-        this.game.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
-        this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
-        this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
-        this.canvas.addEventListener('wheel', (e) => this.handleWheel(e));
-        this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+        // Mouse events using bound handlers
+        this.canvas.addEventListener('mousedown', this._onMouseDown);
+        this.canvas.addEventListener('mousemove', this._onMouseMove);
+        this.canvas.addEventListener('mouseup', this._onMouseUp);
+        this.canvas.addEventListener('wheel', this._onWheel);
+        this.canvas.addEventListener('contextmenu', this._onContextMenu);
         
-        // Touch events
-        this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e));
-        this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e));
-        this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e));
-        this.canvas.addEventListener('touchcancel', (e) => this.handleTouchEnd(e));
+        // Touch events using bound handlers
+        this.canvas.addEventListener('touchstart', this._onTouchStart);
+        this.canvas.addEventListener('touchmove', this._onTouchMove);
+        this.canvas.addEventListener('touchend', this._onTouchEnd);
+        this.canvas.addEventListener('touchcancel', this._onTouchEnd);
         
-        // Keyboard events (simplified - no modifier key tracking)
-        document.addEventListener('keydown', (e) => this.handleKeyDown(e));
+        // Keyboard events using bound handlers
+        document.addEventListener('keydown', this._onKeyDown);
     }
     
     handleMouseDown(e) {
@@ -435,5 +446,35 @@ export class InputHandler {
     // Called by main game loop to handle timeouts
     update() {
         this.inputFSM.handleEvent('timeout');
+    }
+    
+    // Cleanup method to properly remove event listeners (fixes memory leak)
+    cleanup() {
+        // Clear any active long press timer
+        if (this.longPressTimer) {
+            clearTimeout(this.longPressTimer);
+            this.longPressTimer = null;
+        }
+        
+        // Remove all event listeners using the same bound references
+        if (this.canvas) {
+            this.canvas.removeEventListener('mousedown', this._onMouseDown);
+            this.canvas.removeEventListener('mousemove', this._onMouseMove);
+            this.canvas.removeEventListener('mouseup', this._onMouseUp);
+            this.canvas.removeEventListener('wheel', this._onWheel);
+            this.canvas.removeEventListener('contextmenu', this._onContextMenu);
+            this.canvas.removeEventListener('touchstart', this._onTouchStart);
+            this.canvas.removeEventListener('touchmove', this._onTouchMove);
+            this.canvas.removeEventListener('touchend', this._onTouchEnd);
+            this.canvas.removeEventListener('touchcancel', this._onTouchEnd);
+        }
+        
+        // Remove document-level listeners
+        document.removeEventListener('keydown', this._onKeyDown);
+        
+        // Clear references
+        this.canvas = null;
+        this.game = null;
+        this.inputFSM = null;
     }
 }
