@@ -1500,8 +1500,8 @@ export class GameUI {
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 2;
         const shipText = `${totalAttackingShips} ships`;
-        ctx.strokeText(shipText, targetScreen.x, targetScreen.y + 18);
-        ctx.fillText(shipText, targetScreen.x, targetScreen.y + 18);
+        ctx.strokeText(shipText, targetScreen.x, targetScreen.y + 35);
+        ctx.fillText(shipText, targetScreen.x, targetScreen.y + 35);
         
         ctx.restore();
     }

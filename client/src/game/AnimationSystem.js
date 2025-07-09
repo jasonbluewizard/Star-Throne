@@ -397,7 +397,7 @@ export class AnimationSystem {
                 ctx.fillStyle = 'white';
                 ctx.font = '12px Arial';
                 ctx.textAlign = 'center';
-                ctx.fillText(`${animation.armyCount}`, currentX, currentY - 10);
+                ctx.fillText(`${animation.armyCount}`, currentX, currentY + 25);
                 ctx.fillStyle = animation.color; // Restore original color
             }
             
