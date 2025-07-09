@@ -79,9 +79,12 @@ export class InputHandler {
         // start long‑press timer only for LMB
         if (e.button === 0) {
             this.longPressTimer = setTimeout(() => {
-                const worldPos = this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
-                const terr = this.game.findTerritoryAt(worldPos.x, worldPos.y);
-                this.inputFSM.handleEvent('long_press', { territory: terr });
+                // Only trigger long press if we haven't started dragging
+                if (!this.isDragging) {
+                    const worldPos = this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+                    const terr = this.game.findTerritoryAt(worldPos.x, worldPos.y);
+                    this.inputFSM.handleEvent('long_press', { territory: terr });
+                }
             }, GAME_CONSTANTS.LONG_PRESS_MS);
         }
     }
@@ -130,6 +133,9 @@ export class InputHandler {
     }
     
     handleMouseUp(e) {
+        // Clear long press timer when mouse is released
+        clearTimeout(this.longPressTimer);
+        
         const clickDuration = Date.now() - (this.dragStartTime || 0);
         const wasQuickClick = clickDuration < 300 && !this.isDragging;
         

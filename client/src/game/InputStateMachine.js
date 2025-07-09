@@ -97,11 +97,16 @@ export class InputStateMachine {
             case 'supply_mode':
                 if (territory && territory.ownerId === this.game.humanPlayer.id &&
                     territory.id !== this.selectedTerritory.id) {
+                    console.log(`🔗 Creating supply route: ${this.selectedTerritory.id} -> ${territory.id}`);
                     this.game.supplySystem.toggleSupplyRoute(this.selectedTerritory.id, territory.id);
+                    this.state = 'source_selected';
+                    this.game.ui?.exitSupplyMode?.();
+                } else if (!territory || territory.ownerId !== this.game.humanPlayer.id) {
+                    // Clicked empty space or invalid target - exit supply mode
+                    console.log(`🔗 Exiting supply mode - invalid target`);
+                    this.state = 'source_selected';
+                    this.game.ui?.exitSupplyMode?.();
                 }
-                // exit supply mode whether route created or not
-                this.state = 'source_selected';
-                this.game.ui?.exitSupplyMode?.();
                 break;
         }
     }
@@ -123,10 +128,12 @@ export class InputStateMachine {
 
     // ---------- long‑press ----------
     handleLongPress({ territory }) {
-        if (this.state === 'source_selected' &&
-            territory && territory.id === this.selectedTerritory.id) {
+        // Long press on any owned territory can enter supply mode
+        if (territory && territory.ownerId === this.game.humanPlayer.id && territory.armySize > 1) {
+            this.selectedTerritory = territory;
             this.state = 'supply_mode';
             this.game.ui?.enterSupplyMode?.();
+            console.log(`🔗 Supply mode activated for territory ${territory.id}`);
         }
     }
 
