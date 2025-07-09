@@ -3009,13 +3009,13 @@ export default class StarThrone {
         // Render probes (disabled - no active probes)
         // this.renderProbes();
         
-        // Render new AnimationSystem ship animations (supply ships, enhanced rendering)
+        // Render legacy ship animations (for backwards compatibility)
+        this.renderShipAnimations();
+        
+        // Render new AnimationSystem ship animations (supply ships, enhanced rendering) - INSIDE camera transform
         if (this.animationSystem) {
             this.animationSystem.renderShipAnimations(this.ctx, this.camera);
         }
-        
-        // Render legacy ship animations (for backwards compatibility)
-        this.renderShipAnimations();
         
         // Render long-range attacks
         this.renderLongRangeAttacks();

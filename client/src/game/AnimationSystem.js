@@ -319,19 +319,10 @@ export class AnimationSystem {
         
         for (const animation of this.shipAnimations) {
             if (animation.isLongRange && animation.targetTerritory) {
-                const fromScreen = camera.worldToScreen(animation.from.x, animation.from.y);
-                const toScreen = camera.worldToScreen(animation.targetTerritory.x, animation.targetTerritory.y);
-                
-                // Debug dotted line coordinates
-                if (Math.random() < 0.1) {
-                    console.log(`🔴 DOTTED LINE: From World(${animation.from.x}, ${animation.from.y}) -> Screen(${fromScreen.x.toFixed(1)}, ${fromScreen.y.toFixed(1)})`);
-                    console.log(`🔴 DOTTED LINE: To World(${animation.targetTerritory.x}, ${animation.targetTerritory.y}) -> Screen(${toScreen.x.toFixed(1)}, ${toScreen.y.toFixed(1)})`);
-                    console.log(`🔴 CAMERA: Zoom ${camera.zoom}, Offset (${camera.x}, ${camera.y}), Canvas size (${camera.width}, ${camera.height})`);
-                }
-                
+                // Use world coordinates directly since camera transform is already applied
                 ctx.beginPath();
-                ctx.moveTo(fromScreen.x, fromScreen.y);
-                ctx.lineTo(toScreen.x, toScreen.y);
+                ctx.moveTo(animation.from.x, animation.from.y);
+                ctx.lineTo(animation.targetTerritory.x, animation.targetTerritory.y);
                 ctx.stroke();
             }
         }
@@ -363,19 +354,17 @@ export class AnimationSystem {
                 currentY = animation.from.y + (animation.to.y - animation.from.y) * t;
             }
             
-            const screenPos = camera.worldToScreen(currentX, currentY);
+            // Use world coordinates directly since camera transform is already applied
+            // Debug supply ship position occasionally
+            if (animation.isSupplyShip && Math.random() < 0.02) {
+                console.log(`🚢 POSITION: Supply ship at World(${currentX.toFixed(1)}, ${currentY.toFixed(1)}) segment ${animation.currentSegment}/${animation.segments?.length || 0}`);
+            }
             
             // Debug coordinate transformation for long-range attacks
             if (animation.isLongRange && Math.random() < 0.1) {
-                console.log(`🎯 LONG-RANGE POS: World(${currentX.toFixed(1)}, ${currentY.toFixed(1)}) -> Screen(${screenPos.x.toFixed(1)}, ${screenPos.y.toFixed(1)})`);
+                console.log(`🎯 LONG-RANGE POS: World(${currentX.toFixed(1)}, ${currentY.toFixed(1)})`);
                 console.log(`🎯 LONG-RANGE FROM: World(${animation.from.x}, ${animation.from.y}) TO: World(${animation.to.x}, ${animation.to.y})`);
                 console.log(`🎯 PROGRESS: ${(animation.progress / animation.duration * 100).toFixed(1)}% (${animation.progress}ms / ${animation.duration}ms)`);
-            }
-            
-            // Skip if off-screen
-            if (screenPos.x < -50 || screenPos.x > camera.width + 50 ||
-                screenPos.y < -50 || screenPos.y > camera.height + 50) {
-                continue;
             }
             
             ctx.save();
@@ -400,7 +389,7 @@ export class AnimationSystem {
             }
             
             ctx.beginPath();
-            ctx.arc(screenPos.x, screenPos.y, size, 0, Math.PI * 2);
+            ctx.arc(currentX, currentY, size, 0, Math.PI * 2);
             ctx.fill();
             
             // Draw army count for long-range attacks
@@ -408,7 +397,7 @@ export class AnimationSystem {
                 ctx.fillStyle = 'white';
                 ctx.font = '12px Arial';
                 ctx.textAlign = 'center';
-                ctx.fillText(`${animation.armyCount}`, screenPos.x, screenPos.y - 10);
+                ctx.fillText(`${animation.armyCount}`, currentX, currentY - 10);
                 ctx.fillStyle = animation.color; // Restore original color
             }
             
@@ -416,12 +405,11 @@ export class AnimationSystem {
             const trailLength = 15;
             const trailX = currentX - (animation.to.x - animation.from.x) * 0.1;
             const trailY = currentY - (animation.to.y - animation.from.y) * 0.1;
-            const trailScreenPos = camera.worldToScreen(trailX, trailY);
             
             ctx.globalAlpha = 0.5;
             ctx.beginPath();
-            ctx.moveTo(screenPos.x, screenPos.y);
-            ctx.lineTo(trailScreenPos.x, trailScreenPos.y);
+            ctx.moveTo(currentX, currentY);
+            ctx.lineTo(trailX, trailY);
             ctx.stroke();
             
             ctx.restore();
