@@ -731,6 +731,14 @@ Changelog:
   * Confirmed attack targets cleared when deselecting source territory for safety
   * Multi-hop ship animations travel planet-to-planet along actual warp lane paths
   * Long-range attacks only used as fallback when no warp lane path exists
+- January 9, 2025. Critical memory leak and architecture fixes:
+  * Fixed memory leak from unremoved event listeners in InputHandler by binding event handler references
+  * Added comprehensive cleanup methods to InputHandler and StarThrone for proper resource disposal
+  * Removed global window.game reference for better encapsulation and memory management
+  * Updated Territory.js to use proper dependency injection via gameData.supplySystem parameter
+  * Fixed hardcoded 50% fleet transfer ratio - now properly respects fleetPercentage parameter
+  * Enhanced modifier key support: default 50%, Shift key 100%, Ctrl key 25% fleet transfers
+  * Improved code maintainability by eliminating global references and using proper parameter passing
 - January 7, 2025. Tech discovery system implementation with persistent upgrades:
   * Added comprehensive tech level system (Attack, Defense, Engines, Production) capped at level 5
   * Each player gains permanent tech bonuses when conquering neutral territories and discovering precursor technologies
