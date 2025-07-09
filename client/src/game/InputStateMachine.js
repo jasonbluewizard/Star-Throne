@@ -102,8 +102,14 @@ export class InputStateMachine {
                     this.game.createSupplyRoute(this.selectedTerritory, territory);
                     this.state = 'source_selected';
                     this.game.ui?.exitSupplyMode?.();
-                } else if (!territory || territory.ownerId !== this.game.humanPlayer.id) {
-                    // Clicked empty space or invalid target - exit supply mode
+                } else if (!territory) {
+                    // Clicked empty space - cancel existing supply route if any
+                    console.log(`🔗 Cancelling supply route from territory ${this.selectedTerritory.id}`);
+                    this.game.cancelSupplyRoute(this.selectedTerritory);
+                    this.state = 'source_selected';
+                    this.game.ui?.exitSupplyMode?.();
+                } else {
+                    // Clicked invalid target - just exit supply mode
                     console.log(`🔗 Exiting supply mode - invalid target`);
                     this.state = 'source_selected';
                     this.game.ui?.exitSupplyMode?.();
@@ -135,12 +141,19 @@ export class InputStateMachine {
             this.state = 'supply_mode';
             this.game.ui?.enterSupplyMode?.();
             
-            // Show immediate message feedback when entering supply mode
+            // Check if territory is already supplying reinforcements
+            const isCurrentlySupplying = this.game.supplySystem?.isSupplySource?.(territory.id);
+            
+            // Show contextual message based on current supply status
             if (this.game.uiManager) {
-                this.game.uiManager.showMessage(`🔗 SUPPLY MODE: Click target star to reinforce from Star ${territory.id}`, 3000);
+                if (isCurrentlySupplying) {
+                    this.game.uiManager.showMessage(`🔗 SUPPLY MODE: Star ${territory.id} currently supplying. Click different star to reroute, or blank space to cancel`, 4000);
+                } else {
+                    this.game.uiManager.showMessage(`🔗 SUPPLY MODE: Click target star to reinforce from Star ${territory.id}`, 3000);
+                }
             }
             
-            console.log(`🔗 Supply mode activated for territory ${territory.id}`);
+            console.log(`🔗 Supply mode activated for territory ${territory.id}, currently supplying: ${isCurrentlySupplying}`);
         }
     }
 

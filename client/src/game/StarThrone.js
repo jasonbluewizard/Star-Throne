@@ -3289,6 +3289,20 @@ export default class StarThrone {
         }
     }
     
+    // Cancel supply route from specified territory
+    cancelSupplyRoute(fromTerritory) {
+        try {
+            const result = this.supplySystem.cancelSupplyRoute(fromTerritory);
+            if (result) {
+                console.log(`Supply route cancelled from territory ${fromTerritory.id}`);
+            }
+            return result;
+        } catch (error) {
+            console.error('Failed to cancel supply route:', error);
+            return false;
+        }
+    }
+    
     findPathBetweenTerritories(start, end) {
         // BFS to find shortest path through owned territories
         const queue = [[start]];

@@ -96,6 +96,36 @@ export class SupplySystem {
         return true;
     }
     
+    cancelSupplyRoute(fromTerritory) {
+        console.log('SupplySystem: cancelSupplyRoute called for territory', fromTerritory.id);
+        
+        // Find and remove any route originating from this territory
+        const routeIndex = this.supplyRoutes.findIndex(r => r.from === fromTerritory.id);
+        if (routeIndex !== -1) {
+            const removedRoute = this.supplyRoutes[routeIndex];
+            this.supplyRoutes.splice(routeIndex, 1);
+            
+            console.log(`Supply route cancelled: ${removedRoute.from} → ${removedRoute.to}`);
+            
+            // Show cancellation message
+            if (this.game.uiManager) {
+                this.game.uiManager.showMessage(`🚫 SUPPLY ROUTE CANCELLED: Star ${removedRoute.from} no longer reinforcing Star ${removedRoute.to}`, 3000);
+            } else {
+                this.game.showMessage(`🚫 SUPPLY ROUTE CANCELLED: Star ${removedRoute.from} no longer reinforcing Star ${removedRoute.to}`, 3000);
+            }
+            
+            return true;
+        }
+        
+        console.log('No supply route found to cancel for territory', fromTerritory.id);
+        return false;
+    }
+    
+    // Check if a territory is currently supplying reinforcements
+    isSupplySource(territoryId) {
+        return this.supplyRoutes.some(r => r.from === territoryId && r.active);
+    }
+    
     flashSupplyRouteConnection(fromTerritory, toTerritory, path) {
         // Flash the source and destination territories
         const flashDuration = 2000; // 2 seconds
