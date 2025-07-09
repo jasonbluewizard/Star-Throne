@@ -171,7 +171,7 @@ export class CombatSystem {
             
             // Create particle explosion when defender ship dies
             const defenderColor = battle.defender ? battle.defender.color : '#999999'; // Gray for neutral
-            this.createCombatParticleEffect(battle.defendingTerritory, defenderColor, 'defender_dies');
+            this.createCombatParticleEffect(battle.defendingTerritory, defenderColor, 'defender_dies', battle);
             
             console.log(`💥 RED FLASH: Territory ${battle.defendingTerritory.id} flashing with attacker color ${battle.attacker.color}`);
             
@@ -184,7 +184,7 @@ export class CombatSystem {
             this.flashPlanet(battle.defendingTerritory, '#ff0000');
             
             // Create particle explosion when attacker ship dies
-            this.createCombatParticleEffect(battle.defendingTerritory, battle.attacker.color, 'attacker_dies');
+            this.createCombatParticleEffect(battle.defendingTerritory, battle.attacker.color, 'attacker_dies', battle);
             
             console.log(`💥 RED FLASH: Territory ${battle.defendingTerritory.id} flashing RED (attacker dies)`);
             
@@ -324,19 +324,67 @@ export class CombatSystem {
      * @param {string} shipColor - Color of the dying ship
      * @param {string} context - 'attacker_dies' or 'defender_dies'
      */
-    createCombatParticleEffect(territory, shipColor, context) {
-        // TEMP: Show particles for ALL combat to verify system works
-        const intensity = context === 'defender_dies' ? 1.2 : 1.0;
+    createCombatParticleEffect(territory, shipColor, context, battleInfo = null) {
+        // Show particles for human player battles or battles within 2 star lanes of player territories
+        const humanPlayerId = this.game.humanPlayer?.id;
+        if (!humanPlayerId) return;
         
-        if (this.game.animationSystem && this.game.animationSystem.createCombatParticles) {
-            this.game.animationSystem.createCombatParticles(
-                territory.x, 
-                territory.y, 
-                shipColor, 
-                intensity
-            );
-            console.log(`✨ COMBAT FX: ${context} particles at territory ${territory.id} (temp: all combat)`);
+        // Check if human player is directly involved in this battle
+        const isPlayerInvolved = (battleInfo && (
+            battleInfo.attacker?.id === humanPlayerId || 
+            battleInfo.defender?.id === humanPlayerId ||
+            territory.ownerId === humanPlayerId
+        ));
+        
+        // Check if battle is near human player territories (within 2 hops)
+        const isNearPlayer = this.isBattleNearPlayer(territory, humanPlayerId, 2);
+        
+        if (isPlayerInvolved || isNearPlayer) {
+            const intensity = context === 'defender_dies' ? 1.5 : 1.0; // More particles for defenders
+            
+            if (this.game.animationSystem && this.game.animationSystem.createCombatParticles) {
+                this.game.animationSystem.createCombatParticles(
+                    territory.x, 
+                    territory.y, 
+                    shipColor, 
+                    intensity
+                );
+            }
         }
+    }
+    
+    // Check if battle is within specified distance of human player territories
+    isBattleNearPlayer(territory, humanPlayerId, maxDistance) {
+        if (!territory.neighbors) return false;
+        
+        // Breadth-first search to find player territories within maxDistance hops
+        const visited = new Set();
+        const queue = [{id: territory.id, distance: 0}];
+        visited.add(territory.id);
+        
+        while (queue.length > 0) {
+            const {id, distance} = queue.shift();
+            const currentTerritory = this.game.gameMap?.territories?.[id];
+            
+            if (!currentTerritory) continue;
+            
+            // If we found a player territory within range
+            if (currentTerritory.ownerId === humanPlayerId) {
+                return true;
+            }
+            
+            // If we haven't reached max distance, explore neighbors
+            if (distance < maxDistance && currentTerritory.neighbors) {
+                for (const neighborId of currentTerritory.neighbors) {
+                    if (!visited.has(neighborId)) {
+                        visited.add(neighborId);
+                        queue.push({id: neighborId, distance: distance + 1});
+                    }
+                }
+            }
+        }
+        
+        return false;
     }
 
     /**
