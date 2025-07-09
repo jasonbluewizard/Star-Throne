@@ -135,7 +135,6 @@ export class InputHandler {
         const worldPos = this.game.camera.screenToWorld(newMousePos.x, newMousePos.y);
         const hoveredTerritory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
         this.hoveredTerritory = hoveredTerritory;
-        this.game.hoveredTerritory = hoveredTerritory;
         
 
         

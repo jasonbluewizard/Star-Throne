@@ -68,8 +68,7 @@ export default class StarThrone {
         this.uiManager = null;
         this.controls = null;
         
-        // Legacy properties for backward compatibility
-        this.hoveredTerritory = null;
+        // Legacy properties removed for cleaner architecture
         
         // Performance
         this.lastFrameTime = 0;
@@ -2455,7 +2454,7 @@ export default class StarThrone {
                     gameMap: this.gameMap, // Include game map for fog of war logic
                     supplySystem: this.supplySystem, // Include supply system for proper encapsulation
                     isDisconnectedFromThrone: (territoryId) => this.isDisconnectedFromThrone(territoryId)
-                }, this.hoveredTerritory);
+                }, this.inputHandler?.hoveredTerritory);
             }
         }
     }
@@ -2705,15 +2704,16 @@ export default class StarThrone {
     
     renderTransferPreview() {
         // Show fleet allocation preview when hovering over targets during selection
-        if (!this.selectedTerritory || !this.hoveredTerritory || 
-            this.selectedTerritory.id === this.hoveredTerritory.id ||
+        const hoveredTerritory = this.inputHandler?.hoveredTerritory;
+        if (!this.selectedTerritory || !hoveredTerritory || 
+            this.selectedTerritory.id === hoveredTerritory.id ||
             this.selectedTerritory.ownerId !== this.humanPlayer?.id ||
             this.isProportionalDrag) { // Don't show during proportional drag
             return;
         }
         
         const from = this.selectedTerritory;
-        const to = this.hoveredTerritory;
+        const to = hoveredTerritory;
         
         // Only show preview for valid targets (neighbors or colonizable)
         const isValidTarget = from.neighbors.includes(to.id) || to.isColonizable;
@@ -3110,7 +3110,7 @@ export default class StarThrone {
         const worldPos = this.camera.screenToWorld(mousePos.x, mousePos.y);
         const territory = this.findTerritoryAt(worldPos.x, worldPos.y);
         
-        this.hoveredTerritory = territory;
+        // Hover territory now managed by InputHandler
         
         // Determine cursor mode based on selection and hover target
         if (this.selectedTerritory && this.selectedTerritory.ownerId === this.humanPlayer?.id && territory) {
@@ -4180,7 +4180,7 @@ export default class StarThrone {
         this.eventSystem = null;
         this.humanPlayer = null;
         this.selectedTerritory = null;
-        this.hoveredTerritory = null;
+        // Hover territory cleanup handled by InputHandler
         
         console.log('✅ StarThrone cleanup complete');
     }

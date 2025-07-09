@@ -739,6 +739,8 @@ Changelog:
   * Fixed hardcoded 50% fleet transfer ratio - now properly respects fleetPercentage parameter
   * Enhanced modifier key support: default 50%, Shift key 100%, Ctrl key 25% fleet transfers
   * Improved code maintainability by eliminating global references and using proper parameter passing
+  * Eliminated duplicate hovered territory state by consolidating hover management to InputHandler as single source of truth
+  * Removed redundant StarThrone.hoveredTerritory property - all hover state now managed by InputHandler for cleaner architecture
 - January 7, 2025. Tech discovery system implementation with persistent upgrades:
   * Added comprehensive tech level system (Attack, Defense, Engines, Production) capped at level 5
   * Each player gains permanent tech bonuses when conquering neutral territories and discovering precursor technologies
