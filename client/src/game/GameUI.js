@@ -1463,14 +1463,14 @@ export class GameUI {
         ctx.save();
         ctx.setLineDash([]); // Clear dashed lines
         
-        // "ATTACK" text at top of target star
+        // Win percentage as main text at top of target star
         ctx.font = 'bold 14px Arial';
         ctx.textAlign = 'center';
-        ctx.fillStyle = '#ff4444';
+        ctx.fillStyle = stableWinChance >= 60 ? '#44ff44' : stableWinChance >= 40 ? '#ffff44' : '#ff4444';
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 3;
-        ctx.strokeText('ATTACK', targetScreen.x, targetScreen.y - 25);
-        ctx.fillText('ATTACK', targetScreen.x, targetScreen.y - 25);
+        ctx.strokeText(`WIN ${stableWinChance}%`, targetScreen.x, targetScreen.y - 25);
+        ctx.fillText(`WIN ${stableWinChance}%`, targetScreen.x, targetScreen.y - 25);
         
         // Tech advantage on left side
         ctx.font = 'bold 12px Arial';
@@ -1480,12 +1480,6 @@ export class GameUI {
         ctx.fillStyle = techColor;
         ctx.strokeText(`${techSign}${techAdvantage}`, targetScreen.x - 20, targetScreen.y);
         ctx.fillText(`${techSign}${techAdvantage}`, targetScreen.x - 20, targetScreen.y);
-        
-        // Win percentage on right side
-        ctx.textAlign = 'left';
-        ctx.fillStyle = stableWinChance >= 60 ? '#44ff44' : stableWinChance >= 40 ? '#ffff44' : '#ff4444';
-        ctx.strokeText(`WIN ${stableWinChance}%`, targetScreen.x + 20, targetScreen.y);
-        ctx.fillText(`WIN ${stableWinChance}%`, targetScreen.x + 20, targetScreen.y);
         
         ctx.restore();
     }

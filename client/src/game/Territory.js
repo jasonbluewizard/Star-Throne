@@ -310,16 +310,13 @@ export class Territory {
         // Draw selection circle for friendly territories when selected
         if (isSelected && isHumanPlayer) {
             ctx.beginPath();
-            ctx.arc(this.x, this.y, this.radius + 12, 0, Math.PI * 2);
+            ctx.arc(this.x, this.y, this.radius + 25, 0, Math.PI * 2);
             
-            // Pulsating cyan selection circle
-            const pulseIntensity = 0.8 + 0.2 * Math.sin(Date.now() * 0.008);
+            // Large pulsating cyan selection circle (similar to enemy selection size)
+            const pulseIntensity = 0.7 + 0.3 * Math.sin(Date.now() * 0.005);
             ctx.strokeStyle = `rgba(0, 255, 255, ${pulseIntensity})`;
-            ctx.lineWidth = 3;
-            ctx.setLineDash([8, 4]);
-            ctx.lineDashOffset = Date.now() * 0.01; // Animated dashes
+            ctx.lineWidth = 4;
             ctx.stroke();
-            ctx.setLineDash([]); // Reset line dash
         }
         
         // Draw flag for human player territories
