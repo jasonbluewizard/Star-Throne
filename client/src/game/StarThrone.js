@@ -2046,6 +2046,11 @@ export default class StarThrone {
         // Process any pending throttled mouse events
         this.processPendingMouseEvent();
         
+        // Update input handler for FSM timeouts
+        if (this.inputHandler) {
+            this.inputHandler.update();
+        }
+        
         // Update ship animations and probes with normal delta time (speed applied internally)
         try {
             // Update AnimationSystem (new modular system for long-range attacks)

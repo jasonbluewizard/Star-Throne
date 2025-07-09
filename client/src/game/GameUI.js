@@ -23,6 +23,10 @@ export class GameUI {
         // Tech level tooltip system
         this.techLevelAreas = {};
         this.hoveredTechType = null;
+        
+        // FSM preview system
+        this.previewArrow = null; // { source, target, type }
+        this.supplyModeActive = false;
     }
 
     // Helper function to render text with shadow for better readability
@@ -51,6 +55,23 @@ export class GameUI {
             };
             this.canvas.style.cursor = cursorModes[state] || 'default';
         }
+    }
+    
+    // FSM UI Methods for new tap-based control system
+    showPreviewArrow(source, target, type) {
+        this.previewArrow = { source, target, type };
+    }
+    
+    hidePreviewArrow() {
+        this.previewArrow = null;
+    }
+    
+    enterSupplyMode() {
+        this.supplyModeActive = true;
+    }
+    
+    exitSupplyMode() {
+        this.supplyModeActive = false;
     }
     
     render(ctx, gameData) {
@@ -92,6 +113,16 @@ export class GameUI {
     }
     
     renderGameUI(ctx, gameData) {
+        // Render preview arrow if active
+        if (this.previewArrow) {
+            this.renderPreviewArrow(ctx, gameData);
+        }
+        
+        // Supply mode indicator
+        if (this.supplyModeActive) {
+            this.renderSupplyModeIndicator(ctx);
+        }
+        
         // Top bar with timer and game info
         this.renderTopBar(ctx, gameData);
         
@@ -1296,5 +1327,97 @@ export class GameUI {
             
             ctx.globalAlpha = 1.0; // Reset opacity
         });
+    }
+
+    // Render preview arrow for FSM confirmation mode
+    renderPreviewArrow(ctx, gameData) {
+        if (!this.previewArrow || !this.camera) return;
+        
+        const { source, target, type } = this.previewArrow;
+        
+        // Convert world coordinates to screen coordinates
+        const sourceScreen = this.camera.worldToScreen(source.x, source.y);
+        const targetScreen = this.camera.worldToScreen(target.x, target.y);
+        
+        ctx.save();
+        
+        // Set color based on action type
+        const colors = {
+            'attack': '#ff4444',
+            'reinforce': '#44ff44',
+            'probe': '#ffff44'
+        };
+        const color = colors[type] || '#ffffff';
+        
+        // Draw animated dashed line
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        ctx.setLineDash([10, 5]);
+        ctx.lineDashOffset = -this.animationPhase * 20; // Animate dash pattern
+        
+        ctx.beginPath();
+        ctx.moveTo(sourceScreen.x, sourceScreen.y);
+        ctx.lineTo(targetScreen.x, targetScreen.y);
+        ctx.stroke();
+        
+        // Draw arrow head
+        const angle = Math.atan2(targetScreen.y - sourceScreen.y, targetScreen.x - sourceScreen.x);
+        const arrowLength = 20;
+        const arrowAngle = Math.PI / 6;
+        
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(targetScreen.x, targetScreen.y);
+        ctx.lineTo(
+            targetScreen.x - arrowLength * Math.cos(angle - arrowAngle),
+            targetScreen.y - arrowLength * Math.sin(angle - arrowAngle)
+        );
+        ctx.lineTo(
+            targetScreen.x - arrowLength * Math.cos(angle + arrowAngle),
+            targetScreen.y - arrowLength * Math.sin(angle + arrowAngle)
+        );
+        ctx.closePath();
+        ctx.fill();
+        
+        // Draw action type text
+        const midX = (sourceScreen.x + targetScreen.x) / 2;
+        const midY = (sourceScreen.y + targetScreen.y) / 2;
+        
+        ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillRect(midX - 30, midY - 10, 60, 20);
+        
+        ctx.fillStyle = color;
+        ctx.fillText(type.toUpperCase(), midX, midY + 5);
+        
+        ctx.restore();
+    }
+    
+    // Render supply mode indicator
+    renderSupplyModeIndicator(ctx) {
+        ctx.save();
+        
+        // Draw semi-transparent overlay
+        ctx.fillStyle = 'rgba(0, 255, 255, 0.1)';
+        ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Draw supply mode text in top center
+        ctx.font = 'bold 24px Arial';
+        ctx.textAlign = 'center';
+        
+        // Animated background
+        const pulseAlpha = 0.7 + 0.3 * Math.sin(this.animationPhase * 3);
+        ctx.fillStyle = `rgba(0, 255, 255, ${pulseAlpha})`;
+        ctx.fillRect(this.canvas.width / 2 - 100, 20, 200, 40);
+        
+        // Text
+        ctx.fillStyle = '#000000';
+        ctx.fillText('SUPPLY MODE', this.canvas.width / 2, 45);
+        
+        ctx.font = '14px Arial';
+        ctx.fillText('Tap a friendly territory to create supply route', this.canvas.width / 2, 75);
+        
+        ctx.restore();
     }
 }

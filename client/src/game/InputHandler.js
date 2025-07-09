@@ -6,6 +6,7 @@
  */
 
 import { InputStateMachine } from './InputStateMachine.js';
+import { GAME_CONSTANTS } from '../../../common/gameConstants.js';
 
 export class InputHandler {
     constructor(game) {
@@ -23,7 +24,10 @@ export class InputHandler {
         // Double-click handling for supply routes
         this.lastClickTime = 0;
         this.lastClickedTerritory = null;
-        this.doubleClickThreshold = 250; // ms
+        this.doubleClickThreshold = GAME_CONSTANTS.DOUBLE_CLICK_THRESHOLD_MS;
+        
+        // Long-press timer
+        this.longPressTimer = null;
         
         // Touch state for mobile support
         this.touchState = {
@@ -42,7 +46,7 @@ export class InputHandler {
     
     setupEventListeners() {
         // Mouse events
-        this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+        this.game.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
         this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
         this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
         this.canvas.addEventListener('wheel', (e) => this.handleWheel(e));
@@ -71,6 +75,15 @@ export class InputHandler {
         this.dragStartPos = { ...this.mousePos };
         this.dragStartTime = Date.now();
         this.lastMousePos = { ...this.mousePos };
+        
+        // start long‑press timer only for LMB
+        if (e.button === 0) {
+            this.longPressTimer = setTimeout(() => {
+                const worldPos = this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+                const terr = this.game.findTerritoryAt(worldPos.x, worldPos.y);
+                this.inputFSM.handleEvent('long_press', { territory: terr });
+            }, GAME_CONSTANTS.LONG_PRESS_MS);
+        }
     }
     
     handleMouseMove(e) {
@@ -89,6 +102,8 @@ export class InputHandler {
             
             if (dragDistance > 10) {
                 this.isDragging = true;
+                // cancel long‑press when starting to drag
+                clearTimeout(this.longPressTimer);
             }
         }
         
@@ -129,9 +144,13 @@ export class InputHandler {
                 this.lastClickedTerritory && 
                 currentTime - this.lastClickTime < this.doubleClickThreshold) {
                 
-                // Double-click detected - handle supply route creation/stopping
+                // Double-click detected
                 console.log(`Double-click detected: last=${this.lastClickedTerritory.id}, current=${targetTerritory.id}`);
-                this.handleDoubleClick(targetTerritory);
+                this.inputFSM.handleEvent('double_tap', {
+                    territory: targetTerritory,
+                    shiftKey: e.shiftKey, 
+                    ctrlKey: e.ctrlKey
+                });
                 this.lastClickTime = 0; // Reset to prevent triple-click
                 this.lastClickedTerritory = null;
             } else {
@@ -149,6 +168,9 @@ export class InputHandler {
             }
         }
         
+        // cancel timer
+        clearTimeout(this.longPressTimer);
+        
         this.resetDragState();
     }
     
@@ -163,11 +185,13 @@ export class InputHandler {
             return;
         }
         
-        if (button === 0) { // Left click
-            this.inputFSM.handleInput('leftClick', {
+        if (button === 0) { // Left click - convert to tap event
+            this.inputFSM.handleEvent('tap', {
                 territory: territory,
-                worldPos: worldPos,
-                screenPos: this.mousePos
+                x: worldPos.x, 
+                y: worldPos.y,
+                shiftKey: false, // Single click doesn't have modifiers
+                ctrlKey: false
             });
         } else if (button === 2) {
             // Right-click ignored in single-button scheme
@@ -175,31 +199,7 @@ export class InputHandler {
     }
     
 
-    handleDoubleClick(territory) {
-        console.log(`handleDoubleClick called for territory ${territory.id}, owned by player ${territory.ownerId}`);
-        
-        // Double-click on owned territory
-        if (territory.ownerId === this.game.humanPlayer?.id) {
-            const selectedTerritory = this.inputFSM.getState().selectedTerritory;
-            // Removed debug console logging (dead code cleanup)
-            
-            if (selectedTerritory && selectedTerritory.ownerId === this.game.humanPlayer?.id) {
-                if (selectedTerritory.id === territory.id) {
-                    // Double-click on same selected territory - stop supply routes
-                    const stopped = this.game.supplySystem?.stopSupplyRoutesFromTerritory(territory.id);
-                    // Removed debug logging for supply route operations (dead code cleanup)
-                } else {
-                    // Double-click on different owned territory - create supply route
-                    // Removed debug logging for supply route creation (dead code cleanup)
-                    this.game.createSupplyRoute(selectedTerritory, territory).catch(error => {
-                        console.error('Failed to create supply route:', error);
-                    });
-                }
-            }
-        } else {
-            // Removed debug logging for territory ownership (dead code cleanup)
-        }
-    }
+
     
     handleWheel(e) {
         e.preventDefault();
@@ -424,5 +424,10 @@ export class InputHandler {
             selectedTerritory: this.inputFSM ? this.inputFSM.selectedTerritory : null,
             currentState: this.inputFSM ? this.inputFSM.currentState : 'Default'
         };
+    }
+
+    // Called by main game loop to handle timeouts
+    update() {
+        this.inputFSM.handleEvent('timeout');
     }
 }

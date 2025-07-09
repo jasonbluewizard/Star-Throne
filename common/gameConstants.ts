@@ -98,6 +98,11 @@ export const GAME_CONSTANTS = {
     // Performance Throttling
     FPS_UPDATE_INTERVAL_MS: 1000,
     VISIBLE_TERRITORIES_UPDATE_INTERVAL_MS: 150, // Increased for large maps
+    
+    // Input System
+    DOUBLE_CLICK_THRESHOLD_MS: 300,
+    LONG_PRESS_MS: 600,   // hold ≥600 ms to enter supply mode
+    PREVIEW_TIMEOUT_MS: 3000,  // cancel preview if 2nd tap not made
     AI_UPDATE_PLAYERS_PER_FRAME_DIVISOR: 4, // More aggressive batching for large maps
     SUPPLY_ROUTE_VALIDATION_FRAME_INTERVAL: 45,
     SUPPLY_ROUTE_PROCESSING_FRAME_INTERVAL: 90,

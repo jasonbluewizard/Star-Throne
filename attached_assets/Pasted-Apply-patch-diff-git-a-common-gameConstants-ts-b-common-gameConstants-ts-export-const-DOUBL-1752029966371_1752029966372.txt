@@ -1,0 +1,176 @@
+Apply patch
+diff --git a/common/gameConstants.ts b/common/gameConstants.ts
+@@
+ export const DOUBLE_CLICK_THRESHOLD_MS = 300;
++export const LONG_PRESS_MS             = 600;   // hold ≥600 ms to enter supply mode
++export const PREVIEW_TIMEOUT_MS        = 3000;  // cancel preview if 2nd tap not made
+
+diff --git a/client/src/game/InputStateMachine.js b/client/src/game/InputStateMachine.js
+@@
+-// obsolete right‑click & drag paths removed
++// ---------------- FSM STATES ----------------
++// idle → source_selected → pending_preview → (execute|cancel) → idle
++// idle → source_selected → supply_mode → tap target → create/remove route
++
++// helper to reset preview UI
++function clearPreview(game) { game.ui?.hidePreviewArrow?.(); }
+
+@@ constructor
+   this.state = 'idle';
++  this.pendingTarget = null;       // for confirm‑mode preview
++
++  // LONG‑PRESS timer
++  this.longPressTimer = null;
+
+@@ handleEvent root switch
+   case 'tap':          this.handleTap(data);          break;
++  case 'double_tap':   this.handleDoubleTap(data);    break;
++  case 'long_press':   this.handleLongPress(data);    break;
++  case 'timeout':      this.handleTimeout();          break;
+
++// ---------- tap ----------
++handleTap({ territory }) {
++    switch (this.state) {
++        case 'idle':
++            if (territory && territory.ownerId === this.game.humanPlayer.id && territory.armySize > 1) {
++                this.selectedTerritory = territory;
++                this.state = 'source_selected';
++            }
++            break;
++
++        case 'source_selected':
++            if (!territory) { this.reset(); break; }          // tap empty = deselect
++
++            if (territory.id === this.selectedTerritory.id) { // tap source again = no‑op
++                break;
++            }
++
++            // friendly target – start preview
++            if (territory.ownerId === this.game.humanPlayer.id) {
++                this.enterPreview(territory, 'reinforce');
++            }
++            // hostile/neutral target – start preview
++            else {
++                this.enterPreview(territory, 'attack');
++            }
++            break;
++
++        case 'pending_preview':      // this is the CONFIRM tap
++            if (territory && territory.id === this.pendingTarget.id) {
++                this.executePendingAction( territory );
++            } else {
++                clearPreview(this.game);           // tapped elsewhere → cancel
++                this.state = territory ? 'source_selected' : 'idle';
++                this.pendingTarget = null;
++            }
++            break;
++
++        case 'supply_mode':
++            if (territory && territory.ownerId === this.game.humanPlayer.id &&
++                territory.id !== this.selectedTerritory.id) {
++                this.game.supplySystem.toggleSupplyRoute(this.selectedTerritory.id, territory.id);
++            }
++            // exit supply mode whether route created or not
++            this.state = 'source_selected';
++            this.game.ui?.exitSupplyMode?.();
++            break;
++    }
++}
+
++// ---------- double‑tap ----------
++handleDoubleTap({ territory, shiftKey, ctrlKey }) {
++    if (this.state !== 'source_selected' || !territory ||
++        territory.id === this.selectedTerritory?.id) return;
++
++    const pct = shiftKey ? 1.0 : ctrlKey ? 0.25 : 0.5;
++
++    if (territory.ownerId === this.game.humanPlayer.id) {
++        this.game.issueFleetCommand(this.selectedTerritory, territory, pct);
++    } else {
++        this.game.issueFleetCommand(this.selectedTerritory, territory, pct, true /*attack*/);
++    }
++    // remain in source_selected so player can chain
++}
+
++// ---------- long‑press ----------
++handleLongPress({ territory }) {
++    if (this.state === 'source_selected' &&
++        territory && territory.id === this.selectedTerritory.id) {
++        this.state = 'supply_mode';
++        this.game.ui?.enterSupplyMode?.();
++    }
++}
+
++// ---------- helper: preview ----------
++enterPreview(target, type) {
++    this.pendingTarget = target;
++    this.state         = 'pending_preview';
++    this.previewStart  = Date.now();
++    this.game.ui?.showPreviewArrow?.(this.selectedTerritory, target, type);
++}
+
++// ---------- helper: execute ----------
++executePendingAction(target) {
++    const pct = 0.5;   // default 50 %
++    if (target.ownerId === this.game.humanPlayer.id) {
++        this.game.issueFleetCommand(this.selectedTerritory, target, pct);
++    } else {
++        this.game.issueFleetCommand(this.selectedTerritory, target, pct, true /*attack*/);
++    }
++    clearPreview(this.game);
++    // outcome: stay source_selected for reinforce, deselect on successful attack handled elsewhere
++    this.state         = 'source_selected';
++    this.pendingTarget = null;
++}
+
++// ---------- timeout watchdog ----------
++handleTimeout() {
++    if (this.state === 'pending_preview' &&
++        Date.now() - this.previewStart > GAME_CONSTANTS.PREVIEW_TIMEOUT_MS) {
++        clearPreview(this.game);
++        this.pendingTarget = null;
++        this.state = 'source_selected';
++    }
++}
+
++reset() { this.state = 'idle'; this.selectedTerritory = null; clearPreview(this.game); }
+
+diff --git a/client/src/game/InputHandler.js b/client/src/game/InputHandler.js
+@@ constructor()
+-  this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
++  this.game.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+@@
+-      // single click
+-      this.inputFSM.handleEvent('click_left', { x, y });
++      // single tap
++      this.inputFSM.handleEvent('tap', {
++          x, y,
++          territory: this.game.findTerritoryAt(x, y),
++          shiftKey: e.shiftKey, ctrlKey: e.ctrlKey
++      });
+@@ detect double-click
+-      this.inputFSM.handleEvent('double_click', { x, y, territory: clickedTerritory });
++      this.inputFSM.handleEvent('double_tap', {
++          x, y,
++          territory: clickedTerritory,
++          shiftKey: e.shiftKey, ctrlKey: e.ctrlKey
++      });
+@@ long‑press detection (add)
++    // start long‑press timer only for LMB
++    if (e.button === 0) {
++        this.longPressTimer = setTimeout(() => {
++            const terr = this.game.findTerritoryAt(this.mousePos.x, this.mousePos.y);
++            this.inputFSM.handleEvent('long_press', { territory: terr });
++        }, GAME_CONSTANTS.LONG_PRESS_MS);
++    }
+@@ cancel timer
++    clearTimeout(this.longPressTimer);
+
+diff --git a/client/src/game/StarThrone.js b/client/src/game/StarThrone.js
+@@ update(deltaTime)
+-    this.combatSystem.update(deltaTime);
++    this.combatSystem.update(deltaTime);
++    // let FSM cancel previews when timeouts hit
++    this.inputFSM.handleEvent('timeout');
+
+*** End Patch
