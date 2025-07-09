@@ -113,7 +113,7 @@ export class AnimationSystem {
 
     // Create particle explosion at combat location
     createCombatParticles(x, y, color, intensity = 1.0) {
-        const particleCount = Math.floor(6 + Math.random() * 8) * intensity; // 6-14 particles, more reasonable
+        const particleCount = Math.floor(4 + Math.random() * 6) * intensity; // 4-10 particles, subtle
         
         for (let i = 0; i < particleCount; i++) {
             const particle = this.getPooledParticle();
@@ -121,19 +121,19 @@ export class AnimationSystem {
             
             // Random direction and speed
             const angle = Math.random() * Math.PI * 2;
-            const speed = 40 + Math.random() * 60; // Moderate speed (40-100 pixels/second)
+            const speed = 80 + Math.random() * 120; // Faster speed (80-200 pixels/second)
             
-            particle.x = x + (Math.random() - 0.5) * 15; // Moderate initial spread
-            particle.y = y + (Math.random() - 0.5) * 15;
+            particle.x = x + (Math.random() - 0.5) * 10; // Smaller initial spread
+            particle.y = y + (Math.random() - 0.5) * 10;
             particle.vx = Math.cos(angle) * speed;
             particle.vy = Math.sin(angle) * speed;
             particle.life = 0;
-            particle.maxLife = 600 + Math.random() * 400; // Shorter duration (0.6-1.0 seconds)
-            particle.size = 2 + Math.random() * 2; // Smaller particles (2-4 pixels)
+            particle.maxLife = 300 + Math.random() * 200; // Very short duration (0.3-0.5 seconds)
+            particle.size = 1 + Math.random() * 1; // Much smaller particles (1-2 pixels)
             particle.color = color;
             particle.isActive = true;
-            particle.gravity = 15; // Moderate gravity
-            particle.airResistance = 0.98; // Less air resistance for cleaner arcs
+            particle.gravity = 10; // Light gravity
+            particle.airResistance = 0.99; // Minimal air resistance for speed
             
             this.combatParticles.push(particle);
         }

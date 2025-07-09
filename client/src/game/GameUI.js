@@ -283,20 +283,39 @@ export class GameUI {
         const itemHeight = 25;
         
         if (gameData.leaderboardMinimized) {
-            // Minimized leaderboard - just show title bar
+            // Minimized leaderboard - larger tap area
+            const minHeight = 50; // Bigger tap area
             ctx.fillStyle = this.bgColor;
-            ctx.fillRect(startX, startY, width, 35);
+            ctx.fillRect(startX, startY, width, minHeight);
+            
+            // Highlight on hover for better feedback
+            if (this.leaderboardHovered) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+                ctx.fillRect(startX, startY, width, minHeight);
+            }
             
             ctx.fillStyle = this.accentColor;
-            ctx.font = 'bold 14px Arial';
+            ctx.font = 'bold 16px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText('Leaderboard (tap to expand)', startX + width / 2, startY + 22);
+            ctx.fillText('📊 Leaderboard', startX + width / 2, startY + 20);
             
-            // Add minimize indicator
             ctx.fillStyle = this.textColor;
-            ctx.font = '16px Arial';
+            ctx.font = '12px Arial';
+            ctx.fillText('(tap to expand)', startX + width / 2, startY + 35);
+            
+            // Larger minimize indicator
+            ctx.fillStyle = this.textColor;
+            ctx.font = '20px Arial';
             ctx.textAlign = 'right';
-            ctx.fillText('▼', startX + width - 10, startY + 22);
+            ctx.fillText('▼', startX + width - 15, startY + 30);
+            
+            // Store larger click area for easier tapping
+            this.leaderboardClickArea = {
+                x: startX,
+                y: startY,
+                width: width,
+                height: minHeight
+            };
             return;
         }
         
@@ -318,15 +337,32 @@ export class GameUI {
         ctx.fillStyle = this.bgColor;
         ctx.fillRect(startX, startY, width, height);
         
+        // Title bar with larger tap area for minimizing
+        const titleHeight = 35; // Bigger tap area
+        
+        // Highlight title bar on hover for better feedback
+        if (this.leaderboardHovered) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.fillRect(startX, startY, width, titleHeight);
+        }
+        
         // Title with minimize indicator
         ctx.font = 'bold 16px Arial';
         ctx.textAlign = 'center';
-        this.renderTextWithShadow(ctx, 'Leaderboard', startX + width / 2, startY + 20, this.accentColor);
+        this.renderTextWithShadow(ctx, '📊 Leaderboard', startX + width / 2, startY + 20, this.accentColor);
         
-        // Add minimize indicator
-        ctx.font = '16px Arial';
+        // Larger minimize indicator
+        ctx.font = '20px Arial';
         ctx.textAlign = 'right';
-        this.renderTextWithShadow(ctx, '▲', startX + width - 10, startY + 20, this.textColor);
+        this.renderTextWithShadow(ctx, '▲', startX + width - 15, startY + 22, this.textColor);
+        
+        // Store click area for title bar (easier to tap to minimize)
+        this.leaderboardClickArea = {
+            x: startX,
+            y: startY,
+            width: width,
+            height: titleHeight
+        };
         
         // Player entries
         sortedPlayers.forEach((player, index) => {
