@@ -903,7 +903,7 @@ export class GameUI {
         // Prepare tooltip text
         let tooltipLines = [];
         if (territory.isColonizable) {
-            tooltipLines.push(`Unexplored System`);
+            tooltipLines.push(`Star ${territory.id} - Unexplored System`);
             
             // Only show "Click to probe" if player has a valid selected territory that can reach it
             const canProbe = gameData.selectedTerritory && 
@@ -941,7 +941,7 @@ export class GameUI {
             
             if (isMysteriousTerritory && territory.ownerId !== null) {
                 // Mysterious enemy territory - only show player name
-                tooltipLines.push(`${ownerName}`);
+                tooltipLines.push(`Star ${territory.id} - ${ownerName}`);
                 // Apply nebula fog even to mysterious territories
                 if (isInNebula) {
                     tooltipLines.push(`Unknown forces (nebula)`);
@@ -950,7 +950,7 @@ export class GameUI {
                 }
             } else if (isNeutralMystery) {
                 // Mysterious neutral territory - show as unexplored
-                tooltipLines.push(`Unexplored System`);
+                tooltipLines.push(`Star ${territory.id} - Unexplored System`);
                 // Apply nebula fog even to mysterious territories
                 if (isInNebula) {
                     tooltipLines.push(`Unknown garrison (nebula)`);
@@ -959,7 +959,7 @@ export class GameUI {
                 }
             } else {
                 // Visible territory - show owner name first
-                tooltipLines.push(`${ownerName}`);
+                tooltipLines.push(`Star ${territory.id} - ${ownerName}`);
                 
                 // NEBULA FOG OF WAR: Apply to ALL visible territories (suppress fleet count)
                 if (isInNebula) {
