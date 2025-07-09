@@ -161,7 +161,10 @@ export class InputHandler {
                 currentTime - this.lastClickTime < this.doubleClickThreshold) {
                 
                 // Double-click detected
-                console.log(`Double-click detected: last=${this.lastClickedTerritory.id}, current=${targetTerritory.id}`);
+                console.log(`🎯 Double-click detected: last=${this.lastClickedTerritory.id}, current=${targetTerritory.id}`);
+                console.log(`🎯 Time diff: ${currentTime - this.lastClickTime}ms (threshold: ${this.doubleClickThreshold}ms)`);
+                console.log(`🎯 Territory owner: ${targetTerritory.ownerId}, human: ${this.game.humanPlayer?.id}`);
+                
                 this.inputFSM.handleEvent('double_tap', {
                     territory: targetTerritory,
                     shiftKey: e.shiftKey, 
@@ -171,6 +174,7 @@ export class InputHandler {
                 this.lastClickedTerritory = null;
             } else {
                 // Single click - start timer for potential double-click
+                console.log(`🎯 Single click: territory=${targetTerritory?.id}, lastTime=${this.lastClickTime}, currentTime=${currentTime}`);
                 this.lastClickTime = currentTime;
                 this.lastClickedTerritory = targetTerritory;
                 
