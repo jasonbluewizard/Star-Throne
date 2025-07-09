@@ -3527,6 +3527,15 @@ export default class StarThrone {
                 }
                 break;
                 
+            case 'multi-hop-attack':
+                if (path && path.length > 1) {
+                    this.executeMultiHopAttack(fromTerritory, toTerritory, shipsToSend, path);
+                    console.log(`Multi-hop attack: ${shipsToSend} ships from ${fromTerritory.id} to ${toTerritory.id} via path: ${path.join(' -> ')}`);
+                } else {
+                    console.error('Multi-hop attack requires valid path');
+                }
+                break;
+                
             case 'transfer':
                 if (toTerritory.ownerId === this.humanPlayer?.id) {
                     this.combatSystem.transferArmies(fromTerritory, toTerritory);
@@ -3591,6 +3600,77 @@ export default class StarThrone {
                 console.log(`Multi-hop transfer completed: ${shipsToSend} ships delivered to territory ${toTerritory.id}`);
             }
         }, deliveryDelay);
+    }
+    
+    executeMultiHopAttack(fromTerritory, toTerritory, shipsToSend, path) {
+        // Validate path
+        if (!path || path.length < 2) {
+            console.error('Invalid path for multi-hop attack');
+            return;
+        }
+        
+        console.log(`🎯 MULTI-HOP ATTACK: Starting ${shipsToSend} ships from ${fromTerritory.id} to ${toTerritory.id} via path: ${path.join(' -> ')}`);
+        
+        // Execute attack on source territory (remove ships immediately)
+        fromTerritory.armySize -= shipsToSend;
+        
+        // Create multi-hop animation following the path
+        this.createSupplyRouteAnimation(path.map(id => this.gameMap.territories[id]), this.humanPlayer.color);
+        
+        // Calculate travel delay based on path length (2 seconds per hop)
+        const travelDelay = (path.length - 1) * 2000;
+        
+        // Schedule attack at destination
+        setTimeout(() => {
+            console.log(`🎯 MULTI-HOP ATTACK ARRIVAL: ${shipsToSend} ships attacking territory ${toTerritory.id}`);
+            
+            // Create a temporary attacking territory for the multi-hop attack
+            const tempAttackingTerritory = {
+                id: fromTerritory.id,
+                ownerId: this.humanPlayer?.id,
+                armySize: shipsToSend + 1, // +1 so the attack system can deduct armies
+                x: fromTerritory.x,
+                y: fromTerritory.y,
+                neighbors: [toTerritory.id] // Temporary connection for attack validation
+            };
+            
+            // Trigger combat flash effects
+            toTerritory.triggerCombatFlash();
+            
+            // Execute the attack using combat system
+            const result = this.combatSystem.attackTerritory(tempAttackingTerritory, toTerritory);
+            console.log(`🎯 MULTI-HOP ATTACK RESULT:`, result);
+            
+            if (result.success) {
+                console.log(`🏆 Multi-hop attack successful! Territory ${toTerritory.id} captured by player ${this.humanPlayer?.id}`);
+                
+                // Visual feedback
+                if (this.flashTerritory) {
+                    this.flashTerritory(toTerritory.id, '#00ff00', 500);
+                }
+                if (this.uiManager && this.uiManager.showMessage) {
+                    this.uiManager.showMessage(`Multi-hop attack successful! Territory captured`, 3000);
+                }
+                
+                // Check for game end conditions
+                this.checkWinConditions();
+            } else {
+                console.log(`🛡️ Multi-hop attack failed! Territory ${toTerritory.id} defended`);
+                
+                // Visual feedback for failed attack
+                if (this.flashTerritory) {
+                    this.flashTerritory(toTerritory.id, '#ff0000', 500);
+                }
+                if (this.uiManager && this.uiManager.showMessage) {
+                    this.uiManager.showMessage(`Multi-hop attack failed! Defense held`, 2000);
+                }
+            }
+            
+            // Update player stats
+            if (this.players) {
+                this.players.forEach(player => player.updateStats());
+            }
+        }, travelDelay);
     }
     
     // Visual feedback for fleet commands

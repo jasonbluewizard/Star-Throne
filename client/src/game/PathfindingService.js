@@ -10,6 +10,76 @@ export class PathfindingService {
     }
 
     /**
+     * Find attack path from player territory to enemy/neutral territory via warp lanes
+     * @param {number} startNodeId - Starting territory ID (must be player-owned)
+     * @param {number} endNodeId - Target territory ID (enemy/neutral)
+     * @param {Object} graph - Game graph containing territories and ownership
+     * @param {string} playerId - Player ID for territory ownership validation
+     * @returns {Promise<Array|null>} Array of territory IDs representing path, or null if no path exists
+     */
+    async findAttackPath(startNodeId, endNodeId, graph, playerId) {
+        return new Promise((resolve) => {
+            const timeout = setTimeout(() => {
+                console.log('PathfindingService: findAttackPath timeout');
+                resolve(null);
+            }, 5000);
+            
+            if (!graph || !graph.territories || startNodeId === endNodeId) {
+                clearTimeout(timeout);
+                resolve(null);
+                return;
+            }
+
+            const territories = graph.territories;
+            const startTerritory = territories[startNodeId];
+            const endTerritory = territories[endNodeId];
+
+            console.log(`🛣️ ATTACK PATH: Finding path from ${startNodeId} (player ${playerId}) to ${endNodeId}`);
+
+            // Validate start territory is player-owned, end territory exists
+            if (!startTerritory || !endTerritory || startTerritory.ownerId !== playerId) {
+                clearTimeout(timeout);
+                console.log('PathfindingService: attack path validation failed');
+                resolve(null);
+                return;
+            }
+
+            // Check if target is adjacent to any player territory
+            for (let territory of territories) {
+                if (territory && territory.ownerId === playerId) {
+                    const isAdjacent = territory.neighbors && territory.neighbors.includes(endNodeId);
+                    if (isAdjacent) {
+                        // Found a player territory adjacent to target
+                        if (territory.id === startNodeId) {
+                            // Direct attack - no path needed
+                            clearTimeout(timeout);
+                            console.log(`🛣️ DIRECT: Target ${endNodeId} is adjacent to source ${startNodeId}`);
+                            resolve(null);
+                            return;
+                        } else {
+                            // Multi-hop attack: find path from start to adjacent territory
+                            console.log(`🛣️ MULTI-HOP: Target ${endNodeId} is adjacent to player territory ${territory.id}`);
+                            const pathToAdjacent = await this.findShortestPath(startNodeId, territory.id, graph, playerId);
+                            if (pathToAdjacent && pathToAdjacent.length > 1) {
+                                // Add target to the end of path
+                                const fullPath = [...pathToAdjacent, endNodeId];
+                                clearTimeout(timeout);
+                                console.log(`🛣️ ATTACK PATH FOUND: ${fullPath.join(' -> ')}`);
+                                resolve(fullPath);
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+
+            clearTimeout(timeout);
+            console.log(`🛣️ NO ATTACK PATH: No route found to ${endNodeId}`);
+            resolve(null);
+        });
+    }
+
+    /**
      * Find the shortest path between two nodes through friendly territory
      * @param {number} startNodeId - Starting territory ID
      * @param {number} endNodeId - Destination territory ID

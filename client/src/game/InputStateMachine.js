@@ -352,10 +352,11 @@ class TerritorySelectedState extends BaseState {
                     if (attackingArmies > 0) {
                         // Try to find a path through warp lanes
                         try {
-                            const path = await this.game.pathfindingService.findShortestPath(
+                            const path = await this.game.pathfindingService.findAttackPath(
                                 sourceStar.id,
                                 targetStar.id,
-                                this.game.gameMap
+                                this.game.gameMap,
+                                this.game.humanPlayer?.id
                             );
                             
                             if (path && path.length > 1) {
@@ -420,10 +421,11 @@ class TerritorySelectedState extends BaseState {
                     if (attackingArmies > 0) {
                         // Try to find a path through warp lanes
                         try {
-                            const path = await this.game.pathfindingService.findShortestPath(
+                            const path = await this.game.pathfindingService.findAttackPath(
                                 sourceStar.id,
                                 targetStar.id,
-                                this.game.gameMap
+                                this.game.gameMap,
+                                this.game.humanPlayer?.id
                             );
                             
                             if (path && path.length > 1) {
