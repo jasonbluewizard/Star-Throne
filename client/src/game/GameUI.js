@@ -1433,6 +1433,30 @@ export class GameUI {
         const preview = gameData.combatSystem.calculateCombatPreview(source, target, attackingArmies);
         if (!preview) return;
         
+        // Calculate tech advantage
+        const humanPlayer = gameData.humanPlayer;
+        const targetPlayer = gameData.players[target.ownerId];
+        
+        let techAdvantage = 0;
+        if (humanPlayer && humanPlayer.discoveries && targetPlayer && targetPlayer.discoveries) {
+            const attackBonus = (humanPlayer.discoveries.precursorWeapons || 0) * 5;
+            const defenseBonus = (targetPlayer.discoveries.precursorShield || 0) * 5;
+            techAdvantage = Math.round((attackBonus - defenseBonus) / 5); // Convert back to levels
+        }
+        
+        // Create cache key for stable win percentage
+        const cacheKey = `${source.id}-${target.id}-${attackingArmies}-${preview.defendingArmies}`;
+        if (!this.winPercentageCache) this.winPercentageCache = {};
+        
+        // Use cached percentage if available, otherwise calculate and cache
+        let stableWinChance;
+        if (this.winPercentageCache[cacheKey]) {
+            stableWinChance = this.winPercentageCache[cacheKey];
+        } else {
+            stableWinChance = preview.winChance;
+            this.winPercentageCache[cacheKey] = stableWinChance;
+        }
+        
         // Position text on target star
         const targetScreen = gameData.camera.worldToScreen(target.x, target.y);
         
@@ -1448,26 +1472,20 @@ export class GameUI {
         ctx.strokeText('ATTACK', targetScreen.x, targetScreen.y - 25);
         ctx.fillText('ATTACK', targetScreen.x, targetScreen.y - 25);
         
-        // Attack force on left side
+        // Tech advantage on left side
         ctx.font = 'bold 12px Arial';
         ctx.textAlign = 'right';
-        ctx.fillStyle = '#44ff44';
-        ctx.strokeText(`Attack ${attackingArmies}`, targetScreen.x - 20, targetScreen.y);
-        ctx.fillText(`Attack ${attackingArmies}`, targetScreen.x - 20, targetScreen.y);
+        const techColor = techAdvantage > 0 ? '#44ff44' : techAdvantage < 0 ? '#ff4444' : '#ffffff';
+        const techSign = techAdvantage > 0 ? '+' : '';
+        ctx.fillStyle = techColor;
+        ctx.strokeText(`${techSign}${techAdvantage}`, targetScreen.x - 20, targetScreen.y);
+        ctx.fillText(`${techSign}${techAdvantage}`, targetScreen.x - 20, targetScreen.y);
         
-        // Defense force on right side
+        // Win percentage on right side
         ctx.textAlign = 'left';
-        ctx.fillStyle = '#ff4444';
-        ctx.strokeText(`Defence ${preview.defendingArmies}`, targetScreen.x + 20, targetScreen.y);
-        ctx.fillText(`Defence ${preview.defendingArmies}`, targetScreen.x + 20, targetScreen.y);
-        
-        // Win percentage centered below
-        const winText = `${preview.winChance}% win`;
-        ctx.font = 'bold 11px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillStyle = preview.winChance >= 60 ? '#44ff44' : preview.winChance >= 40 ? '#ffff44' : '#ff4444';
-        ctx.strokeText(winText, targetScreen.x, targetScreen.y + 15);
-        ctx.fillText(winText, targetScreen.x, targetScreen.y + 15);
+        ctx.fillStyle = stableWinChance >= 60 ? '#44ff44' : stableWinChance >= 40 ? '#ffff44' : '#ff4444';
+        ctx.strokeText(`WIN ${stableWinChance}%`, targetScreen.x + 20, targetScreen.y);
+        ctx.fillText(`WIN ${stableWinChance}%`, targetScreen.x + 20, targetScreen.y);
         
         ctx.restore();
     }
