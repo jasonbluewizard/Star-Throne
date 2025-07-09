@@ -2683,8 +2683,6 @@ export default class StarThrone {
             let lineColor = '#666666';
             if (targetTerritory.ownerId === this.humanPlayer?.id) {
                 lineColor = '#44ff44'; // Green for transfer
-            } else if (targetTerritory.isColonizable) {
-                lineColor = '#ffff00'; // Yellow for probe
             } else {
                 lineColor = '#ff4444'; // Red for attack
             }
@@ -2715,16 +2713,14 @@ export default class StarThrone {
         const from = this.selectedTerritory;
         const to = hoveredTerritory;
         
-        // Only show preview for valid targets (neighbors or colonizable)
-        const isValidTarget = from.neighbors.includes(to.id) || to.isColonizable;
+        // Only show preview for valid targets (neighbors only)
+        const isValidTarget = from.neighbors.includes(to.id);
         if (!isValidTarget) return;
         
         // Determine transfer percentage based on target type
         let transferPercentage = 0.5; // Default 50%
         if (to.ownerId === this.humanPlayer?.id) {
             transferPercentage = 0.5; // Transfer to own territory
-        } else if (to.isColonizable) {
-            transferPercentage = Math.min(1.0, 10 / from.armySize); // Probe cost (10 ships or all if less)
         } else {
             transferPercentage = 0.75; // Attack enemy territory
         }
@@ -2762,8 +2758,6 @@ export default class StarThrone {
         let borderColor = '#ffffff';
         if (to.ownerId === this.humanPlayer?.id) {
             borderColor = '#00ff00'; // Green for transfer
-        } else if (to.isColonizable) {
-            borderColor = '#ffff00'; // Yellow for probe
         } else {
             borderColor = '#ff4444'; // Red for attack
         }
@@ -3116,10 +3110,8 @@ export default class StarThrone {
         if (this.selectedTerritory && this.selectedTerritory.ownerId === this.humanPlayer?.id && territory) {
             if (territory.ownerId === this.humanPlayer?.id && territory.id !== this.selectedTerritory.id) {
                 this.cursorMode = 'transfer';
-            } else if (territory.ownerId !== this.humanPlayer?.id && territory.ownerId) { // Simplified null check
+            } else if (territory.ownerId !== this.humanPlayer?.id) {
                 this.cursorMode = 'attack';
-            } else if (territory.isColonizable) {
-                this.cursorMode = 'probe';
             } else {
                 this.cursorMode = 'default';
             }
@@ -3174,8 +3166,8 @@ export default class StarThrone {
         
         const fromTerritory = this.selectedTerritory;
         
-        // Validate warp lane connectivity (except for colonizable planets)
-        if (!targetTerritory.isColonizable && !fromTerritory.neighbors.includes(targetTerritory.id)) {
+        // Validate warp lane connectivity
+        if (!fromTerritory.neighbors.includes(targetTerritory.id)) {
             console.log(`Cannot perform action: No warp lane from ${fromTerritory.id} to ${targetTerritory.id}`);
             return;
         }
@@ -3184,12 +3176,9 @@ export default class StarThrone {
         if (targetTerritory.ownerId === this.humanPlayer?.id && targetTerritory.id !== fromTerritory.id) {
             // Right-click on friendly territory - transfer
             this.transferArmies(fromTerritory, targetTerritory);
-        } else if (targetTerritory.ownerId !== this.humanPlayer?.id && targetTerritory.ownerId) { // Simplified null check
-            // Right-click on enemy territory - attack
+        } else if (targetTerritory.ownerId !== this.humanPlayer?.id) {
+            // Right-click on enemy/neutral territory - attack
             this.attackTerritory(fromTerritory, targetTerritory);
-        } else if (targetTerritory.isColonizable) {
-            // Right-click on colonizable territory - launch probe
-            this.launchProbe(fromTerritory, targetTerritory);
         }
         
         // Visual feedback - flash the target territory
@@ -3259,81 +3248,7 @@ export default class StarThrone {
         return false; // No UI element was clicked
     }
     
-    launchProbe(fromTerritory, toTerritory) {
-        const probeCost = 10;
-        
-        if (fromTerritory.armySize < probeCost) {
-            console.log('Not enough fleet power to launch probe! Need 10 fleet power.');
-            return false;
-        }
-        
-        if (!toTerritory.isColonizable) {
-            console.log('Target territory is not colonizable!');
-            return false;
-        }
-        
-        // Create probe with gameMap and game references for nebula detection and discovery bonuses
-        const probe = new Probe(
-            this.nextProbeId++,
-            fromTerritory,
-            toTerritory,
-            this.humanPlayer.id,
-            this.humanPlayer.color,
-            this.config.gameSpeed,
-            this.gameMap,
-            this
-        );
-        
-        this.probes.push(probe);
-        fromTerritory.armySize -= probeCost;
-        
-        // Trigger visual feedback
-        fromTerritory.triggerProbeFlash();
-        
-        // Emit probe launched event
-        gameEvents.emit(GAME_EVENTS.PROBE_LAUNCHED, {
-            probe: {
-                id: probe.id,
-                fromTerritoryId: fromTerritory.id,
-                toTerritoryId: toTerritory.id
-            },
-            player: {
-                id: this.humanPlayer.id,
-                name: this.humanPlayer.name
-            }
-        }, EVENT_PRIORITY.MEDIUM);
-        
-        console.log(`Probe launched from territory ${fromTerritory.id} to colonizable planet ${toTerritory.id}`);
-        return true;
-    }
-    
-    launchAIProbe(fromTerritory, toTerritory, player) {
-        const probeCost = 10;
-        
-        if (fromTerritory.armySize < probeCost) {
-            return;
-        }
-        
-        // Create AI probe with gameMap and game references for nebula detection
-        const probe = new Probe(
-            this.nextProbeId++,
-            fromTerritory,
-            toTerritory,
-            player.id,
-            player.color,
-            this.config.gameSpeed,
-            this.gameMap,
-            this
-        );
-        
-        this.probes.push(probe);
-        fromTerritory.armySize -= probeCost;
-        
-        // Trigger visual feedback
-        fromTerritory.triggerProbeFlash();
-        
-
-    }
+    // Probe system removed - territories now directly attackable
     
     transferFleet(fromTerritory, toTerritory) {
         // Create ship animation for transfer
@@ -3564,8 +3479,6 @@ export default class StarThrone {
                 if (toTerritory.ownerId === this.humanPlayer?.id) {
                     this.combatSystem.transferArmies(fromTerritory, toTerritory);
                     this.createShipAnimation(fromTerritory, toTerritory, false, shipsToSend);
-                } else if (toTerritory.isColonizable) {
-                    this.launchProbe(fromTerritory, toTerritory);
                 } else {
                     this.combatSystem.attackTerritory(fromTerritory, toTerritory);
                     this.createShipAnimation(fromTerritory, toTerritory, true, shipsToSend);
