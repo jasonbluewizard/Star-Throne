@@ -146,9 +146,12 @@ export class Territory {
                     this.armySize += armiesGenerated;
                 }
             } else {
-                // Normal army generation
-                this.armySize += armiesGenerated;
+                // Normal army generation with safety check
+                this.armySize = Math.max(1, this.armySize + armiesGenerated);
             }
+            
+            // Ensure armies never go negative due to any calculation errors
+            this.armySize = Math.max(1, this.armySize);
             
             if (player) {
                 player.totalArmies += armiesGenerated;
@@ -604,28 +607,30 @@ export class Territory {
     }
     
     renderNoGoMarker(ctx) {
-        // Red X marker positioned above the planet
+        // Red X marker positioned on top of the planet (center)
         const markerX = this.x;
-        const markerY = this.y - this.radius - 25;
-        const markerSize = Math.max(16, this.radius * 1.0);
+        const markerY = this.y;
+        const markerSize = Math.max(20, this.radius * 1.2);
         
         ctx.save();
         
         // Dark shadow for visibility
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
         ctx.font = `bold ${markerSize + 4}px Arial`;
         ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
         ctx.fillText('✗', markerX + 2, markerY + 2);
         
         // Main red X marker
         ctx.fillStyle = '#ff0000';
         ctx.font = `bold ${markerSize}px Arial`;
         ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
         ctx.fillText('✗', markerX, markerY);
         
         // Add white outline for extra visibility
         ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 3;
         ctx.strokeText('✗', markerX, markerY);
         
         ctx.restore();

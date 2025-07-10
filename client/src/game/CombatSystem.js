@@ -57,8 +57,18 @@ export class CombatSystem {
         
         // For neutral territories, defender is null - that's okay
 
-        // Deduct armies from attacking territory immediately
-        attackingTerritory.armySize -= actualAttackers;
+        // Deduct armies from attacking territory immediately with safety bounds
+        const originalArmySize = attackingTerritory.armySize;
+        attackingTerritory.armySize = Math.max(1, attackingTerritory.armySize - actualAttackers);
+        
+        // Verify we didn't go negative and log for debugging
+        if (attackingTerritory.armySize <= 0) {
+            console.error(`❌ COMBAT SYSTEM ERROR: Territory ${attackingTerritory.id} would have ${attackingTerritory.armySize} armies after sending ${actualAttackers}. Resetting to 1.`);
+            attackingTerritory.armySize = 1;
+            return { success: false, reason: 'Army calculation error prevented' };
+        }
+        
+        console.log(`⚔️ COMBAT: Territory ${attackingTerritory.id} sent ${actualAttackers} armies (${originalArmySize} → ${attackingTerritory.armySize})`);
 
         // Create pending battle for when ships arrive
         const battle = {

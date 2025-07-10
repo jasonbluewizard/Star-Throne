@@ -174,15 +174,28 @@ export default class FloodModeController {
                     const currentArmies = t.armySize;
                     const required = n.armySize + 2 * aggression;
                     
-                    if (currentArmies >= required) {
-                        const send = Math.min(n.armySize + aggression, currentArmies);
+                    // Must have at least required armies AND leave at least 1 army behind
+                    if (currentArmies >= required && currentArmies > 1) {
+                        const maxSend = currentArmies - 1; // Always leave 1 army
+                        const send = Math.min(n.armySize + aggression, maxSend);
                         
-                        // Ensure we don't send more armies than we have
-                        if (send > 0 && send <= currentArmies) {
-                            t.armySize -= send;
+                        // Double-check bounds to prevent negative armies
+                        if (send > 0 && send < currentArmies && (currentArmies - send) >= 1) {
+                            const originalArmies = t.armySize;
+                            t.armySize = Math.max(1, t.armySize - send); // Ensure minimum 1 army remains
+                            
+                            // Verify we didn't go negative
+                            if (t.armySize <= 0) {
+                                console.error(`❌ FLOOD MODE ERROR: Territory ${t.id} would have ${t.armySize} armies after sending ${send}. Resetting to 1.`);
+                                t.armySize = 1;
+                                continue; // Skip this attack
+                            }
+                            
                             if (this.game.createShipAnimation)
                                 this.game.createShipAnimation(t, n, true, send);
                             this.game.combatSystem.attackTerritory(t, n, send);
+                            
+                            console.log(`🤖 FLOOD: Territory ${t.id} sent ${send} armies (${originalArmies} → ${t.armySize})`);
                         }
                     }
                 }
