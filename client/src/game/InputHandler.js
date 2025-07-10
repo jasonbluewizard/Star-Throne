@@ -481,8 +481,14 @@ export class InputHandler {
             case 'f':
             case 'F':
                 // F key - Toggle flood mode for human player
+                console.log('F key pressed - debugging flood mode');
+                console.log('humanPlayer:', this.game.humanPlayer);
+                console.log('floodController:', this.game.floodController);
                 if (this.game.humanPlayer && this.game.floodController) {
+                    console.log('Toggling flood mode for player:', this.game.humanPlayer.name);
                     this.game.floodController.togglePlayer(this.game.humanPlayer);
+                } else {
+                    console.log('Cannot toggle flood mode - missing humanPlayer or floodController');
                 }
                 break;
             case 'g':
