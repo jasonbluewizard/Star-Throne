@@ -399,6 +399,8 @@ export class InputHandler {
     }
     
     handleKeyDown(e) {
+        console.log('🎹 Key pressed:', e.key, 'Code:', e.code);
+        
         // Forward key events to FSM
         if (this.inputFSM.handleInput('keyPress', { key: e.key })) {
             return;

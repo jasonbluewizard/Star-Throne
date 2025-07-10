@@ -1,0 +1,626 @@
+client/src/game/InputHandler.js
++63
+-14
+
+@@ -19,186 +19,219 @@ export class InputHandler {
+        this._onMouseMove = (e) => this.handleMouseMove(e);
+        this._onMouseUp = (e) => this.handleMouseUp(e);
+        this._onWheel = (e) => this.handleWheel(e);
+        this._onContextMenu = (e) => e.preventDefault();
+        this._onTouchStart = (e) => this.handleTouchStart(e);
+        this._onTouchMove = (e) => this.handleTouchMove(e);
+        this._onTouchEnd = (e) => this.handleTouchEnd(e);
+        this._onKeyDown = (e) => this.handleKeyDown(e);
+        
+        // Simplified input state
+        this.mousePos = { x: 0, y: 0 };
+        this.lastMousePos = { x: 0, y: 0 };
+        this.isDragging = false;
+        this.dragStartPos = null;
+        this.dragStartTime = null;
+        
+        // Double-click handling for supply routes
+        this.lastClickTime = 0;
+        this.lastClickedTerritory = null;
+        this.doubleClickThreshold = GAME_CONSTANTS.DOUBLE_CLICK_THRESHOLD_MS;
+        
+        // Progressive long-press timers
+        this.longPressSelectionTimer = null;  // 0.5s for selection
+        this.longPressSupplyTimer = null;     // 1.5s for supply mode
+        this.hasTriggeredSelection = false;   // Track if selection already occurred
+        
+
+        // Touch state for mobile support
+        this.touchState = {
+            activeTouches: new Map(),
+            lastTouchDistance: null,
+            lastPinchCenter: null,
+            panVelocity: { x: 0, y: 0 },
+            lastPanTime: 0
+        };
+
+        // Box selection state
+        this.boxSelectStart = null;
+        this.boxSelectEnd = null;
+        this.isBoxSelecting = false;
+        this.multiSelectedTerritories = [];
+        
+        // Initialize FSM
+        this.inputFSM = new InputStateMachine(game);
+        
+        this.setupEventListeners();
+    }
+    
+    setupEventListeners() {
+        // Mouse events using bound handlers
+        this.canvas.addEventListener('mousedown', this._onMouseDown);
+        this.canvas.addEventListener('mousemove', this._onMouseMove);
+        this.canvas.addEventListener('mouseup', this._onMouseUp);
+        this.canvas.addEventListener('wheel', this._onWheel);
+        this.canvas.addEventListener('contextmenu', this._onContextMenu);
+        
+        // Touch events using bound handlers
+        this.canvas.addEventListener('touchstart', this._onTouchStart);
+        this.canvas.addEventListener('touchmove', this._onTouchMove);
+        this.canvas.addEventListener('touchend', this._onTouchEnd);
+        this.canvas.addEventListener('touchcancel', this._onTouchEnd);
+        
+        // Keyboard events using bound handlers
+        document.addEventListener('keydown', this._onKeyDown);
+    }
+    
+    handleMouseDown(e) {
+        e.preventDefault();
+        this.isDragging = false;
+        
+
+        const rect = this.canvas.getBoundingClientRect();
+        this.mousePos = {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top
+        };
+        
+        this.dragStartPos = { ...this.mousePos };
+        this.dragStartTime = Date.now();
+        this.lastMousePos = { ...this.mousePos };
+
+        if (e.button === 0) {
+            // Begin potential box selection
+            this.boxSelectStart = { ...this.mousePos };
+            this.boxSelectEnd = null;
+            this.isBoxSelecting = false;
+            this.multiSelectedTerritories = [];
+        }
+        
+        // start progressive long‑press timers only for LMB
+        if (e.button === 0) {
+            this.hasTriggeredSelection = false;
+            
+            // Timer 1: Selection after 0.5s
+            this.longPressSelectionTimer = setTimeout(() => {
+                if (!this.isDragging) {
+                    const worldPos = this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+                    const terr = this.game.findTerritoryAt(worldPos.x, worldPos.y);
+                    if (terr && terr.ownerId === this.game.humanPlayer.id && terr.armySize > 1) {
+                        this.inputFSM.handleEvent('long_press_select', { territory: terr });
+                        this.hasTriggeredSelection = true;
+                        console.log(`🎯 Long press selection triggered at 0.5s for territory ${terr.id}`);
+                    }
+                }
+            }, 500); // 0.5 seconds
+            
+            // Timer 2: Supply mode after 1.5s total
+            this.longPressSupplyTimer = setTimeout(() => {
+                if (!this.isDragging && this.hasTriggeredSelection) {
+                    const worldPos = this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+                    const terr = this.game.findTerritoryAt(worldPos.x, worldPos.y);
+                    if (terr && terr.ownerId === this.game.humanPlayer.id && terr.armySize > 1) {
+                        this.inputFSM.handleEvent('long_press_supply', { territory: terr });
+                        console.log(`🔗 Long press supply mode triggered at 1.5s for territory ${terr.id}`);
+                    }
+                }
+            }, 1500); // 1.5 seconds total
+        }
+    }
+    
+    handleMouseMove(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const newMousePos = {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top
+        };
+        
+        // Check for camera drag threshold
+        if (this.dragStartPos && !this.isDragging) {
+        // Check for drag threshold
+        if (this.dragStartPos && !this.isDragging && !this.isBoxSelecting) {
+            const dragDistance = Math.sqrt(
+                Math.pow(newMousePos.x - this.dragStartPos.x, 2) + 
+                Math.pow(newMousePos.x - this.dragStartPos.x, 2) +
+                Math.pow(newMousePos.y - this.dragStartPos.y, 2)
+            );
+            
+
+            if (dragDistance > 10) {
+                this.isDragging = true;
+                this.isBoxSelecting = true;
+                this.boxSelectEnd = { ...newMousePos };
+                // cancel long‑press timers when starting to drag
+                clearTimeout(this.longPressSelectionTimer);
+                clearTimeout(this.longPressSupplyTimer);
+                this.hasTriggeredSelection = false;
+            }
+        }
+        
+
+        // Handle camera panning
+        if (this.isDragging) {
+        if (this.isDragging && !this.isBoxSelecting) {
+            const deltaX = newMousePos.x - this.lastMousePos.x;
+            const deltaY = newMousePos.y - this.lastMousePos.y;
+            this.game.camera.pan(-deltaX, -deltaY);
+        }
+
+        if (this.isBoxSelecting) {
+            this.boxSelectEnd = { ...newMousePos };
+        }
+        
+        // Update edge panning
+        this.game.camera.updateEdgePanning(newMousePos.x, newMousePos.y, 16);
+        
+        // Update hovered territory for tooltips and supply route highlighting
+        const worldPos = this.game.camera.screenToWorld(newMousePos.x, newMousePos.y);
+        const hoveredTerritory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
+        this.hoveredTerritory = hoveredTerritory;
+        
+
+        
+        this.lastMousePos = newMousePos;
+        this.mousePos = newMousePos;
+    }
+    
+    handleMouseUp(e) {
+        // Clear long press timers when mouse is released
+        clearTimeout(this.longPressSelectionTimer);
+        clearTimeout(this.longPressSupplyTimer);
+        this.hasTriggeredSelection = false;
+        
+        const clickDuration = Date.now() - (this.dragStartTime || 0);
+        const wasQuickClick = clickDuration < 300 && !this.isDragging;
+        const wasQuickClick = clickDuration < 300 && !this.isBoxSelecting && !this.isDragging;
+        
+        const worldPos = this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+        const targetTerritory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
+        
+        if (wasQuickClick) {
+        if (this.isBoxSelecting) {
+            // Finalize box selection
+            if (this.boxSelectStart && this.boxSelectEnd) {
+                const startWorld = this.game.camera.screenToWorld(this.boxSelectStart.x, this.boxSelectStart.y);
+                const endWorld = this.game.camera.screenToWorld(this.boxSelectEnd.x, this.boxSelectEnd.y);
+                const minX = Math.min(startWorld.x, endWorld.x);
+                const maxX = Math.max(startWorld.x, endWorld.x);
+                const minY = Math.min(startWorld.y, endWorld.y);
+                const maxY = Math.max(startWorld.y, endWorld.y);
+
+                this.multiSelectedTerritories = this.game.humanPlayer.territories
+                    .map(id => this.game.gameMap.territories[id])
+                    .filter(t => t.x >= minX && t.x <= maxX && t.y >= minY && t.y <= maxY);
+            }
+        } else if (wasQuickClick) {
+            const currentTime = Date.now();
+            
+            // Check for double-click for supply routes (can be same or different territory)
+            if (targetTerritory && 
+                this.lastClickedTerritory && 
+                currentTime - this.lastClickTime < this.doubleClickThreshold) {
+                
+                // Double-click detected
+                console.log(`🎯 Double-click detected: last=${this.lastClickedTerritory.id}, current=${targetTerritory.id}`);
+                console.log(`🎯 Time diff: ${currentTime - this.lastClickTime}ms (threshold: ${this.doubleClickThreshold}ms)`);
+                console.log(`🎯 Territory owner: ${targetTerritory.ownerId}, human: ${this.game.humanPlayer?.id}`);
+                
+                this.inputFSM.handleEvent('double_tap', {
+                    territory: targetTerritory,
+                    shiftKey: e.shiftKey, 
+                    ctrlKey: e.ctrlKey
+                });
+                this.lastClickTime = 0; // Reset to prevent triple-click
+                this.lastClickedTerritory = null;
+            } else {
+                // Single click - start timer for potential double-click
+                console.log(`🎯 Single click: territory=${targetTerritory?.id}, lastTime=${this.lastClickTime}, currentTime=${currentTime}`);
+                this.lastClickTime = currentTime;
+                this.lastClickedTerritory = targetTerritory;
+                
+@@ -207,56 +240,66 @@ export class InputHandler {
+                    if (this.lastClickTime === currentTime) {
+                        // No double-click occurred, process as single click
+                        this.processSingleClick(e.button, targetTerritory, worldPos);
+                    }
+                }, this.doubleClickThreshold);
+            }
+        }
+        
+        // cancel timer
+        clearTimeout(this.longPressTimer);
+        
+        this.resetDragState();
+    }
+    
+    processSingleClick(button, territory, worldPos) {
+        // Check UI elements first
+        if (this.game.handleUIClick(this.mousePos.x, this.mousePos.y)) {
+            return;
+        }
+        
+        // Skip game logic if not in playing state
+        if (this.game.gameState !== 'playing') {
+            return;
+        }
+        
+        if (button === 0) { // Left click - convert to tap event
+        if (button === 0) { // Left click
+            if (this.multiSelectedTerritories.length > 0 && territory) {
+                this.multiSelectedTerritories.forEach(src => {
+                    const attack = territory.ownerId !== this.game.humanPlayer?.id;
+                    this.game.issueFleetCommand(src, territory, 0.5, attack);
+                });
+                this.multiSelectedTerritories = [];
+                return;
+            }
+
+            // Convert to tap event for FSM
+            this.inputFSM.handleEvent('tap', {
+                territory: territory,
+                x: worldPos.x, 
+                x: worldPos.x,
+                y: worldPos.y,
+                shiftKey: false, // Single click doesn't have modifiers
+                shiftKey: false,
+                ctrlKey: false
+            });
+        } else if (button === 2) {
+            // Right-click ignored in single-button scheme
+        }
+    }
+    
+
+
+    
+    handleWheel(e) {
+        e.preventDefault();
+        
+        if (!this.game.camera) return;
+        
+        const rect = this.canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        
+        const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+        const newZoom = Math.max(0.02, Math.min(8.0, this.game.camera.targetZoom * zoomFactor));
+        this.game.camera.zoomTo(newZoom, mouseX, mouseY);
+        
+
+    }
+@@ -436,58 +479,64 @@ export class InputHandler {
+                        const territory = this.game.gameMap.territories[territoryId];
+                        if (territory && territory.isThronestar) {
+                            throneTerritory = territory;
+                            break;
+                        }
+                    }
+                    
+                    if (throneTerritory) {
+                        this.game.camera.focusOnTerritory(throneTerritory);
+                    } else {
+                        // Final fallback: focus on first territory
+                        const firstTerritory = this.game.gameMap.territories[this.game.humanPlayer.territories[0]];
+                        if (firstTerritory) {
+                            this.game.camera.focusOnTerritory(firstTerritory);
+                        }
+                    }
+                }
+                break;
+        }
+    }
+    
+    resetDragState() {
+        this.isDragging = false;
+        this.dragStartPos = null;
+        this.dragStartTime = null;
+        this.isBoxSelecting = false;
+        this.boxSelectStart = null;
+        this.boxSelectEnd = null;
+    }
+    
+    // Get current input state for game loop
+    getInputState() {
+        return {
+            mousePos: this.mousePos,
+            isDragging: this.isDragging,
+            selectedTerritory: this.inputFSM ? this.inputFSM.selectedTerritory : null,
+            selectedTerritories: this.multiSelectedTerritories,
+            boxSelectStart: this.boxSelectStart,
+            boxSelectEnd: this.boxSelectEnd,
+            currentState: this.inputFSM ? this.inputFSM.currentState : 'Default'
+        };
+    }
+
+    // Called by main game loop to handle timeouts
+    update() {
+        this.inputFSM.handleEvent('timeout');
+    }
+    
+    // Cleanup method to properly remove event listeners (fixes memory leak)
+    cleanup() {
+        // Clear any active long press timer
+        if (this.longPressTimer) {
+            clearTimeout(this.longPressTimer);
+            this.longPressTimer = null;
+        }
+        
+        // Remove all event listeners using the same bound references
+        if (this.canvas) {
+            this.canvas.removeEventListener('mousedown', this._onMouseDown);
+            this.canvas.removeEventListener('mousemove', this._onMouseMove);
+            this.canvas.removeEventListener('mouseup', this._onMouseUp);
+            this.canvas.removeEventListener('wheel', this._onWheel);
+            this.canvas.removeEventListener('contextmenu', this._onContextMenu);
+            this.canvas.removeEventListener('touchstart', this._onTouchStart);
+client/src/game/Renderer.js
++20
+-0
+
+@@ -81,50 +81,56 @@ export class Renderer {
+        
+        // Apply camera transform
+        this.ctx.save();
+        this.camera.applyTransform(this.ctx);
+        
+        // Render parallax starfield
+        this.renderStarfield();
+        
+        // Render nebulas (behind territories)
+        this.renderNebulas(gameData.gameMap);
+        
+        // Update visible territories for performance
+        this.updateVisibleTerritories(gameData.gameMap);
+        
+        // Render game objects
+        this.renderConnections(gameData.gameMap);
+        this.renderSupplyRoutes(gameData.supplyRoutes);
+        this.renderTerritories(gameData.gameMap, gameData.humanPlayer, gameData.discoveries);
+        this.renderProbes(gameData.probes, gameData.gameMap);
+        this.renderShipAnimations();
+        
+        // Render selection and drag preview
+        if (gameData.inputState?.selectedTerritory) {
+            this.renderSelection(gameData.inputState.selectedTerritory);
+        }
+        if (gameData.inputState?.selectedTerritories) {
+            gameData.inputState.selectedTerritories.forEach(t => this.renderSelection(t));
+        }
+        if (gameData.inputState?.boxSelectStart && gameData.inputState.boxSelectEnd) {
+            this.renderSelectionBox(gameData.inputState.boxSelectStart, gameData.inputState.boxSelectEnd);
+        }
+        this.renderDragPreview(gameData);
+        
+        this.ctx.restore();
+        
+        // Render UI (screen coordinates)
+        this.renderUI(gameData);
+        
+        const renderTime = performance.now() - startTime;
+        return { renderTime, visibleTerritories: this.visibleTerritories };
+    }
+    
+    renderStarfield() {
+        const viewBounds = this.camera.getViewBounds();
+        const cameraPos = this.camera.getWorldCenter();
+        
+        // Render each layer with different parallax factors
+        this.renderStarLayer(this.starLayers.far, 0.05, viewBounds, cameraPos);
+        this.renderStarLayer(this.starLayers.mid, 0.15, viewBounds, cameraPos);
+        this.renderStarLayer(this.starLayers.near, 0.30, viewBounds, cameraPos);
+    }
+    
+    renderStarLayer(stars, parallaxFactor, viewBounds, cameraPos) {
+        this.ctx.save();
+        
+        for (const star of stars) {
+@@ -673,50 +679,64 @@ export class Renderer {
+        this.ctx.globalAlpha = 0.8;
+        
+        this.ctx.beginPath();
+        this.ctx.arc(x, y, 2, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.stroke();
+        
+        this.ctx.restore();
+    }
+    
+    renderSelection(selectedTerritory) {
+        if (!selectedTerritory) return;
+        
+        this.ctx.save();
+        this.ctx.strokeStyle = '#00ffff';
+        this.ctx.lineWidth = 3;
+        this.ctx.setLineDash([5, 5]);
+        this.ctx.lineDashOffset = Date.now() * 0.01;
+        
+        this.ctx.beginPath();
+        this.ctx.arc(selectedTerritory.x, selectedTerritory.y, selectedTerritory.radius + 5, 0, Math.PI * 2);
+        this.ctx.stroke();
+        
+        this.ctx.restore();
+    }
+
+    renderSelectionBox(start, end) {
+        if (!start || !end) return;
+        this.ctx.save();
+        this.ctx.strokeStyle = '#00ffff';
+        this.ctx.lineWidth = 1;
+        this.ctx.setLineDash([4, 2]);
+        const x = Math.min(start.x, end.x);
+        const y = Math.min(start.y, end.y);
+        const w = Math.abs(end.x - start.x);
+        const h = Math.abs(end.y - start.y);
+        this.ctx.strokeRect(x, y, w, h);
+        this.ctx.restore();
+    }
+    
+    renderDragPreview(gameData) {
+        // Render proportional drag preview
+        if (gameData.isProportionalDrag && gameData.proportionalDragStart && gameData.dragEnd) {
+            this.renderProportionalDragPreview(gameData);
+        }
+    }
+    
+    renderProportionalDragPreview(gameData) {
+        const from = gameData.proportionalDragStart.territory;
+        const to = gameData.dragEnd;
+        const percentage = gameData.fleetPercentage;
+        
+        if (!from || !to) return;
+        
+        this.ctx.save();
+        
+        // Drag line
+        const lineColor = to.isColonizable ? '#ffff00' : 
+                         (to.ownerId === gameData.humanPlayer?.id ? '#00ff00' : '#ff0000');
+        
+        this.ctx.strokeStyle = lineColor;
+        this.ctx.lineWidth = 3;
+        this.ctx.setLineDash([10, 5]);
+        
+client/src/game/StarThrone.js
++2
+-1
+
+@@ -2426,63 +2426,64 @@ export default class StarThrone {
+            // Create radial gradient for cloud effect
+            const gradient = this.ctx.createRadialGradient(
+                nebula.x, nebula.y, 0,
+                nebula.x, nebula.y, nebula.radius
+            );
+            
+            gradient.addColorStop(0, `rgba(147, 51, 234, ${nebula.opacity})`);
+            gradient.addColorStop(0.5, `rgba(147, 51, 234, ${nebula.opacity * 0.6})`);
+            gradient.addColorStop(1, 'rgba(147, 51, 234, 0)');
+            
+            this.ctx.fillStyle = gradient;
+            this.ctx.beginPath();
+            this.ctx.arc(nebula.x, nebula.y, nebula.radius, 0, Math.PI * 2);
+            this.ctx.fill();
+        });
+        
+        this.ctx.restore();
+    }
+    
+    renderTerritories() {
+        this.updateVisibleTerritories();
+        
+        // Get current selected territory from input handler
+        const inputState = this.inputHandler ? this.inputHandler.getInputState() : {};
+        const selectedTerritory = inputState.selectedTerritory;
+        const selectedTerritories = inputState.selectedTerritories || [];
+        
+        // Render only visible territories
+        for (const territoryId of this.visibleTerritories) {
+            const territory = this.gameMap.territories[territoryId];
+            if (territory) {
+                territory.render(this.ctx, this.players, selectedTerritory, {
+                    humanPlayer: this.humanPlayer,
+                    homeSystemFlashStart: this.homeSystemFlashStart,
+                    homeSystemFlashDuration: this.homeSystemFlashDuration,
+                    gameMap: this.gameMap, // Include game map for fog of war logic
+                    supplySystem: this.supplySystem, // Include supply system for proper encapsulation
+                    isDisconnectedFromThrone: (territoryId) => this.isDisconnectedFromThrone(territoryId)
+                }, this.inputHandler?.hoveredTerritory);
+                }, this.inputHandler?.hoveredTerritory, selectedTerritories);
+            }
+        }
+    }
+    
+    renderConnections() {
+        this.ctx.lineWidth = 4;
+        this.ctx.globalAlpha = 0.7;
+        
+        // Cache connections to avoid duplicate rendering
+        const drawnConnections = new Set();
+        
+        // Use visible territories for optimized rendering
+        const territoriesToCheck = this.visibleTerritories && this.visibleTerritories.size > 0 
+            ? Array.from(this.visibleTerritories).map(id => this.gameMap.territories[id]).filter(t => t)
+            : Object.values(this.gameMap.territories);
+        
+        territoriesToCheck.forEach(territory => {
+            territory.neighbors.forEach(neighborId => {
+                const neighbor = this.gameMap.territories[neighborId];
+                if (!neighbor) return;
+                
+                // Create unique connection ID (smaller ID first)
+                const connectionId = territory.id < neighborId 
+                    ? `${territory.id}-${neighborId}` 
+                    : `${neighborId}-${territory.id}`;
+client/src/game/Territory.js
++3
+-2
+
+@@ -134,52 +134,53 @@ export class Territory {
+                                    console.log(`❌ SHIP FAILED: Could not create animation ${i+1}/${armiesGenerated}`);
+                                }
+                            }
+                        }
+                    } else {
+                        // Fallback to direct generation if no valid path
+                        destinationTerritory.armySize += armiesGenerated;
+                    }
+                    
+                    // Visual feedback disabled to prevent text spam on heavily reinforced territories
+                } else {
+                    // Route broken, generate locally
+                    this.armySize += armiesGenerated;
+                }
+            } else {
+                // Normal army generation
+                this.armySize += armiesGenerated;
+            }
+            
+            if (player) {
+                player.totalArmies += armiesGenerated;
+            }
+        }
+    }
+    
+    render(ctx, players, selectedTerritory, gameData, hoveredTerritory = null) {
+        const isSelected = selectedTerritory && selectedTerritory.id === this.id;
+    render(ctx, players, selectedTerritory, gameData, hoveredTerritory = null, selectedTerritories = []) {
+        const isSelected = (selectedTerritory && selectedTerritory.id === this.id) ||
+                          selectedTerritories.some(t => t.id === this.id);
+        const isHovered = hoveredTerritory && hoveredTerritory.id === this.id;
+        
+        // Determine territory color
+        let fillColor = this.neutralColor;
+        if (this.ownerId !== null && players[this.ownerId]) {
+            fillColor = players[this.ownerId].color;
+        }
+        
+        // Add home system flashing effect for human player
+        if (gameData && gameData.humanPlayer && this.ownerId === gameData.humanPlayer.id && 
+            gameData.homeSystemFlashStart && gameData.humanPlayer.territories.includes(this.id)) {
+            const currentTime = Date.now();
+            const elapsed = currentTime - gameData.homeSystemFlashStart;
+            
+            if (elapsed < gameData.homeSystemFlashDuration) {
+                // Flash every 300ms for 3 seconds
+                const flashCycle = Math.floor(elapsed / 300) % 2;
+                if (flashCycle === 1) {
+                    fillColor = '#ffffff'; // Flash to white
+                }
+            }
+        }
+        
+        // Add combat flash effect (applies to all territories including neutral)
+        const currentTime = Date.now();
