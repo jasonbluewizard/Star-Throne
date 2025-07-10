@@ -544,31 +544,12 @@ export default class StarThrone {
         button.style.fontSize = '12px';
         
         button.addEventListener('click', () => {
-            console.log('🔘 Test button clicked!');
-            console.log('🔘 humanPlayer exists:', !!this.humanPlayer);
-            console.log('🔘 floodController exists:', !!this.floodController);
-            
             if (this.humanPlayer && this.floodController) {
                 const isActive = this.floodController.isActive(this.humanPlayer);
-                console.log('🔘 Current flood mode active state:', isActive);
-                
                 this.floodController.togglePlayer(this.humanPlayer, !isActive);
-                
-                const newState = this.floodController.isActive(this.humanPlayer);
-                console.log('🔘 New flood mode active state:', newState);
-                
-                button.textContent = `F - Flood Mode (${newState ? 'ON' : 'OFF'})`;
-                button.style.backgroundColor = newState ? '#228b22' : '#333';
-                console.log('🔘 Flood mode manually toggled via test button. New state:', newState);
-                
-                // Force show/hide slider based on new state
-                if (newState) {
-                    this.floodController.showSlider(this.humanPlayer);
-                } else {
-                    this.floodController.hideSlider();
-                }
-            } else {
-                console.error('🔘 Cannot toggle flood mode - missing humanPlayer or floodController');
+                button.textContent = `F - Flood Mode (${isActive ? 'OFF' : 'ON'})`;
+                button.style.backgroundColor = isActive ? '#333' : '#228b22';
+                console.log('Flood mode manually toggled via test button:', !isActive);
             }
         });
         
