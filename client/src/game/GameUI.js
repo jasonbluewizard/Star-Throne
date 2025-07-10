@@ -629,7 +629,7 @@ export class GameUI {
         const titleHeight = 25;
         const techHeight = 70; // Space for tech levels in two columns
         const height = titleHeight + techHeight + padding * 2;
-        const y = this.canvas.height - height - 20; // Bottom left positioning
+        const y = 20; // Upper left positioning
         
         // Background with transparency
         ctx.fillStyle = 'rgba(0, 20, 40, 0.9)';
