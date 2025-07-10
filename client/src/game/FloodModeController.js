@@ -31,7 +31,8 @@ export default class FloodModeController {
     }
 
     showSlider(player) {
-        if (document.getElementById('flood-slider')) return;
+        // Remove any existing slider first
+        this.hideSlider();
         
         // Create container for flood mode controls
         const container = document.createElement('div');
@@ -39,19 +40,41 @@ export default class FloodModeController {
         container.style.position = 'fixed';
         container.style.bottom = '10px';
         container.style.left = '10px';
-        container.style.zIndex = '1000';
-        container.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
-        container.style.padding = '10px';
-        container.style.borderRadius = '5px';
+        container.style.zIndex = '10000';
+        container.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
+        container.style.padding = '15px';
+        container.style.borderRadius = '8px';
+        container.style.border = '2px solid #44ff44';
         container.style.color = 'white';
         container.style.fontFamily = 'Arial, sans-serif';
-        container.style.fontSize = '12px';
+        container.style.fontSize = '14px';
+        container.style.fontWeight = 'bold';
+        container.style.minWidth = '200px';
         
-        // Create label
-        const label = document.createElement('div');
-        label.textContent = 'Flood Mode Aggression:';
-        label.style.marginBottom = '5px';
-        container.appendChild(label);
+        // Create title
+        const title = document.createElement('div');
+        title.textContent = '🌊 FLOOD MODE ACTIVE';
+        title.style.marginBottom = '10px';
+        title.style.textAlign = 'center';
+        title.style.color = '#44ff44';
+        container.appendChild(title);
+        
+        // Create aggression label and value
+        const aggressionRow = document.createElement('div');
+        aggressionRow.style.marginBottom = '8px';
+        
+        const label = document.createElement('span');
+        label.textContent = 'Aggression: ';
+        aggressionRow.appendChild(label);
+        
+        const valueDisplay = document.createElement('span');
+        valueDisplay.id = 'flood-value';
+        valueDisplay.textContent = this.aggression[player.id] || 5;
+        valueDisplay.style.color = '#ffff44';
+        valueDisplay.style.fontWeight = 'bold';
+        aggressionRow.appendChild(valueDisplay);
+        
+        container.appendChild(aggressionRow);
         
         // Create slider
         const slider = document.createElement('input');
@@ -60,35 +83,24 @@ export default class FloodModeController {
         slider.max = '10';
         slider.value = this.aggression[player.id] || 5;
         slider.id = 'flood-slider';
-        slider.style.width = '150px';
+        slider.style.width = '100%';
+        slider.style.marginBottom = '10px';
         container.appendChild(slider);
         
-        // Create value display
-        const valueDisplay = document.createElement('span');
-        valueDisplay.id = 'flood-value';
-        valueDisplay.textContent = ` ${slider.value}`;
-        valueDisplay.style.marginLeft = '10px';
-        container.appendChild(valueDisplay);
-        
-        // Add test button to toggle flood mode
-        const testButton = document.createElement('button');
-        testButton.textContent = 'OFF - Click to Toggle';
-        testButton.style.marginTop = '10px';
-        testButton.style.padding = '5px 10px';
-        testButton.style.display = 'block';
-        testButton.style.width = '100%';
-        testButton.addEventListener('click', () => {
-            const isActive = this.isActive(player);
-            this.togglePlayer(player, !isActive);
-            testButton.textContent = isActive ? 'OFF - Click to Toggle' : 'ON - Click to Toggle';
-        });
-        container.appendChild(testButton);
+        // Create instructions
+        const instructions = document.createElement('div');
+        instructions.style.fontSize = '11px';
+        instructions.style.color = '#cccccc';
+        instructions.style.textAlign = 'center';
+        instructions.innerHTML = 'Press F to toggle<br/>Use G to control gates';
+        container.appendChild(instructions);
         
         document.body.appendChild(container);
         
         slider.addEventListener('input', () => {
-            this.setAggression(player, parseInt(slider.value, 10));
-            valueDisplay.textContent = ` ${slider.value}`;
+            const newValue = parseInt(slider.value, 10);
+            this.setAggression(player, newValue);
+            valueDisplay.textContent = newValue;
         });
         
         console.log('Flood mode slider created and shown');
