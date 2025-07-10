@@ -51,6 +51,9 @@ export class InputHandler {
             lastPanTime: 0
         };
         
+        // Gate toggle mode for flood controller
+        this.gateToggleMode = false;
+        
         // Initialize FSM
         this.inputFSM = new InputStateMachine(game);
         
@@ -229,7 +232,31 @@ export class InputHandler {
             return;
         }
         
-        if (button === 0) { // Left click - convert to tap event
+        if (button === 0) { // Left click
+            // Check if we're in gate toggle mode
+            if (this.gateToggleMode && territory) {
+                const selectedState = this.inputFSM.getState();
+                if (selectedState.selectedTerritory && selectedState.selectedTerritory.id !== territory.id) {
+                    // Check if territories are neighbors
+                    const fromTerritory = selectedState.selectedTerritory;
+                    if (fromTerritory.neighbors && fromTerritory.neighbors.includes(territory.id)) {
+                        // Toggle the gate
+                        this.game.floodController.toggleGate(this.game.humanPlayer, fromTerritory.id, territory.id);
+                        const isClosed = this.game.floodController.isGateClosed(this.game.humanPlayer, fromTerritory.id, territory.id);
+                        this.game.addNotification(
+                            `Gate ${isClosed ? 'CLOSED' : 'OPENED'} between ${fromTerritory.id} and ${territory.id}`,
+                            isClosed ? '#ff4444' : '#44ff44',
+                            2000
+                        );
+                    } else {
+                        this.game.addNotification("Territories are not connected!", '#ff4444', 2000);
+                    }
+                    this.gateToggleMode = false;
+                    return;
+                }
+            }
+            
+            // Normal left click handling
             this.inputFSM.handleEvent('tap', {
                 territory: territory,
                 x: worldPos.x, 
@@ -456,6 +483,17 @@ export class InputHandler {
                 // F key - Toggle flood mode for human player
                 if (this.game.humanPlayer && this.game.floodController) {
                     this.game.floodController.togglePlayer(this.game.humanPlayer);
+                }
+                break;
+            case 'g':
+            case 'G':
+                // G key - Toggle gate on selected warp lane (when territory is selected)
+                const selectedState = this.inputFSM.getState();
+                if (selectedState.selectedTerritory && this.game.humanPlayer && this.game.floodController) {
+                    // Show instruction to click a neighboring territory to toggle gate
+                    this.game.addNotification("Click a neighboring territory to toggle gate", '#ffff00', 3000);
+                    this.gateToggleMode = true;
+                    setTimeout(() => { this.gateToggleMode = false; }, 5000); // 5 second timeout
                 }
                 break;
         }

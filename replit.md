@@ -506,6 +506,16 @@ Changelog:
   * Optimized viewport culling system: removed incremental processing for smoother rendering on 500-territory maps
   * Enhanced camera zoom margin from 10% to 30% for complete galaxy visibility without edge clipping
   * Removed confusing points system from final leaderboard - now shows only territories controlled for cleaner results
+- January 10, 2025. Complete FloodModeController integration and gate control system:
+  * Fully integrated FloodModeController system into StarThrone with F key binding for flood mode toggle
+  * Added aggression level slider (1-10) appearing when flood mode is activated for strategic expansion control
+  * Implemented G key gate toggle system: select territory, press G, click neighbor to open/close warp gates
+  * Added comprehensive gate control functionality preventing flood mode expansion through closed gates
+  * Fixed WebSocket connection issue with dynamic port handling for proper multiplayer functionality
+  * Enhanced notification system with color-coded gate status messages (red=closed, green=opened)
+  * Complete automated expansion system: territories automatically attack neighbors based on aggression settings
+  * Strategic gate controls allow players to direct expansion along preferred warp lane routes
+  * Flood mode respects closed gates, providing precise control over territorial expansion patterns
 - January 1, 2025. Strategic camera system implementation (Supreme Commander-style):
   * Enhanced strategic zoom range: extreme zoom-out (0.05x) to tactical close-up (8.0x) for galaxy-wide view
   * Implemented inertial panning with smooth momentum and friction for natural camera movement
