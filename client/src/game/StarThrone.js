@@ -3046,9 +3046,6 @@ export default class StarThrone {
         
         this.ctx.restore();
         
-        // Render box selection in screen coordinates
-        this.renderBoxSelection();
-        
         // Floating discovery texts disabled - using top-center UI notifications instead
         // this.renderFloatingDiscoveryTexts();
         
@@ -3123,33 +3120,6 @@ export default class StarThrone {
         if (this.discoverySystem) {
             this.discoverySystem.renderTopDiscoveryBar(this.ctx);
         }
-    }
-    
-    renderBoxSelection() {
-        if (!this.inputHandler || !this.inputHandler.isBoxSelecting || 
-            !this.inputHandler.boxSelectStart || !this.inputHandler.boxSelectEnd) {
-            return;
-        }
-        
-        this.ctx.save();
-        
-        const startX = Math.min(this.inputHandler.boxSelectStart.x, this.inputHandler.boxSelectEnd.x);
-        const startY = Math.min(this.inputHandler.boxSelectStart.y, this.inputHandler.boxSelectEnd.y);
-        const width = Math.abs(this.inputHandler.boxSelectEnd.x - this.inputHandler.boxSelectStart.x);
-        const height = Math.abs(this.inputHandler.boxSelectEnd.y - this.inputHandler.boxSelectStart.y);
-        
-        // Semi-transparent fill
-        this.ctx.fillStyle = 'rgba(0, 255, 255, 0.1)';
-        this.ctx.fillRect(startX, startY, width, height);
-        
-        // Dashed border
-        this.ctx.strokeStyle = '#00ffff';
-        this.ctx.lineWidth = 2;
-        this.ctx.setLineDash([5, 5]);
-        this.ctx.lineDashOffset = Date.now() * 0.01;
-        this.ctx.strokeRect(startX, startY, width, height);
-        
-        this.ctx.restore();
     }
     
     // Input handling methods - REMOVED: Mouse handlers moved to InputHandler.js to prevent conflicts

@@ -32,12 +32,6 @@ export class InputHandler {
         this.dragStartPos = null;
         this.dragStartTime = null;
         
-        // Box selection state
-        this.isBoxSelecting = false;
-        this.boxSelectStart = null;
-        this.boxSelectEnd = null;
-        this.multiSelectedTerritories = [];
-        
         // Double-click handling for supply routes
         this.lastClickTime = 0;
         this.lastClickedTerritory = null;
@@ -144,8 +138,8 @@ export class InputHandler {
             y: e.clientY - rect.top
         };
         
-        // Check for drag threshold
-        if (this.dragStartPos && !this.isDragging && !this.isBoxSelecting) {
+        // Check for camera drag threshold
+        if (this.dragStartPos && !this.isDragging) {
             const dragDistance = Math.sqrt(
                 Math.pow(newMousePos.x - this.dragStartPos.x, 2) + 
                 Math.pow(newMousePos.y - this.dragStartPos.y, 2)
@@ -153,9 +147,6 @@ export class InputHandler {
             
             if (dragDistance > 10) {
                 this.isDragging = true;
-                this.isBoxSelecting = true;
-                this.boxSelectStart = { ...this.dragStartPos };
-                this.boxSelectEnd = { ...newMousePos };
                 // cancel long‑press timers when starting to drag
                 clearTimeout(this.longPressSelectionTimer);
                 clearTimeout(this.longPressSupplyTimer);
@@ -164,14 +155,10 @@ export class InputHandler {
         }
         
         // Handle camera panning
-        if (this.isDragging && !this.isBoxSelecting) {
+        if (this.isDragging) {
             const deltaX = newMousePos.x - this.lastMousePos.x;
             const deltaY = newMousePos.y - this.lastMousePos.y;
             this.game.camera.pan(-deltaX, -deltaY);
-        }
-
-        if (this.isBoxSelecting) {
-            this.boxSelectEnd = { ...newMousePos };
         }
         
         // Update edge panning
@@ -193,26 +180,12 @@ export class InputHandler {
         this.hasTriggeredSelection = false;
         
         const clickDuration = Date.now() - (this.dragStartTime || 0);
-        const wasQuickClick = clickDuration < 300 && !this.isBoxSelecting && !this.isDragging;
+        const wasQuickClick = clickDuration < 300 && !this.isDragging;
         
         const worldPos = this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
         const targetTerritory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
         
-        if (this.isBoxSelecting) {
-            // Finalize box selection
-            if (this.boxSelectStart && this.boxSelectEnd) {
-                const startWorld = this.game.camera.screenToWorld(this.boxSelectStart.x, this.boxSelectStart.y);
-                const endWorld = this.game.camera.screenToWorld(this.boxSelectEnd.x, this.boxSelectEnd.y);
-                const minX = Math.min(startWorld.x, endWorld.x);
-                const maxX = Math.max(startWorld.x, endWorld.x);
-                const minY = Math.min(startWorld.y, endWorld.y);
-                const maxY = Math.max(startWorld.y, endWorld.y);
-
-                this.multiSelectedTerritories = this.game.humanPlayer.territories
-                    .map(id => this.game.gameMap.territories[id])
-                    .filter(t => t.x >= minX && t.x <= maxX && t.y >= minY && t.y <= maxY);
-            }
-        } else if (wasQuickClick) {
+        if (wasQuickClick) {
             const currentTime = Date.now();
             
             // Check for double-click for supply routes (can be same or different territory)
@@ -248,7 +221,10 @@ export class InputHandler {
             }
         }
         
-        this.resetDragState();
+        // Reset drag state
+        this.isDragging = false;
+        this.dragStartPos = null;
+        this.dragStartTime = null;
     }
     
     processSingleClick(button, territory, worldPos) {
@@ -530,9 +506,6 @@ export class InputHandler {
     
     resetDragState() {
         this.isDragging = false;
-        this.isBoxSelecting = false;
-        this.boxSelectStart = null;
-        this.boxSelectEnd = null;
         this.dragStartPos = null;
         this.dragStartTime = null;
     }

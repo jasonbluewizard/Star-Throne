@@ -104,7 +104,6 @@ export class Renderer {
             this.renderSelection(gameData.inputState.selectedTerritory);
         }
         this.renderDragPreview(gameData);
-        this.renderBoxSelection(gameData.inputHandler);
         
         this.ctx.restore();
         
@@ -702,35 +701,6 @@ export class Renderer {
         if (gameData.isProportionalDrag && gameData.proportionalDragStart && gameData.dragEnd) {
             this.renderProportionalDragPreview(gameData);
         }
-    }
-    
-    renderBoxSelection(inputHandler) {
-        if (!inputHandler || !inputHandler.isBoxSelecting || !inputHandler.boxSelectStart || !inputHandler.boxSelectEnd) {
-            return;
-        }
-        
-        this.ctx.save();
-        
-        // Draw selection rectangle in screen coordinates (not world coordinates)
-        this.ctx.resetTransform();
-        
-        const startX = Math.min(inputHandler.boxSelectStart.x, inputHandler.boxSelectEnd.x);
-        const startY = Math.min(inputHandler.boxSelectStart.y, inputHandler.boxSelectEnd.y);
-        const width = Math.abs(inputHandler.boxSelectEnd.x - inputHandler.boxSelectStart.x);
-        const height = Math.abs(inputHandler.boxSelectEnd.y - inputHandler.boxSelectStart.y);
-        
-        // Semi-transparent fill
-        this.ctx.fillStyle = 'rgba(0, 255, 255, 0.1)';
-        this.ctx.fillRect(startX, startY, width, height);
-        
-        // Dashed border
-        this.ctx.strokeStyle = '#00ffff';
-        this.ctx.lineWidth = 2;
-        this.ctx.setLineDash([5, 5]);
-        this.ctx.lineDashOffset = Date.now() * 0.01;
-        this.ctx.strokeRect(startX, startY, width, height);
-        
-        this.ctx.restore();
     }
     
     renderProportionalDragPreview(gameData) {
