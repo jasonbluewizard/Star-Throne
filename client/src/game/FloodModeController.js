@@ -22,11 +22,11 @@ export default class FloodModeController {
             if (!this.aggression[id]) this.aggression[id] = 5;
             if (!this.noGoZones[id]) this.noGoZones[id] = new Set();
             if (player.type === 'human') this.showSlider(player);
-            this.game.addNotification(`Flood Mode ON (${player.name})`, '#44ff44');
+            this.game.showMessage(`Flood Mode ON (${player.name})`, 3000);
         } else {
             this.activePlayers.delete(id);
             if (player.type === 'human') this.hideSlider();
-            this.game.addNotification(`Flood Mode OFF (${player.name})`, '#ff4444');
+            this.game.showMessage(`Flood Mode OFF (${player.name})`, 3000);
         }
     }
 
@@ -68,6 +68,8 @@ export default class FloodModeController {
     }
 
     showSlider(player) {
+        console.log('🎛️ showSlider called for player:', player?.name, 'ID:', player?.id);
+        
         // Remove any existing slider first
         this.hideSlider();
         
@@ -140,7 +142,9 @@ export default class FloodModeController {
             valueDisplay.textContent = newValue;
         });
         
-        console.log('Flood mode slider created and shown');
+        console.log('✅ Flood mode slider created and appended to document.body');
+        console.log('📱 Container element:', container);
+        console.log('🎛️ Slider element:', slider);
     }
 
     hideSlider() {
