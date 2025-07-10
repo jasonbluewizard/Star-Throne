@@ -51,7 +51,7 @@ export class GameEngine {
         neighbors: [],
         hiddenNeighbors: [],
         isColonizable: true,
-        hiddenArmySize: Math.floor(Math.random() * 50) + 1,
+        hiddenArmySize: Math.floor(Math.random() * 25) + 1,
         lastCombatFlash: 0
       };
       

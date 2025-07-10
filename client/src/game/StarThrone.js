@@ -3324,6 +3324,17 @@ export default class StarThrone {
             return true;
         }
         
+        // Check for AI flood mode button click
+        if (this.ui && this.ui.aiFloodButton) {
+            const button = this.ui.aiFloodButton;
+            
+            if (screenX >= button.x && screenX <= button.x + button.width &&
+                screenY >= button.y && screenY <= button.y + button.height) {
+                this.toggleAIFloodMode();
+                return true;
+            }
+        }
+        
         // Zoom controls removed - using mousewheel only
         
         return false; // No UI element was clicked
@@ -4070,6 +4081,19 @@ export default class StarThrone {
             console.log(`Double-click: Supply route created from ${fromTerritory.id} to ${toTerritory.id}`);
         } else {
             console.log('Double-click: Territories not connected by owned star lanes for supply route');
+        }
+    }
+    
+    toggleAIFloodMode() {
+        if (this.floodController) {
+            this.floodController.toggleAIFloodMode();
+            const status = this.floodController.aiFloodModeEnabled ? 'ENABLED' : 'DISABLED';
+            this.addNotification(
+                `AI Flood Mode ${status}`,
+                this.floodController.aiFloodModeEnabled ? '#44ff44' : '#ff4444',
+                3000
+            );
+            console.log(`AI Flood Mode ${status}`);
         }
     }
     

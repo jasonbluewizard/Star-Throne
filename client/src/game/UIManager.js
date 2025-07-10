@@ -98,12 +98,12 @@ export class UIManager {
         
         ctx.save();
         
-        // Separate flood mode messages from other notifications
+        // Separate flood mode messages from other notifications (excluding NO GO messages)
         const floodModeMessages = this.notifications.filter(n => 
-            n.text.includes('Flood Mode') || n.text.includes('NO GO') || n.text.includes('REINFORCEMENTS ROUTED')
+            n.text.includes('Flood Mode') || n.text.includes('REINFORCEMENTS ROUTED')
         );
         const otherNotifications = this.notifications.filter(n => 
-            !n.text.includes('Flood Mode') && !n.text.includes('NO GO') && !n.text.includes('REINFORCEMENTS ROUTED')
+            !n.text.includes('Flood Mode') && !n.text.includes('REINFORCEMENTS ROUTED') && !n.text.includes('NO GO')
         );
         
         // Render other notifications in top center (original behavior)

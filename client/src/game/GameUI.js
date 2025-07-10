@@ -136,6 +136,9 @@ export class GameUI {
             this.renderLeaderboard(ctx, gameData);
         }
         
+        // AI Flood Mode toggle button
+        this.renderAIFloodModeButton(ctx, gameData);
+        
         // All UI panels removed for minimal clean interface
         
         // Minimap (minimizable)
@@ -237,6 +240,52 @@ export class GameUI {
         this.restartButton = {
             x: buttonX,
             y: buttonY,
+            width: buttonWidth,
+            height: buttonHeight
+        };
+    }
+    
+    renderAIFloodModeButton(ctx, gameData) {
+        // Only show button during gameplay
+        if (gameData.gameState !== 'playing') return;
+        
+        // Button dimensions and position (top right corner)
+        const buttonWidth = 180;
+        const buttonHeight = 35;
+        const margin = 20;
+        const x = this.canvas.width - buttonWidth - margin;
+        const y = margin;
+        
+        // Get AI player count
+        const aiPlayers = Object.values(gameData.players).filter(p => p.type === 'ai' && !p.isEliminated);
+        const activeAIFloodCount = aiPlayers.filter(p => gameData.floodController?.isActive(p)).length;
+        
+        // Button color based on state
+        const isActive = activeAIFloodCount > 0;
+        const buttonColor = isActive ? '#228b22' : '#555555';
+        const textColor = isActive ? '#ffffff' : '#cccccc';
+        
+        // Button background
+        ctx.fillStyle = buttonColor;
+        ctx.fillRect(x, y, buttonWidth, buttonHeight);
+        
+        // Button border
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, buttonWidth, buttonHeight);
+        
+        // Button text
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        const buttonText = `AI Flood (${activeAIFloodCount}/${aiPlayers.length})`;
+        this.renderTextWithShadow(ctx, buttonText, x + buttonWidth/2, y + buttonHeight/2, textColor);
+        
+        // Store button area for click detection
+        this.aiFloodButton = {
+            x: x,
+            y: y,
             width: buttonWidth,
             height: buttonHeight
         };

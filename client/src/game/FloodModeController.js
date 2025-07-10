@@ -30,6 +30,43 @@ export default class FloodModeController {
         }
     }
 
+    // Add AI flood mode property and toggle method
+    get aiFloodModeEnabled() {
+        return this._aiFloodModeEnabled || false;
+    }
+
+    toggleAIFloodMode() {
+        this._aiFloodModeEnabled = !this._aiFloodModeEnabled;
+        
+        if (!this.game.players) return;
+        
+        const aiPlayers = this.game.players.filter(p => p.type === 'ai' && !p.isEliminated);
+        
+        if (this._aiFloodModeEnabled) {
+            // Enable flood mode for all AI players
+            aiPlayers.forEach(player => {
+                this.activePlayers.add(player.id);
+                if (!this.aggression[player.id]) this.aggression[player.id] = 5;
+                if (!this.noGoZones[player.id]) this.noGoZones[player.id] = new Set();
+            });
+            
+            if (aiPlayers.length > 0) {
+                this.game.addNotification(`AI Flood Mode ENABLED for ${aiPlayers.length} AI players`, '#44ff44', 3000);
+            }
+        } else {
+            // Disable flood mode for all AI players
+            aiPlayers.forEach(player => {
+                this.activePlayers.delete(player.id);
+            });
+            
+            if (aiPlayers.length > 0) {
+                this.game.addNotification(`AI Flood Mode DISABLED for ${aiPlayers.length} AI players`, '#ff4444', 3000);
+            }
+        }
+        
+        console.log(`AI Flood Mode ${this._aiFloodModeEnabled ? 'ENABLED' : 'DISABLED'} for ${aiPlayers.length} AI players`);
+    }
+
     showSlider(player) {
         // Remove any existing slider first
         this.hideSlider();
