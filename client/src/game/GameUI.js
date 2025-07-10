@@ -136,7 +136,10 @@ export class GameUI {
             this.renderLeaderboard(ctx, gameData);
         }
         
-        // AI Flood Mode toggle button
+        // Discovery panel in upper left corner
+        this.renderDiscoveryPanel(ctx, gameData);
+        
+        // AI Flood Mode toggle button in right side
         this.renderAIFloodModeButton(ctx, gameData);
         
         // All UI panels removed for minimal clean interface
@@ -145,9 +148,6 @@ export class GameUI {
         if (this.showMinimap) {
             this.renderMinimap(ctx, gameData);
         }
-        
-        // Discovery panel showing empire bonuses
-        this.renderDiscoveryPanel(ctx, gameData);
         
         // Performance panel (togglable with P key)
         this.renderPerformanceInfo(ctx, gameData);

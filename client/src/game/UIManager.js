@@ -152,26 +152,17 @@ export class UIManager {
                 
                 ctx.globalAlpha = notification.opacity;
                 
-                // Measure text for background sizing
-                const textWidth = ctx.measureText(notification.text).width;
-                const padding = 10;
-                
                 // Background
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-                ctx.fillRect(x - textWidth - padding, y - 12, textWidth + padding * 2, 24);
-                
-                // Border for flood mode messages
-                ctx.strokeStyle = notification.color;
-                ctx.lineWidth = 2;
-                ctx.strokeRect(x - textWidth - padding, y - 12, textWidth + padding * 2, 24);
+                ctx.fillStyle = 'rgba(0, 0, 40, 0.8)';
+                ctx.fillRect(x - 300, y - 12, 280, 24);
                 
                 // Text with shadow
                 ctx.strokeStyle = '#000000';
                 ctx.lineWidth = 3;
-                ctx.strokeText(notification.text, x - padding, y);
+                ctx.strokeText(notification.text, x - 10, y);
                 
                 ctx.fillStyle = notification.color;
-                ctx.fillText(notification.text, x - padding, y);
+                ctx.fillText(notification.text, x - 10, y);
             }
         }
         

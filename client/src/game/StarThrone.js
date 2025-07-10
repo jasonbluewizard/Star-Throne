@@ -3330,7 +3330,13 @@ export default class StarThrone {
             
             if (screenX >= button.x && screenX <= button.x + button.width &&
                 screenY >= button.y && screenY <= button.y + button.height) {
-                this.toggleAIFloodMode();
+                // Toggle all AI players flood mode
+                if (this.floodController) {
+                    this.floodController.toggleAIFloodMode();
+                    console.log('AI Flood Mode toggled via UI button click');
+                } else {
+                    console.log('FloodController not available');
+                }
                 return true;
             }
         }

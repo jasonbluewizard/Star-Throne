@@ -61,6 +61,8 @@ export class InputHandler {
     }
     
     setupEventListeners() {
+        console.log('🎛️ Setting up InputHandler event listeners...');
+        
         // Mouse events using bound handlers
         this.canvas.addEventListener('mousedown', this._onMouseDown);
         this.canvas.addEventListener('mousemove', this._onMouseMove);
@@ -74,8 +76,14 @@ export class InputHandler {
         this.canvas.addEventListener('touchend', this._onTouchEnd);
         this.canvas.addEventListener('touchcancel', this._onTouchEnd);
         
-        // Keyboard events using bound handlers
+        // Keyboard events using bound handlers - with debugging
         document.addEventListener('keydown', this._onKeyDown);
+        console.log('✅ Keyboard event listener added to document');
+        
+        // Test if canvas can receive focus
+        this.canvas.tabIndex = 0; // Make canvas focusable
+        this.canvas.focus(); // Try to focus it
+        console.log('🎯 Canvas focused for keyboard events');
     }
     
     handleMouseDown(e) {
