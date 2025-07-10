@@ -77,6 +77,9 @@ export default class MapGenerator {
     // Map dimensions (set after generation)
     static mapWidth = 0;
     static mapHeight = 0;
+    // Target dimensions (set by GameMap before generation)
+    static targetWidth = 0;
+    static targetHeight = 0;
     
     /**
      * Generate a map with specified parameters
@@ -662,8 +665,8 @@ export default class MapGenerator {
      */
     static calculateMapDimensions(points) {
         if (points.length === 0) {
-            this.mapWidth = 2000;
-            this.mapHeight = 1500;
+            this.mapWidth = this.targetWidth || 2000;
+            this.mapHeight = this.targetHeight || 1500;
             return;
         }
         
@@ -675,21 +678,51 @@ export default class MapGenerator {
         const minY = Math.min(...ys);
         const maxY = Math.max(...ys);
         
-        // Normalize all points to start from origin with proper margin
-        const margin = 200;
-        const offsetX = minX - margin;
-        const offsetY = minY - margin;
-        
-        // Shift all points to start from margin offset
-        for (const point of points) {
-            point.x -= offsetX;
-            point.y -= offsetY;
+        // If target dimensions are set, scale to fit them instead of calculating from points
+        if (this.targetWidth && this.targetHeight) {
+            const margin = 200;
+            
+            // Calculate current map dimensions
+            const currentWidth = maxX - minX;
+            const currentHeight = maxY - minY;
+            
+            // Calculate scale factors to fit target dimensions
+            const scaleX = (this.targetWidth - margin * 2) / currentWidth;
+            const scaleY = (this.targetHeight - margin * 2) / currentHeight;
+            
+            // Use the smaller scale to maintain aspect ratio
+            const scale = Math.min(scaleX, scaleY);
+            
+            // Normalize and scale all points to target dimensions
+            const offsetX = minX;
+            const offsetY = minY;
+            
+            for (const point of points) {
+                // Normalize to origin, scale, then position with margin
+                point.x = ((point.x - offsetX) * scale) + margin;
+                point.y = ((point.y - offsetY) * scale) + margin;
+            }
+            
+            this.mapWidth = this.targetWidth;
+            this.mapHeight = this.targetHeight;
+            
+            console.log(`📐 Scaled map to target dimensions: ${this.mapWidth} x ${this.mapHeight} (scale: ${scale.toFixed(2)})`);
+        } else {
+            // Original normalization behavior
+            const margin = 200;
+            const offsetX = minX - margin;
+            const offsetY = minY - margin;
+            
+            for (const point of points) {
+                point.x -= offsetX;
+                point.y -= offsetY;
+            }
+            
+            this.mapWidth = maxX - minX + margin * 2;
+            this.mapHeight = maxY - minY + margin * 2;
+            
+            console.log(`📐 Map dimensions: ${this.mapWidth} x ${this.mapHeight} (normalized from ${minX}-${maxX}, ${minY}-${maxY})`);
         }
-        
-        this.mapWidth = maxX - minX + margin * 2;
-        this.mapHeight = maxY - minY + margin * 2;
-        
-        console.log(`📐 Map dimensions: ${this.mapWidth} x ${this.mapHeight} (normalized from ${minX}-${maxX}, ${minY}-${maxY})`);
     }
     
     /**

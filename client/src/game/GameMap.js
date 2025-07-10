@@ -86,12 +86,15 @@ export class GameMap {
     generateTerritories(count) {
         console.log(`🌌 Generating ${count} territories using advanced ${this.layout} layout...`);
         
+        // Set target dimensions for MapGenerator to use our expanded size
+        MapGenerator.targetWidth = this.width;
+        MapGenerator.targetHeight = this.height;
+        
         // Use the advanced MapGenerator for sophisticated galaxy layouts
         const generatedTerritories = MapGenerator.generateMap(count, this.layout, 20); // Assume 20 players for cluster generation
         
-        // Update map dimensions from MapGenerator
-        this.width = MapGenerator.mapWidth;
-        this.height = MapGenerator.mapHeight;
+        // Keep our expanded dimensions (don't overwrite with MapGenerator's)
+        console.log(`📐 Using expanded map dimensions: ${this.width} x ${this.height}`);
         
         // Convert generated territories to our game format - ALL have neutral garrisons
         generatedTerritories.forEach((territory, index) => {
