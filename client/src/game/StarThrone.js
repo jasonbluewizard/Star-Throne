@@ -3896,7 +3896,7 @@ export default class StarThrone {
                 
                 // Apply incremental zoom change with dramatic sensitivity
                 const zoomMultiplier = 1 + (distanceRatio - 1) * 1.5; // Dramatic scaling for responsive zoom
-                const newZoom = Math.max(0.5, Math.min(3.0, this.camera.zoom * zoomMultiplier));
+                const newZoom = Math.max(0.02, Math.min(8.0, this.camera.zoom * zoomMultiplier));
                 
                 // Calculate zoom center between the two fingers
                 const centerX = ((touch1.clientX + touch2.clientX) / 2) - rect.left;

@@ -7,7 +7,7 @@ export class Camera {
         this.viewportHeight = viewportHeight;
         
         // Strategic zoom constraints - Supreme Commander style
-        this.minZoom = 0.05;  // Allow extreme zoom out to see entire galaxy
+        this.minZoom = 0.02;  // Allow extreme zoom out to see entire galaxy
         this.maxZoom = 8.0;   // Allow tactical close-up
         
         // Smooth movement with inertial panning

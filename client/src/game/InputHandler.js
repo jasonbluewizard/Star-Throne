@@ -255,7 +255,7 @@ export class InputHandler {
         const mouseY = e.clientY - rect.top;
         
         const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-        const newZoom = Math.max(0.1, Math.min(3.0, this.game.camera.targetZoom * zoomFactor));
+        const newZoom = Math.max(0.02, Math.min(8.0, this.game.camera.targetZoom * zoomFactor));
         this.game.camera.zoomTo(newZoom, mouseX, mouseY);
         
 
