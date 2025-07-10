@@ -484,10 +484,12 @@ export default class MapGenerator {
                 points[i].x += forces[i].x;
                 points[i].y += forces[i].y;
                 
-                // Keep points within bounds with margin
+                // Keep points within bounds with margin - use target dimensions if available
                 const margin = 50;
-                points[i].x = Math.max(margin, Math.min(2800 - margin, points[i].x));
-                points[i].y = Math.max(margin, Math.min(2100 - margin, points[i].y));
+                const maxX = this.targetWidth ? this.targetWidth - margin : 2800 - margin;
+                const maxY = this.targetHeight ? this.targetHeight - margin : 2100 - margin;
+                points[i].x = Math.max(margin, Math.min(maxX, points[i].x));
+                points[i].y = Math.max(margin, Math.min(maxY, points[i].y));
             }
         }
     }

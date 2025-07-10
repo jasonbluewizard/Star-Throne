@@ -1,0 +1,314 @@
+client/src/components/GameConfigScreen.tsx
++1
+-1
+
+@@ -106,51 +106,51 @@ export function GameConfigScreen({ onStartGame, onBack }: GameConfigScreenProps)
+        
+        <CardContent className="space-y-6">
+          {/* Player Name */}
+          <div className="space-y-2">
+            <Label htmlFor="playerName" className="text-white">Player Name</Label>
+            <input
+              id="playerName"
+              type="text"
+              value={playerName}
+              onChange={(e) => setPlayerName(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter your name"
+              maxLength={20}
+            />
+          </div>
+
+          {/* Map Size */}
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <Label className="text-white">Map Size</Label>
+              <span className="text-cyan-400 font-mono">{mapSize[0]} territories</span>
+            </div>
+            <Slider
+              value={mapSize}
+              onValueChange={setMapSize}
+              max={200}
+              max={500}
+              min={30}
+              step={10}
+              className="w-full"
+            />
+            <p className="text-sm text-gray-400">{getMapDescription(mapSize[0])}</p>
+          </div>
+
+          {/* AI Player Count */}
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <Label className="text-white">AI Players</Label>
+              <span className="text-cyan-400 font-mono">{aiPlayerCount[0]} opponents</span>
+            </div>
+            <Slider
+              value={aiPlayerCount}
+              onValueChange={setAiPlayerCount}
+              max={99}
+              min={5}
+              step={1}
+              className="w-full"
+            />
+            <p className="text-sm text-gray-400">{getAIDescription(aiPlayerCount[0])}</p>
+          </div>
+
+          {/* Game Speed */}
+client/src/game/Camera.js
++4
+-3
+
+@@ -117,55 +117,56 @@ export class Camera {
+        let edgePanY = 0;
+        
+        // Check edges and calculate pan direction
+        if (mouseX < this.edgePanBorder) {
+            edgePanX = -this.edgePanSpeed * (1 - mouseX / this.edgePanBorder);
+        } else if (mouseX > this.viewportWidth - this.edgePanBorder) {
+            edgePanX = this.edgePanSpeed * ((mouseX - (this.viewportWidth - this.edgePanBorder)) / this.edgePanBorder);
+        }
+        
+        if (mouseY < this.edgePanBorder) {
+            edgePanY = -this.edgePanSpeed * (1 - mouseY / this.edgePanBorder);
+        } else if (mouseY > this.viewportHeight - this.edgePanBorder) {
+            edgePanY = this.edgePanSpeed * ((mouseY - (this.viewportHeight - this.edgePanBorder)) / this.edgePanBorder);
+        }
+        
+        if (edgePanX !== 0 || edgePanY !== 0) {
+            const deltaTimeSec = deltaTime / 1000;
+            this.targetX += edgePanX * deltaTimeSec / this.zoom;
+            this.targetY += edgePanY * deltaTimeSec / this.zoom;
+        }
+    }
+    
+    zoomTo(newZoom, screenX, screenY) {
+        const oldZoom = this.zoom;
+        
+        // Calculate minimum zoom to show full map
+        // Calculate minimum zoom needed to view entire map
+        const minZoomForWidth = this.viewportWidth / (this.mapWidth + this.boundaryPadding * 2);
+        const minZoomForHeight = this.viewportHeight / (this.mapHeight + this.boundaryPadding * 2);
+        const smartMinZoom = Math.max(minZoomForWidth, minZoomForHeight, 0.05);
+        
+        const smartMinZoom = Math.min(minZoomForWidth, minZoomForHeight, this.minZoom);
+
+        // Clamp to allow zooming out enough to see the whole map
+        this.targetZoom = Math.max(smartMinZoom, Math.min(this.maxZoom, newZoom));
+        
+        if (screenX !== undefined && screenY !== undefined) {
+            // Zoom towards a specific point
+            const worldPoint = this.screenToWorld(screenX, screenY);
+            
+            // Calculate the new camera position to keep the world point under the screen point
+            const zoomRatio = this.targetZoom / oldZoom;
+            this.targetX = worldPoint.x - (screenX / this.targetZoom);
+            this.targetY = worldPoint.y - (screenY / this.targetZoom);
+        }
+    }
+    
+    zoom(factor, screenX, screenY) {
+        // Clamp zoom factor to prevent extreme zooming
+        const clampedFactor = Math.max(0.5, Math.min(2.0, factor));
+        this.zoomTo(this.targetZoom * clampedFactor, screenX, screenY);
+    }
+    
+    centerOn(worldX, worldY) {
+        this.targetX = worldX - this.viewportWidth / (2 * this.zoom);
+        this.targetY = worldY - this.viewportHeight / (2 * this.zoom);
+    }
+    
+    screenToWorld(screenX, screenY) {
+client/src/game/GameMap.js
++4
+-2
+
+import { Territory } from './Territory';
+import MapGenerator from './MapGenerator';
+
+export class GameMap {
+    constructor(width, height, config = {}) {
+        this.width = width * 1.4; // Expand width by 40%
+        this.height = height * 1.6; // Expand height by 60% for more vertical space
+        // Use provided dimensions directly. MapGenerator will normalize
+        // coordinates and update these values after generation.
+        this.width = width;
+        this.height = height;
+        this.territories = {};
+        this.nebulas = []; // Purple nebula clouds
+        this.gridSize = 150; // Increased space between territory centers for less crowding
+        
+        // Spatial indexing for O(1) territory lookups instead of O(n)
+        this.spatialGridSize = 100; // Grid cell size in pixels
+        this.spatialGrid = new Map(); // Map of "x,y" -> Territory[]
+        this.spatialIndexEnabled = true;
+        
+        // Advanced configuration options
+        this.layout = config.layout || 'organic'; // Layout type: organic, clusters, spiral, core, ring, binary
+        this.connectionDistance = config.connectionRange || 25; // Max distance for territory connections - prevent long-distance warp lanes
+        this.warpLaneDensity = config.warpLaneDensity || 80; // Percentage density for connections
+        this.nebulaCount = config.nebulaCount !== undefined ? config.nebulaCount : 10; // Number of nebula fields
+        this.nebulaSlowdown = config.nebulaSlowdown !== undefined ? config.nebulaSlowdown : true;
+        this.supplyRoutes = config.supplyRoutes !== undefined ? config.supplyRoutes : true;
+        this.probeColonization = config.probeColonization !== undefined ? config.probeColonization : true;
+    }
+    
+    // Helper function to check if a point is within organic galaxy boundaries
+    isWithinGalaxyBounds(x, y) {
+        const centerX = this.width / 2;
+        const centerY = this.height / 2;
+        
+        // Calculate normalized position (0 to 1 from center)
+client/src/game/GameUI.js
++3
+-3
+
+@@ -836,53 +836,53 @@ export class GameUI {
+        if (gameData.minimapMinimized) {
+            // Minimized minimap - just show title bar
+            ctx.fillStyle = this.bgColor;
+            ctx.fillRect(startX, startY + size - 30, size, 30);
+            
+            ctx.font = 'bold 12px Arial';
+            ctx.textAlign = 'center';
+            this.renderTextWithShadow(ctx, 'Map (tap to expand)', startX + size / 2, startY + size - 12, this.accentColor);
+            
+            // Add expand indicator
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'right';
+            this.renderTextWithShadow(ctx, '▲', startX + size - 10, startY + size - 12, this.textColor);
+            return;
+        }
+        
+        // Background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillRect(startX, startY, size, size);
+        
+        // Border
+        ctx.strokeStyle = this.accentColor;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(startX, startY, size, size);
+        
+        // Calculate scale
+        const mapWidth = 2000; // From GameMap
+        const mapHeight = 1500;
+        // Calculate scale using actual map dimensions
+        const mapWidth = gameData.gameMap?.width || 2000;
+        const mapHeight = gameData.gameMap?.height || 1500;
+        const scaleX = size / mapWidth;
+        const scaleY = size / mapHeight;
+        
+        // Draw territories on minimap
+        Object.values(gameData.players).forEach(player => {
+            if (player.isEliminated) return;
+            
+            ctx.fillStyle = player.color;
+            player.territories.forEach(territoryId => {
+                const territory = gameData.selectedTerritory ? 
+                    (gameData.selectedTerritory.id === territoryId ? gameData.selectedTerritory : null) : null;
+                // This is a simplified version - in real implementation we'd access territories from gameMap
+                
+                if (territory) {
+                    const x = startX + territory.x * scaleX;
+                    const y = startY + territory.y * scaleY;
+                    const radius = Math.max(1, territory.radius * scaleX * 0.5);
+                    
+                    ctx.beginPath();
+                    ctx.arc(x, y, radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+        });
+        
+client/src/game/StarThrone.js
++11
+-17
+
+@@ -2296,76 +2296,70 @@ export default class StarThrone {
+     */
+    getLODLevel() {
+        const zoom = this.camera.zoom;
+        if (zoom <= 0.15) return 1; // Strategic view
+        if (zoom <= 0.8) return 2;  // Operational view
+        return 3; // Tactical view
+    }
+    
+    updateVisibleTerritories() {
+        // Enhanced viewport culling with incremental processing for smooth performance
+        const now = Date.now();
+        const updateInterval = GAME_CONSTANTS.VISIBLE_TERRITORIES_UPDATE_INTERVAL_MS;
+        
+        // Adaptive interval based on performance - increase on slower devices
+        const adaptiveInterval = this.fps < 30 ? updateInterval * 1.5 : updateInterval;
+        
+        if (now - this.lastVisibilityUpdate < adaptiveInterval) return;
+        this.lastVisibilityUpdate = now;
+        
+        const bounds = this.camera.getViewBounds();
+        const margin = GAME_CONSTANTS.TERRITORY_VISIBILITY_PADDING;
+        
+        // Initialize visibility tracking as Set for O(1) lookups
+        if (!this.visibleTerritories || !this.visibleTerritories.has) {
+            this.visibleTerritories = new Set();
+        } else {
+            this.visibleTerritories.clear();
+        }
+        
+        this.visibleTerritories.clear();
+
+        const territories = Object.values(this.gameMap.territories);
+        
+        // Incremental processing: split territory checks across multiple frames on large maps
+        const batchSize = territories.length > 200 ? Math.ceil(territories.length / 3) : territories.length;
+        const startIndex = (this.cullingBatchIndex || 0) % territories.length;
+        const endIndex = Math.min(startIndex + batchSize, territories.length);
+        
+        // Process current batch
+        for (let i = startIndex; i < endIndex; i++) {
+            const territory = territories[i];
+
+        // Process all territories each update. With maps up to 500 stars this
+        // is still inexpensive and avoids visual flicker from batching.
+        for (const territory of territories) {
+            if (territory.x + territory.radius >= bounds.left - margin &&
+                territory.x - territory.radius <= bounds.right + margin &&
+                territory.y + territory.radius >= bounds.top - margin &&
+                territory.y - territory.radius <= bounds.bottom + margin) {
+                this.visibleTerritories.add(territory.id);
+            }
+        }
+        
+        // Update batch index for next frame (if processing incrementally)
+        if (batchSize < territories.length) {
+            this.cullingBatchIndex = endIndex >= territories.length ? 0 : endIndex;
+        }
+        
+
+        // Reset batch index since we no longer process incrementally
+        this.cullingBatchIndex = 0;
+
+        this.performanceStats.visibleTerritories = this.visibleTerritories.size;
+    }
+    
+    // Render parallax starfield with multiple depth layers
+    renderParallaxStarfield() {
+        if (!this.starfield.initialized) return;
+        
+        const time = Date.now() * 0.001; // For subtle twinkling
+        const cameraPosX = this.camera.x;
+        const cameraPosY = this.camera.y;
+        
+        this.ctx.save();
+        
+        // Far stars (slowest parallax, barely moves)
+        this.ctx.globalAlpha = 0.7; // Brighter for better visibility against background
+        this.starfield.farStars.forEach(star => {
+            // Very subtle parallax movement (5% of camera movement)
+            const parallaxX = star.x - (cameraPosX * 0.05);
+            const parallaxY = star.y - (cameraPosY * 0.05);
+            
+            // Skip stars outside visible area for performance
+            if (!this.camera.isPointVisible(parallaxX, parallaxY, 100)) return;
+            
+            // Subtle twinkling effect
+            const twinkle = star.twinkle + Math.sin(time * 0.5 + star.x * 0.01) * 0.1;
