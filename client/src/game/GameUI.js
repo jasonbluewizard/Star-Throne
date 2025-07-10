@@ -1318,13 +1318,11 @@ export class GameUI {
             
             // Stats shadow
             ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-            ctx.fillText(`${player.territories.length} territories`, startX + width - 102, y - 3);
-            ctx.fillText(`${player.score} points`, startX + width - 102, y + 15);
+            ctx.fillText(`${player.territories.length} territories`, startX + width - 102, y + 2);
             
             // Main stats
             ctx.fillStyle = '#ffffff';
-            ctx.fillText(`${player.territories.length} territories`, startX + width - 100, y - 5);
-            ctx.fillText(`${player.score} points`, startX + width - 100, y + 13);
+            ctx.fillText(`${player.territories.length} territories`, startX + width - 100, y);
             
             // Status
             if (player.isEliminated) {
