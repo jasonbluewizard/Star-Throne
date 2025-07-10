@@ -158,9 +158,9 @@ export default class FloodModeController {
                     if (this.isGateClosed(player, tid, nid)) continue;
                     const required = n.armySize + 2 * aggression;
                     if (ships >= required) {
-                        const send = n.armySize + aggression;
-                        t.armySize -= send;
-                        ships -= send;
+                        const send = Math.min(n.armySize + aggression, ships - 1); // Ensure we don't send more than available
+                        // Don't modify t.armySize here - let combat system handle deduction
+                        ships -= send; // Only update local tracking variable
                         if (this.game.createShipAnimation)
                             this.game.createShipAnimation(t, n, true, send);
                         this.game.combatSystem.attackTerritory(t, n, send);
