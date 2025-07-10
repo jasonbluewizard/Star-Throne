@@ -451,6 +451,13 @@ export class InputHandler {
                     }
                 }
                 break;
+            case 'f':
+            case 'F':
+                // F key - Toggle flood mode for human player
+                if (this.game.humanPlayer && this.game.floodController) {
+                    this.game.floodController.togglePlayer(this.game.humanPlayer);
+                }
+                break;
         }
     }
     

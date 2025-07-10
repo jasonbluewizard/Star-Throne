@@ -242,6 +242,11 @@ export class CombatSystem {
                 battle.attacker.territories.push(battle.defendingTerritory.id);
             }
             
+            // Notify FloodModeController of territory capture for gate management
+            if (this.game.floodController) {
+                this.game.floodController.onTerritoryCaptured(oldOwner?.id || null, battle.attacker.id, battle.defendingTerritory.id);
+            }
+            
             // Handle throne star capture
             if (isThroneCapture && oldOwner) {
                 console.log(`🏆 THRONE STAR CAPTURED! ${battle.attacker.name} captures throne from ${oldOwner.name}`);

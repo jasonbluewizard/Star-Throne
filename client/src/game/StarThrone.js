@@ -17,6 +17,7 @@ import { DiscoverySystem } from './DiscoverySystem';
 import { AnimationSystem } from './AnimationSystem';
 import { UIManager } from './UIManager';
 import { AIManager } from './AIManager';
+import FloodModeController from './FloodModeController';
 import Controls from './Controls';
 
 export default class StarThrone {
@@ -67,6 +68,7 @@ export default class StarThrone {
         this.animationSystem = null;
         this.uiManager = null;
         this.controls = null;
+        this.floodController = null;
         
         // Legacy properties removed for cleaner architecture
         
@@ -503,6 +505,7 @@ export default class StarThrone {
         this.uiManager = new UIManager(this);
         this.aiManager = new AIManager(this);
         this.controls = new Controls(this);
+        this.floodController = new FloodModeController(this);
         
         // Global reference removed for better encapsulation and memory management
 
@@ -2100,6 +2103,11 @@ export default class StarThrone {
         }
         if (this.controls) {
             this.controls.update(deltaTime);
+        }
+        
+        // Update flood mode system for automated expansion
+        if (this.floodController) {
+            this.floodController.update(deltaTime);
         }
         
         // Process event queue for event-driven architecture

@@ -51,7 +51,12 @@ export class SocketClient {
       return;
     }
 
-    this.socket = io('ws://localhost:5000', {
+    // Use dynamic connection based on environment
+    const socketUrl = window.location.hostname === 'localhost' 
+      ? 'ws://localhost:5000' 
+      : `ws://${window.location.host}`;
+      
+    this.socket = io(socketUrl, {
       transports: ['websocket'],
       upgrade: false
     });

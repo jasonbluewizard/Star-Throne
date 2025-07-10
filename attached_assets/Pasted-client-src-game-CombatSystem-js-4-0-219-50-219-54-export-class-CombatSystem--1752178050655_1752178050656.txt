@@ -1,0 +1,644 @@
+client/src/game/CombatSystem.js
++4
+-0
+
+@@ -219,50 +219,54 @@ export class CombatSystem {
+            const oldOwner = battle.defender;
+            const survivingAttackers = Math.max(1, battle.attackersRemaining);
+            const wasNeutral = !oldOwner; // Check if this was a neutral territory
+            
+            // Check for throne star capture before changing ownership
+            const isThroneCapture = battle.defendingTerritory.isThronestar;
+            console.log(`🏰 THRONE CHECK: Territory ${battle.defendingTerritory.id} isThronestar: ${isThroneCapture}, defender: ${oldOwner ? oldOwner.name : 'neutral'}`);
+            
+            // Transfer territory
+            battle.defendingTerritory.ownerId = battle.attackingTerritory.ownerId;
+            battle.defendingTerritory.armySize = survivingAttackers;
+            
+            // Update player territories arrays
+            if (oldOwner) {
+                // Remove from old owner's territories
+                const index = oldOwner.territories.indexOf(battle.defendingTerritory.id);
+                if (index > -1) {
+                    oldOwner.territories.splice(index, 1);
+                }
+            }
+            
+            // Add to new owner's territories
+            if (!battle.attacker.territories.includes(battle.defendingTerritory.id)) {
+                battle.attacker.territories.push(battle.defendingTerritory.id);
+            }
+
+            if (this.game.floodController && this.game.floodController.onTerritoryCaptured) {
+                this.game.floodController.onTerritoryCaptured(oldOwner ? oldOwner.id : null, battle.attacker.id, battle.defendingTerritory.id);
+            }
+            
+            // Handle throne star capture
+            if (isThroneCapture && oldOwner) {
+                console.log(`🏆 THRONE STAR CAPTURED! ${battle.attacker.name} captures throne from ${oldOwner.name}`);
+                this.handleThroneStarCapture(battle.attacker, oldOwner, battle.defendingTerritory);
+            }
+            // Removed logically impossible condition: throne stars cannot be neutral (always have owners)
+            
+            // DISCOVERY: Trigger discovery when conquering neutral territory
+            if (wasNeutral && this.game.discoverySystem) {
+                console.log(`🔬 Processing discovery for ${battle.attacker.name} conquering neutral planet ${battle.defendingTerritory.id}`);
+                const discovery = this.game.discoverySystem.processDiscovery(battle.defendingTerritory, battle.attacker);
+                if (discovery) {
+                    console.log(`🔍 Discovery on conquered planet ${battle.defendingTerritory.id}: ${discovery.name}`);
+                    
+                    // Increment tech level based on discovery type (cap at 5)
+                    if (battle.attacker && battle.attacker.tech) {
+                        switch (discovery.id) {
+                            case 'precursor_weapons':
+                                battle.attacker.tech.attack = Math.min(5, battle.attacker.tech.attack + 1);
+                                break;
+                            case 'precursor_shield':
+                                battle.attacker.tech.defense = Math.min(5, battle.attacker.tech.defense + 1);
+                                break;
+                            case 'precursor_drive':
+client/src/game/FloodModeController.js
+New
++123
+-0
+
+export default class FloodModeController {
+    constructor(game) {
+        this.game = game;
+        this.activePlayers = new Set();
+        this.aggression = {}; // playerId -> aggression level
+        this.closedGates = {}; // playerId -> {fromId: Set(neighborId)}
+        this.timer = 0;
+        this.checkInterval = 1000; // ms
+    }
+
+    isActive(player) {
+        if (!player) return false;
+        return this.activePlayers.has(player.id);
+    }
+
+    togglePlayer(player, enable) {
+        if (!player) return;
+        const id = player.id;
+        if (enable === undefined) enable = !this.activePlayers.has(id);
+        if (enable) {
+            this.activePlayers.add(id);
+            if (!this.aggression[id]) this.aggression[id] = 5;
+            if (!this.closedGates[id]) this.closedGates[id] = {};
+            if (player.type === 'human') this.showSlider(player);
+            this.game.addNotification(`Flood Mode ON (${player.name})`, '#44ff44');
+        } else {
+            this.activePlayers.delete(id);
+            if (player.type === 'human') this.hideSlider();
+            this.game.addNotification(`Flood Mode OFF (${player.name})`, '#ff4444');
+        }
+    }
+
+    showSlider(player) {
+        if (document.getElementById('flood-slider')) return;
+        const slider = document.createElement('input');
+        slider.type = 'range';
+        slider.min = '1';
+        slider.max = '10';
+        slider.value = this.aggression[player.id] || 5;
+        slider.id = 'flood-slider';
+        slider.style.position = 'fixed';
+        slider.style.bottom = '10px';
+        slider.style.left = '10px';
+        slider.style.zIndex = 10;
+        document.body.appendChild(slider);
+        slider.addEventListener('input', () => {
+            this.setAggression(player, parseInt(slider.value, 10));
+        });
+    }
+
+    hideSlider() {
+        const el = document.getElementById('flood-slider');
+        if (el) el.remove();
+    }
+
+    setAggression(player, value) {
+        if (!player) return;
+        const id = player.id;
+        value = Math.max(1, Math.min(10, value));
+        this.aggression[id] = value;
+        const slider = document.getElementById('flood-slider');
+        if (slider && slider.value != value && player.type === 'human') {
+            slider.value = String(value);
+        }
+    }
+
+    toggleGate(player, fromId, toId) {
+        const id = player.id;
+        if (!this.closedGates[id]) this.closedGates[id] = {};
+        const gates = this.closedGates[id];
+        if (!gates[fromId]) gates[fromId] = new Set();
+        if (gates[fromId].has(toId)) {
+            gates[fromId].delete(toId);
+        } else {
+            gates[fromId].add(toId);
+        }
+    }
+
+    isGateClosed(player, fromId, toId) {
+        const id = player.id;
+        return this.closedGates[id] && this.closedGates[id][fromId] && this.closedGates[id][fromId].has(toId);
+    }
+
+    onTerritoryCaptured(oldOwnerId, newOwnerId, territoryId) {
+        if (oldOwnerId != null && this.closedGates[oldOwnerId]) {
+            delete this.closedGates[oldOwnerId][territoryId];
+            // remove references pointing to this territory
+            for (const from in this.closedGates[oldOwnerId]) {
+                this.closedGates[oldOwnerId][from].delete(territoryId);
+            }
+        }
+    }
+
+    update(deltaTime) {
+        this.timer += deltaTime;
+        if (this.timer < this.checkInterval) return;
+        this.timer = 0;
+        for (const id of this.activePlayers) {
+            const player = this.game.players[id];
+            if (!player || player.isEliminated) continue;
+            const aggression = this.aggression[id] || 5;
+            for (const tid of player.territories) {
+                const t = this.game.gameMap.territories[tid];
+                if (!t) continue;
+                let ships = t.armySize;
+                for (const nid of t.neighbors) {
+                    const n = this.game.gameMap.territories[nid];
+                    if (!n || n.ownerId === id) continue;
+                    if (this.isGateClosed(player, tid, nid)) continue;
+                    const required = n.armySize + 2 * aggression;
+                    if (ships >= required) {
+                        const send = n.armySize + aggression;
+                        t.armySize -= send;
+                        ships -= send;
+                        if (this.game.createShipAnimation)
+                            this.game.createShipAnimation(t, n, true, send);
+                        this.game.combatSystem.attackTerritory(t, n, send);
+                    }
+                }
+            }
+        }
+    }
+}
+client/src/game/InputHandler.js
++58
+-3
+
+@@ -207,62 +207,101 @@ export class InputHandler {
+                    if (this.lastClickTime === currentTime) {
+                        // No double-click occurred, process as single click
+                        this.processSingleClick(e.button, targetTerritory, worldPos);
+                    }
+                }, this.doubleClickThreshold);
+            }
+        }
+        
+        // cancel timer
+        clearTimeout(this.longPressTimer);
+        
+        this.resetDragState();
+    }
+    
+    processSingleClick(button, territory, worldPos) {
+        // Check UI elements first
+        if (this.game.handleUIClick(this.mousePos.x, this.mousePos.y)) {
+            return;
+        }
+        
+        // Skip game logic if not in playing state
+        if (this.game.gameState !== 'playing') {
+            return;
+        }
+        
+        if (button === 0) { // Left click - convert to tap event
+        if (button === 0) {
+            if (!territory && this.game.floodController && this.game.floodController.isActive(this.game.humanPlayer)) {
+                const conn = this.findConnectionNear(worldPos.x, worldPos.y);
+                if (conn) {
+                    this.game.floodController.toggleGate(this.game.humanPlayer, conn.from.id, conn.to.id);
+                    return;
+                }
+            }
+
+            this.inputFSM.handleEvent('tap', {
+                territory: territory,
+                x: worldPos.x, 
+                x: worldPos.x,
+                y: worldPos.y,
+                shiftKey: false, // Single click doesn't have modifiers
+                shiftKey: false,
+                ctrlKey: false
+            });
+        } else if (button === 2) {
+            // Right-click ignored in single-button scheme
+        }
+    }
+
+    findConnectionNear(x, y) {
+        const player = this.game.humanPlayer;
+        if (!player) return null;
+        const threshold = 10; // pixels
+        const map = this.game.gameMap;
+        for (const tid of player.territories) {
+            const t = map.territories[tid];
+            if (!t) continue;
+            for (const nid of t.neighbors) {
+                const n = map.territories[nid];
+                if (!n) continue;
+                const dist = this.distanceToSegment(x, y, t.x, t.y, n.x, n.y);
+                if (dist <= threshold) {
+                    return { from: t, to: n };
+                }
+            }
+        }
+        return null;
+    }
+
+    distanceToSegment(px, py, x1, y1, x2, y2) {
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        if (dx === 0 && dy === 0) return Math.hypot(px - x1, py - y1);
+        let t = ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy);
+        t = Math.max(0, Math.min(1, t));
+        const lx = x1 + t * dx;
+        const ly = y1 + t * dy;
+        return Math.hypot(px - lx, py - ly);
+    }
+    
+
+
+    
+    handleWheel(e) {
+        e.preventDefault();
+        
+        if (!this.game.camera) return;
+        
+        const rect = this.canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        
+        const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+        const newZoom = Math.max(0.02, Math.min(8.0, this.game.camera.targetZoom * zoomFactor));
+        this.game.camera.zoomTo(newZoom, mouseX, mouseY);
+        
+
+    }
+    
+    handleTouchStart(e) {
+        e.preventDefault();
+        
+        for (const touch of e.changedTouches) {
+            this.touchState.activeTouches.set(touch.identifier, {
+@@ -429,50 +468,66 @@ export class InputHandler {
+                }
+                
+                // Fallback: find throne star by searching owned territories
+                if (this.game.humanPlayer && this.game.humanPlayer.territories.length > 0) {
+                    // Look for throne star among owned territories
+                    let throneTerritory = null;
+                    for (const territoryId of this.game.humanPlayer.territories) {
+                        const territory = this.game.gameMap.territories[territoryId];
+                        if (territory && territory.isThronestar) {
+                            throneTerritory = territory;
+                            break;
+                        }
+                    }
+                    
+                    if (throneTerritory) {
+                        this.game.camera.focusOnTerritory(throneTerritory);
+                    } else {
+                        // Final fallback: focus on first territory
+                        const firstTerritory = this.game.gameMap.territories[this.game.humanPlayer.territories[0]];
+                        if (firstTerritory) {
+                            this.game.camera.focusOnTerritory(firstTerritory);
+                        }
+                    }
+                }
+                break;
+            case 'f':
+            case 'F':
+                if (this.game.floodController) {
+                    this.game.floodController.togglePlayer(this.game.humanPlayer);
+                }
+                break;
+            case 'g':
+            case 'G':
+                if (this.game.floodController) {
+                    for (const p of this.game.players) {
+                        if (p.type === 'ai') {
+                            this.game.floodController.togglePlayer(p);
+                        }
+                    }
+                }
+                break;
+        }
+    }
+    
+    resetDragState() {
+        this.isDragging = false;
+        this.dragStartPos = null;
+        this.dragStartTime = null;
+    }
+    
+    // Get current input state for game loop
+    getInputState() {
+        return {
+            mousePos: this.mousePos,
+            isDragging: this.isDragging,
+            selectedTerritory: this.inputFSM ? this.inputFSM.selectedTerritory : null,
+            currentState: this.inputFSM ? this.inputFSM.currentState : 'Default'
+        };
+    }
+
+    // Called by main game loop to handle timeouts
+    update() {
+        this.inputFSM.handleEvent('timeout');
+    }
+    
+    // Cleanup method to properly remove event listeners (fixes memory leak)
+client/src/game/Renderer.js
++20
+-0
+
+@@ -238,50 +238,70 @@ export class Renderer {
+                    continue;
+                }
+                
+                // Add newly visible lanes to permanent discovery
+                if ((territoryOwnedByPlayer || neighborOwnedByPlayer) && !laneDiscovered && this.game?.discoveredLanes) {
+                    this.game.discoveredLanes.add(connectionKey);
+                    console.log(`🗺️ Star lane discovered: ${territory.id} ↔ ${neighborId}`);
+                }
+                
+                // Color connections between same-owned territories
+                if (territory.ownerId && territory.ownerId === neighbor.ownerId) {
+                    const player = this.findPlayerById(territory.ownerId);
+                    this.ctx.strokeStyle = player?.color || GAME_CONSTANTS.CONNECTION_COLOR;
+                    this.ctx.lineWidth = 2;
+                    this.ctx.globalAlpha = 0.8;
+                } else {
+                    this.ctx.strokeStyle = GAME_CONSTANTS.CONNECTION_COLOR;
+                    this.ctx.lineWidth = 1;
+                    this.ctx.globalAlpha = 0.6;
+                }
+                
+                this.ctx.beginPath();
+                this.ctx.moveTo(territory.x, territory.y);
+                this.ctx.lineTo(neighbor.x, neighbor.y);
+                this.ctx.stroke();
+
+                if (this.game && this.game.floodController && this.game.humanPlayer) {
+                    const fc = this.game.floodController;
+                    if (fc.isGateClosed(this.game.humanPlayer, territory.id, neighbor.id)) {
+                        const mx = (territory.x + neighbor.x) / 2;
+                        const my = (territory.y + neighbor.y) / 2;
+                        const dx = neighbor.y - territory.y;
+                        const dy = -(neighbor.x - territory.x);
+                        const len = Math.hypot(dx, dy) || 1;
+                        const ux = dx / len;
+                        const uy = dy / len;
+                        const size = 8;
+                        this.ctx.strokeStyle = '#ff4444';
+                        this.ctx.lineWidth = 2;
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(mx - ux * size / 2, my - uy * size / 2);
+                        this.ctx.lineTo(mx + ux * size / 2, my + uy * size / 2);
+                        this.ctx.stroke();
+                    }
+                }
+            }
+        }
+        
+        this.ctx.restore();
+    }
+    
+    renderSupplyRoutes(supplyRoutes) {
+        if (!supplyRoutes || supplyRoutes.length === 0) return;
+        
+        this.ctx.save();
+        this.ctx.strokeStyle = GAME_CONSTANTS.SUPPLY_ROUTE_COLOR;
+        this.ctx.lineWidth = 3;
+        this.ctx.globalAlpha = 0.8;
+        
+        const currentTime = Date.now();
+        const dashOffset = (currentTime * GAME_CONSTANTS.SUPPLY_ROUTE_DASH_ANIMATION_SPEED) % 20;
+        this.ctx.setLineDash([10, 10]);
+        this.ctx.lineDashOffset = dashOffset;
+        
+        for (const route of supplyRoutes) {
+            if (!route.active || !route.path || route.path.length < 2) continue;
+            
+            this.ctx.beginPath();
+            const firstTerritory = route.path[0];
+            this.ctx.moveTo(firstTerritory.x, firstTerritory.y);
+client/src/game/StarThrone.js
++6
+-0
+
+import { GameMap } from './GameMap';
+import { Player } from './Player';
+import { GameUI } from './GameUI';
+import { Camera } from './Camera';
+// Removed disabled Probe import (dead code cleanup)
+import { InputHandler } from './InputHandler';
+import { Renderer } from './Renderer';
+import { CombatSystem } from './CombatSystem';
+import { SupplySystem } from './SupplySystem';
+import { PathfindingService } from './PathfindingService';
+import { GameUtils } from './utils';
+import { GAME_CONSTANTS } from '../../../common/gameConstants';
+import { gameEvents, GAME_EVENTS, EVENT_PRIORITY, EventHelpers } from './EventSystem';
+import { PerformanceManager } from './PerformanceManager';
+import { PerformanceOverlay } from './PerformanceOverlay';
+import { DiscoverySystem } from './DiscoverySystem';
+import { AnimationSystem } from './AnimationSystem';
+import { UIManager } from './UIManager';
+import { AIManager } from './AIManager';
+import Controls from './Controls';
+import FloodModeController from './FloodModeController';
+
+export default class StarThrone {
+    constructor(config = {}) {
+        this.canvas = null;
+        this.ctx = null;
+        this.gameMap = null;
+        this.players = [];
+        this.humanPlayer = null;
+        this.camera = null;
+        this.ui = null;
+        
+        // Game configuration from config screen
+        this.config = {
+            playerName: config.playerName || 'Player',
+            aiCount: config.aiCount || GAME_CONSTANTS.DEFAULT_SINGLE_PLAYER_AI_COUNT,
+            mapSize: config.mapSize || GAME_CONSTANTS.DEFAULT_MAP_SIZE_TERRITORIES,
+            gameSpeed: config.gameSpeed || 1.0,
+            layout: config.layout || 'organic',
+            ...config
+        };
+        
+        // Game state
+        this.gameState = 'lobby'; // lobby, playing, ended
+        this.gameTimer = 10 * 60 * 1000; // 10 minutes
+        this.maxPlayers = 100;
+        this.currentPlayers = 0;
+        this.gameInitialized = false; // Prevent early win condition checks
+        
+        // Persistent star lane discovery system
+        this.discoveredLanes = new Set(); // Stores "id1-id2" strings for permanently visible lanes
+        
+        // Throne star validation timer
+        this.throneStarValidationTimer = 0;
+        
+        // Home system flashing
+        this.homeSystemFlashStart = null;
+        this.homeSystemFlashDuration = 3000; // 3 seconds
+        
+        // Modular systems (initialized in init())
+        this.inputHandler = null;
+        this.renderer = null;
+        this.combatSystem = null;
+        this.supplySystem = null;
+        this.pathfindingService = null;
+        this.performanceManager = null;
+        this.discoverySystem = null;
+        this.animationSystem = null;
+        this.uiManager = null;
+        this.controls = null;
+        this.floodController = null;
+        
+        // Legacy properties removed for cleaner architecture
+        
+        // Performance
+        this.lastFrameTime = 0;
+        this.fps = 0;
+        this.frameCount = 0;
+        this.lastFpsUpdate = 0;
+        
+        // Performance optimizations
+        this.visibleTerritories = new Set();
+        this.lastVisibilityUpdate = 0;
+        this.cullingBatchIndex = 0; // For incremental visibility processing
+        this.performanceStats = {
+            frameTime: 0,
+            renderTime: 0,
+            updateTime: 0,
+            visibleTerritories: 0
+        };
+        this.showPerformancePanel = false; // Toggle with P key
+        
+        // Ship movement animations
+        this.shipAnimations = [];
+        this.shipAnimationPool = []; // Reuse objects to reduce garbage collection
+        this.pendingLongRangeCombats = []; // Track delayed long-range combat arrivals
+@@ -474,50 +476,51 @@ export default class StarThrone {
+        
+        // Update camera map boundaries to match actual expanded map size
+        this.camera.mapWidth = this.gameMap.width;
+        this.camera.mapHeight = this.gameMap.height;
+        
+        // Center camera on map and set appropriate zoom
+        this.camera.centerOn(this.gameMap.width / 2, this.gameMap.height / 2); // Center of expanded map
+        this.camera.targetZoom = 0.25; // Zoom out further to see more territories
+        this.camera.zoom = 0.25;
+        
+        this.ui = new GameUI(this.canvas, this.camera);
+        
+        // Initialize modular systems
+        this.inputHandler = new InputHandler(this);
+        this.renderer = new Renderer(this.canvas, this.camera, this);
+        this.combatSystem = new CombatSystem(this);
+        this.supplySystem = new SupplySystem(this);
+        this.pathfindingService = new PathfindingService(this);
+        this.performanceManager = new PerformanceManager(this);
+        this.performanceOverlay = new PerformanceOverlay(this.canvas, this.performanceManager);
+        this.discoverySystem = new DiscoverySystem(this);
+        this.animationSystem = new AnimationSystem(this);
+        this.uiManager = new UIManager(this);
+        this.aiManager = new AIManager(this);
+        this.controls = new Controls(this);
+        this.floodController = new FloodModeController(this);
+        
+        // Global reference removed for better encapsulation and memory management
+
+        
+        // Auto-detect optimal performance profile
+        this.performanceManager.detectOptimalProfile();
+        
+        this.gameStartTime = Date.now(); // Track when game actually starts
+        this.startGame();
+        this.gameLoop();
+    }
+    
+    // Define discovery types and their probabilities
+    getDiscoveryTypes() {
+        return [
+            {
+                id: 'hostile_aliens',
+                name: 'Hostile Aliens',
+                description: 'Hostile alien life destroys your probe!',
+                probability: 0.15,
+                type: 'negative',
+                effect: 'probe_lost'
+            },
+            {
+                id: 'friendly_aliens',
+@@ -2073,50 +2076,53 @@ export default class StarThrone {
+        // Update combat system for delayed battles
+        if (this.combatSystem) {
+            try {
+                this.combatSystem.update(deltaTime);
+            } catch (error) {
+                console.error('Combat system error:', error);
+                console.error('Combat system error message:', error.message);
+                console.error('Combat system error stack:', error.stack);
+            }
+        }
+        
+        // Update modular UI systems
+        if (this.uiManager) {
+            this.uiManager.update(deltaTime);
+        }
+        if (this.discoverySystem) {
+            this.discoverySystem.updateFloatingDiscoveries();
+            this.discoverySystem.updateTopDiscoveryAnnouncements();
+        }
+        if (this.animationSystem) {
+            this.animationSystem.update(deltaTime);
+        }
+        if (this.controls) {
+            this.controls.update(deltaTime);
+        }
+        if (this.floodController) {
+            this.floodController.update(deltaTime);
+        }
+        
+        // Process event queue for event-driven architecture
+        if (this.eventProcessingEnabled) {
+            gameEvents.processQueue(5); // Process up to 5 events per frame
+        }
+        
+        // Periodically update throne connectivity
+        this.updateThroneConnectivity();
+        
+        // Update performance management and track frame metrics
+        if (this.performanceManager) {
+            this.performanceManager.frameMetrics.updateTime = performance.now() - updateStart;
+            this.performanceManager.update(deltaTime);
+            
+            // Trigger memory cleanup if memory usage is high
+            if (this.performanceManager.getMemoryUsageMB() > 250) {
+                this.performanceManager.triggerMemoryCleanup();
+            }
+        }
+        
+        // Throttled heavy operations for better performance - use SupplySystem module
+        if (this.frameCount % 45 === 0) { // Every 45 frames (~0.75 seconds)
+            this.supplySystem.validateSupplyRoutes();
+        }
+        // (Removed redundant 90-frame check; supply logic now in Territory.generateArmies())
