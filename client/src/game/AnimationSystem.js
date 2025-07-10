@@ -1,5 +1,4 @@
 import { GAME_CONSTANTS } from '../../../common/gameConstants';
-import { ParticlePool, spawnCombatParticles, spawnHitFlash } from '../effects';
 
 export class AnimationSystem {
     constructor(game) {
@@ -14,7 +13,7 @@ export class AnimationSystem {
         this.starfieldLayers = [];
         this.backgroundStars = null; // Pre-rendered background canvas
         
-        // Combat particle system - now using centralized effects
+        // Combat particle system
         this.combatParticles = [];
         this.particlePool = [];
         this.maxParticlePoolSize = 200;

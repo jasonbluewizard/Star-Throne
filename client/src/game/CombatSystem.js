@@ -6,7 +6,6 @@
 
 import { GameUtils } from './utils';
 import { gameEvents, GAME_EVENTS, EVENT_PRIORITY, EventHelpers } from './EventSystem';
-import { spawnCombatParticles, spawnHitFlash, spawnTerritoryFlash } from '../effects';
 
 export class CombatSystem {
     constructor(game) {
@@ -320,7 +319,7 @@ export class CombatSystem {
     }
 
     /**
-     * Create combat particle effects when ships die - now using centralized effects
+     * Create combat particle effects when ships die
      * @param {Object} territory - Territory where combat occurs
      * @param {string} shipColor - Color of the dying ship
      * @param {string} context - 'attacker_dies' or 'defender_dies'
@@ -329,13 +328,14 @@ export class CombatSystem {
         // Show subtle particle explosions for ALL combat
         const intensity = context === 'defender_dies' ? 1.3 : 1.0; // Moderate intensity
         
-        // Use centralized effects system
-        spawnCombatParticles(null, { 
-            x: territory.x, 
-            y: territory.y, 
-            color: shipColor, 
-            intensity 
-        });
+        if (this.game.animationSystem && this.game.animationSystem.createCombatParticles) {
+            this.game.animationSystem.createCombatParticles(
+                territory.x, 
+                territory.y, 
+                shipColor, 
+                intensity
+            );
+        }
     }
     
     // Check if battle is within specified distance of human player territories
