@@ -546,15 +546,36 @@ export default class StarThrone {
         button.addEventListener('click', () => {
             if (this.humanPlayer && this.floodController) {
                 const isActive = this.floodController.isActive(this.humanPlayer);
+                console.log('Button clicked - current flood mode state:', isActive);
                 this.floodController.togglePlayer(this.humanPlayer, !isActive);
-                button.textContent = `F - Flood Mode (${isActive ? 'OFF' : 'ON'})`;
-                button.style.backgroundColor = isActive ? '#333' : '#228b22';
-                console.log('Flood mode manually toggled via test button:', !isActive);
+                const newState = this.floodController.isActive(this.humanPlayer);
+                button.textContent = `F - Flood Mode (${newState ? 'ON' : 'OFF'})`;
+                button.style.backgroundColor = newState ? '#228b22' : '#333';
+                console.log('Flood mode toggled to:', newState);
+                
+                // Force show/hide slider
+                if (newState) {
+                    console.log('Showing slider...');
+                    this.floodController.showSlider(this.humanPlayer);
+                } else {
+                    console.log('Hiding slider...');
+                    this.floodController.hideSlider();
+                }
             }
         });
         
         document.body.appendChild(button);
         console.log('Permanent flood mode test button added');
+        
+        // Auto-activate flood mode after 3 seconds for immediate testing
+        setTimeout(() => {
+            if (this.humanPlayer && this.floodController && !this.floodController.isActive(this.humanPlayer)) {
+                console.log('Auto-activating flood mode for testing...');
+                this.floodController.togglePlayer(this.humanPlayer, true);
+                button.textContent = 'F - Flood Mode (ON)';
+                button.style.backgroundColor = '#228b22';
+            }
+        }, 3000);
     }
     
     // Define discovery types and their probabilities

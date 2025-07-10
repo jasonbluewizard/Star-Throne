@@ -486,7 +486,15 @@ export class InputHandler {
                 console.log('floodController:', this.game.floodController);
                 if (this.game.humanPlayer && this.game.floodController) {
                     console.log('Toggling flood mode for player:', this.game.humanPlayer.name);
+                    const wasActive = this.game.floodController.isActive(this.game.humanPlayer);
                     this.game.floodController.togglePlayer(this.game.humanPlayer);
+                    console.log('Flood mode toggled from', wasActive, 'to', this.game.floodController.isActive(this.game.humanPlayer));
+                    
+                    // Force show slider if flood mode is now active
+                    if (this.game.floodController.isActive(this.game.humanPlayer)) {
+                        console.log('Forcing slider to show...');
+                        this.game.floodController.showSlider(this.game.humanPlayer);
+                    }
                 } else {
                     console.log('Cannot toggle flood mode - missing humanPlayer or floodController');
                 }
