@@ -1,0 +1,85 @@
+diff --git a/client/src/App.tsx b/client/src/App.tsx
+index f4a837b689575764666a21208ce7b20946bcf2ad..9153e3728d628ef9e80bda45f4ae00ab3178f7fa 100644
+--- a/client/src/App.tsx
++++ b/client/src/App.tsx
+@@ -16,67 +16,75 @@ interface GameData {
+ function App() {
+   const gameRef = useRef<any>(null);
+   const mountedRef = useRef(false);
+   const [showTitleScreen, setShowTitleScreen] = useState(true);
+   const [gameMode, setGameMode] = useState<GameMode>(null);
+   const [gameData, setGameData] = useState<GameData | null>(null);
+ 
+   const initSinglePlayerGame = async (data: GameData) => {
+     try {
+       // Set single-player flag to prevent WebSocket connections
+       (window as any).singlePlayerMode = true;
+       
+       const { default: StarThrone } = await import('./game/StarThrone.js');
+       
+       // Add mode flag to prevent WebSocket connection attempts
+       const gameConfig = {
+         ...data,
+         mode: 'single-player',
+         disableWebSocket: true
+       };
+       
+       gameRef.current = new StarThrone(gameConfig);
+       // Initialize the game
+       gameRef.current.init();
+       console.log('Single-player Star Throne game initialized with config:', gameConfig);
+-    } catch (error) {
+-      console.error('Failed to initialize single-player game:', error);
+-      console.error('Error details:', error.message, error.stack);
++    } catch (error: unknown) {
++      if (error instanceof Error) {
++        console.error('Failed to initialize single-player game:', error);
++        console.error('Error details:', error.message, error.stack);
++      } else {
++        console.error('Failed to initialize single-player game due to an unknown error');
++      }
+     }
+   };
+ 
+   const initMultiplayerGame = async (data: GameData) => {
+     try {
+       // For now, we'll use the same game engine but prepare for multiplayer integration
+       const { default: StarThrone } = await import('./game/StarThrone.js');
+       gameRef.current = new StarThrone(data);
+       // Initialize the game
+       gameRef.current.init();
+       console.log('Multiplayer-ready Star Throne game initialized');
+       console.log('Room data:', data.room);
+-    } catch (error) {
+-      console.error('Failed to initialize multiplayer game:', error);
++    } catch (error: unknown) {
++      if (error instanceof Error) {
++        console.error('Failed to initialize multiplayer game:', error);
++      } else {
++        console.error('Failed to initialize multiplayer game due to an unknown error');
++      }
+     }
+   };
+ 
+   const handleModeSelected = (mode: GameMode, data?: GameData) => {
+     setGameMode(mode);
+     setGameData(data || null);
+     
+     // Add game-active class to body when game starts
+     document.body.classList.add('game-active');
+     
+     if (mode === 'single' && data) {
+       initSinglePlayerGame(data);
+     } else if (mode === 'multiplayer' && data) {
+       initMultiplayerGame(data);
+     }
+   };
+ 
+   // Auto-start single player if no mode selector is needed (for development)
+   useEffect(() => {
+     // Check if we should auto-start in single player mode
+     const urlParams = new URLSearchParams(window.location.search);
+     if (urlParams.get('auto') === 'single' && !mountedRef.current) {
+       mountedRef.current = true;
+       handleModeSelected('single', { playerName: 'Player', aiCount: 19, layout: 'organic' });
+     }

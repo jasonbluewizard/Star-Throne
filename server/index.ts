@@ -45,12 +45,17 @@ app.use((req, res, next) => {
   // Initialize game server with WebSocket support
   const gameServer = new GameServer(httpServer);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
     res.status(status).json({ message });
-    throw err;
+    // Pass the error along for optional logging middleware without
+    // terminating the process. Removing the throw keeps the server
+    // running after sending the error response.
+    if (next) {
+      next(err);
+    }
   });
 
   // importantly only setup vite in development and after

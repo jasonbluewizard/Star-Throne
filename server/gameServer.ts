@@ -15,6 +15,7 @@ interface Player {
   totalArmies: number;
   territoriesOwned: number;
   isEliminated: boolean;
+  ready: boolean;
 }
 
 interface GameRoom {
@@ -153,11 +154,16 @@ export class GameServer {
         const room = this.rooms.get(roomId);
         if (!room) return;
 
+        const player = room.players.get(socket.id);
+        if (!player) return;
+
+        player.ready = true;
+
         // In multiplayer, check if all players are ready
         if (room.gameMode === 'multiplayer') {
           const allReady = Array.from(room.players.values())
             .filter(p => p.type === 'human')
-            .every(p => p.socketId === socket.id); // Simplified ready check
+            .every(p => p.ready);
 
           if (allReady && room.players.size > 0) {
             this.startGame(roomId);
@@ -187,7 +193,8 @@ export class GameServer {
       armyGenRate: 1,
       totalArmies: 0,
       territoriesOwned: 0,
-      isEliminated: false
+      isEliminated: false,
+      ready: false
     };
 
     room.players.set(socket.id, player);

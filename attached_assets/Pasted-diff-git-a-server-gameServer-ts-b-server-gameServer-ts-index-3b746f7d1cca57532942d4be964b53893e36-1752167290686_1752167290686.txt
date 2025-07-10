@@ -1,0 +1,146 @@
+diff --git a/server/gameServer.ts b/server/gameServer.ts
+index 3b746f7d1cca57532942d4be964b53893e36628f..0bea0841c430a29c094152b373209280f199e179 100644
+--- a/server/gameServer.ts
++++ b/server/gameServer.ts
+@@ -1,42 +1,43 @@
+ import { Server as SocketServer } from 'socket.io';
+ import { Server } from 'http';
+ import { GameEngine } from './GameEngine.js';
+ import { PlayerState, GameConfig, ClientCommand, CommandType, GameStateUpdate, CombatResult, CommandError, GameState } from '../common/types/index.js';
+ import { GAME_CONSTANTS } from '../common/gameConstants';
+ 
+ interface Player {
+   id: string;
+   name: string;
+   color: string;
+   type: 'human' | 'ai';
+   socketId?: string;
+   territories: number[];
+   armyGenRate: number;
+   totalArmies: number;
+   territoriesOwned: number;
+   isEliminated: boolean;
++  ready: boolean;
+ }
+ 
+ interface GameRoom {
+   id: string;
+   name: string;
+   players: Map<string, Player>;
+   gameEngine: GameEngine | null;
+   gameLoop: NodeJS.Timeout | null;
+   isStarted: boolean;
+   maxPlayers: number;
+   aiPlayerCount: number;
+   gameMode: 'single' | 'multiplayer';
+   lastUpdate: number;
+   tickRate: number;
+   lastSentTick: number;
+ }
+ 
+ export class GameServer {
+   private io: SocketServer;
+   private rooms: Map<string, GameRoom> = new Map();
+   private playerToRoom: Map<string, string> = new Map();
+ 
+   constructor(server: Server) {
+     this.io = new SocketServer(server, {
+       cors: {
+diff --git a/server/gameServer.ts b/server/gameServer.ts
+index 3b746f7d1cca57532942d4be964b53893e36628f..0bea0841c430a29c094152b373209280f199e179 100644
+--- a/server/gameServer.ts
++++ b/server/gameServer.ts
+@@ -131,85 +132,91 @@ export class GameServer {
+         const room = this.rooms.get(roomId);
+         if (!room || !room.isStarted || !room.gameEngine) return;
+ 
+         // Execute command through authoritative game engine
+         const result = room.gameEngine.executeCommand(socket.id, command);
+         
+         if (result) {
+           if ('command' in result) {
+             // Command error
+             socket.emit('command-error', result as CommandError);
+           } else {
+             // Combat result - broadcast to all players
+             this.io.to(roomId).emit('combat-result', result as CombatResult);
+           }
+         }
+       });
+ 
+       // Handle player ready
+       socket.on('player-ready', () => {
+         const roomId = this.playerToRoom.get(socket.id);
+         if (!roomId) return;
+ 
+         const room = this.rooms.get(roomId);
+         if (!room) return;
+ 
++        const player = room.players.get(socket.id);
++        if (!player) return;
++
++        player.ready = true;
++
+         // In multiplayer, check if all players are ready
+         if (room.gameMode === 'multiplayer') {
+           const allReady = Array.from(room.players.values())
+             .filter(p => p.type === 'human')
+-            .every(p => p.socketId === socket.id); // Simplified ready check
++            .every(p => p.ready);
+ 
+           if (allReady && room.players.size > 0) {
+             this.startGame(roomId);
+           }
+         }
+       });
+ 
+       // Handle disconnection
+       socket.on('disconnect', () => {
+         console.log(`Player disconnected: ${socket.id}`);
+         this.handleDisconnect(socket);
+       });
+     });
+   }
+ 
+   private joinRoom(socket: any, roomId: string, playerName: string) {
+     const room = this.rooms.get(roomId);
+     if (!room) return;
+ 
+     const player: Player = {
+       id: socket.id,
+       name: playerName,
+       color: this.generatePlayerColor(room.players.size),
+       type: 'human',
+       socketId: socket.id,
+       territories: [],
+       armyGenRate: 1,
+       totalArmies: 0,
+       territoriesOwned: 0,
+-      isEliminated: false
++      isEliminated: false,
++      ready: false
+     };
+ 
+     room.players.set(socket.id, player);
+     this.playerToRoom.set(socket.id, roomId);
+     
+     socket.join(roomId);
+     
+     // Notify other players in the room
+     socket.to(roomId).emit('player-joined', { player: this.getPlayerInfo(player) });
+   }
+ 
+   private startGame(roomId: string, mapSize: number = 200, gameSpeed: number = 1.0) {
+     const room = this.rooms.get(roomId);
+     if (!room) return;
+ 
+     room.isStarted = true;
+     
+     // Initialize server-authoritative game engine with game speed
+     room.gameEngine = new GameEngine({ mapSize, tickRate: room.tickRate, gameSpeed });
+     
+     // Add all players to the game engine
+     Array.from(room.players.values()).forEach(player => {
+       room.gameEngine!.addPlayer(player.id, player.name, player.color, player.type);
+     });
+     
