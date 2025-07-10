@@ -215,6 +215,7 @@ export class InputHandler {
                 setTimeout(() => {
                     if (this.lastClickTime === currentTime) {
                         // No double-click occurred, process as single click
+                        console.log(`🎯 Processing single click with shift=${e.shiftKey}, ctrl=${e.ctrlKey}`);
                         this.processSingleClick(e.button, targetTerritory, worldPos, e.shiftKey, e.ctrlKey);
                     }
                 }, this.doubleClickThreshold);
@@ -228,6 +229,8 @@ export class InputHandler {
     }
     
     processSingleClick(button, territory, worldPos, shiftKey = false, ctrlKey = false) {
+        console.log(`🎯 processSingleClick: button=${button}, territory=${territory?.id}, shift=${shiftKey}, ctrl=${ctrlKey}`);
+        
         // Check UI elements first
         if (this.game.handleUIClick(this.mousePos.x, this.mousePos.y)) {
             return;

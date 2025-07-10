@@ -51,6 +51,7 @@ export class InputStateMachine {
 
     // ---------- tap ----------
     handleTap({ territory, shiftKey }) {
+        console.log(`🎯 FSM handleTap: territory=${territory?.id}, shiftKey=${shiftKey}, state=${this.state}`);
         switch (this.state) {
             case 'idle':
                 if (territory && territory.ownerId === this.game.humanPlayer.id && territory.armySize > 1) {
