@@ -507,8 +507,7 @@ export default class StarThrone {
         this.controls = new Controls(this);
         this.floodController = new FloodModeController(this);
         
-        // Add permanent flood mode test button for debugging
-        this.addPermanentFloodTestButton();
+        // Flood mode buttons now integrated into GameUI instead of DOM elements
         
         // Global reference removed for better encapsulation and memory management
 
@@ -521,62 +520,7 @@ export default class StarThrone {
         this.gameLoop();
     }
     
-    addPermanentFloodTestButton() {
-        // Remove any existing test button
-        const existing = document.getElementById('flood-test-button');
-        if (existing) existing.remove();
-        
-        // Create permanent test button for flood mode
-        const button = document.createElement('button');
-        button.id = 'flood-test-button';
-        button.textContent = 'F - Flood Mode (OFF)';
-        button.style.position = 'fixed';
-        button.style.top = '10px';
-        button.style.right = '10px';
-        button.style.zIndex = '1001';
-        button.style.padding = '10px 15px';
-        button.style.backgroundColor = '#333';
-        button.style.color = 'white';
-        button.style.border = '2px solid #666';
-        button.style.borderRadius = '5px';
-        button.style.cursor = 'pointer';
-        button.style.fontFamily = 'Arial, sans-serif';
-        button.style.fontSize = '12px';
-        
-        button.addEventListener('click', () => {
-            if (this.humanPlayer && this.floodController) {
-                const isActive = this.floodController.isActive(this.humanPlayer);
-                console.log('Button clicked - current flood mode state:', isActive);
-                this.floodController.togglePlayer(this.humanPlayer, !isActive);
-                const newState = this.floodController.isActive(this.humanPlayer);
-                button.textContent = `F - Flood Mode (${newState ? 'ON' : 'OFF'})`;
-                button.style.backgroundColor = newState ? '#228b22' : '#333';
-                console.log('Flood mode toggled to:', newState);
-                
-                // Force show/hide slider
-                if (newState) {
-                    console.log('Showing slider...');
-                    this.floodController.showSlider(this.humanPlayer);
-                } else {
-                    console.log('Hiding slider...');
-                    this.floodController.hideSlider();
-                }
-            }
-        });
-        
-        document.body.appendChild(button);
-        console.log('Permanent flood mode test button added');
-        
-        // Auto-activate flood mode after 3 seconds for immediate testing
-        setTimeout(() => {
-            if (this.humanPlayer && this.floodController && !this.floodController.isActive(this.humanPlayer)) {
-                console.log('Auto-activating flood mode for testing...');
-                this.floodController.togglePlayer(this.humanPlayer, true);
-                button.textContent = 'F - Flood Mode (ON)';
-                button.style.backgroundColor = '#228b22';
-            }
-        }, 3000);
-    }
+    // Old DOM-based flood mode button removed - now using in-game UI buttons in top bar
     
     // Define discovery types and their probabilities
     getDiscoveryTypes() {
@@ -3324,6 +3268,24 @@ export default class StarThrone {
             return true;
         }
         
+        // Check for Player flood mode button click
+        if (this.ui && this.ui.playerFloodButton) {
+            const button = this.ui.playerFloodButton;
+            
+            if (screenX >= button.x && screenX <= button.x + button.width &&
+                screenY >= button.y && screenY <= button.y + button.height) {
+                // Toggle human player flood mode
+                if (this.floodController && this.humanPlayer) {
+                    const isActive = this.floodController.isActive(this.humanPlayer);
+                    this.floodController.togglePlayer(this.humanPlayer, !isActive);
+                    console.log('Player Flood Mode toggled via UI button click');
+                } else {
+                    console.log('FloodController or humanPlayer not available');
+                }
+                return true;
+            }
+        }
+
         // Check for AI flood mode button click
         if (this.ui && this.ui.aiFloodButton) {
             const button = this.ui.aiFloodButton;

@@ -139,7 +139,8 @@ export class GameUI {
         // Discovery panel in upper left corner
         this.renderDiscoveryPanel(ctx, gameData);
         
-        // AI Flood Mode toggle button in right side
+        // Player and AI Flood Mode buttons in top bar
+        this.renderPlayerFloodModeButton(ctx, gameData);
         this.renderAIFloodModeButton(ctx, gameData);
         
         // All UI panels removed for minimal clean interface
@@ -245,16 +246,59 @@ export class GameUI {
         };
     }
     
+    renderPlayerFloodModeButton(ctx, gameData) {
+        // Only show button during gameplay
+        if (gameData.gameState !== 'playing') return;
+        
+        // Button dimensions and position (top bar, right side)
+        const buttonWidth = 120;
+        const buttonHeight = 30;
+        const margin = 20;
+        const x = this.canvas.width - buttonWidth - margin;
+        const y = 15; // Top bar positioning
+        
+        // Check if player flood mode is active
+        const isActive = gameData.floodController?.isActive(gameData.humanPlayer);
+        const buttonColor = isActive ? '#228b22' : '#555555';
+        const textColor = isActive ? '#ffffff' : '#cccccc';
+        
+        // Button background
+        ctx.fillStyle = buttonColor;
+        ctx.fillRect(x, y, buttonWidth, buttonHeight);
+        
+        // Button border
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, buttonWidth, buttonHeight);
+        
+        // Button text
+        ctx.font = 'bold 11px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        const buttonText = `Flood Mode ${isActive ? 'ON' : 'OFF'}`;
+        this.renderTextWithShadow(ctx, buttonText, x + buttonWidth/2, y + buttonHeight/2, textColor);
+        
+        // Store button area for click detection
+        this.playerFloodButton = {
+            x: x,
+            y: y,
+            width: buttonWidth,
+            height: buttonHeight
+        };
+    }
+
     renderAIFloodModeButton(ctx, gameData) {
         // Only show button during gameplay
         if (gameData.gameState !== 'playing') return;
         
-        // Button dimensions and position (top right corner, moved down)
-        const buttonWidth = 180;
-        const buttonHeight = 35;
+        // Button dimensions and position (top bar, to the left of player flood mode button)
+        const buttonWidth = 140;
+        const buttonHeight = 30;
         const margin = 20;
-        const x = this.canvas.width - buttonWidth - margin;
-        const y = margin + 60; // Moved down 60px to avoid overlap
+        const playerButtonWidth = 120;
+        const x = this.canvas.width - buttonWidth - playerButtonWidth - margin - 10; // 10px spacing between buttons
+        const y = 15; // Top bar positioning
         
         // Get AI player count
         const aiPlayers = Object.values(gameData.players).filter(p => p.type === 'ai' && !p.isEliminated);
@@ -275,7 +319,7 @@ export class GameUI {
         ctx.strokeRect(x, y, buttonWidth, buttonHeight);
         
         // Button text
-        ctx.font = 'bold 12px Arial';
+        ctx.font = 'bold 11px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         
