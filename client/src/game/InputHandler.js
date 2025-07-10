@@ -161,8 +161,6 @@ export class InputHandler {
         const hoveredTerritory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
         this.hoveredTerritory = hoveredTerritory;
         
-
-        
         this.lastMousePos = newMousePos;
         this.mousePos = newMousePos;
     }
@@ -215,10 +213,10 @@ export class InputHandler {
             }
         }
         
-        // cancel timer
-        clearTimeout(this.longPressTimer);
-        
-        this.resetDragState();
+        // Reset drag state
+        this.isDragging = false;
+        this.dragStartPos = null;
+        this.dragStartTime = null;
     }
     
     processSingleClick(button, territory, worldPos) {
@@ -239,9 +237,8 @@ export class InputHandler {
                 if (this.game.floodController && this.game.humanPlayer) {
                     this.game.floodController.toggleNoGoZone(this.game.humanPlayer, territory.id);
                     const isNoGo = this.game.floodController.isNoGoZone(this.game.humanPlayer, territory.id);
-                    this.game.addNotification(
+                    this.game.showMessage(
                         `Territory ${territory.id} marked as ${isNoGo ? 'NO GO' : 'ALLOWED'}`,
-                        isNoGo ? '#ff4444' : '#44ff44',
                         2000
                     );
                     return;
@@ -334,11 +331,13 @@ export class InputHandler {
             );
             const territory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
             
-            // Treat touch tap as left-click
-            this.inputFSM.handleInput('leftClick', {
+            // Treat touch tap as tap event for FSM
+            this.inputFSM.handleEvent('tap', {
                 territory: territory,
-                worldPos: worldPos,
-                screenPos: { x: touch.clientX - rect.left, y: touch.clientY - rect.top }
+                x: worldPos.x,
+                y: worldPos.y,
+                shiftKey: false,
+                ctrlKey: false
             });
         }
     }
@@ -518,10 +517,14 @@ export class InputHandler {
     
     // Cleanup method to properly remove event listeners (fixes memory leak)
     cleanup() {
-        // Clear any active long press timer
-        if (this.longPressTimer) {
-            clearTimeout(this.longPressTimer);
-            this.longPressTimer = null;
+        // Clear any active long press timers
+        if (this.longPressSelectionTimer) {
+            clearTimeout(this.longPressSelectionTimer);
+            this.longPressSelectionTimer = null;
+        }
+        if (this.longPressSupplyTimer) {
+            clearTimeout(this.longPressSupplyTimer);
+            this.longPressSupplyTimer = null;
         }
         
         // Remove all event listeners using the same bound references
