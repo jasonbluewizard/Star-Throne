@@ -1,0 +1,57 @@
+diff --git a/client/src/components/GameConfigScreen.tsx b/client/src/components/GameConfigScreen.tsx
+index b75a054cb8dfef9d9740a7102d196b49adb1748e..8a1d178c493356a3586c626820181902cfd26858 100644
+--- a/client/src/components/GameConfigScreen.tsx
++++ b/client/src/components/GameConfigScreen.tsx
+@@ -106,51 +106,51 @@ export function GameConfigScreen({ onStartGame, onBack }: GameConfigScreenProps)
+         
+         <CardContent className="space-y-6">
+           {/* Player Name */}
+           <div className="space-y-2">
+             <Label htmlFor="playerName" className="text-white">Player Name</Label>
+             <input
+               id="playerName"
+               type="text"
+               value={playerName}
+               onChange={(e) => setPlayerName(e.target.value)}
+               className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+               placeholder="Enter your name"
+               maxLength={20}
+             />
+           </div>
+ 
+           {/* Map Size */}
+           <div className="space-y-3">
+             <div className="flex justify-between items-center">
+               <Label className="text-white">Map Size</Label>
+               <span className="text-cyan-400 font-mono">{mapSize[0]} territories</span>
+             </div>
+             <Slider
+               value={mapSize}
+               onValueChange={setMapSize}
+-              max={200}
++              max={500}
+               min={30}
+               step={10}
+               className="w-full"
+             />
+             <p className="text-sm text-gray-400">{getMapDescription(mapSize[0])}</p>
+           </div>
+ 
+           {/* AI Player Count */}
+           <div className="space-y-3">
+             <div className="flex justify-between items-center">
+               <Label className="text-white">AI Players</Label>
+               <span className="text-cyan-400 font-mono">{aiPlayerCount[0]} opponents</span>
+             </div>
+             <Slider
+               value={aiPlayerCount}
+               onValueChange={setAiPlayerCount}
+               max={99}
+               min={5}
+               step={1}
+               className="w-full"
+             />
+             <p className="text-sm text-gray-400">{getAIDescription(aiPlayerCount[0])}</p>
+           </div>
+ 
+           {/* Game Speed */}
