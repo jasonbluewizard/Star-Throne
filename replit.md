@@ -493,6 +493,12 @@ Changelog:
   * All discovery types now properly increment in Empire Discoveries panel
   * Confirmed proper functionality: precursor technologies, friendly aliens, factory discoveries, mineral deposits
   * Discovery system fully operational with accurate tracking of empire bonuses and planet-specific discoveries
+- January 10, 2025. Enhanced zoom range and Delaunay triangulation implementation:
+  * Expanded zoom range to 0.02-8.0 across all input methods (mouse wheel, pinch gestures, camera controls)
+  * Implemented proper Delaunay triangulation using Delaunator library for natural warp lane generation
+  * Eliminated crossing star lanes through planar graph generation with fallback to naive neighbor search
+  * Enhanced galaxy layouts with more realistic spatial connectivity patterns
+  * Fixed duplicate GameEngine class conflict by removing legacy server/gameEngine.ts file
 - January 1, 2025. Strategic camera system implementation (Supreme Commander-style):
   * Enhanced strategic zoom range: extreme zoom-out (0.05x) to tactical close-up (8.0x) for galaxy-wide view
   * Implemented inertial panning with smooth momentum and friction for natural camera movement

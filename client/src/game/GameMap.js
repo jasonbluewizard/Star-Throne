@@ -1,5 +1,6 @@
 import { Territory } from './Territory';
 import MapGenerator from './MapGenerator';
+import Delaunator from 'delaunator';
 
 export class GameMap {
     constructor(width, height, config = {}) {
@@ -684,23 +685,49 @@ export class GameMap {
     connectTerritories() {
         const territoryList = Object.values(this.territories);
         const existingConnections = []; // Track existing warp lanes to prevent intersections
-        
-        // Use Delaunay triangulation approximation for natural connections
+
+        if (territoryList.length < 2) return;
+
+        const points = territoryList.map(t => [t.x, t.y]);
+        let delaunay = null;
+        try {
+            delaunay = Delaunator.from(points);
+        } catch (err) {
+            console.warn('Delaunay triangulation failed, falling back to naive neighbor search');
+        }
+
+        const neighborSets = territoryList.map(() => new Set());
+
+        if (delaunay) {
+            for (let t = 0; t < delaunay.triangles.length; t += 3) {
+                const a = delaunay.triangles[t];
+                const b = delaunay.triangles[t + 1];
+                const c = delaunay.triangles[t + 2];
+                neighborSets[a].add(b); neighborSets[a].add(c);
+                neighborSets[b].add(a); neighborSets[b].add(c);
+                neighborSets[c].add(a); neighborSets[c].add(b);
+            }
+        } else {
+            for (let i = 0; i < territoryList.length; i++) {
+                for (let j = i + 1; j < territoryList.length; j++) {
+                    neighborSets[i].add(j);
+                    neighborSets[j].add(i);
+                }
+            }
+        }
+
         for (let i = 0; i < territoryList.length; i++) {
             const territory = territoryList[i];
             const nearbyTerritories = [];
-            
-            // Find all territories within connection distance
-            for (let j = 0; j < territoryList.length; j++) {
-                if (i === j) continue;
-                
+
+            neighborSets[i].forEach(j => {
                 const other = territoryList[j];
                 const distance = territory.getDistanceTo(other);
-                
+
                 if (distance <= this.connectionDistance && !this.linePassesThroughTerritory(territory, other, territoryList, existingConnections)) {
                     nearbyTerritories.push({ territory: other, distance });
                 }
-            }
+            });
             
             // Sort by distance and connect to closest neighbors
             nearbyTerritories.sort((a, b) => a.distance - b.distance);
