@@ -163,19 +163,26 @@ export default class FloodModeController {
             for (const tid of player.territories) {
                 const t = this.game.gameMap.territories[tid];
                 if (!t) continue;
-                let ships = t.armySize;
+                
                 for (const nid of t.neighbors) {
                     const n = this.game.gameMap.territories[nid];
                     if (!n || n.ownerId === id) continue;
                     if (this.isGateClosed(player, tid, nid)) continue;
+                    
+                    // Use current army size (which may have been reduced by previous attacks)
+                    const currentArmies = t.armySize;
                     const required = n.armySize + 2 * aggression;
-                    if (ships >= required) {
-                        const send = n.armySize + aggression;
-                        t.armySize -= send;
-                        ships -= send;
-                        if (this.game.createShipAnimation)
-                            this.game.createShipAnimation(t, n, true, send);
-                        this.game.combatSystem.attackTerritory(t, n, send);
+                    
+                    if (currentArmies >= required) {
+                        const send = Math.min(n.armySize + aggression, currentArmies);
+                        
+                        // Ensure we don't send more armies than we have
+                        if (send > 0 && send <= currentArmies) {
+                            t.armySize -= send;
+                            if (this.game.createShipAnimation)
+                                this.game.createShipAnimation(t, n, true, send);
+                            this.game.combatSystem.attackTerritory(t, n, send);
+                        }
                     }
                 }
             }
