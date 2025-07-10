@@ -51,7 +51,7 @@ export default class FloodModeController {
             });
             
             if (aiPlayers.length > 0) {
-                this.game.addNotification(`AI Flood Mode ENABLED for ${aiPlayers.length} AI players`, '#44ff44', 3000);
+                this.game.showMessage(`AI Flood Mode ENABLED for ${aiPlayers.length} AI players`, 5000);
             }
         } else {
             // Disable flood mode for all AI players
@@ -60,7 +60,7 @@ export default class FloodModeController {
             });
             
             if (aiPlayers.length > 0) {
-                this.game.addNotification(`AI Flood Mode DISABLED for ${aiPlayers.length} AI players`, '#ff4444', 3000);
+                this.game.showMessage(`AI Flood Mode DISABLED for ${aiPlayers.length} AI players`, 5000);
             }
         }
         

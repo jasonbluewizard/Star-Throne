@@ -8,8 +8,8 @@ export class Territory {
         this.hiddenNeighbors = []; // Legacy - no longer used with new visibility system
         this.ownerId = null; // null for neutral, or player ID
         
-        // All territories start with neutral garrisons (1-30 armies)
-        this.armySize = Math.floor(Math.random() * 30) + 1;
+        // All territories start with neutral garrisons (1-25 armies)
+        this.armySize = Math.floor(Math.random() * 25) + 1;
         this.isColonizable = false; // No longer needed with new visibility system
         
         // Visual properties

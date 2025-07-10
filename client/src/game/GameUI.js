@@ -249,12 +249,12 @@ export class GameUI {
         // Only show button during gameplay
         if (gameData.gameState !== 'playing') return;
         
-        // Button dimensions and position (top right corner)
+        // Button dimensions and position (top right corner, moved down)
         const buttonWidth = 180;
         const buttonHeight = 35;
         const margin = 20;
         const x = this.canvas.width - buttonWidth - margin;
-        const y = margin;
+        const y = margin + 60; // Moved down 60px to avoid overlap
         
         // Get AI player count
         const aiPlayers = Object.values(gameData.players).filter(p => p.type === 'ai' && !p.isEliminated);
