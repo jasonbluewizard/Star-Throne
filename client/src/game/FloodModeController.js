@@ -32,25 +32,74 @@ export default class FloodModeController {
 
     showSlider(player) {
         if (document.getElementById('flood-slider')) return;
+        
+        // Create container for flood mode controls
+        const container = document.createElement('div');
+        container.id = 'flood-controls';
+        container.style.position = 'fixed';
+        container.style.bottom = '10px';
+        container.style.left = '10px';
+        container.style.zIndex = '1000';
+        container.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+        container.style.padding = '10px';
+        container.style.borderRadius = '5px';
+        container.style.color = 'white';
+        container.style.fontFamily = 'Arial, sans-serif';
+        container.style.fontSize = '12px';
+        
+        // Create label
+        const label = document.createElement('div');
+        label.textContent = 'Flood Mode Aggression:';
+        label.style.marginBottom = '5px';
+        container.appendChild(label);
+        
+        // Create slider
         const slider = document.createElement('input');
         slider.type = 'range';
         slider.min = '1';
         slider.max = '10';
         slider.value = this.aggression[player.id] || 5;
         slider.id = 'flood-slider';
-        slider.style.position = 'fixed';
-        slider.style.bottom = '10px';
-        slider.style.left = '10px';
-        slider.style.zIndex = 10;
-        document.body.appendChild(slider);
+        slider.style.width = '150px';
+        container.appendChild(slider);
+        
+        // Create value display
+        const valueDisplay = document.createElement('span');
+        valueDisplay.id = 'flood-value';
+        valueDisplay.textContent = ` ${slider.value}`;
+        valueDisplay.style.marginLeft = '10px';
+        container.appendChild(valueDisplay);
+        
+        // Add test button to toggle flood mode
+        const testButton = document.createElement('button');
+        testButton.textContent = 'OFF - Click to Toggle';
+        testButton.style.marginTop = '10px';
+        testButton.style.padding = '5px 10px';
+        testButton.style.display = 'block';
+        testButton.style.width = '100%';
+        testButton.addEventListener('click', () => {
+            const isActive = this.isActive(player);
+            this.togglePlayer(player, !isActive);
+            testButton.textContent = isActive ? 'OFF - Click to Toggle' : 'ON - Click to Toggle';
+        });
+        container.appendChild(testButton);
+        
+        document.body.appendChild(container);
+        
         slider.addEventListener('input', () => {
             this.setAggression(player, parseInt(slider.value, 10));
+            valueDisplay.textContent = ` ${slider.value}`;
         });
+        
+        console.log('Flood mode slider created and shown');
     }
 
     hideSlider() {
-        const el = document.getElementById('flood-slider');
-        if (el) el.remove();
+        const container = document.getElementById('flood-controls');
+        if (container) {
+            container.remove();
+            console.log('Flood mode slider hidden and removed');
+        }
     }
 
     setAggression(player, value) {

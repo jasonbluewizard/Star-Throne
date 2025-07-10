@@ -507,6 +507,9 @@ export default class StarThrone {
         this.controls = new Controls(this);
         this.floodController = new FloodModeController(this);
         
+        // Add permanent flood mode test button for debugging
+        this.addPermanentFloodTestButton();
+        
         // Global reference removed for better encapsulation and memory management
 
         
@@ -516,6 +519,42 @@ export default class StarThrone {
         this.gameStartTime = Date.now(); // Track when game actually starts
         this.startGame();
         this.gameLoop();
+    }
+    
+    addPermanentFloodTestButton() {
+        // Remove any existing test button
+        const existing = document.getElementById('flood-test-button');
+        if (existing) existing.remove();
+        
+        // Create permanent test button for flood mode
+        const button = document.createElement('button');
+        button.id = 'flood-test-button';
+        button.textContent = 'F - Flood Mode (OFF)';
+        button.style.position = 'fixed';
+        button.style.top = '10px';
+        button.style.right = '10px';
+        button.style.zIndex = '1001';
+        button.style.padding = '10px 15px';
+        button.style.backgroundColor = '#333';
+        button.style.color = 'white';
+        button.style.border = '2px solid #666';
+        button.style.borderRadius = '5px';
+        button.style.cursor = 'pointer';
+        button.style.fontFamily = 'Arial, sans-serif';
+        button.style.fontSize = '12px';
+        
+        button.addEventListener('click', () => {
+            if (this.humanPlayer && this.floodController) {
+                const isActive = this.floodController.isActive(this.humanPlayer);
+                this.floodController.togglePlayer(this.humanPlayer, !isActive);
+                button.textContent = `F - Flood Mode (${isActive ? 'OFF' : 'ON'})`;
+                button.style.backgroundColor = isActive ? '#333' : '#228b22';
+                console.log('Flood mode manually toggled via test button:', !isActive);
+            }
+        });
+        
+        document.body.appendChild(button);
+        console.log('Permanent flood mode test button added');
     }
     
     // Define discovery types and their probabilities
