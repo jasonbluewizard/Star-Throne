@@ -504,6 +504,7 @@ Changelog:
   * Expanded maximum map size from 200 to 500 territories for mega galaxy experiences with updated scale descriptions
   * Fixed critical camera zoom calculation bug ensuring proper minimum zoom for viewing entire galaxy maps
   * Optimized viewport culling system: removed incremental processing for smoother rendering on 500-territory maps
+  * Enhanced camera zoom margin from 10% to 30% for complete galaxy visibility without edge clipping
 - January 1, 2025. Strategic camera system implementation (Supreme Commander-style):
   * Enhanced strategic zoom range: extreme zoom-out (0.05x) to tactical close-up (8.0x) for galaxy-wide view
   * Implemented inertial panning with smooth momentum and friction for natural camera movement

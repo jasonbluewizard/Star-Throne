@@ -42,7 +42,7 @@ export class Camera {
     }
     
     computeMinZoom() {
-        const margin = 1.1; // 10% extra space around the map
+        const margin = 1.3; // 30% extra space around the map for full visibility
         const minZoomForWidth = this.viewportWidth / (this.mapWidth * margin);
         const minZoomForHeight = this.viewportHeight / (this.mapHeight * margin);
         return Math.max(minZoomForWidth, minZoomForHeight, 0.02); // Never go below 0.02
