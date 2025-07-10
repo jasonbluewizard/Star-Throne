@@ -2149,13 +2149,6 @@ export default class StarThrone {
             this.floodController.update(deltaTime);
         }
         
-        // Validate fleet counts every 5 seconds to catch any negative fleet bugs
-        if (!this.lastFleetValidation) this.lastFleetValidation = 0;
-        if (Date.now() - this.lastFleetValidation > 5000) {
-            this.validateAllFleetCounts();
-            this.lastFleetValidation = Date.now();
-        }
-        
         // Process event queue for event-driven architecture
         if (this.eventProcessingEnabled) {
             gameEvents.processQueue(5); // Process up to 5 events per frame
@@ -4076,31 +4069,6 @@ export default class StarThrone {
     /**
      * Validates throne star assignments and fixes double throne star bugs
      */
-    // Validate all fleet counts and fix any negative values
-    validateAllFleetCounts() {
-        let negativeFleetCount = 0;
-        let totalTerritories = 0;
-        
-        Object.values(this.gameMap.territories).forEach(territory => {
-            totalTerritories++;
-            if (territory.armySize < 0) {
-                negativeFleetCount++;
-                console.error(`🚨 NEGATIVE FLEET FIXED: Territory ${territory.id} had ${territory.armySize} fleets, set to 1`);
-                territory.armySize = 1; // Set minimum fleet count
-            }
-            
-            // Also validate minimum fleet count for owned territories
-            if (territory.ownerId !== null && territory.armySize < 1) {
-                console.error(`🚨 ZERO FLEET FIXED: Territory ${territory.id} owned by player ${territory.ownerId} had ${territory.armySize} fleets, set to 1`);
-                territory.armySize = 1;
-            }
-        });
-        
-        if (negativeFleetCount > 0) {
-            console.log(`🔧 FLEET VALIDATION: Fixed ${negativeFleetCount} negative fleet territories out of ${totalTerritories} total`);
-        }
-    }
-    
     validateThroneStars() {
         console.log('🔍 THRONE VALIDATION: Starting validation...');
         

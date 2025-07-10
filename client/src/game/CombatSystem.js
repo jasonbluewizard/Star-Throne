@@ -45,11 +45,6 @@ export class CombatSystem {
             return { success: false, reason: `Territory ${attackingTerritory.id} only has ${attackingTerritory.armySize} ship(s) - cannot attack` };
         }
         
-        // Additional safety check: ensure we don't deduct more than available
-        if (actualAttackers >= attackingTerritory.armySize) {
-            actualAttackers = Math.max(1, attackingTerritory.armySize - 1);
-        }
-        
         // Get player objects
         const attacker = this.game.players[attackingTerritory.ownerId];
         const defender = defendingTerritory.ownerId ? this.game.players[defendingTerritory.ownerId] : null; // Neutral territories have no defender player
@@ -62,14 +57,8 @@ export class CombatSystem {
         
         // For neutral territories, defender is null - that's okay
 
-        // Deduct armies from attacking territory immediately with safety check
-        attackingTerritory.armySize = Math.max(0, attackingTerritory.armySize - actualAttackers);
-        
-        // Additional safety logging for debugging negative fleets
-        if (attackingTerritory.armySize < 0) {
-            console.error(`🚨 NEGATIVE FLEET DETECTED: Territory ${attackingTerritory.id} has ${attackingTerritory.armySize} armies after sending ${actualAttackers}`);
-            attackingTerritory.armySize = 0; // Force to zero
-        }
+        // Deduct armies from attacking territory immediately
+        attackingTerritory.armySize -= actualAttackers;
 
         // Create pending battle for when ships arrive
         const battle = {
