@@ -501,6 +501,7 @@ Changelog:
   * Fixed duplicate GameEngine class conflict by removing legacy server/gameEngine.ts file
   * Improved server error handling to prevent crashes and maintain multiplayer session stability
   * Implemented proper multiplayer ready system requiring all human players to confirm readiness before game start
+  * Expanded maximum map size from 200 to 500 territories for mega galaxy experiences with updated scale descriptions
 - January 1, 2025. Strategic camera system implementation (Supreme Commander-style):
   * Enhanced strategic zoom range: extreme zoom-out (0.05x) to tactical close-up (8.0x) for galaxy-wide view
   * Implemented inertial panning with smooth momentum and friction for natural camera movement
