@@ -3213,6 +3213,7 @@ export default class StarThrone {
     // Wheel handling moved to InputHandler
     
     handleUIClick(screenX, screenY) {
+        console.log(`🖱️ UI Click at screen coordinates: (${screenX}, ${screenY})`);
         // Handle UI element clicks (moved from old handleTerritorySelection)
         
         // Check for "PLAY AGAIN" button when human player is eliminated
@@ -3271,9 +3272,11 @@ export default class StarThrone {
         // Check for Player flood mode button click
         if (this.ui && this.ui.playerFloodButton) {
             const button = this.ui.playerFloodButton;
+            console.log(`🖱️ Player Flood Button bounds: x=${button.x}, y=${button.y}, w=${button.width}, h=${button.height}`);
             
             if (screenX >= button.x && screenX <= button.x + button.width &&
                 screenY >= button.y && screenY <= button.y + button.height) {
+                console.log('🎯 Player Flood Button clicked!');
                 // Toggle human player flood mode
                 if (this.floodController && this.humanPlayer) {
                     const isActive = this.floodController.isActive(this.humanPlayer);
@@ -3289,9 +3292,11 @@ export default class StarThrone {
         // Check for AI flood mode button click
         if (this.ui && this.ui.aiFloodButton) {
             const button = this.ui.aiFloodButton;
+            console.log(`🖱️ AI Flood Button bounds: x=${button.x}, y=${button.y}, w=${button.width}, h=${button.height}`);
             
             if (screenX >= button.x && screenX <= button.x + button.width &&
                 screenY >= button.y && screenY <= button.y + button.height) {
+                console.log('🎯 AI Flood Button clicked!');
                 // Toggle all AI players flood mode
                 if (this.floodController) {
                     this.floodController.toggleAIFloodMode();
