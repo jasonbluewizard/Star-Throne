@@ -233,25 +233,17 @@ export class InputHandler {
         }
         
         if (button === 0) { // Left click
-            // Check if we're in gate toggle mode
-            if (this.gateToggleMode && territory) {
-                const selectedState = this.inputFSM.getState();
-                if (selectedState.selectedTerritory && selectedState.selectedTerritory.id !== territory.id) {
-                    // Check if territories are neighbors
-                    const fromTerritory = selectedState.selectedTerritory;
-                    if (fromTerritory.neighbors && fromTerritory.neighbors.includes(territory.id)) {
-                        // Toggle the gate
-                        this.game.floodController.toggleGate(this.game.humanPlayer, fromTerritory.id, territory.id);
-                        const isClosed = this.game.floodController.isGateClosed(this.game.humanPlayer, fromTerritory.id, territory.id);
-                        this.game.addNotification(
-                            `Gate ${isClosed ? 'CLOSED' : 'OPENED'} between ${fromTerritory.id} and ${territory.id}`,
-                            isClosed ? '#ff4444' : '#44ff44',
-                            2000
-                        );
-                    } else {
-                        this.game.addNotification("Territories are not connected!", '#ff4444', 2000);
-                    }
-                    this.gateToggleMode = false;
+            // Check if clicking on enemy/neutral territory to toggle "no go" status
+            if (territory && territory.ownerId !== this.game.humanPlayer?.id) {
+                // Toggle no-go status for flood mode
+                if (this.game.floodController && this.game.humanPlayer) {
+                    this.game.floodController.toggleNoGoZone(this.game.humanPlayer, territory.id);
+                    const isNoGo = this.game.floodController.isNoGoZone(this.game.humanPlayer, territory.id);
+                    this.game.addNotification(
+                        `Territory ${territory.id} marked as ${isNoGo ? 'NO GO' : 'ALLOWED'}`,
+                        isNoGo ? '#ff4444' : '#44ff44',
+                        2000
+                    );
                     return;
                 }
             }
@@ -499,17 +491,7 @@ export class InputHandler {
                     console.log('Cannot toggle flood mode - missing humanPlayer or floodController');
                 }
                 break;
-            case 'g':
-            case 'G':
-                // G key - Toggle gate on selected warp lane (when territory is selected)
-                const selectedState = this.inputFSM.getState();
-                if (selectedState.selectedTerritory && this.game.humanPlayer && this.game.floodController) {
-                    // Show instruction to click a neighboring territory to toggle gate
-                    this.game.addNotification("Click a neighboring territory to toggle gate", '#ffff00', 3000);
-                    this.gateToggleMode = true;
-                    setTimeout(() => { this.gateToggleMode = false; }, 5000); // 5 second timeout
-                }
-                break;
+
         }
     }
     

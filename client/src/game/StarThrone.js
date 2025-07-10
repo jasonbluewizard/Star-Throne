@@ -2527,6 +2527,7 @@ export default class StarThrone {
                     homeSystemFlashDuration: this.homeSystemFlashDuration,
                     gameMap: this.gameMap, // Include game map for fog of war logic
                     supplySystem: this.supplySystem, // Include supply system for proper encapsulation
+                    game: this, // Include game reference for flood controller access
                     isDisconnectedFromThrone: (territoryId) => this.isDisconnectedFromThrone(territoryId)
                 }, this.inputHandler?.hoveredTerritory);
             }

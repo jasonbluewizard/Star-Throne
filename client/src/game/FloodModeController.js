@@ -3,7 +3,7 @@ export default class FloodModeController {
         this.game = game;
         this.activePlayers = new Set();
         this.aggression = {}; // playerId -> aggression level
-        this.closedGates = {}; // playerId -> {fromId: Set(neighborId)}
+        this.noGoZones = {}; // playerId -> Set(territoryId) - territories marked as no-go
         this.timer = 0;
         this.checkInterval = 1000; // ms
     }
@@ -20,7 +20,7 @@ export default class FloodModeController {
         if (enable) {
             this.activePlayers.add(id);
             if (!this.aggression[id]) this.aggression[id] = 5;
-            if (!this.closedGates[id]) this.closedGates[id] = {};
+            if (!this.noGoZones[id]) this.noGoZones[id] = new Set();
             if (player.type === 'human') this.showSlider(player);
             this.game.addNotification(`Flood Mode ON (${player.name})`, '#44ff44');
         } else {
@@ -92,7 +92,7 @@ export default class FloodModeController {
         instructions.style.fontSize = '11px';
         instructions.style.color = '#cccccc';
         instructions.style.textAlign = 'center';
-        instructions.innerHTML = 'Press F to toggle<br/>Use G to control gates';
+        instructions.innerHTML = 'Press F to toggle<br/>Click enemy stars to mark NO GO';
         container.appendChild(instructions);
         
         document.body.appendChild(container);
@@ -125,30 +125,29 @@ export default class FloodModeController {
         }
     }
 
-    toggleGate(player, fromId, toId) {
+    toggleNoGoZone(player, territoryId) {
         const id = player.id;
-        if (!this.closedGates[id]) this.closedGates[id] = {};
-        const gates = this.closedGates[id];
-        if (!gates[fromId]) gates[fromId] = new Set();
-        if (gates[fromId].has(toId)) {
-            gates[fromId].delete(toId);
+        if (!this.noGoZones[id]) this.noGoZones[id] = new Set();
+        
+        if (this.noGoZones[id].has(territoryId)) {
+            this.noGoZones[id].delete(territoryId);
         } else {
-            gates[fromId].add(toId);
+            this.noGoZones[id].add(territoryId);
         }
     }
 
-    isGateClosed(player, fromId, toId) {
+    isNoGoZone(player, territoryId) {
         const id = player.id;
-        return this.closedGates[id] && this.closedGates[id][fromId] && this.closedGates[id][fromId].has(toId);
+        return this.noGoZones[id] && this.noGoZones[id].has(territoryId);
     }
 
     onTerritoryCaptured(oldOwnerId, newOwnerId, territoryId) {
-        if (oldOwnerId != null && this.closedGates[oldOwnerId]) {
-            delete this.closedGates[oldOwnerId][territoryId];
-            // remove references pointing to this territory
-            for (const from in this.closedGates[oldOwnerId]) {
-                this.closedGates[oldOwnerId][from].delete(territoryId);
-            }
+        // Remove no-go zone marking if territory changes hands
+        if (oldOwnerId != null && this.noGoZones[oldOwnerId]) {
+            this.noGoZones[oldOwnerId].delete(territoryId);
+        }
+        if (newOwnerId != null && this.noGoZones[newOwnerId]) {
+            this.noGoZones[newOwnerId].delete(territoryId);
         }
     }
 
@@ -167,7 +166,9 @@ export default class FloodModeController {
                 for (const nid of t.neighbors) {
                     const n = this.game.gameMap.territories[nid];
                     if (!n || n.ownerId === id) continue;
-                    if (this.isGateClosed(player, tid, nid)) continue;
+                    
+                    // Skip territories marked as no-go zones
+                    if (this.isNoGoZone(player, nid)) continue;
                     
                     // Use current army size (which may have been reduced by previous attacks)
                     const currentArmies = t.armySize;

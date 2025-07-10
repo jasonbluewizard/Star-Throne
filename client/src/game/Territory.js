@@ -359,6 +359,14 @@ export class Territory {
             this.renderCrown(ctx);
         }
         
+        // Draw red X for no-go zones (flood mode)
+        if (gameData?.humanPlayer && this.ownerId !== gameData.humanPlayer.id) {
+            const floodController = gameData.game?.floodController;
+            if (floodController && floodController.isNoGoZone(gameData.humanPlayer, this.id)) {
+                this.renderNoGoMarker(ctx);
+            }
+        }
+        
         // Draw factory icon for Precursor Factory discoveries
         if (this.hasFactory) {
             this.renderFactoryIcon(ctx);
@@ -591,6 +599,34 @@ export class Territory {
         ctx.font = `bold ${mineralSize}px Arial`;
         ctx.textAlign = 'center';
         ctx.fillText('💎', mineralX, mineralY);
+        
+        ctx.restore();
+    }
+    
+    renderNoGoMarker(ctx) {
+        // Red X marker positioned above the planet
+        const markerX = this.x;
+        const markerY = this.y - this.radius - 25;
+        const markerSize = Math.max(16, this.radius * 1.0);
+        
+        ctx.save();
+        
+        // Dark shadow for visibility
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.font = `bold ${markerSize + 4}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.fillText('✗', markerX + 2, markerY + 2);
+        
+        // Main red X marker
+        ctx.fillStyle = '#ff0000';
+        ctx.font = `bold ${markerSize}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.fillText('✗', markerX, markerY);
+        
+        // Add white outline for extra visibility
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.strokeText('✗', markerX, markerY);
         
         ctx.restore();
     }
