@@ -88,6 +88,7 @@ export class InputHandler {
     
     handleMouseDown(e) {
         e.preventDefault();
+        console.log(`🖱️ Mouse down: button=${e.button}, shift=${e.shiftKey}, ctrl=${e.ctrlKey}`);
         this.isDragging = false;
         
         const rect = this.canvas.getBoundingClientRect();
