@@ -2318,19 +2318,15 @@ export default class StarThrone {
         // Initialize visibility tracking as Set for O(1) lookups
         if (!this.visibleTerritories || !this.visibleTerritories.has) {
             this.visibleTerritories = new Set();
+        } else {
+            this.visibleTerritories.clear();
         }
-        
-        this.visibleTerritories.clear();
+
         const territories = Object.values(this.gameMap.territories);
-        
-        // Incremental processing: split territory checks across multiple frames on large maps
-        const batchSize = territories.length > 200 ? Math.ceil(territories.length / 3) : territories.length;
-        const startIndex = (this.cullingBatchIndex || 0) % territories.length;
-        const endIndex = Math.min(startIndex + batchSize, territories.length);
-        
-        // Process current batch
-        for (let i = startIndex; i < endIndex; i++) {
-            const territory = territories[i];
+
+        // Process all territories each update. With maps up to 500 stars this
+        // is still inexpensive and avoids visual flicker from batching.
+        for (const territory of territories) {
             if (territory.x + territory.radius >= bounds.left - margin &&
                 territory.x - territory.radius <= bounds.right + margin &&
                 territory.y + territory.radius >= bounds.top - margin &&
@@ -2338,11 +2334,9 @@ export default class StarThrone {
                 this.visibleTerritories.add(territory.id);
             }
         }
-        
-        // Update batch index for next frame (if processing incrementally)
-        if (batchSize < territories.length) {
-            this.cullingBatchIndex = endIndex >= territories.length ? 0 : endIndex;
-        }
+
+        // Reset batch index since we no longer process incrementally
+        this.cullingBatchIndex = 0;
         
         this.performanceStats.visibleTerritories = this.visibleTerritories.size;
     }
