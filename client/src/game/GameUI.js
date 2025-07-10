@@ -858,9 +858,9 @@ export class GameUI {
         ctx.lineWidth = 2;
         ctx.strokeRect(startX, startY, size, size);
         
-        // Calculate scale
-        const mapWidth = 2000; // From GameMap
-        const mapHeight = 1500;
+        // Calculate scale using actual map dimensions
+        const mapWidth = gameData.gameMap?.width || 2000;
+        const mapHeight = gameData.gameMap?.height || 1500;
         const scaleX = size / mapWidth;
         const scaleY = size / mapHeight;
         

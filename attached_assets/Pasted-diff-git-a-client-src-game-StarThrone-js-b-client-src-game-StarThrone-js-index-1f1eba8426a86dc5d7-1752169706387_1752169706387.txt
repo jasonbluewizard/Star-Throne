@@ -1,0 +1,92 @@
+diff --git a/client/src/game/StarThrone.js b/client/src/game/StarThrone.js
+index 1f1eba8426a86dc5d7a901733712acfbefa75ab6..ac0f74e642d1d2dd9a9490b4fef1b32ba2c1558a 100644
+--- a/client/src/game/StarThrone.js
++++ b/client/src/game/StarThrone.js
+@@ -2296,76 +2296,70 @@ export default class StarThrone {
+      */
+     getLODLevel() {
+         const zoom = this.camera.zoom;
+         if (zoom <= 0.15) return 1; // Strategic view
+         if (zoom <= 0.8) return 2;  // Operational view
+         return 3; // Tactical view
+     }
+     
+     updateVisibleTerritories() {
+         // Enhanced viewport culling with incremental processing for smooth performance
+         const now = Date.now();
+         const updateInterval = GAME_CONSTANTS.VISIBLE_TERRITORIES_UPDATE_INTERVAL_MS;
+         
+         // Adaptive interval based on performance - increase on slower devices
+         const adaptiveInterval = this.fps < 30 ? updateInterval * 1.5 : updateInterval;
+         
+         if (now - this.lastVisibilityUpdate < adaptiveInterval) return;
+         this.lastVisibilityUpdate = now;
+         
+         const bounds = this.camera.getViewBounds();
+         const margin = GAME_CONSTANTS.TERRITORY_VISIBILITY_PADDING;
+         
+         // Initialize visibility tracking as Set for O(1) lookups
+         if (!this.visibleTerritories || !this.visibleTerritories.has) {
+             this.visibleTerritories = new Set();
++        } else {
++            this.visibleTerritories.clear();
+         }
+-        
+-        this.visibleTerritories.clear();
++
+         const territories = Object.values(this.gameMap.territories);
+-        
+-        // Incremental processing: split territory checks across multiple frames on large maps
+-        const batchSize = territories.length > 200 ? Math.ceil(territories.length / 3) : territories.length;
+-        const startIndex = (this.cullingBatchIndex || 0) % territories.length;
+-        const endIndex = Math.min(startIndex + batchSize, territories.length);
+-        
+-        // Process current batch
+-        for (let i = startIndex; i < endIndex; i++) {
+-            const territory = territories[i];
++
++        // Process all territories each update. With maps up to 500 stars this
++        // is still inexpensive and avoids visual flicker from batching.
++        for (const territory of territories) {
+             if (territory.x + territory.radius >= bounds.left - margin &&
+                 territory.x - territory.radius <= bounds.right + margin &&
+                 territory.y + territory.radius >= bounds.top - margin &&
+                 territory.y - territory.radius <= bounds.bottom + margin) {
+                 this.visibleTerritories.add(territory.id);
+             }
+         }
+-        
+-        // Update batch index for next frame (if processing incrementally)
+-        if (batchSize < territories.length) {
+-            this.cullingBatchIndex = endIndex >= territories.length ? 0 : endIndex;
+-        }
+-        
++
++        // Reset batch index since we no longer process incrementally
++        this.cullingBatchIndex = 0;
++
+         this.performanceStats.visibleTerritories = this.visibleTerritories.size;
+     }
+     
+     // Render parallax starfield with multiple depth layers
+     renderParallaxStarfield() {
+         if (!this.starfield.initialized) return;
+         
+         const time = Date.now() * 0.001; // For subtle twinkling
+         const cameraPosX = this.camera.x;
+         const cameraPosY = this.camera.y;
+         
+         this.ctx.save();
+         
+         // Far stars (slowest parallax, barely moves)
+         this.ctx.globalAlpha = 0.7; // Brighter for better visibility against background
+         this.starfield.farStars.forEach(star => {
+             // Very subtle parallax movement (5% of camera movement)
+             const parallaxX = star.x - (cameraPosX * 0.05);
+             const parallaxY = star.y - (cameraPosY * 0.05);
+             
+             // Skip stars outside visible area for performance
+             if (!this.camera.isPointVisible(parallaxX, parallaxY, 100)) return;
+             
+             // Subtle twinkling effect
+             const twinkle = star.twinkle + Math.sin(time * 0.5 + star.x * 0.01) * 0.1;

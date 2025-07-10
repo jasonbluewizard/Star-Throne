@@ -1,0 +1,61 @@
+diff --git a/client/src/game/GameUI.js b/client/src/game/GameUI.js
+index 6bcf4de91cf68793bbec1afbb65c7b8e000665f2..8e5533d98b163ed053d5a0fabf118c29ced843c4 100644
+--- a/client/src/game/GameUI.js
++++ b/client/src/game/GameUI.js
+@@ -836,53 +836,53 @@ export class GameUI {
+         if (gameData.minimapMinimized) {
+             // Minimized minimap - just show title bar
+             ctx.fillStyle = this.bgColor;
+             ctx.fillRect(startX, startY + size - 30, size, 30);
+             
+             ctx.font = 'bold 12px Arial';
+             ctx.textAlign = 'center';
+             this.renderTextWithShadow(ctx, 'Map (tap to expand)', startX + size / 2, startY + size - 12, this.accentColor);
+             
+             // Add expand indicator
+             ctx.font = '12px Arial';
+             ctx.textAlign = 'right';
+             this.renderTextWithShadow(ctx, '▲', startX + size - 10, startY + size - 12, this.textColor);
+             return;
+         }
+         
+         // Background
+         ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+         ctx.fillRect(startX, startY, size, size);
+         
+         // Border
+         ctx.strokeStyle = this.accentColor;
+         ctx.lineWidth = 2;
+         ctx.strokeRect(startX, startY, size, size);
+         
+-        // Calculate scale
+-        const mapWidth = 2000; // From GameMap
+-        const mapHeight = 1500;
++        // Calculate scale using actual map dimensions
++        const mapWidth = gameData.gameMap?.width || 2000;
++        const mapHeight = gameData.gameMap?.height || 1500;
+         const scaleX = size / mapWidth;
+         const scaleY = size / mapHeight;
+         
+         // Draw territories on minimap
+         Object.values(gameData.players).forEach(player => {
+             if (player.isEliminated) return;
+             
+             ctx.fillStyle = player.color;
+             player.territories.forEach(territoryId => {
+                 const territory = gameData.selectedTerritory ? 
+                     (gameData.selectedTerritory.id === territoryId ? gameData.selectedTerritory : null) : null;
+                 // This is a simplified version - in real implementation we'd access territories from gameMap
+                 
+                 if (territory) {
+                     const x = startX + territory.x * scaleX;
+                     const y = startY + territory.y * scaleY;
+                     const radius = Math.max(1, territory.radius * scaleX * 0.5);
+                     
+                     ctx.beginPath();
+                     ctx.arc(x, y, radius, 0, Math.PI * 2);
+                     ctx.fill();
+                 }
+             });
+         });
+         

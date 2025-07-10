@@ -1,0 +1,64 @@
+diff --git a/client/src/game/Camera.js b/client/src/game/Camera.js
+index 3f11e675619ec9bf30d131f1eee95fa0340f54a8..c66b41cea97cc093cf6d00af5d22671ca04a12d4 100644
+--- a/client/src/game/Camera.js
++++ b/client/src/game/Camera.js
+@@ -117,55 +117,56 @@ export class Camera {
+         let edgePanY = 0;
+         
+         // Check edges and calculate pan direction
+         if (mouseX < this.edgePanBorder) {
+             edgePanX = -this.edgePanSpeed * (1 - mouseX / this.edgePanBorder);
+         } else if (mouseX > this.viewportWidth - this.edgePanBorder) {
+             edgePanX = this.edgePanSpeed * ((mouseX - (this.viewportWidth - this.edgePanBorder)) / this.edgePanBorder);
+         }
+         
+         if (mouseY < this.edgePanBorder) {
+             edgePanY = -this.edgePanSpeed * (1 - mouseY / this.edgePanBorder);
+         } else if (mouseY > this.viewportHeight - this.edgePanBorder) {
+             edgePanY = this.edgePanSpeed * ((mouseY - (this.viewportHeight - this.edgePanBorder)) / this.edgePanBorder);
+         }
+         
+         if (edgePanX !== 0 || edgePanY !== 0) {
+             const deltaTimeSec = deltaTime / 1000;
+             this.targetX += edgePanX * deltaTimeSec / this.zoom;
+             this.targetY += edgePanY * deltaTimeSec / this.zoom;
+         }
+     }
+     
+     zoomTo(newZoom, screenX, screenY) {
+         const oldZoom = this.zoom;
+         
+-        // Calculate minimum zoom to show full map
++        // Calculate minimum zoom needed to view entire map
+         const minZoomForWidth = this.viewportWidth / (this.mapWidth + this.boundaryPadding * 2);
+         const minZoomForHeight = this.viewportHeight / (this.mapHeight + this.boundaryPadding * 2);
+-        const smartMinZoom = Math.max(minZoomForWidth, minZoomForHeight, 0.05);
+-        
++        const smartMinZoom = Math.min(minZoomForWidth, minZoomForHeight, this.minZoom);
++
++        // Clamp to allow zooming out enough to see the whole map
+         this.targetZoom = Math.max(smartMinZoom, Math.min(this.maxZoom, newZoom));
+         
+         if (screenX !== undefined && screenY !== undefined) {
+             // Zoom towards a specific point
+             const worldPoint = this.screenToWorld(screenX, screenY);
+             
+             // Calculate the new camera position to keep the world point under the screen point
+             const zoomRatio = this.targetZoom / oldZoom;
+             this.targetX = worldPoint.x - (screenX / this.targetZoom);
+             this.targetY = worldPoint.y - (screenY / this.targetZoom);
+         }
+     }
+     
+     zoom(factor, screenX, screenY) {
+         // Clamp zoom factor to prevent extreme zooming
+         const clampedFactor = Math.max(0.5, Math.min(2.0, factor));
+         this.zoomTo(this.targetZoom * clampedFactor, screenX, screenY);
+     }
+     
+     centerOn(worldX, worldY) {
+         this.targetX = worldX - this.viewportWidth / (2 * this.zoom);
+         this.targetY = worldY - this.viewportHeight / (2 * this.zoom);
+     }
+     
+     screenToWorld(screenX, screenY) {
