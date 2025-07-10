@@ -54,6 +54,12 @@ export class InputHandler {
         // Gate toggle mode for flood controller
         this.gateToggleMode = false;
         
+        // Initialize modifier keys object (fixes shift key detection)
+        this.modifierKeys = {
+            shift: false,
+            ctrl: false
+        };
+        
         // Initialize FSM
         this.inputFSM = new InputStateMachine(game);
         
@@ -89,6 +95,11 @@ export class InputHandler {
     handleMouseDown(e) {
         e.preventDefault();
         console.log(`🖱️ Mouse down: button=${e.button}, shift=${e.shiftKey}, ctrl=${e.ctrlKey}`);
+        
+        // Update modifier keys
+        this.modifierKeys.shift = e.shiftKey;
+        this.modifierKeys.ctrl = e.ctrlKey;
+        
         this.isDragging = false;
         
         const rect = this.canvas.getBoundingClientRect();
