@@ -464,7 +464,14 @@ export default class StarThrone {
     init() {
         this.setupCanvas();
         this.setupEventListeners();
-        this.gameMap = new GameMap(2000, 1500, this.config); // Large map with advanced configuration
+        
+        // Calculate expanded map dimensions for proper territory distribution
+        const baseWidth = 2000;
+        const baseHeight = 1500;
+        const expandedWidth = baseWidth * 1.4;  // 40% width expansion
+        const expandedHeight = baseHeight * 1.6; // 60% height expansion
+        
+        this.gameMap = new GameMap(expandedWidth, expandedHeight, this.config); // Use expanded dimensions
         this.gameMap.game = this; // Reference for AI animations
         
         // Use logical dimensions for camera, not physical canvas dimensions

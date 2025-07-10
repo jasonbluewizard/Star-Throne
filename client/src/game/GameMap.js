@@ -4,8 +4,9 @@ import Delaunator from 'delaunator';
 
 export class GameMap {
     constructor(width, height, config = {}) {
-        this.width = width * 1.4; // Expand width by 40%
-        this.height = height * 1.6; // Expand height by 60% for more vertical space
+        // Use the provided dimensions directly (already expanded in StarThrone.js)
+        this.width = width;
+        this.height = height;
         this.territories = {};
         this.nebulas = []; // Purple nebula clouds
         this.gridSize = 150; // Increased space between territory centers for less crowding
