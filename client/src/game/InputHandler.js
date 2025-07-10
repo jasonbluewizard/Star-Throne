@@ -255,7 +255,7 @@ export class InputHandler {
         const mouseY = e.clientY - rect.top;
         
         const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-        const newZoom = Math.max(0.02, Math.min(8.0, this.game.camera.targetZoom * zoomFactor));
+        const newZoom = Math.min(8.0, this.game.camera.targetZoom * zoomFactor);
         this.game.camera.zoomTo(newZoom, mouseX, mouseY);
         
 
@@ -369,7 +369,7 @@ export class InputHandler {
         
         if (this.touchState.lastTouchDistance) {
             const scale = distance / this.touchState.lastTouchDistance;
-            const newZoom = Math.max(0.1, Math.min(3.0, this.game.camera.targetZoom * scale));
+            const newZoom = Math.min(3.0, this.game.camera.targetZoom * scale);
             
             const centerX = (touch1.clientX + touch2.clientX) / 2;
             const centerY = (touch1.clientY + touch2.clientY) / 2;

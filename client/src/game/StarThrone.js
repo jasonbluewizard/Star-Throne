@@ -1728,9 +1728,8 @@ export default class StarThrone {
             this.gameMap.buildSpatialIndex();
             this.log('Spatial index built for optimized territory lookups', 'info');
             
-            // Update camera bounds after map generation
-            this.camera.mapWidth = this.gameMap.width;
-            this.camera.mapHeight = this.gameMap.height;
+            // Update camera bounds after map generation using setMapDimensions method
+            this.camera.setMapDimensions(this.gameMap.width, this.gameMap.height);
             console.log(`🎥 Camera bounds updated: ${this.camera.mapWidth} x ${this.camera.mapHeight} with ${this.camera.boundaryPadding}px padding`);
 
             // Create players: 1 human + configured AI count
@@ -3897,7 +3896,7 @@ export default class StarThrone {
                 
                 // Apply incremental zoom change with dramatic sensitivity
                 const zoomMultiplier = 1 + (distanceRatio - 1) * 1.5; // Dramatic scaling for responsive zoom
-                const newZoom = Math.max(0.02, Math.min(8.0, this.camera.zoom * zoomMultiplier));
+                const newZoom = Math.min(8.0, this.camera.zoom * zoomMultiplier);
                 
                 // Calculate zoom center between the two fingers
                 const centerX = ((touch1.clientX + touch2.clientX) / 2) - rect.left;

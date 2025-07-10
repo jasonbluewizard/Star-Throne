@@ -6,8 +6,7 @@ export class Camera {
         this.viewportWidth = viewportWidth;
         this.viewportHeight = viewportHeight;
         
-        // Strategic zoom constraints - Supreme Commander style
-        this.minZoom = 0.02;  // Allow extreme zoom out to see entire galaxy
+        // Strategic zoom constraints - dynamically calculated
         this.maxZoom = 8.0;   // Allow tactical close-up
         
         // Smooth movement with inertial panning
@@ -27,15 +26,33 @@ export class Camera {
         this.edgePanBorder = 20;
         this.edgePanEnabled = true;
         
-        // Pan constraints (map boundaries)
+        // Pan constraints (map boundaries) - will be updated by setMapDimensions
         this.mapWidth = 2000;
         this.mapHeight = 1500;
         this.boundaryPadding = 200;
+        
+        // Calculate minimum zoom based on initial dimensions
+        this.minZoom = this.computeMinZoom();
     }
     
     updateViewport(width, height) {
         this.viewportWidth = width;
         this.viewportHeight = height;
+        this.minZoom = this.computeMinZoom();
+    }
+    
+    computeMinZoom() {
+        const margin = 1.1; // 10% extra space around the map
+        const minZoomForWidth = this.viewportWidth / (this.mapWidth * margin);
+        const minZoomForHeight = this.viewportHeight / (this.mapHeight * margin);
+        return Math.max(minZoomForWidth, minZoomForHeight, 0.02); // Never go below 0.02
+    }
+    
+    setMapDimensions(width, height) {
+        this.mapWidth = width;
+        this.mapHeight = height;
+        this.minZoom = this.computeMinZoom();
+        console.log(`📐 Camera updated to map dimensions: ${width} x ${height}, minZoom: ${this.minZoom.toFixed(3)}`);
     }
     
     update(deltaTime) {

@@ -1,0 +1,307 @@
+client/src/game/Camera.js
++16
+-8
+
+export class Camera {
+    constructor(viewportWidth, viewportHeight) {
+        this.x = 0;
+        this.y = 0;
+        this.zoom = 1;
+        this.viewportWidth = viewportWidth;
+        this.viewportHeight = viewportHeight;
+        
+        // Strategic zoom constraints - Supreme Commander style
+        this.minZoom = 0.02;  // Allow extreme zoom out to see entire galaxy
+        // Strategic zoom constraints - dynamically calculated
+        // minZoom will be computed based on viewport and map size
+        this.minZoom = 0.02;
+        this.maxZoom = 8.0;   // Allow tactical close-up
+        
+        // Smooth movement with inertial panning
+        this.targetX = 0;
+        this.targetY = 0;
+        this.targetZoom = 1;
+        this.smoothness = 0.15;
+        
+        // Inertial panning system
+        this.velocityX = 0;
+        this.velocityY = 0;
+        this.friction = 0.92;
+        this.panInertia = true;
+        
+        // Edge panning for RTS-style navigation
+        this.edgePanSpeed = 300;
+        this.edgePanBorder = 20;
+        this.edgePanEnabled = true;
+        
+        // Pan constraints (map boundaries)
+        this.mapWidth = 2000;
+        this.mapHeight = 1500;
+        this.boundaryPadding = 200;
+
+        this.minZoom = this.computeMinZoom();
+    }
+    
+    updateViewport(width, height) {
+        this.viewportWidth = width;
+        this.viewportHeight = height;
+        this.minZoom = this.computeMinZoom();
+    }
+
+    computeMinZoom() {
+        const margin = 1.1; // 10% extra space around the map
+        const minZoomForWidth = this.viewportWidth / (this.mapWidth * margin);
+        const minZoomForHeight = this.viewportHeight / (this.mapHeight * margin);
+        return Math.max(minZoomForWidth, minZoomForHeight);
+    }
+    
+    update(deltaTime) {
+        // Smooth camera movement
+        const factor = Math.min(1, this.smoothness * deltaTime / 16.67); // Normalize to 60fps
+        
+        // Apply inertial movement
+        if (this.panInertia) {
+            this.targetX += this.velocityX * deltaTime / 1000;
+            this.targetY += this.velocityY * deltaTime / 1000;
+            
+            // Apply friction
+            this.velocityX *= this.friction;
+            this.velocityY *= this.friction;
+        }
+        
+        this.x += (this.targetX - this.x) * factor;
+        this.y += (this.targetY - this.y) * factor;
+        this.zoom += (this.targetZoom - this.zoom) * factor;
+        
+        // Apply constraints
+        this.applyConstraints();
+    }
+    
+    applyConstraints() {
+@@ -117,56 +128,53 @@ export class Camera {
+        let edgePanY = 0;
+        
+        // Check edges and calculate pan direction
+        if (mouseX < this.edgePanBorder) {
+            edgePanX = -this.edgePanSpeed * (1 - mouseX / this.edgePanBorder);
+        } else if (mouseX > this.viewportWidth - this.edgePanBorder) {
+            edgePanX = this.edgePanSpeed * ((mouseX - (this.viewportWidth - this.edgePanBorder)) / this.edgePanBorder);
+        }
+        
+        if (mouseY < this.edgePanBorder) {
+            edgePanY = -this.edgePanSpeed * (1 - mouseY / this.edgePanBorder);
+        } else if (mouseY > this.viewportHeight - this.edgePanBorder) {
+            edgePanY = this.edgePanSpeed * ((mouseY - (this.viewportHeight - this.edgePanBorder)) / this.edgePanBorder);
+        }
+        
+        if (edgePanX !== 0 || edgePanY !== 0) {
+            const deltaTimeSec = deltaTime / 1000;
+            this.targetX += edgePanX * deltaTimeSec / this.zoom;
+            this.targetY += edgePanY * deltaTimeSec / this.zoom;
+        }
+    }
+    
+    zoomTo(newZoom, screenX, screenY) {
+        const oldZoom = this.zoom;
+        
+        // Calculate minimum zoom to show full map
+        const minZoomForWidth = this.viewportWidth / (this.mapWidth + this.boundaryPadding * 2);
+        const minZoomForHeight = this.viewportHeight / (this.mapHeight + this.boundaryPadding * 2);
+        const smartMinZoom = Math.max(minZoomForWidth, minZoomForHeight, 0.05);
+        
+        this.targetZoom = Math.max(smartMinZoom, Math.min(this.maxZoom, newZoom));
+        // Recalculate minimum zoom based on current viewport
+        this.minZoom = this.computeMinZoom();
+        this.targetZoom = Math.max(this.minZoom, Math.min(this.maxZoom, newZoom));
+        
+        if (screenX !== undefined && screenY !== undefined) {
+            // Zoom towards a specific point
+            const worldPoint = this.screenToWorld(screenX, screenY);
+            
+            // Calculate the new camera position to keep the world point under the screen point
+            const zoomRatio = this.targetZoom / oldZoom;
+            this.targetX = worldPoint.x - (screenX / this.targetZoom);
+            this.targetY = worldPoint.y - (screenY / this.targetZoom);
+        }
+    }
+    
+    zoom(factor, screenX, screenY) {
+        // Clamp zoom factor to prevent extreme zooming
+        const clampedFactor = Math.max(0.5, Math.min(2.0, factor));
+        this.zoomTo(this.targetZoom * clampedFactor, screenX, screenY);
+    }
+    
+    centerOn(worldX, worldY) {
+        this.targetX = worldX - this.viewportWidth / (2 * this.zoom);
+        this.targetY = worldY - this.viewportHeight / (2 * this.zoom);
+    }
+    
+    screenToWorld(screenX, screenY) {
+        return {
+client/src/game/InputHandler.js
++2
+-2
+
+@@ -233,51 +233,51 @@ export class InputHandler {
+            this.inputFSM.handleEvent('tap', {
+                territory: territory,
+                x: worldPos.x, 
+                y: worldPos.y,
+                shiftKey: false, // Single click doesn't have modifiers
+                ctrlKey: false
+            });
+        } else if (button === 2) {
+            // Right-click ignored in single-button scheme
+        }
+    }
+    
+
+
+    
+    handleWheel(e) {
+        e.preventDefault();
+        
+        if (!this.game.camera) return;
+        
+        const rect = this.canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        
+        const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+        const newZoom = Math.max(0.02, Math.min(8.0, this.game.camera.targetZoom * zoomFactor));
+        const newZoom = Math.min(8.0, this.game.camera.targetZoom * zoomFactor);
+        this.game.camera.zoomTo(newZoom, mouseX, mouseY);
+        
+
+    }
+    
+    handleTouchStart(e) {
+        e.preventDefault();
+        
+        for (const touch of e.changedTouches) {
+            this.touchState.activeTouches.set(touch.identifier, {
+                x: touch.clientX,
+                y: touch.clientY,
+                startTime: Date.now()
+            });
+        }
+        
+        if (this.touchState.activeTouches.size === 2) {
+            this.initializePinchGesture();
+        }
+    }
+    
+    handleTouchMove(e) {
+        e.preventDefault();
+        
+        if (this.touchState.activeTouches.size === 1) {
+@@ -347,51 +347,51 @@ export class InputHandler {
+            const distance = Math.sqrt(
+                Math.pow(touches[1].x - touches[0].x, 2) + 
+                Math.pow(touches[1].y - touches[0].y, 2)
+            );
+            this.touchState.lastTouchDistance = distance;
+            this.touchState.lastPinchCenter = {
+                x: (touches[0].x + touches[1].x) / 2,
+                y: (touches[0].y + touches[1].y) / 2
+            };
+        }
+    }
+    
+    handlePinchGesture(e) {
+        if (e.touches.length !== 2) return;
+        
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        
+        const distance = Math.sqrt(
+            Math.pow(touch2.clientX - touch1.clientX, 2) + 
+            Math.pow(touch2.clientY - touch1.clientY, 2)
+        );
+        
+        if (this.touchState.lastTouchDistance) {
+            const scale = distance / this.touchState.lastTouchDistance;
+            const newZoom = Math.max(0.1, Math.min(3.0, this.game.camera.targetZoom * scale));
+            const newZoom = Math.min(3.0, this.game.camera.targetZoom * scale);
+            
+            const centerX = (touch1.clientX + touch2.clientX) / 2;
+            const centerY = (touch1.clientY + touch2.clientY) / 2;
+            
+            this.game.camera.zoomTo(newZoom, centerX, centerY);
+        }
+        
+        this.touchState.lastTouchDistance = distance;
+    }
+    
+    handleKeyDown(e) {
+        // Forward key events to FSM
+        if (this.inputFSM.handleInput('keyPress', { key: e.key })) {
+            return;
+        }
+        
+        // Handle non-FSM keys
+        switch (e.key) {
+            case 'r':
+            case 'R':
+                if (this.game.gameState === 'ended') {
+                    this.game.restartGame();
+                }
+                break;
+            case 'm':
+client/src/game/StarThrone.js
++1
+-1
+
+@@ -3874,51 +3874,51 @@ export default class StarThrone {
+                    this.camera.pan(-deltaX, -deltaY);
+                    this.touchDebugInfo += `\nPan: ${Math.round(deltaX)}, ${Math.round(deltaY)}`;
+                }
+            }
+            
+            this.lastMousePos = currentPos;
+            
+        } else if (e.touches.length === 2) {
+            // Two touches - pinch zoom and pan
+            const touch1 = e.touches[0];
+            const touch2 = e.touches[1];
+            
+            // Calculate current distance for zoom
+            const currentDistance = Math.hypot(
+                touch2.clientX - touch1.clientX,
+                touch2.clientY - touch1.clientY
+            );
+            
+            // Enhanced pinch-to-zoom with much higher sensitivity
+            if (this.lastPinchDistance && Math.abs(currentDistance - this.lastPinchDistance) > 2) {
+                // Use incremental scaling with higher sensitivity
+                const distanceRatio = currentDistance / this.lastPinchDistance;
+                
+                // Apply incremental zoom change with dramatic sensitivity
+                const zoomMultiplier = 1 + (distanceRatio - 1) * 1.5; // Dramatic scaling for responsive zoom
+                const newZoom = Math.max(0.02, Math.min(8.0, this.camera.zoom * zoomMultiplier));
+                const newZoom = Math.min(8.0, this.camera.zoom * zoomMultiplier);
+                
+                // Calculate zoom center between the two fingers
+                const centerX = ((touch1.clientX + touch2.clientX) / 2) - rect.left;
+                const centerY = ((touch1.clientY + touch2.clientY) / 2) - rect.top;
+                
+                // Apply zoom smoothly to the pinch center
+                this.camera.zoomTo(newZoom, centerX, centerY);
+                this.lastPinchDistance = currentDistance;
+                this.lastZoomTime = Date.now();
+                
+                this.touchDebugInfo += `\nPinch Zoom: ${(newZoom * 100).toFixed(0)}% (dist: ${Math.round(currentDistance)})`;
+            }
+            
+            // Enhanced two-finger pan with smoother movement
+            const currentCenter = {
+                x: ((touch1.clientX + touch2.clientX) / 2) - rect.left,
+                y: ((touch1.clientY + touch2.clientY) / 2) - rect.top
+            };
+            
+            if (this.lastMousePos && Date.now() - this.lastZoomTime > 50) {
+                const deltaX = currentCenter.x - this.lastMousePos.x;
+                const deltaY = currentCenter.y - this.lastMousePos.y;
+                
+                // Smoother pan threshold for better control
+                if (Math.abs(deltaX) > 1 || Math.abs(deltaY) > 1) {
