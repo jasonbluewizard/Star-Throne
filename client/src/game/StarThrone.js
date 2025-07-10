@@ -18,6 +18,7 @@ import { AnimationSystem } from './AnimationSystem';
 import { UIManager } from './UIManager';
 import { AIManager } from './AIManager';
 import Controls from './Controls';
+import { ParticlePool } from '../effects';
 
 export default class StarThrone {
     constructor(config = {}) {

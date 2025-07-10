@@ -1,4 +1,5 @@
 import { GAME_CONSTANTS } from '../../../common/gameConstants';
+import { ParticlePool, spawnCombatParticles, spawnHitFlash } from '../effects';
 
 export class AnimationSystem {
     constructor(game) {
@@ -13,7 +14,7 @@ export class AnimationSystem {
         this.starfieldLayers = [];
         this.backgroundStars = null; // Pre-rendered background canvas
         
-        // Combat particle system
+        // Combat particle system - now using centralized effects
         this.combatParticles = [];
         this.particlePool = [];
         this.maxParticlePoolSize = 200;
@@ -111,32 +112,9 @@ export class AnimationSystem {
         }
     }
 
-    // Create particle explosion at combat location
+    // Create particle explosion at combat location - now using centralized effects
     createCombatParticles(x, y, color, intensity = 1.0) {
-        const particleCount = Math.floor(4 + Math.random() * 6) * intensity; // 4-10 particles, subtle
-        
-        for (let i = 0; i < particleCount; i++) {
-            const particle = this.getPooledParticle();
-            if (!particle) continue;
-            
-            // Random direction and speed
-            const angle = Math.random() * Math.PI * 2;
-            const speed = 80 + Math.random() * 120; // Faster speed (80-200 pixels/second)
-            
-            particle.x = x + (Math.random() - 0.5) * 10; // Smaller initial spread
-            particle.y = y + (Math.random() - 0.5) * 10;
-            particle.vx = Math.cos(angle) * speed;
-            particle.vy = Math.sin(angle) * speed;
-            particle.life = 0;
-            particle.maxLife = 300 + Math.random() * 200; // Very short duration (0.3-0.5 seconds)
-            particle.size = 1 + Math.random() * 1; // Much smaller particles (1-2 pixels)
-            particle.color = color;
-            particle.isActive = true;
-            particle.gravity = 10; // Light gravity
-            particle.airResistance = 0.99; // Minimal air resistance for speed
-            
-            this.combatParticles.push(particle);
-        }
+        spawnCombatParticles(null, { x, y, color, intensity });
     }
     
     // FOG OF WAR: Check if ship animation should be visible
@@ -277,8 +255,12 @@ export class AnimationSystem {
         return animation;
     }
 
-    // Update combat particles with enhanced physics
+    // Update combat particles - now using centralized effects
     updateCombatParticles(deltaTime) {
+        // Update centralized particle system
+        ParticlePool.tick(deltaTime);
+        
+        // Legacy particle system for backward compatibility
         const dt = deltaTime / 1000; // Convert to seconds
         
         for (let i = this.combatParticles.length - 1; i >= 0; i--) {
@@ -518,8 +500,12 @@ export class AnimationSystem {
         }
     }
 
-    // Render combat particles
+    // Render combat particles - now using centralized effects
     renderCombatParticles(ctx, camera) {
+        // Render centralized particle system first
+        ParticlePool.draw(ctx);
+        
+        // Legacy particle system for backward compatibility
         ctx.save();
         
         for (const particle of this.combatParticles) {

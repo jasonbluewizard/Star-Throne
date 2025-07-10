@@ -1,0 +1,174 @@
+Below is a concrete refactor plan that lifts every visual-only “wow” routine (explosions, hit flashes, warp-trails, etc.) out of the core gameplay files and into a dedicated effects module.
+I’ve written the diffs assuming the current client layout is:
+
+client/
+  src/
+    game/
+      StarThrone.js        ← main loop & state
+      CombatSystem.js      ← combat resolution
+      Renderer.js          ← canvas draw calls
+
+Adjust paths if yours differ.
+
+⸻
+
+1 Create the dedicated effects package
+
+➜ NEW FILE client/src/effects/Particles.js
+
++/**
++ * Centralised particle / SFX helpers.
++ * Pure visuals – no state-mutation, no network I/O.
++ */
++export function spawnExplosion(ctx, { x, y, baseColor = '#FFAA33', count = 24 }) {
++  for (let i = 0; i < count; i++) {
++    const angle   = Math.random() * Math.PI * 2;
++    const speed   = 1 + Math.random() * 2;
++    const life    = 400 + Math.random() * 300;          // ms
++    const vx      = Math.cos(angle) * speed;
++    const vy      = Math.sin(angle) * speed;
++    ParticlePool.add({
++      x, y, vx, vy, life,
++      color: baseColor,
++      radius: 1 + Math.random() * 2,
++      fade: true,
++    });
++  }
++}
++
++export function spawnHitFlash(ctx, { x, y, radius = 22, color = '#FFFFFF' }) {
++  ParticlePool.add({
++    x, y, vx: 0, vy: 0, life: 120,
++    color, radius,
++    pulse: true,
++  });
++}
++
++// …add other effect helpers here (warpTrail, shieldBubble, etc.)
++
++/* ------------------------------------------------------------------ *
++ * Very small “poor-man’s” particle pool – enough for browser games.  *
++ * ------------------------------------------------------------------ */
++const particles = [];
++export const ParticlePool = {
++  add(p) { particles.push({ ...p, born: performance.now() }); },
++  tick(dt) {
++    const now = performance.now();
++    for (let i = particles.length - 1; i >= 0; i--) {
++      const p = particles[i];
++      const age = now - p.born;
++      if (age >= p.life) { particles.splice(i, 1); continue; }
++      p.x += p.vx * dt;
++      p.y += p.vy * dt;
++      p.alpha = 1 - age / p.life;
++    }
++  },
++  draw(ctx) {
++    particles.forEach(p => {
++      ctx.globalAlpha = p.alpha;
++      ctx.fillStyle   = p.color;
++      ctx.beginPath();
++      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
++      ctx.fill();
++    });
++    ctx.globalAlpha = 1;
++  }
++};
+
+(Nothing outside this file knows the pool internals – they just call spawnExplosion() et al.)
+
+Tip: If you already have a fancier PIXI or Three.js system, stub ParticlePool with wrappers around that instead—same external API.
+
+⸻
+
+2 Prune the old code out of game modules
+
+client/src/Renderer.js (before):
+
+-// Explosion helpers – visually noisy, clutters this file
+-function spawnExplosion(x, y, color) { … }
+-function spawnHitFlash(x, y)        { … }
+-
+-export function drawFrame(ctx, state, dt) {
+-  …
+-  if (pendingExplosions.length) {
+-      pendingExplosions.forEach(e => spawnExplosion(e.x, e.y, e.color));
+-      pendingExplosions.length = 0;
+-  }
+-  …
+-}
+
+client/src/Renderer.js (after):
+
++import { spawnExplosion, spawnHitFlash, ParticlePool } from '../effects/Particles.js';
+
+ export function drawFrame(ctx, state, dt) {
+   …
++  // Handle queued effects
++  if (pendingExplosions.length) {
++      pendingExplosions.forEach(e => spawnExplosion(ctx, e));
++      pendingExplosions.length = 0;
++  }
++
++  // Tick & draw particles last so they overlay nicely
++  ParticlePool.tick(dt);
++  ParticlePool.draw(ctx);
+ }
+
+Delete the old spawnExplosion() / spawnHitFlash() bodies entirely (they live in Particles.js now).
+
+⸻
+
+3 Emit effects from gameplay code
+
+client/src/CombatSystem.js
+
+-import { spawnExplosion } from './Renderer.js';
++import { spawnExplosion, spawnHitFlash } from '../effects/Particles.js';
+
+ function resolveCombat(attacker, defender, dmg) {
+   …
+   if (defender.armySize <= 0) {
+-      // big boom at defender coords
+-      spawnExplosion(defender.x, defender.y, '#FF5533');
++      spawnExplosion(ctx, { x: defender.x, y: defender.y, baseColor: '#FF5533' });
+   } else {
+-      //   small flash
+-      spawnHitFlash(defender.x, defender.y);
++      spawnHitFlash(ctx, { x: defender.x, y: defender.y });
+   }
+ }
+
+Anywhere else you triggered explosions (ship death, planet capture, etc.) switch to the new imports.
+
+⸻
+
+4 Optional – barrel export for convenience
+
+If you foresee lots of discrete effect files, create an index:
+
+// client/src/effects/index.js
+export * from './Particles.js';
+export * from './ScreenShake.js';
+export * from './AudioFx.js';
+
+Then callers can simply:
+
+import { spawnExplosion, ParticlePool } from '../effects/index.js';
+
+
+⸻
+
+5 Update build & eslint paths
+	•	No runtime change necessary – the new file lives in src/effects, Webpack/Vite will pick it up.
+	•	Add the folder to any path aliases so imports like @effects/Particles work.
+	•	Ensure the removed functions no longer trigger eslint “used before defined” warnings.
+
+⸻
+
+Why this matters
+	•	Separation of concerns – Core game logic stays gameplay-only; effects become plug-ins.
+	•	Easier profiling – You can toggle the entire effect layer for perf tests by stubbing spawn*() with no-ops.
+	•	Future extensibility – Adding shaders, WebGL, or three-js VFX is now one contained module swap.
+
+Apply the diffs, run npm run dev, and the game should behave exactly the same—just with a leaner Renderer.js and a dedicated home for every flashy flourish.
