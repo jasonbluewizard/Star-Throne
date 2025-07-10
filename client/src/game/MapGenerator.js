@@ -124,19 +124,31 @@ export default class MapGenerator {
      */
     static generateInitialPoints(mapSize, layout, numPlayers) {
         const points = [];
-        const baseWidth = 1800;  // Reduced for closer planets
-        const baseHeight = 1400; // Reduced for closer planets
         
-        // Scale dimensions based on map size with more conservative scaling for large maps
-        let scale = Math.sqrt(mapSize / 80); // 80 is our reference size
-        
-        // Cap the scaling to prevent massive maps that break rendering
-        if (mapSize > 200) {
-            scale = Math.min(scale, 2.0); // Max 2x scaling regardless of territory count
+        // Use target dimensions if available, otherwise use scaled base dimensions
+        let width, height;
+        if (this.targetWidth && this.targetHeight) {
+            // Use target dimensions directly - ensures all points are generated in the correct coordinate space
+            width = this.targetWidth;
+            height = this.targetHeight;
+            console.log(`📐 Using target dimensions for point generation: ${width} x ${height}`);
+        } else {
+            // Fallback to legacy behavior for compatibility
+            const baseWidth = 1800;  // Reduced for closer planets
+            const baseHeight = 1400; // Reduced for closer planets
+            
+            // Scale dimensions based on map size with more conservative scaling for large maps
+            let scale = Math.sqrt(mapSize / 80); // 80 is our reference size
+            
+            // Cap the scaling to prevent massive maps that break rendering
+            if (mapSize > 200) {
+                scale = Math.min(scale, 2.0); // Max 2x scaling regardless of territory count
+            }
+            
+            width = baseWidth * scale;
+            height = baseHeight * scale;
+            console.log(`📐 Using scaled base dimensions: ${width} x ${height} (scale: ${scale.toFixed(2)})`);
         }
-        
-        const width = baseWidth * scale;
-        const height = baseHeight * scale;
         
         switch (layout) {
             case 'clusters':
@@ -680,13 +692,24 @@ export default class MapGenerator {
         const minY = Math.min(...ys);
         const maxY = Math.max(...ys);
         
-        // If target dimensions are set, scale to fit them instead of calculating from points
+        // If target dimensions are set, check if points were already generated in target space
         if (this.targetWidth && this.targetHeight) {
-            const margin = 200;
-            
-            // Calculate current map dimensions
+            // If points already span most of the target dimensions, they were generated correctly - no scaling needed
             const currentWidth = maxX - minX;
             const currentHeight = maxY - minY;
+            const widthRatio = currentWidth / this.targetWidth;
+            const heightRatio = currentHeight / this.targetHeight;
+            
+            // If points already use 40%+ of target dimensions, assume they were generated correctly
+            if (widthRatio > 0.4 && heightRatio > 0.4) {
+                this.mapWidth = this.targetWidth;
+                this.mapHeight = this.targetHeight;
+                console.log(`📐 Points already in target space: ${this.mapWidth} x ${this.mapHeight} (coverage: ${(widthRatio*100).toFixed(0)}% x ${(heightRatio*100).toFixed(0)}%)`);
+                return;
+            }
+            
+            // Otherwise, scale to fit target dimensions
+            const margin = 200;
             
             // Calculate scale factors to fit target dimensions
             const scaleX = (this.targetWidth - margin * 2) / currentWidth;
