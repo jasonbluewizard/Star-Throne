@@ -1,0 +1,674 @@
+client/src/game/InputHandler.js
++6
+-6
+
+@@ -184,80 +184,80 @@ export class InputHandler {
+                this.lastClickedTerritory && 
+                currentTime - this.lastClickTime < this.doubleClickThreshold) {
+                
+                // Double-click detected
+                console.log(`🎯 Double-click detected: last=${this.lastClickedTerritory.id}, current=${targetTerritory.id}`);
+                console.log(`🎯 Time diff: ${currentTime - this.lastClickTime}ms (threshold: ${this.doubleClickThreshold}ms)`);
+                console.log(`🎯 Territory owner: ${targetTerritory.ownerId}, human: ${this.game.humanPlayer?.id}`);
+                
+                this.inputFSM.handleEvent('double_tap', {
+                    territory: targetTerritory,
+                    shiftKey: e.shiftKey, 
+                    ctrlKey: e.ctrlKey
+                });
+                this.lastClickTime = 0; // Reset to prevent triple-click
+                this.lastClickedTerritory = null;
+            } else {
+                // Single click - start timer for potential double-click
+                console.log(`🎯 Single click: territory=${targetTerritory?.id}, lastTime=${this.lastClickTime}, currentTime=${currentTime}`);
+                this.lastClickTime = currentTime;
+                this.lastClickedTerritory = targetTerritory;
+                
+                // Process single click after delay to check for double-click
+                setTimeout(() => {
+                    if (this.lastClickTime === currentTime) {
+                        // No double-click occurred, process as single click
+                        this.processSingleClick(e.button, targetTerritory, worldPos);
+                        this.processSingleClick(e.button, targetTerritory, worldPos, e.shiftKey, e.ctrlKey);
+                    }
+                }, this.doubleClickThreshold);
+            }
+        }
+        
+        // cancel timer
+        clearTimeout(this.longPressTimer);
+        
+        this.resetDragState();
+    }
+    
+    processSingleClick(button, territory, worldPos) {
+    processSingleClick(button, territory, worldPos, shiftKey = false, ctrlKey = false) {
+        // Check UI elements first
+        if (this.game.handleUIClick(this.mousePos.x, this.mousePos.y)) {
+            return;
+        }
+        
+        // Skip game logic if not in playing state
+        if (this.game.gameState !== 'playing') {
+            return;
+        }
+        
+        if (button === 0) { // Left click - convert to tap event
+            this.inputFSM.handleEvent('tap', {
+                territory: territory,
+                x: worldPos.x, 
+                x: worldPos.x,
+                y: worldPos.y,
+                shiftKey: false, // Single click doesn't have modifiers
+                ctrlKey: false
+                shiftKey,
+                ctrlKey
+            });
+        } else if (button === 2) {
+            // Right-click ignored in single-button scheme
+        }
+    }
+    
+
+
+    
+    handleWheel(e) {
+        e.preventDefault();
+        
+        if (!this.game.camera) return;
+        
+        const rect = this.canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        
+        const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+        const newZoom = Math.max(0.02, Math.min(8.0, this.game.camera.targetZoom * zoomFactor));
+        this.game.camera.zoomTo(newZoom, mouseX, mouseY);
+        
+
+    }
+    
+@@ -443,51 +443,51 @@ export class InputHandler {
+                    if (throneTerritory) {
+                        this.game.camera.focusOnTerritory(throneTerritory);
+                    } else {
+                        // Final fallback: focus on first territory
+                        const firstTerritory = this.game.gameMap.territories[this.game.humanPlayer.territories[0]];
+                        if (firstTerritory) {
+                            this.game.camera.focusOnTerritory(firstTerritory);
+                        }
+                    }
+                }
+                break;
+        }
+    }
+    
+    resetDragState() {
+        this.isDragging = false;
+        this.dragStartPos = null;
+        this.dragStartTime = null;
+    }
+    
+    // Get current input state for game loop
+    getInputState() {
+        return {
+            mousePos: this.mousePos,
+            isDragging: this.isDragging,
+            selectedTerritory: this.inputFSM ? this.inputFSM.selectedTerritory : null,
+            selectedTerritories: this.inputFSM ? this.inputFSM.selectedTerritories : null,
+            currentState: this.inputFSM ? this.inputFSM.currentState : 'Default'
+        };
+    }
+
+    // Called by main game loop to handle timeouts
+    update() {
+        this.inputFSM.handleEvent('timeout');
+    }
+    
+    // Cleanup method to properly remove event listeners (fixes memory leak)
+    cleanup() {
+        // Clear any active long press timer
+        if (this.longPressTimer) {
+            clearTimeout(this.longPressTimer);
+            this.longPressTimer = null;
+        }
+        
+        // Remove all event listeners using the same bound references
+        if (this.canvas) {
+            this.canvas.removeEventListener('mousedown', this._onMouseDown);
+            this.canvas.removeEventListener('mousemove', this._onMouseMove);
+            this.canvas.removeEventListener('mouseup', this._onMouseUp);
+            this.canvas.removeEventListener('wheel', this._onWheel);
+            this.canvas.removeEventListener('contextmenu', this._onContextMenu);
+            this.canvas.removeEventListener('touchstart', this._onTouchStart);
+client/src/game/InputStateMachine.js
++46
+-23
+
+/**
+ * Player Input Finite State Machine (FSM)
+ * 
+ * ---------------- FSM STATES ----------------
+ * idle → source_selected → pending_preview → (execute|cancel) → idle
+ * idle → source_selected → supply_mode → tap target → create/remove route
+ */
+
+import { PathfindingService } from './PathfindingService';
+import { GameUtils } from './utils';
+import { GAME_CONSTANTS } from '../../../common/gameConstants';
+
+// helper to reset preview UI
+function clearPreview(game) { 
+    game.ui?.hidePreviewArrow?.(); 
+}
+
+export class InputStateMachine {
+    constructor(game) {
+        this.game = game;
+        this.state = 'idle';
+        this.selectedTerritory = null;
+        this.selectedTerritories = new Set();
+        this.pendingTarget = null;       // for confirm‑mode preview
+        
+        // LONG‑PRESS timer
+        this.longPressTimer = null;
+        
+        // Track battles initiated by human player to manage selection state
+        this.pendingPlayerBattles = new Map();
+        
+        // Track territories that have been confirmed for attack (no re-confirmation needed)
+        this.confirmedAttackTargets = new Set();
+        
+        console.log('InputStateMachine initialized in idle state');
+    }
+
+    // Main input event processor
+    handleEvent(eventType, data) {
+        switch (eventType) {
+            case 'tap':                this.handleTap(data);             break;
+            case 'double_tap':         this.handleDoubleTap(data);       break;
+            case 'long_press':         this.handleLongPress(data);       break;
+            case 'long_press_select':  this.handleLongPressSelect(data); break;
+            case 'long_press_supply':  this.handleLongPressSupply(data); break;
+            case 'timeout':            this.handleTimeout();             break;
+            default:
+                console.log(`Unknown event type: ${eventType}`);
+                break;
+        }
+    }
+
+    // ---------- tap ----------
+    handleTap({ territory }) {
+    handleTap({ territory, shiftKey }) {
+        switch (this.state) {
+            case 'idle':
+                if (territory && territory.ownerId === this.game.humanPlayer.id && territory.armySize > 1) {
+                    this.selectedTerritories.clear();
+                    this.selectedTerritories.add(territory);
+                    this.selectedTerritory = territory;
+                    this.state = 'source_selected';
+                }
+                break;
+
+            case 'source_selected':
+                if (!territory) { this.reset(); break; }          // tap empty = deselect
+
+                if (territory.id === this.selectedTerritory.id) { // tap source again = no‑op
+                if (shiftKey && territory && territory.ownerId === this.game.humanPlayer.id) {
+                    if (this.selectedTerritories.has(territory)) {
+                        this.selectedTerritories.delete(territory);
+                    } else {
+                        this.selectedTerritories.add(territory);
+                    }
+                    this.selectedTerritory = territory;
+                    if (this.selectedTerritories.size === 0) {
+                        this.reset();
+                    }
+                    break;
+                }
+
+                // friendly target – immediate transfer (no preview needed)
+                if (territory.ownerId === this.game.humanPlayer.id) {
+                    this.game.issueFleetCommand(this.selectedTerritory, territory, 0.5, false);
+                    console.log(`🚀 Immediate transfer: ${this.selectedTerritory.id} -> ${territory.id}`);
+                    // Stay in source_selected state for chaining commands
+                if (!territory) { this.reset(); break; }
+
+                if (this.selectedTerritories.size === 1 && territory.id === this.selectedTerritory.id) {
+                    break; // tap source again = no-op
+                }
+                // hostile/neutral target – check if already confirmed for immediate attack
+                else {
+                    const targetKey = `${this.selectedTerritory.id}->${territory.id}`;
+                    if (this.confirmedAttackTargets.has(targetKey)) {
+                        // Already confirmed - attack immediately
+                        this.game.issueFleetCommand(this.selectedTerritory, territory, 0.5, true);
+                        console.log(`🎯 Immediate repeat attack: ${this.selectedTerritory.id} -> ${territory.id}`);
+
+                const isFriendly = territory.ownerId === this.game.humanPlayer.id;
+
+                if (this.selectedTerritories.size > 1) {
+                    for (const from of this.selectedTerritories) {
+                        if (from.id === territory.id) continue;
+                        this.game.issueFleetCommand(from, territory, 0.5, !isFriendly);
+                    }
+                } else {
+                    const from = this.selectedTerritory;
+                    if (isFriendly) {
+                        this.game.issueFleetCommand(from, territory, 0.5, false);
+                        console.log(`🚀 Immediate transfer: ${from.id} -> ${territory.id}`);
+                    } else {
+                        // First attack - require confirmation
+                        this.enterPreview(territory, 'attack');
+                        const targetKey = `${from.id}->${territory.id}`;
+                        if (this.confirmedAttackTargets.has(targetKey)) {
+                            this.game.issueFleetCommand(from, territory, 0.5, true);
+                            console.log(`🎯 Immediate repeat attack: ${from.id} -> ${territory.id}`);
+                        } else {
+                            this.enterPreview(territory, 'attack');
+                        }
+                    }
+                }
+                break;
+
+            case 'pending_preview':      // this is the CONFIRM tap
+                if (territory && territory.id === this.pendingTarget.id) {
+                    this.executePendingAction( territory );
+                } else {
+                    clearPreview(this.game);           // tapped elsewhere → cancel
+                    this.state = territory ? 'source_selected' : 'idle';
+                    this.pendingTarget = null;
+                }
+                break;
+
+            case 'supply_mode':
+                if (territory && territory.ownerId === this.game.humanPlayer.id &&
+                    territory.id !== this.selectedTerritory.id) {
+                    console.log(`🔗 Creating supply route: ${this.selectedTerritory.id} -> ${territory.id}`);
+                    // Call createSupplyRoute with territory objects instead of IDs
+                    this.game.createSupplyRoute(this.selectedTerritory, territory);
+                    this.state = 'source_selected';
+                    this.game.ui?.exitSupplyMode?.();
+                } else if (!territory) {
+                    // Clicked empty space - cancel existing supply route if any
+                    console.log(`🔗 Cancelling supply route from territory ${this.selectedTerritory.id}`);
+@@ -127,50 +147,52 @@ export class InputStateMachine {
+        // Double-click on SELECTED territory: enter reinforce mode
+        if (this.state === 'source_selected' && territory.id === this.selectedTerritory?.id) {
+            this.enterSupplyMode(territory);
+            console.log(`🔗 Double-click reinforce mode: Territory ${territory.id} entering supply mode`);
+            return;
+        }
+
+        // Double-click from source_selected state on different territory: execute fleet command
+        if (this.state === 'source_selected' && territory.id !== this.selectedTerritory?.id) {
+            const pct = shiftKey ? 1.0 : ctrlKey ? 0.25 : 0.5;
+
+            if (territory.ownerId === this.game.humanPlayer.id) {
+                this.game.issueFleetCommand(this.selectedTerritory, territory, pct);
+            } else {
+                this.game.issueFleetCommand(this.selectedTerritory, territory, pct, true /*attack*/);
+            }
+            // remain in source_selected so player can chain
+        }
+    }
+
+    // ---------- progressive long‑press ----------
+    handleLongPressSelect({ territory }) {
+        if (!territory || territory.ownerId !== this.game.humanPlayer.id || territory.armySize <= 1) return;
+
+        // Long press selection: always select the territory
+        this.selectedTerritories.clear();
+        this.selectedTerritories.add(territory);
+        this.selectedTerritory = territory;
+        this.state = 'source_selected';
+        console.log(`🎯 Long press selection (0.5s): Territory ${territory.id} selected`);
+    }
+
+    handleLongPressSupply({ territory }) {
+        if (!territory || territory.ownerId !== this.game.humanPlayer.id || territory.armySize <= 1) return;
+
+        // Long press supply mode: enter supply mode if territory is selected
+        if (this.state === 'source_selected' && this.selectedTerritory && this.selectedTerritory.id === territory.id) {
+            this.enterSupplyMode(territory);
+            console.log(`🔗 Long press supply mode (1.5s): Territory ${territory.id} entering supply mode`);
+        }
+    }
+
+    // Legacy long press handler for compatibility
+    handleLongPress({ territory }) {
+        // Fallback to selection for any existing calls
+        this.handleLongPressSelect({ territory });
+    }
+
+    // ---------- helper: preview ----------
+    enterPreview(target, type) {
+        this.pendingTarget = target;
+        this.state         = 'pending_preview';
+@@ -204,64 +226,65 @@ export class InputStateMachine {
+            this.state = 'source_selected';
+        }
+    }
+
+    // ---------- supply mode helper ----------
+    enterSupplyMode(territory) {
+        this.state = 'supply_mode';
+        this.game.ui?.enterSupplyMode?.();
+        
+        // Check if territory is already supplying reinforcements
+        const isCurrentlySupplying = this.game.supplySystem?.isSupplySource?.(territory.id);
+        
+        // Show contextual message based on current supply status
+        if (this.game.uiManager) {
+            if (isCurrentlySupplying) {
+                this.game.uiManager.showMessage(`🔗 SUPPLY MODE: Star ${territory.id} currently supplying. Click different star to reroute, or blank space to cancel`, 4000);
+            } else {
+                this.game.uiManager.showMessage(`🔗 SUPPLY MODE: Click target star to reinforce from Star ${territory.id}`, 3000);
+            }
+        }
+        
+        console.log(`🔗 Supply mode activated for territory ${territory.id}, currently supplying: ${isCurrentlySupplying}`);
+    }
+
+    // Reset state completely
+    reset() { 
+        this.state = 'idle'; 
+        this.selectedTerritory = null; 
+    reset() {
+        this.state = 'idle';
+        this.selectedTerritory = null;
+        this.selectedTerritories.clear();
+        this.pendingTarget = null;
+        this.pendingPlayerBattles.clear();
+        this.confirmedAttackTargets.clear(); // Clear confirmed attack targets when deselecting
+        clearPreview(this.game); 
+        clearPreview(this.game);
+    }
+
+    // Legacy compatibility methods
+    getState() {
+        return {
+            currentState: this.state,
+            selectedTerritory: this.selectedTerritory,
+            selectedTerritories: this.selectedTerritories,
+            stateData: {}
+        };
+    }
+
+    transitionTo(newState, data = {}) {
+        console.log(`FSM: ${this.state} -> ${newState}`, data);
+        this.state = newState;
+        if (newState === 'Default') {
+            this.reset();
+        }
+    }
+    
+    // Track a battle initiated by the human player
+    trackPlayerBattle(battleId, sourceTerritory, targetTerritory) {
+        this.pendingPlayerBattles.set(battleId, {
+            sourceTerritory: sourceTerritory,
+            targetTerritory: targetTerritory,
+            battleId: battleId
+        });
+    }
+    
+    // Handle battle completion - called by CombatSystem when battles finish
+    onBattleComplete(battleId, attackerWins, attackingTerritoryId) {
+        const battleData = this.pendingPlayerBattles.get(battleId);
+        if (!battleData) return; // Not a human player battle
+client/src/game/Renderer.js
++12
+-10
+
+@@ -78,52 +78,52 @@ export class Renderer {
+        // Clear canvas
+        this.ctx.fillStyle = GAME_CONSTANTS.BACKGROUND_COLOR;
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Apply camera transform
+        this.ctx.save();
+        this.camera.applyTransform(this.ctx);
+        
+        // Render parallax starfield
+        this.renderStarfield();
+        
+        // Render nebulas (behind territories)
+        this.renderNebulas(gameData.gameMap);
+        
+        // Update visible territories for performance
+        this.updateVisibleTerritories(gameData.gameMap);
+        
+        // Render game objects
+        this.renderConnections(gameData.gameMap);
+        this.renderSupplyRoutes(gameData.supplyRoutes);
+        this.renderTerritories(gameData.gameMap, gameData.humanPlayer, gameData.discoveries);
+        this.renderProbes(gameData.probes, gameData.gameMap);
+        this.renderShipAnimations();
+        
+        // Render selection and drag preview
+        if (gameData.inputState?.selectedTerritory) {
+            this.renderSelection(gameData.inputState.selectedTerritory);
+        if (gameData.inputState?.selectedTerritories) {
+            this.renderSelections(gameData.inputState.selectedTerritories);
+        }
+        this.renderDragPreview(gameData);
+        
+        this.ctx.restore();
+        
+        // Render UI (screen coordinates)
+        this.renderUI(gameData);
+        
+        const renderTime = performance.now() - startTime;
+        return { renderTime, visibleTerritories: this.visibleTerritories };
+    }
+    
+    renderStarfield() {
+        const viewBounds = this.camera.getViewBounds();
+        const cameraPos = this.camera.getWorldCenter();
+        
+        // Render each layer with different parallax factors
+        this.renderStarLayer(this.starLayers.far, 0.05, viewBounds, cameraPos);
+        this.renderStarLayer(this.starLayers.mid, 0.15, viewBounds, cameraPos);
+        this.renderStarLayer(this.starLayers.near, 0.30, viewBounds, cameraPos);
+    }
+    
+    renderStarLayer(stars, parallaxFactor, viewBounds, cameraPos) {
+        this.ctx.save();
+        
+@@ -658,63 +658,65 @@ export class Renderer {
+    renderMultiHopShipAnimation(animation, totalProgress) {
+        const segmentProgress = totalProgress * animation.segments.length;
+        const currentSegmentIndex = Math.floor(segmentProgress);
+        const segmentLocalProgress = segmentProgress - currentSegmentIndex;
+        
+        if (currentSegmentIndex >= animation.segments.length) return;
+        
+        const segment = animation.segments[currentSegmentIndex];
+        const x = segment.from.x + (segment.to.x - segment.from.x) * segmentLocalProgress;
+        const y = segment.from.y + (segment.to.y - segment.from.y) * segmentLocalProgress;
+        
+        this.ctx.save();
+        this.ctx.fillStyle = animation.color;
+        this.ctx.strokeStyle = '#ffffff';
+        this.ctx.lineWidth = 1;
+        this.ctx.globalAlpha = 0.8;
+        
+        this.ctx.beginPath();
+        this.ctx.arc(x, y, 2, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.stroke();
+        
+        this.ctx.restore();
+    }
+    
+    renderSelection(selectedTerritory) {
+        if (!selectedTerritory) return;
+        
+    renderSelections(selectedTerritories) {
+        if (!selectedTerritories || selectedTerritories.size === 0) return;
+
+        this.ctx.save();
+        this.ctx.strokeStyle = '#00ffff';
+        this.ctx.lineWidth = 3;
+        this.ctx.setLineDash([5, 5]);
+        this.ctx.lineDashOffset = Date.now() * 0.01;
+        
+        this.ctx.beginPath();
+        this.ctx.arc(selectedTerritory.x, selectedTerritory.y, selectedTerritory.radius + 5, 0, Math.PI * 2);
+        this.ctx.stroke();
+        
+
+        for (const terr of selectedTerritories) {
+            this.ctx.beginPath();
+            this.ctx.arc(terr.x, terr.y, terr.radius + 5, 0, Math.PI * 2);
+            this.ctx.stroke();
+        }
+
+        this.ctx.restore();
+    }
+    
+    renderDragPreview(gameData) {
+        // Render proportional drag preview
+        if (gameData.isProportionalDrag && gameData.proportionalDragStart && gameData.dragEnd) {
+            this.renderProportionalDragPreview(gameData);
+        }
+    }
+    
+    renderProportionalDragPreview(gameData) {
+        const from = gameData.proportionalDragStart.territory;
+        const to = gameData.dragEnd;
+        const percentage = gameData.fleetPercentage;
+        
+        if (!from || !to) return;
+        
+        this.ctx.save();
+        
+        // Drag line
+        const lineColor = to.isColonizable ? '#ffff00' : 
+                         (to.ownerId === gameData.humanPlayer?.id ? '#00ff00' : '#ff0000');
+        
+        this.ctx.strokeStyle = lineColor;
+        this.ctx.lineWidth = 3;
+client/src/game/StarThrone.js
++2
+-2
+
+@@ -2425,57 +2425,57 @@ export default class StarThrone {
+        this.gameMap.nebulas.forEach(nebula => {
+            // Create radial gradient for cloud effect
+            const gradient = this.ctx.createRadialGradient(
+                nebula.x, nebula.y, 0,
+                nebula.x, nebula.y, nebula.radius
+            );
+            
+            gradient.addColorStop(0, `rgba(147, 51, 234, ${nebula.opacity})`);
+            gradient.addColorStop(0.5, `rgba(147, 51, 234, ${nebula.opacity * 0.6})`);
+            gradient.addColorStop(1, 'rgba(147, 51, 234, 0)');
+            
+            this.ctx.fillStyle = gradient;
+            this.ctx.beginPath();
+            this.ctx.arc(nebula.x, nebula.y, nebula.radius, 0, Math.PI * 2);
+            this.ctx.fill();
+        });
+        
+        this.ctx.restore();
+    }
+    
+    renderTerritories() {
+        this.updateVisibleTerritories();
+        
+        // Get current selected territory from input handler
+        const inputState = this.inputHandler ? this.inputHandler.getInputState() : {};
+        const selectedTerritory = inputState.selectedTerritory;
+        const selectedTerritories = inputState.selectedTerritories;
+        
+        // Render only visible territories
+        for (const territoryId of this.visibleTerritories) {
+            const territory = this.gameMap.territories[territoryId];
+            if (territory) {
+                territory.render(this.ctx, this.players, selectedTerritory, {
+                territory.render(this.ctx, this.players, selectedTerritories, {
+                    humanPlayer: this.humanPlayer,
+                    homeSystemFlashStart: this.homeSystemFlashStart,
+                    homeSystemFlashDuration: this.homeSystemFlashDuration,
+                    gameMap: this.gameMap, // Include game map for fog of war logic
+                    supplySystem: this.supplySystem, // Include supply system for proper encapsulation
+                    isDisconnectedFromThrone: (territoryId) => this.isDisconnectedFromThrone(territoryId)
+                }, this.inputHandler?.hoveredTerritory);
+            }
+        }
+    }
+    
+    renderConnections() {
+        this.ctx.lineWidth = 4;
+        this.ctx.globalAlpha = 0.7;
+        
+        // Cache connections to avoid duplicate rendering
+        const drawnConnections = new Set();
+        
+        // Use visible territories for optimized rendering
+        const territoriesToCheck = this.visibleTerritories && this.visibleTerritories.size > 0 
+            ? Array.from(this.visibleTerritories).map(id => this.gameMap.territories[id]).filter(t => t)
+            : Object.values(this.gameMap.territories);
+        
+        territoriesToCheck.forEach(territory => {
+            territory.neighbors.forEach(neighborId => {
+client/src/game/Territory.js
++2
+-2
+
+@@ -134,52 +134,52 @@ export class Territory {
+                                    console.log(`❌ SHIP FAILED: Could not create animation ${i+1}/${armiesGenerated}`);
+                                }
+                            }
+                        }
+                    } else {
+                        // Fallback to direct generation if no valid path
+                        destinationTerritory.armySize += armiesGenerated;
+                    }
+                    
+                    // Visual feedback disabled to prevent text spam on heavily reinforced territories
+                } else {
+                    // Route broken, generate locally
+                    this.armySize += armiesGenerated;
+                }
+            } else {
+                // Normal army generation
+                this.armySize += armiesGenerated;
+            }
+            
+            if (player) {
+                player.totalArmies += armiesGenerated;
+            }
+        }
+    }
+    
+    render(ctx, players, selectedTerritory, gameData, hoveredTerritory = null) {
+        const isSelected = selectedTerritory && selectedTerritory.id === this.id;
+    render(ctx, players, selectedTerritories, gameData, hoveredTerritory = null) {
+        const isSelected = selectedTerritories && selectedTerritories.has(this);
+        const isHovered = hoveredTerritory && hoveredTerritory.id === this.id;
+        
+        // Determine territory color
+        let fillColor = this.neutralColor;
+        if (this.ownerId !== null && players[this.ownerId]) {
+            fillColor = players[this.ownerId].color;
+        }
+        
+        // Add home system flashing effect for human player
+        if (gameData && gameData.humanPlayer && this.ownerId === gameData.humanPlayer.id && 
+            gameData.homeSystemFlashStart && gameData.humanPlayer.territories.includes(this.id)) {
+            const currentTime = Date.now();
+            const elapsed = currentTime - gameData.homeSystemFlashStart;
+            
+            if (elapsed < gameData.homeSystemFlashDuration) {
+                // Flash every 300ms for 3 seconds
+                const flashCycle = Math.floor(elapsed / 300) % 2;
+                if (flashCycle === 1) {
+                    fillColor = '#ffffff'; // Flash to white
+                }
+            }
+        }
+        
+        // Add combat flash effect (applies to all territories including neutral)
+        const currentTime = Date.now();

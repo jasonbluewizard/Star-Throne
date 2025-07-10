@@ -50,11 +50,13 @@ export class InputStateMachine {
     }
 
     // ---------- tap ----------
-    handleTap({ territory }) {
+    handleTap({ territory, shiftKey }) {
         switch (this.state) {
             case 'idle':
                 if (territory && territory.ownerId === this.game.humanPlayer.id && territory.armySize > 1) {
                     this.selectedTerritory = territory;
+                    this.selectedTerritories.clear();
+                    this.selectedTerritories.add(territory);
                     this.state = 'source_selected';
                 }
                 break;
@@ -62,26 +64,43 @@ export class InputStateMachine {
             case 'source_selected':
                 if (!territory) { this.reset(); break; }          // tap empty = deselect
 
-                if (territory.id === this.selectedTerritory.id) { // tap source again = no‑op
+                if (shiftKey && territory && territory.ownerId === this.game.humanPlayer.id) {
+                    if (this.selectedTerritories.has(territory)) {
+                        this.selectedTerritories.delete(territory);
+                    } else {
+                        this.selectedTerritories.add(territory);
+                    }
+                    this.selectedTerritory = territory;
+                    if (this.selectedTerritories.size === 0) {
+                        this.reset();
+                    }
                     break;
                 }
 
-                // friendly target – immediate transfer (no preview needed)
-                if (territory.ownerId === this.game.humanPlayer.id) {
-                    this.game.issueFleetCommand(this.selectedTerritory, territory, 0.5, false);
-                    console.log(`🚀 Immediate transfer: ${this.selectedTerritory.id} -> ${territory.id}`);
-                    // Stay in source_selected state for chaining commands
+                if (this.selectedTerritories.size === 1 && territory.id === this.selectedTerritory.id) {
+                    break; // tap source again = no-op
                 }
-                // hostile/neutral target – check if already confirmed for immediate attack
-                else {
-                    const targetKey = `${this.selectedTerritory.id}->${territory.id}`;
-                    if (this.confirmedAttackTargets.has(targetKey)) {
-                        // Already confirmed - attack immediately
-                        this.game.issueFleetCommand(this.selectedTerritory, territory, 0.5, true);
-                        console.log(`🎯 Immediate repeat attack: ${this.selectedTerritory.id} -> ${territory.id}`);
+
+                const isFriendly = territory.ownerId === this.game.humanPlayer.id;
+
+                if (this.selectedTerritories.size > 1) {
+                    for (const from of this.selectedTerritories) {
+                        if (from.id === territory.id) continue;
+                        this.game.issueFleetCommand(from, territory, 0.5, !isFriendly);
+                    }
+                } else {
+                    const from = this.selectedTerritory;
+                    if (isFriendly) {
+                        this.game.issueFleetCommand(from, territory, 0.5, false);
+                        console.log(`🚀 Immediate transfer: ${from.id} -> ${territory.id}`);
                     } else {
-                        // First attack - require confirmation
-                        this.enterPreview(territory, 'attack');
+                        const targetKey = `${from.id}->${territory.id}`;
+                        if (this.confirmedAttackTargets.has(targetKey)) {
+                            this.game.issueFleetCommand(from, territory, 0.5, true);
+                            console.log(`🎯 Immediate repeat attack: ${from.id} -> ${territory.id}`);
+                        } else {
+                            this.enterPreview(territory, 'attack');
+                        }
                     }
                 }
                 break;

@@ -531,6 +531,13 @@ Changelog:
   * UI layout finalized: Tech panel (upper left), notifications (top center), flood messages (lower right), buttons (top bar)
   * Note: Flood mode buttons currently have click detection issues - coordinates and rendering verified but functionality pending
   * User confirmed current state acceptable for now - flood mode system ready for future refinement
+- January 10, 2025. Input system enhancements and multi-selection improvements:
+  * Fixed critical duplicate processSingleClick call bug causing input handling confusion
+  * Enhanced modifier key support throughout input pipeline - Shift and Ctrl keys properly tracked
+  * Implemented multi-territory selection system: Shift+click to select multiple friendly territories
+  * Added coordinated multi-territory attacks and transfers from selected territory groups
+  * Improved mousewheel zoom with full 0.02-8.0 strategic range for galaxy-wide viewing
+  * Enhanced InputStateMachine with proper multi-selection state management and visual feedback
 - January 1, 2025. Strategic camera system implementation (Supreme Commander-style):
   * Enhanced strategic zoom range: extreme zoom-out (0.05x) to tactical close-up (8.0x) for galaxy-wide view
   * Implemented inertial panning with smooth momentum and friction for natural camera movement

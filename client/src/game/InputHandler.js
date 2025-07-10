@@ -215,7 +215,7 @@ export class InputHandler {
                 setTimeout(() => {
                     if (this.lastClickTime === currentTime) {
                         // No double-click occurred, process as single click
-                        this.processSingleClick(e.button, targetTerritory, worldPos);
+                        this.processSingleClick(e.button, targetTerritory, worldPos, e.shiftKey, e.ctrlKey);
                     }
                 }, this.doubleClickThreshold);
             }
@@ -227,7 +227,7 @@ export class InputHandler {
         this.dragStartTime = null;
     }
     
-    processSingleClick(button, territory, worldPos) {
+    processSingleClick(button, territory, worldPos, shiftKey = false, ctrlKey = false) {
         // Check UI elements first
         if (this.game.handleUIClick(this.mousePos.x, this.mousePos.y)) {
             return;
@@ -258,8 +258,8 @@ export class InputHandler {
                 territory: territory,
                 x: worldPos.x, 
                 y: worldPos.y,
-                shiftKey: false, // Single click doesn't have modifiers
-                ctrlKey: false
+                shiftKey,
+                ctrlKey
             });
         } else if (button === 2) {
             // Right-click ignored in single-button scheme
@@ -279,7 +279,7 @@ export class InputHandler {
         const mouseY = e.clientY - rect.top;
         
         const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-        const newZoom = Math.min(8.0, this.game.camera.targetZoom * zoomFactor);
+        const newZoom = Math.max(0.02, Math.min(8.0, this.game.camera.targetZoom * zoomFactor));
         this.game.camera.zoomTo(newZoom, mouseX, mouseY);
         
 
