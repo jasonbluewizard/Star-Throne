@@ -223,12 +223,16 @@ export class InputHandler {
                 this.lastClickTime = currentTime;
                 this.lastClickedTerritory = targetTerritory;
                 
+                // Store modifier key state at the time of click
+                const shiftPressed = e.shiftKey;
+                const ctrlPressed = e.ctrlKey;
+                
                 // Process single click after delay to check for double-click
                 setTimeout(() => {
                     if (this.lastClickTime === currentTime) {
                         // No double-click occurred, process as single click
-                        console.log(`🎯 Processing single click with shift=${e.shiftKey}, ctrl=${e.ctrlKey}`);
-                        this.processSingleClick(e.button, targetTerritory, worldPos, e.shiftKey, e.ctrlKey);
+                        console.log(`🎯 Processing single click with shift=${shiftPressed}, ctrl=${ctrlPressed}`);
+                        this.processSingleClick(e.button, targetTerritory, worldPos, shiftPressed, ctrlPressed);
                     }
                 }, this.doubleClickThreshold);
             }

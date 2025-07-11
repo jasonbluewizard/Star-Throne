@@ -67,10 +67,13 @@ export class InputStateMachine {
                 if (!territory) { this.reset(); break; }          // tap empty = deselect
 
                 if (shiftKey && territory && territory.ownerId === this.game.humanPlayer.id) {
+                    console.log(`🔄 SHIFT+CLICK: Adding/removing territory ${territory.id} to selection`);
                     if (this.selectedTerritories.has(territory)) {
                         this.selectedTerritories.delete(territory);
+                        console.log(`➖ Removed territory ${territory.id} from selection, total: ${this.selectedTerritories.size}`);
                     } else {
                         this.selectedTerritories.add(territory);
+                        console.log(`➕ Added territory ${territory.id} to selection, total: ${this.selectedTerritories.size}`);
                     }
                     this.selectedTerritory = territory;
                     if (this.selectedTerritories.size === 0) {
