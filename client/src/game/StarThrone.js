@@ -2122,6 +2122,9 @@ export default class StarThrone {
         // Periodically update throne connectivity
         this.updateThroneConnectivity();
         
+        // Check for fleet overflow every frame
+        this.checkAllTerritoryOverflows();
+        
         // Update performance management and track frame metrics
         if (this.performanceManager) {
             this.performanceManager.frameMetrics.updateTime = performance.now() - updateStart;
@@ -2173,6 +2176,17 @@ export default class StarThrone {
         
         // Track performance
         this.performanceStats.updateTime = performance.now() - updateStart;
+    }
+    
+    checkAllTerritoryOverflows() {
+        // Throttle overflow checks to avoid performance issues (check every 10 frames ~166ms)
+        if (this.frameCount % 10 !== 0) return;
+        
+        Object.values(this.gameMap.territories).forEach(territory => {
+            if (!territory.isNeutral()) {
+                territory.checkFleetOverflow(this);
+            }
+        });
     }
     
     checkPlayerElimination() {
@@ -3127,6 +3141,14 @@ export default class StarThrone {
         if (this.discoverySystem) {
             this.discoverySystem.renderTopDiscoveryBar(this.ctx);
         }
+        
+        // Render max fleet slider when territory is selected
+        if (this.ui && this.inputHandler) {
+            const inputState = this.inputHandler.getInputState();
+            if (inputState.selectedTerritory) {
+                this.ui.renderMaxFleetSlider(this.ctx, inputState.selectedTerritory, this.humanPlayer);
+            }
+        }
     }
     
     // Input handling methods - REMOVED: Mouse handlers moved to InputHandler.js to prevent conflicts
@@ -3274,6 +3296,18 @@ export default class StarThrone {
             this.minimapMinimized = !this.minimapMinimized;
             console.log('Minimap toggled:', this.minimapMinimized ? 'minimized' : 'maximized');
             return true;
+        }
+        
+        // Check for max fleet slider click
+        if (this.ui && this.inputHandler) {
+            const inputState = this.inputHandler.getInputState();
+            const selectedTerritory = inputState.selectedTerritory;
+            if (selectedTerritory && selectedTerritory.ownerId === this.humanPlayer?.id) {
+                if (this.ui.handleMaxFleetSliderClick(screenX, screenY)) {
+                    console.log(`🎚️ Max fleet slider clicked for territory ${selectedTerritory.id}`);
+                    return true;
+                }
+            }
         }
         
         // Check for Player flood mode button click

@@ -12,6 +12,10 @@ export class Territory {
         this.armySize = Math.floor(Math.random() * 25) + 1;
         this.isColonizable = false; // No longer needed with new visibility system
         
+        // Fleet management system
+        this.maxFleet = 20; // Default maximum fleet size
+        this.lastOverflowCheck = 0;
+        
         // Visual properties
         this.baseColor = '#444444';
         this.neutralColor = '#666666'; // Standard neutral color
@@ -72,6 +76,64 @@ export class Territory {
     //     };
     // }
     
+    // Check for fleet overflow and redistribute excess armies
+    checkFleetOverflow(game) {
+        if (this.isNeutral() || this.armySize <= this.maxFleet) {
+            return; // No overflow or neutral territory
+        }
+        
+        const excess = this.armySize - this.maxFleet;
+        const owner = game.players.find(p => p.id === this.ownerId);
+        if (!owner) return;
+        
+        // Find adjacent friendly territories that can accept overflow
+        const friendlyNeighbors = this.neighbors
+            .map(id => game.gameMap.territories[id])
+            .filter(t => t && t.ownerId === this.ownerId && t.armySize < t.maxFleet);
+        
+        if (friendlyNeighbors.length === 0) {
+            return; // No friendly neighbors with capacity
+        }
+        
+        // Distribute excess armies evenly among available neighbors
+        const perNeighbor = Math.floor(excess / friendlyNeighbors.length);
+        let remaining = excess;
+        
+        friendlyNeighbors.forEach((neighbor, index) => {
+            const canAccept = neighbor.maxFleet - neighbor.armySize;
+            const toSend = Math.min(perNeighbor, canAccept, remaining);
+            
+            if (toSend > 0) {
+                neighbor.armySize += toSend;
+                this.armySize -= toSend;
+                remaining -= toSend;
+                
+                // Create overflow animation
+                if (game.createShipAnimation) {
+                    const playerColor = owner.color || '#ffffff';
+                    game.createShipAnimation(this, neighbor, false, toSend, playerColor);
+                }
+                
+                console.log(`💫 OVERFLOW: ${toSend} armies sent from ${this.id} to ${neighbor.id} (${this.armySize}/${this.maxFleet})`);
+            }
+        });
+        
+        // If there's still remaining excess, send one at a time to neighbors with highest capacity
+        while (remaining > 0 && friendlyNeighbors.some(n => n.armySize < n.maxFleet)) {
+            const bestNeighbor = friendlyNeighbors
+                .filter(n => n.armySize < n.maxFleet)
+                .sort((a, b) => (b.maxFleet - b.armySize) - (a.maxFleet - a.armySize))[0];
+            
+            if (bestNeighbor) {
+                bestNeighbor.armySize += 1;
+                this.armySize -= 1;
+                remaining -= 1;
+            } else {
+                break;
+            }
+        }
+    }
+
     generateArmies(deltaTime, player, gameSpeed = 1.0, game = null) {
         // Neutral territories have fixed army sizes and don't generate armies
         if (this.ownerId === null) return;
@@ -155,6 +217,11 @@ export class Territory {
             
             if (player) {
                 player.totalArmies += armiesGenerated;
+            }
+            
+            // Check for fleet overflow after army generation
+            if (game) {
+                this.checkFleetOverflow(game);
             }
         }
     }

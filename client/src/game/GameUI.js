@@ -74,6 +74,85 @@ export class GameUI {
         this.supplyModeActive = false;
     }
     
+    // Max Fleet Slider System
+    renderMaxFleetSlider(ctx, selectedTerritory, humanPlayer) {
+        if (!selectedTerritory || selectedTerritory.ownerId !== humanPlayer?.id) {
+            return; // Only show for human player's territories
+        }
+        
+        const sliderX = 30;
+        const sliderY = 200;
+        const sliderWidth = 200;
+        const sliderHeight = 20;
+        
+        // Background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillRect(sliderX - 10, sliderY - 50, sliderWidth + 20, 100);
+        
+        // Title
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText('Max Fleet Size', sliderX, sliderY - 25);
+        
+        // Current value display
+        const currentValue = selectedTerritory.maxFleet || 20;
+        ctx.fillStyle = '#00ddff';
+        ctx.fillText(`${currentValue} ships`, sliderX + sliderWidth - 60, sliderY - 25);
+        
+        // Slider track
+        ctx.fillStyle = '#444444';
+        ctx.fillRect(sliderX, sliderY, sliderWidth, sliderHeight);
+        
+        // Slider handle position (1-100 range)
+        const handlePosition = ((currentValue - 1) / 99) * sliderWidth;
+        
+        // Slider handle
+        ctx.fillStyle = '#00ddff';
+        ctx.fillRect(sliderX + handlePosition - 5, sliderY - 2, 10, sliderHeight + 4);
+        
+        // Range labels
+        ctx.fillStyle = '#aaaaaa';
+        ctx.font = '12px Arial';
+        ctx.fillText('1', sliderX, sliderY + 35);
+        ctx.fillText('100', sliderX + sliderWidth - 20, sliderY + 35);
+        
+        // Territory info
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(`Territory ${selectedTerritory.id}: ${selectedTerritory.armySize}/${currentValue}`, sliderX, sliderY - 5);
+        
+        // Store slider bounds for click detection
+        this.maxFleetSlider = {
+            x: sliderX,
+            y: sliderY,
+            width: sliderWidth,
+            height: sliderHeight,
+            territory: selectedTerritory
+        };
+    }
+    
+    // Handle clicks on the max fleet slider
+    handleMaxFleetSliderClick(screenX, screenY) {
+        if (!this.maxFleetSlider) return false;
+        
+        const slider = this.maxFleetSlider;
+        if (screenX >= slider.x && screenX <= slider.x + slider.width &&
+            screenY >= slider.y && screenY <= slider.y + slider.height) {
+            
+            // Calculate new value (1-100)
+            const clickPosition = (screenX - slider.x) / slider.width;
+            const newValue = Math.max(1, Math.min(100, Math.round(1 + clickPosition * 99)));
+            
+            // Update territory max fleet
+            slider.territory.maxFleet = newValue;
+            
+            console.log(`🎚️ Max fleet updated: Territory ${slider.territory.id} → ${newValue} ships`);
+            return true;
+        }
+        
+        return false;
+    }
+    
     render(ctx, gameData) {
         this.animationPhase += 0.02;
         
