@@ -538,6 +538,13 @@ Changelog:
   * Added coordinated multi-territory attacks and transfers from selected territory groups
   * Improved mousewheel zoom with full 0.02-8.0 strategic range for galaxy-wide viewing
   * Enhanced InputStateMachine with proper multi-selection state management and visual feedback
+- January 11, 2025. Max fleet system implementation and aggressive overflow management:
+  * Added max fleet characteristic to all territories (default 20 ships, configurable 1-100)
+  * Implemented UI slider on left side for adjusting territory max fleet limits when selected
+  * Created aggressive overflow system that transfers excess armies to adjacent friendly territories until at capacity
+  * Integrated overflow checking into main game loop and army generation cycles
+  * Added ship animations for overflow transfers with detailed debugging logs
+  * Fixed territory selection bug preventing max fleet slider from appearing properly
 - January 1, 2025. Strategic camera system implementation (Supreme Commander-style):
   * Enhanced strategic zoom range: extreme zoom-out (0.05x) to tactical close-up (8.0x) for galaxy-wide view
   * Implemented inertial panning with smooth momentum and friction for natural camera movement

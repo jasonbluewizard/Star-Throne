@@ -2179,11 +2179,13 @@ export default class StarThrone {
     }
     
     checkAllTerritoryOverflows() {
-        // Throttle overflow checks to avoid performance issues (check every 10 frames ~166ms)
-        if (this.frameCount % 10 !== 0) return;
+        // Throttle overflow checks to avoid performance issues (check every 30 frames ~500ms)
+        if (this.frameCount % 30 !== 0) return;
         
-        Object.values(this.gameMap.territories).forEach(territory => {
-            if (!territory.isNeutral()) {
+        // Process all non-neutral territories for overflow
+        const territories = Object.values(this.gameMap.territories);
+        territories.forEach(territory => {
+            if (!territory.isNeutral() && territory.armySize > territory.maxFleet) {
                 territory.checkFleetOverflow(this);
             }
         });
