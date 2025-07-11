@@ -94,7 +94,7 @@ export class InputHandler {
     
     handleMouseDown(e) {
         e.preventDefault();
-        console.log(`🖱️ Mouse down: button=${e.button}, shift=${e.shiftKey}, ctrl=${e.ctrlKey}`);
+        // Debug: console.log(`🖱️ Mouse down: button=${e.button}, shift=${e.shiftKey}, ctrl=${e.ctrlKey}`);
         
         // Update modifier keys
         this.modifierKeys.shift = e.shiftKey;

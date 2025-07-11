@@ -2158,8 +2158,8 @@ export default class StarThrone {
             this.checkPlayerElimination();
         }
         
-        // Check win conditions (throttled) - only after game is properly initialized
-        if (this.gameInitialized && this.frameCount % 30 === 0) {
+        // Check win conditions (throttled) - only after game is properly initialized and running for a bit
+        if (this.gameInitialized && this.frameCount % 30 === 0 && this.frameCount > 60) {
             this.checkWinConditions();
         }
         
@@ -2199,6 +2199,13 @@ export default class StarThrone {
     
     checkWinConditions() {
         const alivePlayers = this.players.filter(p => !p.isEliminated);
+        
+        // Debug logging to understand why game is ending early
+        if (alivePlayers.length <= 1) {
+            console.log(`🏁 WIN CHECK: ${alivePlayers.length} alive players, frame ${this.frameCount}`);
+            console.log(`🏁 WIN CHECK: Total players: ${this.players.length}, eliminated: ${this.players.filter(p => p.isEliminated).length}`);
+            console.log(`🏁 WIN CHECK: Player territories:`, this.players.map(p => `${p.name}: ${p.territories.length} territories`));
+        }
         
         if (alivePlayers.length === 1) {
             this.endGame(alivePlayers[0]);
