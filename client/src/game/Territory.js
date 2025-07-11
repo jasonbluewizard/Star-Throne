@@ -98,52 +98,49 @@ export class Territory {
             return;
         }
         
-        // Find adjacent friendly territories that can accept overflow
+        // Find all adjacent friendly territories (send to them even if they're full)
         const allNeighbors = this.neighbors.map(id => game.gameMap.territories[id]).filter(t => t);
-        const friendlyNeighbors = allNeighbors.filter(t => t.ownerId === this.ownerId && t.armySize < t.maxFleet);
+        const friendlyNeighbors = allNeighbors.filter(t => t.ownerId === this.ownerId);
         
-        console.log(`🔍 OVERFLOW NEIGHBORS: Territory ${this.id} has ${allNeighbors.length} total neighbors, ${friendlyNeighbors.length} friendly with capacity`);
+        console.log(`🔍 OVERFLOW NEIGHBORS: Territory ${this.id} has ${allNeighbors.length} total neighbors, ${friendlyNeighbors.length} friendly`);
         
         if (friendlyNeighbors.length === 0) {
-            console.log(`❌ OVERFLOW BLOCKED: Territory ${this.id} has no friendly neighbors with capacity`);
-            return; // No friendly neighbors with capacity
+            console.log(`❌ OVERFLOW BLOCKED: Territory ${this.id} has no friendly neighbors at all`);
+            return;
         }
         
-        // Transfer armies until this territory is at max capacity or no neighbors can accept more
+        // Transfer armies until this territory is at max capacity
         let remaining = excess;
         console.log(`💫 OVERFLOW START: Territory ${this.id} needs to transfer ${remaining} armies`);
         
         while (remaining > 0 && this.armySize > this.maxFleet) {
-            // Find neighbors that can still accept armies
-            const availableNeighbors = friendlyNeighbors.filter(n => n.armySize < n.maxFleet);
+            // Distribute evenly among all friendly neighbors (even if they're full)
+            const perNeighbor = Math.ceil(remaining / friendlyNeighbors.length);
+            let sent = false;
             
-            if (availableNeighbors.length === 0) {
-                console.log(`❌ OVERFLOW COMPLETE: Territory ${this.id} has ${remaining} excess but no neighbors can accept more`);
-                break;
+            for (const neighbor of friendlyNeighbors) {
+                const toSend = Math.min(perNeighbor, remaining);
+                
+                if (toSend > 0) {
+                    neighbor.armySize += toSend;
+                    this.armySize -= toSend;
+                    remaining -= toSend;
+                    sent = true;
+                    
+                    // Create overflow animation
+                    if (game.createShipAnimation) {
+                        const playerColor = owner.color || '#ffffff';
+                        game.createShipAnimation(this, neighbor, false, toSend, playerColor);
+                    }
+                    
+                    console.log(`💫 OVERFLOW: ${toSend} armies sent from ${this.id} to ${neighbor.id} (${this.armySize}/${this.maxFleet} → ${neighbor.armySize}/${neighbor.maxFleet})`);
+                    
+                    if (remaining <= 0) break;
+                }
             }
             
-            // Sort by capacity (most space first) for efficient distribution
-            availableNeighbors.sort((a, b) => (b.maxFleet - b.armySize) - (a.maxFleet - a.armySize));
-            
-            // Send armies to neighbor with most capacity
-            const bestNeighbor = availableNeighbors[0];
-            const canAccept = bestNeighbor.maxFleet - bestNeighbor.armySize;
-            const toSend = Math.min(remaining, canAccept);
-            
-            if (toSend > 0) {
-                bestNeighbor.armySize += toSend;
-                this.armySize -= toSend;
-                remaining -= toSend;
-                
-                // Create overflow animation
-                if (game.createShipAnimation) {
-                    const playerColor = owner.color || '#ffffff';
-                    game.createShipAnimation(this, bestNeighbor, false, toSend, playerColor);
-                }
-                
-                console.log(`💫 OVERFLOW: ${toSend} armies sent from ${this.id} to ${bestNeighbor.id} (${this.armySize}/${this.maxFleet} → ${bestNeighbor.armySize}/${bestNeighbor.maxFleet})`);
-            } else {
-                console.log(`❌ OVERFLOW ERROR: Could not send armies from ${this.id} to ${bestNeighbor.id}`);
+            if (!sent) {
+                console.log(`❌ OVERFLOW ERROR: Could not transfer any armies`);
                 break;
             }
         }
