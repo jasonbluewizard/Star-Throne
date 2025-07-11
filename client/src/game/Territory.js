@@ -78,20 +78,34 @@ export class Territory {
     
     // Check for fleet overflow and redistribute excess armies
     checkFleetOverflow(game) {
-        if (this.isNeutral() || this.armySize <= this.maxFleet) {
-            return; // No overflow or neutral territory
+        if (this.isNeutral()) {
+            return; // Skip neutral territories
+        }
+        
+        // Enhanced debugging for overflow issues
+        if (this.armySize > this.maxFleet) {
+            console.log(`🔍 OVERFLOW CHECK: Territory ${this.id} has ${this.armySize}/${this.maxFleet} ships (excess: ${this.armySize - this.maxFleet})`);
+        }
+        
+        if (this.armySize <= this.maxFleet) {
+            return; // No overflow
         }
         
         const excess = this.armySize - this.maxFleet;
         const owner = game.players.find(p => p.id === this.ownerId);
-        if (!owner) return;
+        if (!owner) {
+            console.log(`❌ OVERFLOW ERROR: No owner found for territory ${this.id} (ownerId: ${this.ownerId})`);
+            return;
+        }
         
         // Find adjacent friendly territories that can accept overflow
-        const friendlyNeighbors = this.neighbors
-            .map(id => game.gameMap.territories[id])
-            .filter(t => t && t.ownerId === this.ownerId && t.armySize < t.maxFleet);
+        const allNeighbors = this.neighbors.map(id => game.gameMap.territories[id]).filter(t => t);
+        const friendlyNeighbors = allNeighbors.filter(t => t.ownerId === this.ownerId && t.armySize < t.maxFleet);
+        
+        console.log(`🔍 OVERFLOW NEIGHBORS: Territory ${this.id} has ${allNeighbors.length} total neighbors, ${friendlyNeighbors.length} friendly with capacity`);
         
         if (friendlyNeighbors.length === 0) {
+            console.log(`❌ OVERFLOW BLOCKED: Territory ${this.id} has no friendly neighbors with capacity`);
             return; // No friendly neighbors with capacity
         }
         
