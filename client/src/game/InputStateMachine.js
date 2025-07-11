@@ -20,6 +20,7 @@ export class InputStateMachine {
         this.game = game;
         this.state = 'idle';
         this.selectedTerritory = null;
+        this.selectedTerritories = new Set();  // For multi-selection with Shift+click
         this.pendingTarget = null;       // for confirm‑mode preview
         
         // LONG‑PRESS timer
@@ -249,6 +250,7 @@ export class InputStateMachine {
     reset() { 
         this.state = 'idle'; 
         this.selectedTerritory = null; 
+        this.selectedTerritories.clear();  // Clear multi-selection
         this.pendingTarget = null;
         this.pendingPlayerBattles.clear();
         this.confirmedAttackTargets.clear(); // Clear confirmed attack targets when deselecting
