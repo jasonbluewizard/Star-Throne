@@ -1,0 +1,421 @@
+client/src/game/GarrisonController.js
+New
++128
+-0
+
+export default class GarrisonController {
+    constructor(game) {
+        this.game = game;
+        this.minGarrison = 1;
+        this.maxGarrison = 20;
+        this.attackTargets = new Set();
+        this.timer = 0;
+        this.updateInterval = 1000; // ms
+    }
+
+    showControls() {
+        this.hideControls();
+        const container = document.createElement('div');
+        container.id = 'garrison-controls';
+        Object.assign(container.style, {
+            position: 'fixed',
+            bottom: '10px',
+            left: '220px',
+            background: 'rgba(0,0,0,0.9)',
+            padding: '10px',
+            borderRadius: '8px',
+            color: 'white',
+            zIndex: 10000,
+            fontFamily: 'Arial, sans-serif',
+            fontSize: '14px',
+        });
+
+        const minLabel = document.createElement('div');
+        minLabel.textContent = `Min Garrison: ${this.minGarrison}`;
+        container.appendChild(minLabel);
+
+        const minSlider = document.createElement('input');
+        minSlider.type = 'range';
+        minSlider.min = '0';
+        minSlider.max = '50';
+        minSlider.value = String(this.minGarrison);
+        minSlider.style.width = '200px';
+        container.appendChild(minSlider);
+
+        const maxLabel = document.createElement('div');
+        maxLabel.textContent = `Max Garrison: ${this.maxGarrison}`;
+        maxLabel.style.marginTop = '10px';
+        container.appendChild(maxLabel);
+
+        const maxSlider = document.createElement('input');
+        maxSlider.type = 'range';
+        maxSlider.min = '1';
+        maxSlider.max = '100';
+        maxSlider.value = String(this.maxGarrison);
+        maxSlider.style.width = '200px';
+        container.appendChild(maxSlider);
+
+        minSlider.addEventListener('input', () => {
+            this.minGarrison = parseInt(minSlider.value, 10);
+            minLabel.textContent = `Min Garrison: ${this.minGarrison}`;
+        });
+        maxSlider.addEventListener('input', () => {
+            this.maxGarrison = parseInt(maxSlider.value, 10);
+            maxLabel.textContent = `Max Garrison: ${this.maxGarrison}`;
+        });
+
+        document.body.appendChild(container);
+        this.controlsEl = container;
+    }
+
+    hideControls() {
+        const el = document.getElementById('garrison-controls');
+        if (el) el.remove();
+    }
+
+    toggleAttackTarget(id) {
+        if (this.attackTargets.has(id)) {
+            this.attackTargets.delete(id);
+        } else {
+            this.attackTargets.add(id);
+        }
+    }
+
+    isAttackTarget(id) {
+        return this.attackTargets.has(id);
+    }
+
+    update(deltaTime) {
+        this.timer += deltaTime;
+        if (this.timer < this.updateInterval) return;
+        this.timer = 0;
+
+        const player = this.game.humanPlayer;
+        if (!player) return;
+        const map = this.game.gameMap;
+
+        for (const tid of player.territories) {
+            const terr = map.territories[tid];
+            if (!terr) continue;
+
+            // Attempt attacks first
+            for (const nid of terr.neighbors) {
+                if (!this.attackTargets.has(nid)) continue;
+                const target = map.territories[nid];
+                if (!target || target.ownerId === player.id) continue;
+                const required = target.armySize + this.minGarrison;
+                if (terr.armySize - required >= this.minGarrison) {
+                    this.game.combatSystem.attackTerritory(terr, target, required);
+                    if (this.game.createShipAnimation) {
+                        this.game.createShipAnimation(terr, target, true, required);
+                    }
+                    break; // one action per update from this territory
+                }
+            }
+
+            // Redistribute surplus
+            if (terr.armySize > this.maxGarrison) {
+                const friends = terr.neighbors
+                    .map(nid => map.territories[nid])
+                    .filter(t => t && t.ownerId === player.id);
+                if (friends.length > 0) {
+                    friends.sort((a,b) => a.armySize - b.armySize);
+                    const dest = friends[0];
+                    const send = terr.armySize - this.maxGarrison;
+                    this.game.combatSystem.transferArmies(terr, dest, send);
+                    if (this.game.createShipAnimation) {
+                        this.game.createShipAnimation(terr, dest, false, send);
+                    }
+                }
+            }
+        }
+    }
+}
+client/src/game/InputHandler.js
++5
+-6
+
+@@ -236,58 +236,57 @@ export class InputHandler {
+                    }
+                }, this.doubleClickThreshold);
+            }
+        }
+        
+        // Reset drag state
+        this.isDragging = false;
+        this.dragStartPos = null;
+        this.dragStartTime = null;
+    }
+    
+    processSingleClick(button, territory, worldPos, shiftKey = false, ctrlKey = false) {
+        console.log(`🎯 processSingleClick: button=${button}, territory=${territory?.id}, shift=${shiftKey}, ctrl=${ctrlKey}`);
+        
+        // Check UI elements first
+        if (this.game.handleUIClick(this.mousePos.x, this.mousePos.y)) {
+            return;
+        }
+        
+        // Skip game logic if not in playing state
+        if (this.game.gameState !== 'playing') {
+            return;
+        }
+        
+        if (button === 0) { // Left click
+            // Check if clicking on enemy/neutral territory to toggle "no go" status
+            // Toggle attack target on enemy or neutral stars
+            if (territory && territory.ownerId !== this.game.humanPlayer?.id) {
+                // Toggle no-go status for flood mode
+                if (this.game.floodController && this.game.humanPlayer) {
+                    this.game.floodController.toggleNoGoZone(this.game.humanPlayer, territory.id);
+                    const isNoGo = this.game.floodController.isNoGoZone(this.game.humanPlayer, territory.id);
+                if (this.game.garrisonController && this.game.humanPlayer) {
+                    this.game.garrisonController.toggleAttackTarget(territory.id);
+                    const isTarget = this.game.garrisonController.isAttackTarget(territory.id);
+                    this.game.showMessage(
+                        `Territory ${territory.id} marked as ${isNoGo ? 'NO GO' : 'ALLOWED'}`,
+                        `Territory ${territory.id} ${isTarget ? 'TARGETED' : 'IGNORED'}`,
+                        2000
+                    );
+                    return;
+                }
+            }
+            
+            // Normal left click handling
+            this.inputFSM.handleEvent('tap', {
+                territory: territory,
+                x: worldPos.x, 
+                y: worldPos.y,
+                shiftKey,
+                ctrlKey
+            });
+        } else if (button === 2) {
+            // Right-click ignored in single-button scheme
+        }
+    }
+    
+
+
+    
+    handleWheel(e) {
+        e.preventDefault();
+        
+client/src/game/StarThrone.js
++7
+-0
+
+import { GameMap } from './GameMap';
+import { Player } from './Player';
+import { GameUI } from './GameUI';
+import { Camera } from './Camera';
+// Removed disabled Probe import (dead code cleanup)
+import { InputHandler } from './InputHandler';
+import { Renderer } from './Renderer';
+import { CombatSystem } from './CombatSystem';
+import { SupplySystem } from './SupplySystem';
+import { PathfindingService } from './PathfindingService';
+import { GameUtils } from './utils';
+import { GAME_CONSTANTS } from '../../../common/gameConstants';
+import { gameEvents, GAME_EVENTS, EVENT_PRIORITY, EventHelpers } from './EventSystem';
+import { PerformanceManager } from './PerformanceManager';
+import { PerformanceOverlay } from './PerformanceOverlay';
+import { DiscoverySystem } from './DiscoverySystem';
+import { AnimationSystem } from './AnimationSystem';
+import { UIManager } from './UIManager';
+import { AIManager } from './AIManager';
+import FloodModeController from './FloodModeController';
+import GarrisonController from './GarrisonController';
+import Controls from './Controls';
+
+export default class StarThrone {
+    constructor(config = {}) {
+        this.canvas = null;
+        this.ctx = null;
+        this.gameMap = null;
+        this.players = [];
+        this.humanPlayer = null;
+        this.camera = null;
+        this.ui = null;
+        
+        // Game configuration from config screen
+        this.config = {
+            playerName: config.playerName || 'Player',
+            aiCount: config.aiCount || GAME_CONSTANTS.DEFAULT_SINGLE_PLAYER_AI_COUNT,
+            mapSize: config.mapSize || GAME_CONSTANTS.DEFAULT_MAP_SIZE_TERRITORIES,
+            gameSpeed: config.gameSpeed || 1.0,
+            layout: config.layout || 'organic',
+            ...config
+        };
+        
+        // Game state
+        this.gameState = 'lobby'; // lobby, playing, ended
+        this.paused = false; // Add pause for low-performance devices
+@@ -486,50 +487,52 @@ export default class StarThrone {
+        // Update camera map boundaries to match actual expanded map size
+        this.camera.mapWidth = this.gameMap.width;
+        this.camera.mapHeight = this.gameMap.height;
+        
+        // Center camera on map and set appropriate zoom
+        this.camera.centerOn(this.gameMap.width / 2, this.gameMap.height / 2); // Center of expanded map
+        this.camera.targetZoom = 0.25; // Zoom out further to see more territories
+        this.camera.zoom = 0.25;
+        
+        this.ui = new GameUI(this.canvas, this.camera);
+        
+        // Initialize modular systems
+        this.inputHandler = new InputHandler(this);
+        this.renderer = new Renderer(this.canvas, this.camera, this);
+        this.combatSystem = new CombatSystem(this);
+        this.supplySystem = new SupplySystem(this);
+        this.pathfindingService = new PathfindingService(this);
+        this.performanceManager = new PerformanceManager(this);
+        this.performanceOverlay = new PerformanceOverlay(this.canvas, this.performanceManager);
+        this.discoverySystem = new DiscoverySystem(this);
+        this.animationSystem = new AnimationSystem(this);
+        this.uiManager = new UIManager(this);
+        this.aiManager = new AIManager(this);
+        this.controls = new Controls(this);
+        this.floodController = new FloodModeController(this);
+        this.garrisonController = new GarrisonController(this);
+        this.garrisonController.showControls();
+        
+        // Flood mode buttons now integrated into GameUI instead of DOM elements
+        
+        // Global reference removed for better encapsulation and memory management
+
+        
+        // Auto-detect optimal performance profile
+        this.performanceManager.detectOptimalProfile();
+        
+        this.gameStartTime = Date.now(); // Track when game actually starts
+        this.detectLowPerformance(); // Check device capabilities
+        this.startGame();
+        this.gameLoop();
+        
+        // Create offscreen canvas for static elements (e.g., background stars/connections)
+        this.setupOffscreenRendering();
+    }
+    
+    // Old DOM-based flood mode button removed - now using in-game UI buttons in top bar
+    
+    // Define discovery types and their probabilities
+    getDiscoveryTypes() {
+        return [
+            {
+                id: 'hostile_aliens',
+@@ -2092,50 +2095,54 @@ export default class StarThrone {
+        // Update combat system for delayed battles
+        if (this.combatSystem) {
+            try {
+                this.combatSystem.update(deltaTime);
+            } catch (error) {
+                console.error('Combat system error:', error);
+                console.error('Combat system error message:', error.message);
+                console.error('Combat system error stack:', error.stack);
+            }
+        }
+        
+        // Update modular UI systems
+        if (this.uiManager) {
+            this.uiManager.update(deltaTime);
+        }
+        if (this.discoverySystem) {
+            this.discoverySystem.updateFloatingDiscoveries();
+            this.discoverySystem.updateTopDiscoveryAnnouncements();
+        }
+        if (this.animationSystem) {
+            this.animationSystem.update(deltaTime);
+        }
+        if (this.controls) {
+            this.controls.update(deltaTime);
+        }
+
+        if (this.garrisonController) {
+            this.garrisonController.update(deltaTime);
+        }
+        
+        // Update flood mode system for automated expansion
+        if (this.floodController) {
+            this.floodController.update(deltaTime);
+        }
+        
+        // Process event queue for event-driven architecture
+        if (this.eventProcessingEnabled) {
+            gameEvents.processQueue(5); // Process up to 5 events per frame
+        }
+        
+        // Periodically update throne connectivity
+        this.updateThroneConnectivity();
+        
+        // Check for fleet overflow every frame
+        this.checkAllTerritoryOverflows();
+        
+        // Update performance management and track frame metrics
+        if (this.performanceManager) {
+            this.performanceManager.frameMetrics.updateTime = performance.now() - updateStart;
+            this.performanceManager.update(deltaTime);
+            
+            // Trigger memory cleanup if memory usage is high
+            if (this.performanceManager.getMemoryUsageMB() > 250) {
+                this.performanceManager.triggerMemoryCleanup();
+client/src/game/Territory.js
++3
+-3
+
+@@ -421,54 +421,54 @@ export class Territory {
+            ctx.shadowBlur = 0;
+        }
+        
+        // Draw selection circle for friendly territories when selected
+        if (isSelected && isHumanPlayer) {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius + 25, 0, Math.PI * 2);
+            
+            // Large pulsating cyan selection circle (similar to enemy selection size)
+            const pulseIntensity = 0.7 + 0.3 * Math.sin(Date.now() * 0.005);
+            ctx.strokeStyle = `rgba(0, 255, 255, ${pulseIntensity})`;
+            ctx.lineWidth = 4;
+            ctx.stroke();
+        }
+        
+        // Draw flag for human player territories
+        if (isHumanPlayer) {
+            this.renderHumanFlag(ctx);
+        }
+        
+        // Draw crown for throne star territories (SHOW ALL CROWNS)
+        if (this.isThronestar && this.ownerId !== null) {
+            this.renderCrown(ctx);
+        }
+        
+        // Draw red X for no-go zones (flood mode)
+        // Draw red X for attack targets
+        if (gameData?.humanPlayer && this.ownerId !== gameData.humanPlayer.id) {
+            const floodController = gameData.game?.floodController;
+            if (floodController && floodController.isNoGoZone(gameData.humanPlayer, this.id)) {
+            const garrison = gameData.game?.garrisonController;
+            if (garrison && garrison.isAttackTarget(this.id)) {
+                this.renderNoGoMarker(ctx);
+            }
+        }
+        
+        // Draw factory icon for Precursor Factory discoveries
+        if (this.hasFactory) {
+            this.renderFactoryIcon(ctx);
+        }
+        
+        // Draw mineral diamond icon for Rich Mineral discoveries
+        if (this.discoveryBonus === 'minerals') {
+            this.renderMineralIcon(ctx);
+        }
+        
+        // Draw explosion animation for failed probes
+        if (this.explosionTime && Date.now() - this.explosionTime < this.explosionDuration) {
+            this.renderExplosion(ctx);
+        }
+        
+        // Draw army count for neutral territories - hide only if in nebula
+        if (this.ownerId === null) {
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            
+            // Check if territory is inside a nebula (hide fleet count if so)

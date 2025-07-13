@@ -18,6 +18,7 @@ import { AnimationSystem } from './AnimationSystem';
 import { UIManager } from './UIManager';
 import { AIManager } from './AIManager';
 import FloodModeController from './FloodModeController';
+import GarrisonController from './GarrisonController';
 import Controls from './Controls';
 
 export default class StarThrone {
@@ -508,6 +509,8 @@ export default class StarThrone {
         this.aiManager = new AIManager(this);
         this.controls = new Controls(this);
         this.floodController = new FloodModeController(this);
+        this.garrisonController = new GarrisonController(this);
+        this.garrisonController.showControls();
         
         // Flood mode buttons now integrated into GameUI instead of DOM elements
         
@@ -2113,6 +2116,10 @@ export default class StarThrone {
         }
         if (this.controls) {
             this.controls.update(deltaTime);
+        }
+
+        if (this.garrisonController) {
+            this.garrisonController.update(deltaTime);
         }
         
         // Update flood mode system for automated expansion
