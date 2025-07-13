@@ -38,7 +38,7 @@ function App() {
       // Initialize the game
       gameRef.current.init();
       console.log('Single-player Star Throne game initialized with config:', gameConfig);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to initialize single-player game:', error);
       console.error('Error details:', error.message, error.stack);
     }
@@ -53,7 +53,7 @@ function App() {
       gameRef.current.init();
       console.log('Multiplayer-ready Star Throne game initialized');
       console.log('Room data:', data.room);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to initialize multiplayer game:', error);
     }
   };

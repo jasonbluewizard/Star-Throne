@@ -40,7 +40,7 @@ app.use((req, res, next) => {
 
 (async () => {
   const httpServer = createServer(app);
-  const server = await registerRoutes(app);
+  registerRoutes(app);
   
   // Initialize game server with WebSocket support
   const gameServer = new GameServer(httpServer);
@@ -57,7 +57,7 @@ app.use((req, res, next) => {
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
   if (app.get("env") === "development") {
-    await setupVite(app, server);
+    await setupVite(app, httpServer);
   } else {
     serveStatic(app);
   }
