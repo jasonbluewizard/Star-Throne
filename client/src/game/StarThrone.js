@@ -42,6 +42,7 @@ export default class StarThrone {
         
         // Game state
         this.gameState = 'lobby'; // lobby, playing, ended
+        this.paused = false; // Add pause for low-performance devices
         this.gameTimer = 10 * 60 * 1000; // 10 minutes
         this.maxPlayers = 100;
         this.currentPlayers = 0;
@@ -79,6 +80,7 @@ export default class StarThrone {
         this.lastFpsUpdate = 0;
         
         // Performance optimizations
+        this.offscreenCanvas = null; // For background rendering
         this.visibleTerritories = new Set();
         this.lastVisibilityUpdate = 0;
         this.cullingBatchIndex = 0; // For incremental visibility processing
@@ -516,8 +518,12 @@ export default class StarThrone {
         this.performanceManager.detectOptimalProfile();
         
         this.gameStartTime = Date.now(); // Track when game actually starts
+        this.detectLowPerformance(); // Check device capabilities
         this.startGame();
         this.gameLoop();
+        
+        // Create offscreen canvas for static elements (e.g., background stars/connections)
+        this.setupOffscreenRendering();
     }
     
     // Old DOM-based flood mode button removed - now using in-game UI buttons in top bar
@@ -2001,7 +2007,7 @@ export default class StarThrone {
             // Update FPS counter
             this.updateFPS(currentTime);
             
-            if (this.gameState === 'playing') {
+            if (this.gameState === 'playing' && !this.paused) {
                 this.update(deltaTime);
             }
             
@@ -4243,5 +4249,53 @@ export default class StarThrone {
         // Hover territory cleanup handled by InputHandler
         
         console.log('✅ StarThrone cleanup complete');
+    }
+    
+    // Performance optimization methods
+    setupOffscreenRendering() {
+        if (!this.gameMap) return;
+        
+        this.offscreenCanvas = document.createElement('canvas');
+        this.offscreenCanvas.width = this.gameMap.width;
+        this.offscreenCanvas.height = this.gameMap.height;
+        const offCtx = this.offscreenCanvas.getContext('2d');
+        
+        // Render static connections and background to offscreen
+        if (this.gameMap.renderStatic) {
+            this.gameMap.renderStatic(offCtx);
+        }
+        console.log('🎨 Offscreen rendering canvas created for performance');
+    }
+    
+    renderOffscreenBackground() {
+        if (this.offscreenCanvas && this.ctx) {
+            this.ctx.drawImage(this.offscreenCanvas, 0, 0);
+        }
+    }
+    
+    detectLowPerformance() {
+        // Check device capabilities for performance adjustments
+        const isLowEnd = navigator.hardwareConcurrency < 4 || 
+                        window.devicePixelRatio < 1.5 ||
+                        window.innerWidth < 800;
+        
+        if (isLowEnd) {
+            console.log('📱 Low-performance device detected, enabling optimizations');
+            // Reduce animation limits and enable performance mode
+            this.shipAnimationPool = this.shipAnimationPool.slice(0, 10); // Reduce pool size
+            
+            // Adjust performance settings
+            if (this.config.mapSize > 100) {
+                console.log('📱 Reducing map size for low-end device');
+                this.config.mapSize = Math.min(this.config.mapSize, 100);
+            }
+        }
+    }
+    
+    // Add pause/unpause functionality for battery saving
+    togglePause() {
+        this.paused = !this.paused;
+        console.log(`⏸️ Game ${this.paused ? 'paused' : 'resumed'}`);
+        return this.paused;
     }
 }
