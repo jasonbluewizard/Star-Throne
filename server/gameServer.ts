@@ -3,6 +3,7 @@ import { Server } from 'http';
 import { GameEngine } from './GameEngine.js';
 import { PlayerState, GameConfig, ClientCommand, CommandType, GameStateUpdate, CombatResult, CommandError, GameState } from '../common/types/index.js';
 import { GAME_CONSTANTS } from '../common/gameConstants';
+import { generateAIName, generatePlayerColor, log } from '../common/utils.js';
 
 interface Player {
   id: string;
@@ -51,7 +52,7 @@ export class GameServer {
 
   private setupSocketHandlers() {
     this.io.on('connection', (socket) => {
-      console.log(`Player connected: ${socket.id}`);
+      log(`Player connected: ${socket.id}`);
 
       // Handle creating a new game room
       socket.on('create-room', (data: { roomName: string, playerName: string, maxPlayers: number, aiCount: number }) => {
@@ -173,7 +174,7 @@ export class GameServer {
 
       // Handle disconnection
       socket.on('disconnect', () => {
-        console.log(`Player disconnected: ${socket.id}`);
+        log(`Player disconnected: ${socket.id}`);
         this.handleDisconnect(socket);
       });
     });
@@ -186,7 +187,7 @@ export class GameServer {
     const player: Player = {
       id: socket.id,
       name: playerName,
-      color: this.generatePlayerColor(room.players.size),
+      color: generatePlayerColor(room.players.size),
       type: 'human',
       socketId: socket.id,
       territories: [],
@@ -223,8 +224,8 @@ export class GameServer {
     // Add AI players
     for (let i = 0; i < room.aiPlayerCount; i++) {
       const aiId = `ai_${i}`;
-      const aiName = this.generateAIName(i);
-      const aiColor = this.generatePlayerColor(room.players.size + i);
+      const aiName = generateAIName(i);
+      const aiColor = generatePlayerColor(room.players.size + i);
       room.gameEngine!.addPlayer(aiId, aiName, aiColor, 'ai');
     }
     
@@ -241,7 +242,7 @@ export class GameServer {
       players: Object.values(gameState.players)
     });
 
-    console.log(`Server-authoritative game started in room ${roomId} with ${room.players.size} human players and ${room.aiPlayerCount} AI players`);
+    log(`Server-authoritative game started in room ${roomId} with ${room.players.size} human players and ${room.aiPlayerCount} AI players`);
   }
 
   private startGameLoop(roomId: string) {
@@ -291,25 +292,10 @@ export class GameServer {
     clearInterval(room.gameLoop);
     room.gameLoop = null;
     
-    console.log(`Game ended in room ${roomId}`);
+    log(`Game ended in room ${roomId}`);
   }
 
-  private generateAIName(index: number): string {
-    const firstNames = [
-      'Alex', 'Blake', 'Casey', 'Dana', 'Emma', 'Felix', 'Grace', 'Hunter', 'Iris', 'Jack',
-      'Kai', 'Luna', 'Max', 'Nova', 'Owen', 'Piper', 'Quinn', 'Riley', 'Sage', 'Tyler'
-    ];
-    
-    const clanNames = [
-      'StarForge', 'VoidHunters', 'NebulaRise', 'CosmicFury', 'SolarFlare', 'DarkMatter',
-      'GalaxyCorp', 'NovaStrike', 'CelestialWar', 'SpaceRaiders', 'StellarWolves', 'OrbitClan'
-    ];
-    
-    const firstName = firstNames[index % firstNames.length];
-    const clanName = clanNames[Math.floor(index / firstNames.length) % clanNames.length];
-    
-    return `[${clanName}] ${firstName}`;
-  }
+
 
   private handleGameAction(socket: any, room: GameRoom, action: string, payload: any) {
     const player = room.players.get(socket.id);
@@ -378,7 +364,7 @@ export class GameServer {
     // Clean up empty rooms
     if (room.players.size === 0) {
       this.rooms.delete(roomId);
-      console.log(`Room ${roomId} deleted - no players remaining`);
+      log(`Room ${roomId} deleted - no players remaining`);
     }
   }
 
@@ -389,13 +375,7 @@ export class GameServer {
     ).toUpperCase();
   }
 
-  private generatePlayerColor(index: number): string {
-    const colors = [
-      '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
-      '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'
-    ];
-    return colors[index % colors.length];
-  }
+
 
   private getRoomInfo(room: GameRoom) {
     return {

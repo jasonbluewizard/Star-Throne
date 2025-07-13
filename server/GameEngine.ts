@@ -1,5 +1,6 @@
 import { GameState, PlayerState, TerritoryState, ProbeState, SupplyRoute, CommandType, ClientCommand, AttackTerritoryCommand, TransferArmiesCommand, LaunchProbeCommand, CreateSupplyRouteCommand, CombatResult, CommandError } from '../common/types/index.js';
 import { GAME_CONSTANTS } from '../common/gameConstants';
+import { log } from '../common/utils.js';
 
 export class GameEngine {
   private gameState: GameState;
@@ -59,7 +60,7 @@ export class GameEngine {
     });
 
     this.connectTerritories();
-    console.log(`Generated ${territoryCount} territories with connections`);
+    log(`Generated ${territoryCount} territories with connections`);
   }
 
   private poissonDiskSampling(numSamples: number, width: number, height: number): { x: number; y: number }[] {
@@ -183,13 +184,13 @@ export class GameEngine {
     };
 
     this.gameState.players[playerId] = player;
-    console.log(`Player ${name} (${type}) added to game`);
+    log(`Player ${name} (${type}) added to game`);
   }
 
   public startGame(): void {
     this.gameState.gamePhase = 'playing';
     this.distributeStartingTerritories();
-    console.log('Game started with server-authoritative engine');
+    log('Game started with server-authoritative engine');
   }
 
   private distributeStartingTerritories(): void {
@@ -285,7 +286,7 @@ export class GameEngine {
     // Track territory and player changes for delta updates
     this.changedTerritories.add(probe.toTerritoryId);
     this.changedPlayers.add(probe.playerId);
-    console.log(`Probe colonized territory ${probe.toTerritoryId} for player ${probe.playerId}`);
+    log(`Probe colonized territory ${probe.toTerritoryId} for player ${probe.playerId}`);
   }
 
   private generateArmies(deltaTime: number): void {
@@ -356,7 +357,7 @@ export class GameEngine {
     if (alivePlayers.length === 1) {
       this.gameState.gamePhase = 'ended';
       this.gameState.winner = alivePlayers[0].id;
-      console.log(`Game ended. Winner: ${alivePlayers[0].name}`);
+      log(`Game ended. Winner: ${alivePlayers[0].name}`);
     }
   }
 
@@ -370,7 +371,7 @@ export class GameEngine {
       
       if (player.territoriesOwned === 0 && !player.isEliminated) {
         player.isEliminated = true;
-        console.log(`Player ${player.name} eliminated`);
+        log(`Player ${player.name} eliminated`);
       }
     });
   }

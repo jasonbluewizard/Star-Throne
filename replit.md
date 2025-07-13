@@ -553,6 +553,13 @@ Changelog:
   * Reduced animation pool size on low-end devices (4 cores or less, low DPI)
   * Added toggle pause functionality for manual performance control
   * Improved TypeScript error handling in App.tsx with proper error type annotations
+- January 12, 2025. Server-side logging and utility improvements:
+  * Created shared common/utils.ts file with centralized logging function
+  * Added formatted timestamps to all server logs for better debugging
+  * Implemented shared utilities for AI name and player color generation
+  * Updated GameEngine.ts and gameServer.ts to use centralized logging
+  * Eliminated code duplication by importing shared utilities
+  * Enhanced server monitoring with consistent log format across components
 - January 1, 2025. Strategic camera system implementation (Supreme Commander-style):
   * Enhanced strategic zoom range: extreme zoom-out (0.05x) to tactical close-up (8.0x) for galaxy-wide view
   * Implemented inertial panning with smooth momentum and friction for natural camera movement
