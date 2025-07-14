@@ -343,7 +343,7 @@ export default class StarThrone {
     /**
      * Setup event listeners for event-driven architecture
      */
-    setupEventListeners() {
+    setupGameEventListeners() {
         // Listen for territory capture events to update UI
         gameEvents.on(GAME_EVENTS.TERRITORY_CAPTURED, (event) => {
             this.handleTerritoryCapture(event.data);
@@ -466,7 +466,7 @@ export default class StarThrone {
     
     init() {
         this.setupCanvas();
-        this.setupEventListeners();
+        this.setupGameEventListeners();
         
         // Calculate expanded map dimensions for proper territory distribution
         const baseWidth = 2000;
@@ -493,6 +493,9 @@ export default class StarThrone {
         
         this.ui = new GameUI(this.canvas, this.camera);
         
+        // Setup DOM event listeners first
+        this.setupEventListeners();
+
         // Initialize modular systems
         try {
             this.inputHandler = new InputHandler(this);
@@ -1655,8 +1658,7 @@ export default class StarThrone {
         
         // Keyboard events now handled by InputHandler
         
-        // Prevent context menu
-        this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+        // Context menu prevention now handled by InputHandler to avoid conflicts
     }
     
     /**
