@@ -494,10 +494,10 @@ export default class StarThrone {
         this.camera.targetZoom = 0.25; // Zoom out further to see more territories
         this.camera.zoom = 0.25;
         
-        this.ui = new GameUI(this.canvas, this.camera);
+        this.ui = new GameUI(this.canvas, this.camera, this);
         
         // Initialize modular systems
-        this.inputHandler = new InputHandler(this);
+        // Don't initialize the old InputHandler - we'll use LeftClickMover instead
         this.renderer = new Renderer(this.canvas, this.camera, this);
         this.combatSystem = new CombatSystem(this);
         this.supplySystem = new SupplySystem(this);
@@ -517,15 +517,35 @@ export default class StarThrone {
         // Load enhanced LeftClickMover input system  
         try {
             import('./new_input/LeftClickMover.ts').then(module => {
-                if (module.LeftClickMover) {
-                    this.leftClickMover = new module.LeftClickMover(this, { defaultPercent: 50 });
+                console.log('📦 LeftClickMover module loaded:', module);
+                
+                // The module exports as default, not named export
+                const LeftClickMoverClass = module.default || module.LeftClickMover;
+                
+                if (LeftClickMoverClass) {
+                    // Disable the old input handler if it exists
+                    if (this.inputHandler) {
+                        this.inputHandler.cleanup();
+                        this.inputHandler = null;
+                    }
+                    
+                    this.leftClickMover = new LeftClickMoverClass(this, { defaultPercent: 50 });
                     console.log('✅ LeftClickMover initialized - enhanced multi-selection and drag controls active');
+                    console.log('🎮 Controls: SPACE=range overlay, Q/E=adjust %, Shift+Click=multi-select, Ctrl+Box=box select');
+                } else {
+                    console.error('❌ LeftClickMover class not found in module');
+                    // Fallback to old input handler
+                    this.inputHandler = new InputHandler(this);
                 }
             }).catch(err => {
-                console.warn('⚠️ LeftClickMover failed to load, using fallback input:', err.message);
+                console.error('⚠️ LeftClickMover failed to load:', err);
+                // Fallback to old input handler
+                this.inputHandler = new InputHandler(this);
             });
         } catch (err) {
-            console.warn('⚠️ LeftClickMover import failed:', err.message);
+            console.error('⚠️ LeftClickMover import failed:', err);
+            // Fallback to old input handler
+            this.inputHandler = new InputHandler(this);
         }
         
         // Flood mode buttons now integrated into GameUI instead of DOM elements

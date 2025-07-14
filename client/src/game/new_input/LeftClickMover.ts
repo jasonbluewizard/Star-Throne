@@ -119,14 +119,19 @@ export class LeftClickMover {
 
   private rangeOverlayVisible = false;
   private onKeyDown = (e: KeyboardEvent) => {
+    console.log('🎮 LeftClickMover key pressed:', e.key);
     if (e.key === 'Escape') { this.cancelCurrentDrag(); return; }
     if (e.key === ' ') {
+      console.log('🎮 SPACE key - toggling range overlay');
       this.rangeOverlayVisible = true;
+      e.preventDefault();
       return;
     }
     if (e.key === 'q') {
+      console.log('🎮 Q key - decreasing percent');
       this.dragSendPercent = clamp(this.dragSendPercent - 10, 10, 100);
     } else if (e.key === 'e') {
+      console.log('🎮 E key - increasing percent');
       this.dragSendPercent = clamp(this.dragSendPercent + 10, 10, 100);
     } else if (/^[1-9]$/.test(e.key)) {
       this.dragSendPercent = parseInt(e.key) * 10;
