@@ -697,12 +697,8 @@ export class Renderer {
     }
     
     renderDragPreview(gameData) {
-        // Render fleet drag preview
-        if (gameData.currentDragPreview) {
-            this.renderFleetDragPreview(gameData.currentDragPreview);
-        }
         // Render proportional drag preview
-        else if (gameData.isProportionalDrag && gameData.proportionalDragStart && gameData.dragEnd) {
+        if (gameData.isProportionalDrag && gameData.proportionalDragStart && gameData.dragEnd) {
             this.renderProportionalDragPreview(gameData);
         }
     }
@@ -741,74 +737,6 @@ export class Renderer {
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
         this.ctx.fillText(`${Math.round(percentage * 100)}%`, midX, midY);
-        
-        this.ctx.restore();
-    }
-    
-    renderFleetDragPreview(preview) {
-        if (!preview.source || !preview.target) return;
-        
-        this.ctx.save();
-        
-        // Draw line from source to target
-        const color = preview.isAttack ? '#ff0000' : '#00ff00';
-        const isDashed = !preview.hasPath;
-        
-        this.ctx.strokeStyle = color;
-        this.ctx.lineWidth = 3;
-        if (isDashed) {
-            this.ctx.setLineDash([10, 5]);
-        }
-        
-        this.ctx.beginPath();
-        this.ctx.moveTo(preview.source.x, preview.source.y);
-        this.ctx.lineTo(preview.target.x, preview.target.y);
-        this.ctx.stroke();
-        
-        // If no path, show "NO GO" message
-        if (!preview.hasPath) {
-            const midX = (preview.source.x + preview.target.x) / 2;
-            const midY = (preview.source.y + preview.target.y) / 2;
-            
-            this.ctx.fillStyle = 'rgba(255, 0, 0, 0.9)';
-            this.ctx.fillRect(midX - 40, midY - 15, 80, 30);
-            
-            this.ctx.fillStyle = '#ffffff';
-            this.ctx.font = 'bold 16px Arial';
-            this.ctx.textAlign = 'center';
-            this.ctx.textBaseline = 'middle';
-            this.ctx.fillText('NO PATH', midX, midY);
-        }
-        
-        // If attack, show combat preview
-        if (preview.isAttack && preview.hasPath) {
-            const attackingArmies = Math.floor(preview.source.armySize * 0.5);
-            const defendingArmies = preview.target.armySize;
-            
-            // Draw combat preview box near target
-            const boxX = preview.target.x + 40;
-            const boxY = preview.target.y - 30;
-            
-            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
-            this.ctx.fillRect(boxX, boxY, 120, 60);
-            
-            this.ctx.strokeStyle = '#ff0000';
-            this.ctx.lineWidth = 2;
-            this.ctx.strokeRect(boxX, boxY, 120, 60);
-            
-            this.ctx.fillStyle = '#ffffff';
-            this.ctx.font = 'bold 14px Arial';
-            this.ctx.textAlign = 'left';
-            this.ctx.fillText(`ATK: ${attackingArmies}`, boxX + 10, boxY + 20);
-            this.ctx.fillText(`DEF: ${defendingArmies}`, boxX + 10, boxY + 40);
-            
-            // Win percentage
-            const winPercent = Math.round(preview.winOdds * 100);
-            this.ctx.fillStyle = winPercent > 60 ? '#00ff00' : winPercent > 40 ? '#ffff00' : '#ff0000';
-            this.ctx.font = 'bold 16px Arial';
-            this.ctx.textAlign = 'right';
-            this.ctx.fillText(`${winPercent}%`, boxX + 110, boxY + 30);
-        }
         
         this.ctx.restore();
     }

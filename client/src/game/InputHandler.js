@@ -101,15 +101,12 @@ export class InputHandler {
             territoryOwner: territory?.ownerId
         });
 
-        // Check if human player exists and owns this territory
-        const humanPlayer = this.game.players?.find(p => p.type === 'human');
-        if (territory && humanPlayer && territory.ownerId === humanPlayer.id) {
+        if (territory && territory.ownerId === this.game.humanPlayer?.id) {
             // Begin fleet drag from owned territory
             console.log('🎯 Starting fleet drag from territory', territory.id, 'with', territory.armySize, 'armies');
             this.isFleetDragging = true;
             this.fleetSource = territory;
             this.isDragging = false;
-            if (this.game) this.game.dragPathPreviewCache = {};
             console.log('🚀 Fleet drag started for player territory', territory.id);
         } else {
             // Start panning the map
@@ -123,49 +120,8 @@ export class InputHandler {
         const newPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
 
         if (this.isFleetDragging) {
-            // Update drag preview with path caching
+            // Just update position for preview
             console.log('🎯 Fleet dragging - updating preview position');
-            
-            const worldPos = this.game.camera.screenToWorld(newPos.x, newPos.y);
-            const target = this.game.gameMap.findTerritoryAt(worldPos.x, worldPos.y);
-            
-            if (target && target.id !== this.fleetSource.id) {
-                // Check cache first
-                if (!this.game.dragPathPreviewCache[target.id]) {
-                    // Calculate and cache the preview data
-                    const humanPlayer = this.game.players?.find(p => p.type === 'human');
-                    const isAttack = target.ownerId !== humanPlayer?.id;
-                    
-                    // Calculate combat win odds
-                    let winOdds = 0;
-                    if (isAttack && target.armySize) {
-                        const attackingArmies = Math.floor(this.fleetSource.armySize * 0.5);
-                        const defendingArmies = target.armySize;
-                        winOdds = Math.min(0.9, Math.max(0.1, attackingArmies / (attackingArmies + defendingArmies)));
-                    }
-                    
-                    // Check if path exists (direct connection) - handle type conversion
-                    const hasPath = this.fleetSource.neighbors.some(n => String(n) === String(target.id));
-                    
-                    this.game.dragPathPreviewCache[target.id] = {
-                        isAttack,
-                        winOdds,
-                        hasPath,
-                        targetId: target.id
-                    };
-                }
-                
-                // Store current drag preview data for rendering
-                this.game.currentDragPreview = {
-                    source: this.fleetSource,
-                    target: target,
-                    mouseX: newPos.x,
-                    mouseY: newPos.y,
-                    ...this.game.dragPathPreviewCache[target.id]
-                };
-            } else {
-                this.game.currentDragPreview = null;
-            }
         } else if (this.isDragging) {
             const dx = newPos.x - this.lastMousePos.x;
             const dy = newPos.y - this.lastMousePos.y;
@@ -200,44 +156,21 @@ export class InputHandler {
                 sourceArmies: this.fleetSource.armySize
             });
             if (target && target.id !== this.fleetSource.id) {
-                // Check cached path data
-                const cachedData = this.game.dragPathPreviewCache[target.id];
-                
-                if (cachedData && !cachedData.hasPath) {
-                    // No warp lane path exists - cancel command
-                    console.log('❌ NO GO - no warp lane path exists');
-                    if (this.game.uiManager) {
-                        this.game.uiManager.showError('NO GO - not connected');
-                    }
-                    // Don't execute the command
-                    return;
-                }
-                
                 // Determine if this is an attack or transfer
-                const humanPlayer = this.game.players?.find(p => p.type === 'human');
-                const isAttack = target.ownerId !== humanPlayer?.id;
+                const isAttack = target.ownerId !== this.game.humanPlayer?.id;
                 console.log('🚀 Issuing fleet command from', this.fleetSource.id, 'to', target.id, 'isAttack:', isAttack);
-                console.log('🔍 Target owner:', target.ownerId, 'Human player:', humanPlayer?.id);
+                console.log('🔍 Target owner:', target.ownerId, 'Human player:', this.game.humanPlayer?.id);
                 
-                // Call async method with comprehensive error handling
-                try {
-                    this.game.issueFleetCommand(this.fleetSource, target, 0.5, isAttack).catch(err => {
-                        console.error('❌ Fleet command failed:', err);
-                        // Fallback to simple direct command if pathfinding fails
-                        this.game.executeFleetCommand(this.fleetSource, target, 0.5, isAttack ? 'attack' : 'transfer');
-                    });
-                } catch (syncError) {
-                    console.error('❌ Fleet command sync error:', syncError);
-                    // Fallback to simple direct command
-                    this.game.executeFleetCommand(this.fleetSource, target, 0.5, isAttack ? 'attack' : 'transfer');
-                }
+                // Call async method properly
+                this.game.issueFleetCommand(this.fleetSource, target, 0.5, isAttack).catch(err => {
+                    console.error('❌ Fleet command failed:', err);
+                });
             }
         }
 
         this.isDragging = false;
         this.isFleetDragging = false;
         this.fleetSource = null;
-        if (this.game) this.game.dragPathPreviewCache = {};
         console.log('🔚 Mouse up - fleet drag ended');
     }
 

@@ -38,13 +38,6 @@ export default class StarThrone {
             layout: config.layout || 'organic',
             ...config
         };
-
-        // Optional automation features disabled by default to prevent
-        // unexpected automated army movements
-        this.autoMoveEnabled = config.autoMoveEnabled ?? false;
-
-        // Cache for drag path previews to avoid repeated pathfinding
-        this.dragPathPreviewCache = {};
         
         // Game state
         this.gameState = 'lobby'; // lobby, playing, ended
@@ -350,7 +343,7 @@ export default class StarThrone {
     /**
      * Setup event listeners for event-driven architecture
      */
-    setupGameEventListeners() {
+    setupEventListeners() {
         // Listen for territory capture events to update UI
         gameEvents.on(GAME_EVENTS.TERRITORY_CAPTURED, (event) => {
             this.handleTerritoryCapture(event.data);
@@ -473,7 +466,7 @@ export default class StarThrone {
     
     init() {
         this.setupCanvas();
-        this.setupGameEventListeners();
+        this.setupEventListeners();
         
         // Calculate expanded map dimensions for proper territory distribution
         const baseWidth = 2000;
@@ -500,9 +493,6 @@ export default class StarThrone {
         
         this.ui = new GameUI(this.canvas, this.camera);
         
-        // Setup DOM event listeners first
-        this.setupEventListeners();
-
         // Initialize modular systems
         try {
             this.inputHandler = new InputHandler(this);
@@ -1665,7 +1655,8 @@ export default class StarThrone {
         
         // Keyboard events now handled by InputHandler
         
-        // Context menu prevention now handled by InputHandler to avoid conflicts
+        // Prevent context menu
+        this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     }
     
     /**
@@ -2173,7 +2164,6 @@ export default class StarThrone {
     }
     
     checkAllTerritoryOverflows() {
-        if (!this.autoMoveEnabled) return;
         // Throttle overflow checks to avoid performance issues (check every 30 frames ~500ms)
         if (this.frameCount % 30 !== 0) return;
         
@@ -2290,7 +2280,6 @@ export default class StarThrone {
         }
         
         this.renderDragPreview();
-        this.renderDragCombatPreview();
         
         // Debug: Check InputHandler state
         if (this.inputHandler && this.frameCount % 30 === 0) {
@@ -2637,77 +2626,6 @@ export default class StarThrone {
     }
     
     renderDragPreview() {
-        // Render new fleet drag preview from InputHandler
-        if (this.currentDragPreview) {
-            const preview = this.currentDragPreview;
-            if (!preview.source || !preview.target) return;
-            
-            this.ctx.save();
-            
-            // Draw line from source to target
-            const color = preview.isAttack ? '#ff0000' : '#00ff00';
-            const isDashed = !preview.hasPath;
-            
-            this.ctx.strokeStyle = color;
-            this.ctx.lineWidth = 3;
-            if (isDashed) {
-                this.ctx.setLineDash([10, 5]);
-            }
-            
-            this.ctx.beginPath();
-            this.ctx.moveTo(preview.source.x, preview.source.y);
-            this.ctx.lineTo(preview.target.x, preview.target.y);
-            this.ctx.stroke();
-            
-            // If no path, show "NO GO" message
-            if (!preview.hasPath) {
-                const midX = (preview.source.x + preview.target.x) / 2;
-                const midY = (preview.source.y + preview.target.y) / 2;
-                
-                this.ctx.fillStyle = 'rgba(255, 0, 0, 0.9)';
-                this.ctx.fillRect(midX - 40, midY - 15, 80, 30);
-                
-                this.ctx.fillStyle = '#ffffff';
-                this.ctx.font = 'bold 16px Arial';
-                this.ctx.textAlign = 'center';
-                this.ctx.textBaseline = 'middle';
-                this.ctx.fillText('NO PATH', midX, midY);
-            }
-            
-            // If attack, show combat preview
-            if (preview.isAttack && preview.hasPath) {
-                const attackingArmies = Math.floor(preview.source.armySize * 0.5);
-                const defendingArmies = preview.target.armySize;
-                
-                // Draw combat preview box near target
-                const boxX = preview.target.x + 40;
-                const boxY = preview.target.y - 30;
-                
-                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
-                this.ctx.fillRect(boxX, boxY, 120, 60);
-                
-                this.ctx.strokeStyle = '#ff0000';
-                this.ctx.lineWidth = 2;
-                this.ctx.strokeRect(boxX, boxY, 120, 60);
-                
-                this.ctx.fillStyle = '#ffffff';
-                this.ctx.font = 'bold 14px Arial';
-                this.ctx.textAlign = 'left';
-                this.ctx.fillText(`ATK: ${attackingArmies}`, boxX + 10, boxY + 20);
-                this.ctx.fillText(`DEF: ${defendingArmies}`, boxX + 10, boxY + 40);
-                
-                // Win percentage
-                const winPercent = Math.round(preview.winOdds * 100);
-                this.ctx.fillStyle = winPercent > 60 ? '#00ff00' : winPercent > 40 ? '#ffff00' : '#ff0000';
-                this.ctx.font = 'bold 16px Arial';
-                this.ctx.textAlign = 'right';
-                this.ctx.fillText(`${winPercent}%`, boxX + 110, boxY + 30);
-            }
-            
-            this.ctx.restore();
-            return;
-        }
-        
         // Show drag preview when creating supply route
         if (this.isDraggingForSupplyRoute && this.dragStart) {
             const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
@@ -2736,7 +2654,44 @@ export default class StarThrone {
             this.ctx.restore();
         }
 
-        // Old fleet dragging code removed - using currentDragPreview system now
+        // Preview line for fleet dragging
+        if (this.inputHandler && this.inputHandler.isFleetDragging && this.inputHandler.fleetSource) {
+            console.log('🎨 Rendering fleet drag preview', {
+                isFleetDragging: this.inputHandler.isFleetDragging,
+                fleetSource: this.inputHandler.fleetSource.id,
+                mousePos: this.inputHandler.mousePos
+            });
+            const worldPos = this.camera.screenToWorld(this.inputHandler.mousePos.x, this.inputHandler.mousePos.y);
+            const targetTerritory = this.findTerritoryAt(worldPos.x, worldPos.y);
+
+            this.ctx.save();
+
+            if (targetTerritory && this.inputHandler.fleetSource.neighbors.includes(targetTerritory.id)) {
+                this.ctx.strokeStyle = targetTerritory.ownerId === this.humanPlayer?.id ? '#44ff44' : '#ff4444';
+                this.ctx.lineWidth = 3;
+            } else {
+                this.ctx.strokeStyle = '#ffffff';
+                this.ctx.lineWidth = 1;
+                this.ctx.setLineDash([5, 5]);
+            }
+
+            this.ctx.beginPath();
+            this.ctx.moveTo(this.inputHandler.fleetSource.x, this.inputHandler.fleetSource.y);
+            this.ctx.lineTo(worldPos.x, worldPos.y);
+            this.ctx.stroke();
+            this.ctx.setLineDash([]);
+
+            this.ctx.restore();
+        } else if (this.inputHandler) {
+            // Debug when conditions aren't met
+            if (this.frameCount % 60 === 0 && (this.inputHandler.isFleetDragging || this.inputHandler.fleetSource)) {
+                console.log('🚫 Fleet drag preview NOT rendering:', {
+                    inputHandler: !!this.inputHandler,
+                    isFleetDragging: this.inputHandler.isFleetDragging,
+                    fleetSource: this.inputHandler.fleetSource
+                });
+            }
+        }
     }
     
     renderProportionalDragUI() {
@@ -2867,18 +2822,7 @@ export default class StarThrone {
         const bgX = screenPos.x + 20;
         const bgY = screenPos.y - 25;
         const bgWidth = maxWidth + padding * 2;
-        let bgHeight = lineHeight * 2 + padding;
-
-        let resultText = null;
-        let resultColor = '#ffffff';
-        if (to.ownerId !== this.humanPlayer?.id) {
-            const preview = this.combatSystem?.calculateCombatPreview(from, to, shipsToSend);
-            if (preview) {
-                resultText = `${preview.attackingArmies} vs ${preview.defendingArmies}: ${preview.winChance >= 50 ? 'VICTORY' : 'DEFEAT'}`;
-                resultColor = preview.winChance >= 50 ? '#44ff44' : '#ff4444';
-                bgHeight += lineHeight;
-            }
-        }
+        const bgHeight = lineHeight * 2 + padding;
         
         // Background
         this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
@@ -2899,20 +2843,11 @@ export default class StarThrone {
         // Text
         this.ctx.fillStyle = '#00ff00'; // Green for send
         this.ctx.fillText(sendText, bgX + padding, bgY + lineHeight);
-
+        
         this.ctx.fillStyle = '#ffffff'; // White for keep
         this.ctx.fillText(keepText, bgX + padding, bgY + lineHeight * 2);
-
-        if (resultText) {
-            this.ctx.fillStyle = resultColor;
-            this.ctx.fillText(resultText, bgX + padding, bgY + lineHeight * 3);
-        }
         
         this.ctx.restore();
-    }
-
-    renderDragCombatPreview() {
-        // This method is now integrated into renderDragPreview() above
     }
     
     renderFloatingTexts() {
@@ -3722,13 +3657,6 @@ export default class StarThrone {
     async issueFleetCommand(fromTerritory, toTerritory, fleetPercentage, isAttack = false) {
         console.log(`🚀 issueFleetCommand called: ${fromTerritory.id} -> ${toTerritory.id}, attack=${isAttack}`);
         
-        // Safety check for pathfinding service
-        if (!this.pathfindingService) {
-            console.error('❌ PathfindingService not available, using direct command');
-            this.executeFleetCommand(fromTerritory, toTerritory, fleetPercentage, isAttack ? 'attack' : 'transfer');
-            return;
-        }
-        
         // Check if territories are directly connected by warp lanes
         const isDirectlyConnected = fromTerritory.neighbors && fromTerritory.neighbors.includes(toTerritory.id);
         
@@ -3741,53 +3669,36 @@ export default class StarThrone {
             // Not directly connected - find path through warp lanes
             if (isAttack) {
                 // For attacks, find path through any territory to get to target
-                try {
-                    const attackPath = await this.pathfindingService.findAttackPath(
-                        fromTerritory.id, 
-                        toTerritory.id, 
-                        this.gameMap, 
-                        this.humanPlayer.id
-                    );
+                const attackPath = await this.pathfindingService.findAttackPath(
+                    fromTerritory.id, 
+                    toTerritory.id, 
+                    this.gameMap, 
+                    this.humanPlayer.id
+                );
                 
                 if (attackPath && attackPath.length > 1) {
                     console.log(`🛣️ Multi-hop attack path: ${attackPath.join(' -> ')}`);
                     this.executeFleetCommand(fromTerritory, toTerritory, fleetPercentage, 'multi-hop-attack', attackPath);
-                } else if (isDirectlyConnected) {
-                    this.executeFleetCommand(fromTerritory, toTerritory, fleetPercentage, 'attack');
                 } else {
-                    console.log(`🛣️ No warp lane path found; attack cancelled`);
-                    if (this.uiManager) this.uiManager.showError('NO GO - path blocked');
-                    return;
-                }
-                } catch (pathError) {
-                    console.error('❌ Attack pathfinding failed:', pathError);
-                    // Fallback to direct attack if pathfinding fails
+                    // No path found - use long-range attack as fallback
+                    console.log(`🛣️ No warp lane path found, using long-range attack`);
                     this.executeFleetCommand(fromTerritory, toTerritory, fleetPercentage, 'attack');
-                    return;
                 }
             } else {
                 // For transfers, find path through friendly territories only
-                try {
-                    const transferPath = await this.pathfindingService.findShortestPath(
-                        fromTerritory.id, 
-                        toTerritory.id, 
-                        this.gameMap, 
-                        this.humanPlayer.id
-                    );
+                const transferPath = await this.pathfindingService.findShortestPath(
+                    fromTerritory.id, 
+                    toTerritory.id, 
+                    this.gameMap, 
+                    this.humanPlayer.id
+                );
                 
                 if (transferPath && transferPath.length > 1) {
                     console.log(`🛣️ Multi-hop transfer path: ${transferPath.join(' -> ')}`);
                     this.executeFleetCommand(fromTerritory, toTerritory, fleetPercentage, 'multi-hop-transfer', transferPath);
                 } else {
                     console.log(`🛣️ No friendly path found for transfer ${fromTerritory.id} -> ${toTerritory.id}`);
-                    if (this.uiManager) this.uiManager.showError('NO GO - path blocked');
                     // No path means territories aren't connected through friendly space
-                    return;
-                }
-                } catch (pathError) {
-                    console.error('❌ Transfer pathfinding failed:', pathError);
-                    // Fallback to direct transfer if pathfinding fails
-                    this.executeFleetCommand(fromTerritory, toTerritory, fleetPercentage, 'transfer');
                     return;
                 }
             }
