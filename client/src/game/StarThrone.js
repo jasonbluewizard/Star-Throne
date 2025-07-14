@@ -514,19 +514,8 @@ export default class StarThrone {
         this.garrisonController.showControls();
         this.rangePathfindingManager = new RangePathfindingManager(this);
         
-        // Load enhanced LeftClickMover input system  
-        try {
-            import('./new_input/LeftClickMover.js').then(module => {
-                if (module.LeftClickMover) {
-                    this.leftClickMover = new module.LeftClickMover(this, { defaultPercent: 50 });
-                    console.log('✅ LeftClickMover initialized - enhanced multi-selection and drag controls active');
-                }
-            }).catch(err => {
-                console.warn('⚠️ LeftClickMover failed to load, using fallback input:', err.message);
-            });
-        } catch (err) {
-            console.warn('⚠️ LeftClickMover import failed:', err.message);
-        }
+        // Enhanced input system integrated into InputHandler
+        console.log('✅ Enhanced input system active via InputHandler');
         
         // Flood mode buttons now integrated into GameUI instead of DOM elements
         
