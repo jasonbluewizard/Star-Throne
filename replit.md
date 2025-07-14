@@ -567,6 +567,13 @@ Changelog:
   * Automatic redistribution of surplus armies to friendly neighbors
   * Attack logic prioritizes targets and maintains minimum garrison levels
   * UI controls positioned in bottom left with adjustable parameters
+- January 12, 2025. Range-based pathfinding system implementation:
+  * Added centralized BASE_RANGE constant (150 pixels) for all player hyperdrive systems
+  * Created RangePathfindingManager with distance matrix and adjacency list optimization
+  * Implemented player range upgrades: base 150px + 50px per rangeLevel
+  * Added range and rangeLevel properties to all Player objects
+  * Enhanced pathfinding with breadth-first search for optimal multi-hop routing
+  * Integrated range-based movement validation for strategic fleet deployment
 - January 1, 2025. Strategic camera system implementation (Supreme Commander-style):
   * Enhanced strategic zoom range: extreme zoom-out (0.05x) to tactical close-up (8.0x) for galaxy-wide view
   * Implemented inertial panning with smooth momentum and friction for natural camera movement

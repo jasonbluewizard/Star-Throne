@@ -20,6 +20,7 @@ import { AIManager } from './AIManager';
 import FloodModeController from './FloodModeController';
 import GarrisonController from './GarrisonController';
 import Controls from './Controls';
+import { RangePathfindingManager } from './RangePathfindingManager';
 
 export default class StarThrone {
     constructor(config = {}) {
@@ -511,6 +512,7 @@ export default class StarThrone {
         this.floodController = new FloodModeController(this);
         this.garrisonController = new GarrisonController(this);
         this.garrisonController.showControls();
+        this.rangePathfindingManager = new RangePathfindingManager(this);
         
         // Flood mode buttons now integrated into GameUI instead of DOM elements
         
@@ -523,6 +525,10 @@ export default class StarThrone {
         this.gameStartTime = Date.now(); // Track when game actually starts
         this.detectLowPerformance(); // Check device capabilities
         this.startGame();
+        
+        // Initialize range pathfinding after territories are created
+        this.rangePathfindingManager.initialize();
+        
         this.gameLoop();
         
         // Create offscreen canvas for static elements (e.g., background stars/connections)
@@ -2120,6 +2126,20 @@ export default class StarThrone {
 
         if (this.garrisonController) {
             this.garrisonController.update(deltaTime);
+        }
+        
+        // Update range pathfinding for players with upgraded ranges
+        if (this.rangePathfindingManager) {
+            for (const player of this.players) {
+                if (player.rangeLevel > 0) {
+                    // Range increases by 50 pixels per level
+                    const newRange = GAME_CONSTANTS.BASE_RANGE + (player.rangeLevel * 50);
+                    if (player.range !== newRange) {
+                        player.range = newRange;
+                        this.rangePathfindingManager.updatePlayerRange(player);
+                    }
+                }
+            }
         }
         
         // Update flood mode system for automated expansion

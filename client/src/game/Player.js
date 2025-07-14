@@ -31,6 +31,9 @@ export class Player {
         this.isEliminated = false;
         this.score = 0;
         this.throneStarId = null; // ID of this player's throne star (starting planet)
+        this.range = GAME_CONSTANTS.BASE_RANGE; // Maximum jump distance for fleets
+        this.rangeLevel = 0; // Number of hyperdrive upgrades purchased
+        this.armyGenRate = 1;
         
         // Enhanced AI properties with state machine
         this.aiThinkTimer = 0;
