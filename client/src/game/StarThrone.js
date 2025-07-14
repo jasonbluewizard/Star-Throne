@@ -2654,6 +2654,31 @@ export default class StarThrone {
             
             this.ctx.restore();
         }
+
+        // Preview line for fleet dragging
+        if (this.inputHandler && this.inputHandler.isFleetDragging && this.inputHandler.fleetSource) {
+            const worldPos = this.camera.screenToWorld(this.inputHandler.mousePos.x, this.inputHandler.mousePos.y);
+            const targetTerritory = this.findTerritoryAt(worldPos.x, worldPos.y);
+
+            this.ctx.save();
+
+            if (targetTerritory && this.inputHandler.fleetSource.neighbors.includes(targetTerritory.id)) {
+                this.ctx.strokeStyle = targetTerritory.ownerId === this.humanPlayer?.id ? '#44ff44' : '#ff4444';
+                this.ctx.lineWidth = 3;
+            } else {
+                this.ctx.strokeStyle = '#ffffff';
+                this.ctx.lineWidth = 1;
+                this.ctx.setLineDash([5, 5]);
+            }
+
+            this.ctx.beginPath();
+            this.ctx.moveTo(this.inputHandler.fleetSource.x, this.inputHandler.fleetSource.y);
+            this.ctx.lineTo(worldPos.x, worldPos.y);
+            this.ctx.stroke();
+            this.ctx.setLineDash([]);
+
+            this.ctx.restore();
+        }
     }
     
     renderProportionalDragUI() {

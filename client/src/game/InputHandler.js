@@ -5,6 +5,8 @@ export class InputHandler {
         this.mousePos = { x: 0, y: 0 };
         this.lastMousePos = { x: 0, y: 0 };
         this.isDragging = false;
+        this.isFleetDragging = false;
+        this.fleetSource = null;
         this.hoveredTerritory = null;
 
         this.touchState = {
@@ -44,17 +46,33 @@ export class InputHandler {
         const rect = this.canvas.getBoundingClientRect();
         this.mousePos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
         this.lastMousePos = { ...this.mousePos };
-        this.isDragging = true;
+
+        const worldPos = this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+        const territory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
+
+        if (territory && territory.ownerId === this.game.humanPlayer?.id) {
+            // Begin fleet drag from owned territory
+            this.isFleetDragging = true;
+            this.fleetSource = territory;
+            this.isDragging = false;
+        } else {
+            // Start panning the map
+            this.isDragging = true;
+        }
     }
 
     handleMouseMove(e) {
         const rect = this.canvas.getBoundingClientRect();
         const newPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-        if (this.isDragging) {
+
+        if (this.isFleetDragging) {
+            // Just update position for preview
+        } else if (this.isDragging) {
             const dx = newPos.x - this.lastMousePos.x;
             const dy = newPos.y - this.lastMousePos.y;
             this.game.camera.pan(-dx, -dy);
         }
+
         this.game.camera.updateEdgePanning(newPos.x, newPos.y, 16);
         const worldPos = this.game.camera.screenToWorld(newPos.x, newPos.y);
         this.hoveredTerritory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
@@ -62,8 +80,21 @@ export class InputHandler {
         this.mousePos = newPos;
     }
 
-    handleMouseUp() {
+    handleMouseUp(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const releasePos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+
+        if (this.isFleetDragging && this.fleetSource) {
+            const worldPos = this.game.camera.screenToWorld(releasePos.x, releasePos.y);
+            const target = this.game.findTerritoryAt(worldPos.x, worldPos.y);
+            if (target && target.id !== this.fleetSource.id) {
+                this.game.issueFleetCommand(this.fleetSource, target, 0.5);
+            }
+        }
+
         this.isDragging = false;
+        this.isFleetDragging = false;
+        this.fleetSource = null;
     }
 
     handleWheel(e) {
@@ -130,8 +161,9 @@ export class InputHandler {
     getInputState() {
         return {
             mousePos: this.mousePos,
-            isDragging: this.isDragging,
-            selectedTerritory: null,
+            isDragging: this.isDragging || this.isFleetDragging,
+            selectedTerritory: this.fleetSource,
+            fleetDragging: this.isFleetDragging,
             currentState: 'idle'
         };
     }
