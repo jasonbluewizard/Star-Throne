@@ -39,14 +39,13 @@ export class InputHandler {
             return;
         }
         console.log('✅ InputHandler: Setting up event listeners');
-        this.canvas.addEventListener('mousedown', this._onMouseDown);
-        this.canvas.addEventListener('mousemove', this._onMouseMove);
-        this.canvas.addEventListener('mouseup', this._onMouseUp);
-        // Listen on the document as well so drag events continue even if the
-        // cursor leaves the canvas bounds. This fixes lost drag releases when
-        // the mouse is released outside of the canvas.
-        document.addEventListener('mousemove', this._onMouseMove);
-        document.addEventListener('mouseup', this._onMouseUp);
+        // Use pointer events with capture so dragging continues even if the
+        // pointer leaves the canvas element. This is more reliable across
+        // browsers than plain mouse events.
+        this.canvas.addEventListener('pointerdown', this._onMouseDown);
+        this.canvas.addEventListener('pointermove', this._onMouseMove);
+        this.canvas.addEventListener('pointerup', this._onMouseUp);
+        this.canvas.addEventListener('pointercancel', this._onMouseUp);
         this.canvas.addEventListener('wheel', this._onWheel);
         this.canvas.addEventListener('contextmenu', this._onContextMenu);
 
@@ -59,6 +58,14 @@ export class InputHandler {
     handleMouseDown(e) {
         console.log('🐭 Mouse down event received!');
         e.preventDefault();
+        // Capture pointer so move/up events continue even if it leaves the canvas
+        if (typeof e.pointerId === 'number' && this.canvas.setPointerCapture) {
+            try {
+                this.canvas.setPointerCapture(e.pointerId);
+            } catch {
+                // Ignore errors if pointer capture isn't supported
+            }
+        }
         const rect = this.canvas.getBoundingClientRect();
         this.mousePos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
         this.lastMousePos = { ...this.mousePos };
@@ -111,6 +118,14 @@ export class InputHandler {
     handleMouseUp(e) {
         const rect = this.canvas.getBoundingClientRect();
         const releasePos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+
+        if (typeof e.pointerId === 'number' && this.canvas.releasePointerCapture) {
+            try {
+                this.canvas.releasePointerCapture(e.pointerId);
+            } catch {
+                // Ignore errors if pointer capture isn't supported
+            }
+        }
 
         if (this.isFleetDragging && this.fleetSource) {
             const worldPos = this.game.camera.screenToWorld(releasePos.x, releasePos.y);
@@ -208,11 +223,10 @@ export class InputHandler {
 
     cleanup() {
         if (!this.canvas) return;
-        this.canvas.removeEventListener('mousedown', this._onMouseDown);
-        this.canvas.removeEventListener('mousemove', this._onMouseMove);
-        this.canvas.removeEventListener('mouseup', this._onMouseUp);
-        document.removeEventListener('mousemove', this._onMouseMove);
-        document.removeEventListener('mouseup', this._onMouseUp);
+        this.canvas.removeEventListener('pointerdown', this._onMouseDown);
+        this.canvas.removeEventListener('pointermove', this._onMouseMove);
+        this.canvas.removeEventListener('pointerup', this._onMouseUp);
+        this.canvas.removeEventListener('pointercancel', this._onMouseUp);
         this.canvas.removeEventListener('wheel', this._onWheel);
         this.canvas.removeEventListener('contextmenu', this._onContextMenu);
         this.canvas.removeEventListener('touchstart', this._onTouchStart);
