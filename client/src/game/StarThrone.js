@@ -494,8 +494,13 @@ export default class StarThrone {
         this.ui = new GameUI(this.canvas, this.camera);
         
         // Initialize modular systems
-        this.inputHandler = new InputHandler(this);
-        console.log('🎮 InputHandler created in StarThrone');
+        try {
+            this.inputHandler = new InputHandler(this);
+            console.log('🎮 InputHandler created in StarThrone');
+        } catch (error) {
+            console.error('❌ Failed to create InputHandler:', error);
+            throw error;
+        }
         this.renderer = new Renderer(this.canvas, this.camera, this);
         this.combatSystem = new CombatSystem(this);
         this.supplySystem = new SupplySystem(this);

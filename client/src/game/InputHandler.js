@@ -6,8 +6,17 @@ export class InputHandler {
             hasGame: !!game,
             hasCanvas: !!game.canvas,
             canvasId: game.canvas?.id,
-            canvasWidth: game.canvas?.width
+            canvasWidth: game.canvas?.width,
+            canvasHeight: game.canvas?.height,
+            canvasStyle: game.canvas?.style?.display
         });
+        
+        // Add direct test click listener
+        if (this.canvas) {
+            this.canvas.addEventListener('click', (e) => {
+                console.log('🔥 DIRECT CLICK TEST:', e.type, e.clientX, e.clientY);
+            });
+        }
         this.mousePos = { x: 0, y: 0 };
         this.lastMousePos = { x: 0, y: 0 };
         this.isDragging = false;
@@ -39,6 +48,15 @@ export class InputHandler {
             return;
         }
         console.log('✅ InputHandler: Setting up event listeners');
+        console.log('🔍 Canvas element details:', {
+            tagName: this.canvas.tagName,
+            id: this.canvas.id,
+            style: this.canvas.style.cssText,
+            offsetWidth: this.canvas.offsetWidth,
+            offsetHeight: this.canvas.offsetHeight,
+            parentNode: this.canvas.parentNode?.tagName
+        });
+        
         // Use pointer events with capture so dragging continues even if the
         // pointer leaves the canvas element. This is more reliable across
         // browsers than plain mouse events.
@@ -46,6 +64,8 @@ export class InputHandler {
         this.canvas.addEventListener('pointermove', this._onMouseMove);
         this.canvas.addEventListener('pointerup', this._onMouseUp);
         this.canvas.addEventListener('pointercancel', this._onMouseUp);
+        
+        console.log('✅ All pointer event listeners attached');
         this.canvas.addEventListener('wheel', this._onWheel);
         this.canvas.addEventListener('contextmenu', this._onContextMenu);
 
