@@ -84,7 +84,7 @@ export class Territory {
         
         // Enhanced debugging for overflow issues
         if (this.armySize > this.maxFleet) {
-            console.log(`🔍 OVERFLOW CHECK: Territory ${this.id} has ${this.armySize}/${this.maxFleet} ships (excess: ${this.armySize - this.maxFleet})`);
+            // console.log(`🔍 OVERFLOW CHECK: Territory ${this.id} has ${this.armySize}/${this.maxFleet} ships (excess: ${this.armySize - this.maxFleet})`);
         }
         
         if (this.armySize <= this.maxFleet) {
@@ -102,7 +102,7 @@ export class Territory {
         const allNeighbors = this.neighbors.map(id => game.gameMap.territories[id]).filter(t => t);
         const friendlyNeighbors = allNeighbors.filter(t => t.ownerId === this.ownerId);
         
-        console.log(`🔍 OVERFLOW NEIGHBORS: Territory ${this.id} has ${allNeighbors.length} total neighbors, ${friendlyNeighbors.length} friendly`);
+        // console.log(`🔍 OVERFLOW NEIGHBORS: Territory ${this.id} has ${allNeighbors.length} total neighbors, ${friendlyNeighbors.length} friendly`);
         
         if (friendlyNeighbors.length === 0) {
             console.log(`❌ OVERFLOW BLOCKED: Territory ${this.id} has no friendly neighbors at all`);
@@ -111,7 +111,7 @@ export class Territory {
         
         // Transfer armies until this territory is at max capacity
         let remaining = excess;
-        console.log(`💫 OVERFLOW START: Territory ${this.id} needs to transfer ${remaining} armies`);
+        // console.log(`💫 OVERFLOW START: Territory ${this.id} needs to transfer ${remaining} armies`);
         
         while (remaining > 0 && this.armySize > this.maxFleet) {
             // Distribute evenly among all friendly neighbors (even if they're full)
@@ -133,7 +133,7 @@ export class Territory {
                         game.createShipAnimation(this, neighbor, false, toSend, playerColor);
                     }
                     
-                    console.log(`💫 OVERFLOW: ${toSend} armies sent from ${this.id} to ${neighbor.id} (${this.armySize}/${this.maxFleet} → ${neighbor.armySize}/${neighbor.maxFleet})`);
+                    // console.log(`💫 OVERFLOW: ${toSend} armies sent from ${this.id} to ${neighbor.id} (${this.armySize}/${this.maxFleet} → ${neighbor.armySize}/${neighbor.maxFleet})`);
                     
                     if (remaining <= 0) break;
                 }
@@ -145,7 +145,7 @@ export class Territory {
             }
         }
         
-        console.log(`💫 OVERFLOW END: Territory ${this.id} final state: ${this.armySize}/${this.maxFleet}`);
+        // console.log(`💫 OVERFLOW END: Territory ${this.id} final state: ${this.armySize}/${this.maxFleet}`);
     }
 
     generateArmies(deltaTime, player, gameSpeed = 1.0, game = null) {
