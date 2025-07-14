@@ -1618,11 +1618,7 @@ export default class StarThrone {
         // Mouse events now handled by InputHandler.js - removed to prevent conflicts
         // Wheel events handled by InputHandler
         
-        // Touch events for mobile - with better event handling
-        this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
-        this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
-        this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e), { passive: false });
-        this.canvas.addEventListener('touchcancel', (e) => this.handleTouchEnd(e), { passive: false });
+        // Touch events now handled by InputHandler.js - removed to prevent conflicts
         
         // Window events for DOM optimization
         window.addEventListener('resize', this.handleResize.bind(this));

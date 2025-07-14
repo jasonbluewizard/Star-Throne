@@ -28,7 +28,11 @@ export class InputHandler {
     }
 
     setupEventListeners() {
-        if (!this.canvas) return;
+        if (!this.canvas) {
+            console.error('❌ InputHandler: No canvas available for event listeners');
+            return;
+        }
+        console.log('✅ InputHandler: Setting up event listeners');
         this.canvas.addEventListener('mousedown', this._onMouseDown);
         this.canvas.addEventListener('mousemove', this._onMouseMove);
         this.canvas.addEventListener('mouseup', this._onMouseUp);
@@ -42,6 +46,7 @@ export class InputHandler {
     }
 
     handleMouseDown(e) {
+        console.log('🐭 Mouse down event received!');
         e.preventDefault();
         const rect = this.canvas.getBoundingClientRect();
         this.mousePos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
@@ -49,6 +54,14 @@ export class InputHandler {
 
         const worldPos = this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
         const territory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
+        
+        console.log('🔍 Mouse down details:', {
+            screenPos: this.mousePos,
+            worldPos: worldPos,
+            territory: territory ? territory.id : 'none',
+            humanPlayerId: this.game.humanPlayer?.id,
+            territoryOwner: territory?.ownerId
+        });
 
         if (territory && territory.ownerId === this.game.humanPlayer?.id) {
             // Begin fleet drag from owned territory
@@ -56,9 +69,11 @@ export class InputHandler {
             this.isFleetDragging = true;
             this.fleetSource = territory;
             this.isDragging = false;
+            console.log('🚀 Fleet drag started for player territory', territory.id);
         } else {
             // Start panning the map
             this.isDragging = true;
+            console.log('🖱️ Starting map pan');
         }
     }
 
