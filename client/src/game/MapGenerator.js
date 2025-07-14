@@ -656,8 +656,8 @@ export default class MapGenerator {
             // Create proper Territory instance
             const territory = new Territory(i, points[i].x, points[i].y, 20, true);
             
-            // Set up connections
-            territory.neighbors = connections[i].slice(); // Copy array
+            // No warp lanes - range-based movement only
+            territory.neighbors = [];
             
             // Set initial properties
             territory.armySize = Math.floor(Math.random() * 10) + 1; // 1-10 armies for neutrals

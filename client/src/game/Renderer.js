@@ -204,66 +204,8 @@ export class Renderer {
     }
     
     renderConnections(gameMap, players = []) {
-        this.ctx.save();
-        this.ctx.strokeStyle = GAME_CONSTANTS.CONNECTION_COLOR;
-        this.ctx.lineWidth = 1;
-        this.ctx.globalAlpha = 0.6;
-        
-        const renderedConnections = new Set();
-        
-        for (const territory of Object.values(gameMap.territories)) {
-            if (!territory.isVisible) continue;
-            
-            for (const neighborId of territory.neighbors) {
-                const neighbor = gameMap.territories[neighborId];
-                if (!neighbor || !neighbor.isVisible) continue;
-                
-                // Avoid duplicate rendering
-                const connectionKey = territory.id < neighborId ? 
-                    `${territory.id}-${neighborId}` : `${neighborId}-${territory.id}`;
-                
-                if (renderedConnections.has(connectionKey)) continue;
-                renderedConnections.add(connectionKey);
-                
-                // FOG OF WAR: Show star lanes if either:
-                // 1. At least one end is owned by the human player (current visibility)
-                // 2. The lane was previously discovered (permanent knowledge)
-                const humanPlayerId = this.game?.humanPlayer?.id;
-                const territoryOwnedByPlayer = territory.ownerId === humanPlayerId;
-                const neighborOwnedByPlayer = neighbor.ownerId === humanPlayerId;
-                const laneDiscovered = this.game?.discoveredLanes?.has(connectionKey);
-                
-                if (!(territoryOwnedByPlayer || neighborOwnedByPlayer || laneDiscovered)) { // Consolidated negative conditions using De Morgan's law
-                    // Neither territory is owned by player AND lane not previously discovered
-                    continue;
-                }
-                
-                // Add newly visible lanes to permanent discovery
-                if ((territoryOwnedByPlayer || neighborOwnedByPlayer) && !laneDiscovered && this.game?.discoveredLanes) {
-                    this.game.discoveredLanes.add(connectionKey);
-                    console.log(`🗺️ Star lane discovered: ${territory.id} ↔ ${neighborId}`);
-                }
-                
-                // Color connections between same-owned territories
-                if (territory.ownerId && territory.ownerId === neighbor.ownerId) {
-                    const player = this.findPlayerById(territory.ownerId);
-                    this.ctx.strokeStyle = player?.color || GAME_CONSTANTS.CONNECTION_COLOR;
-                    this.ctx.lineWidth = 2;
-                    this.ctx.globalAlpha = 0.8;
-                } else {
-                    this.ctx.strokeStyle = GAME_CONSTANTS.CONNECTION_COLOR;
-                    this.ctx.lineWidth = 1;
-                    this.ctx.globalAlpha = 0.6;
-                }
-                
-                this.ctx.beginPath();
-                this.ctx.moveTo(territory.x, territory.y);
-                this.ctx.lineTo(neighbor.x, neighbor.y);
-                this.ctx.stroke();
-            }
-        }
-        
-        this.ctx.restore();
+        // No warp lanes to render - range-based movement only
+        return;
     }
     
     renderSupplyRoutes(supplyRoutes) {

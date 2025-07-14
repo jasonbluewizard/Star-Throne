@@ -67,6 +67,10 @@ export class Player {
         return strategies[Math.floor(Math.random() * strategies.length)];
     }
     
+    setGame(game) {
+        this.game = game;
+    }
+    
     /**
      * Initialize the advanced AI strategist
      */
@@ -281,13 +285,20 @@ export class Player {
     }
     
     findAttackTargets(territory, gameMap) {
-        if (!territory || !territory.neighbors || !gameMap || !gameMap.territories) {
+        if (!territory || !gameMap || !gameMap.territories) {
             return [];
         }
         
-        return territory.neighbors
-            .map(id => gameMap.territories[id])
-            .filter(neighbor => neighbor && neighbor !== null && neighbor !== undefined);
+        // Use range-based pathfinding to find reachable territories
+        if (this.game && this.game.rangePathfindingManager) {
+            const reachableTerritories = this.game.rangePathfindingManager.getReachableTerritories(this.id, territory.id);
+            return reachableTerritories
+                .map(id => gameMap.territories[id])
+                .filter(neighbor => neighbor && neighbor !== null && neighbor !== undefined);
+        }
+        
+        // Fallback: if no pathfinding manager available, return empty array
+        return [];
     }
     
     calculateWinChance(attackingTerritory, defendingTerritory) {

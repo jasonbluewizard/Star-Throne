@@ -1,0 +1,43 @@
+1 — Stop Making the Player an Air‑Traffic Controller
+Right now every individual “send 35 ships from Alpha to Beta” click is a mini chore. The quickest way to turn that into broad‑stroke strategy is to persist the order so the planet keeps obeying until the player says otherwise.
+
+Mechanic	What the Player Does	Under‑the‑Hood Behaviour	Why It Fixes Micromanagement
+Flow Line (Galcon‑style)	Drag from A to B once; line stays.	Each tick, planet A exports X % of its garrison along that line.	One gesture sets up a permanent reinforcement path; player only tweaks percentages.
+Overflow Valve	Click planet, set “cap = 40 ships”.	Any ships above cap auto‑flow to the nearest friendly planet that’s under‑cap.	Keeps the network balanced without visits to each planet.
+Rally Beacons	Click empty space; beacon appears. Drag planets onto it.	Those planets auto‑send all new ships to the beacon’s location.	Lets the player reposition the front line with one move.
+
+Implementation is mostly UI + one queue per planet. No AI rewrite needed—AI can keep using explicit commands.
+
+2 — Replace Warp Lanes with a Range Radius
+Removing hardcoded warplanes/lanes and giving each player a ship range stat simplifies pathfinding and produces clear front lines.
+
+Base Range – e.g. 2.5 × planet spacing units.
+
+Contiguous‑Range Rule – A fleet may hop only to a planet (neutral or owned) that is within its owner’s current range from any friendly planet.
+
+Upgrades – Research increases radius by 15 % per tier.
+
+Soft Supply Cut‑Off – If a planet is isolated (no friendly neighbour inside range) its production drops by 50 %.
+
+Benefits
+
+Factor	Range System	Old Lane System
+Path Visual Clarity	One clean circle overlay per planet; fades with zoom.	Spaghetti lines everywhere.
+Player Mental Load	Only ask: “is it in range?”	Must memorise lane graph.
+UI Gestures	Click‑drag anywhere inside the range circle.	Must find lane endpoints.
+
+Edge cases (e.g., “island” planets) are solved with a ‘Relay Portal’ tech—deploys a temporary portal that counts as a friendly range anchor for 60 s.
+
+3 — Macro Control Sketch (Minimal Code, Big UX Gain)
+plaintext
+Copy
+LMB drag      = Create / move Flow Line
+Hold SPACE    = Show range circles for all owned planets
+TAB           = Cycle rally beacons (centres camera)
+Mouse‑wheel   = Scale % of garrison exported on hovered line
+RMB on planet = Toggle Overflow Valve cap (20 / 40 / ∞)
+Two gestures + one modifier key cover 90 % of routing.
+
+4 — Fail‑Fast Prototype Sequence
+Sprint (1–2 days each)	Scope	Kill Switch
+A. Range Radius Only	Hard‑remove lanes; fleets can move anywhere in range via straight line.	If testers hate it in <30 min, revert branch.

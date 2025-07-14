@@ -1865,6 +1865,7 @@ export default class StarThrone {
         
         // Create exactly one human player with distinctive bright cyan color
         this.humanPlayer = new Player(0, 'You', '#00ffff', 'human');
+        this.humanPlayer.setGame(this); // Give human player reference to game for range pathfinding
         this.players.push(this.humanPlayer);
         console.log(`🔍 HUMAN PLAYER CREATED: ID=${this.humanPlayer.id}, type=${this.humanPlayer.type}, total players now: ${this.players.length}`);
         // Consolidated duplicate initialization call
@@ -1894,6 +1895,7 @@ export default class StarThrone {
             // Generate human-like name with clan designation
             const aiName = AIManager.generateAIName(i - 1);
             const aiPlayer = new Player(i, aiName, playerColor, 'ai');
+            aiPlayer.setGame(this); // Give AI player reference to game for range pathfinding
             this.players.push(aiPlayer);
             // Consolidated duplicate initialization call
         }
@@ -2317,10 +2319,10 @@ export default class StarThrone {
         this.renderNebulas();
         this.renderTerritories();
         
-        // Render connections based on LOD level
-        if (lodLevel >= 2) {
-            this.renderConnections();
-        }
+        // No warp lanes - range-based movement only
+        // if (lodLevel >= 2) {
+        //     this.renderConnections();
+        // }
         
         // Render supply routes for operational and tactical view
         if (lodLevel >= 2) {

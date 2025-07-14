@@ -93,33 +93,42 @@ export default class GarrisonController {
             const terr = map.territories[tid];
             if (!terr) continue;
 
-            // Attempt attacks first
-            for (const nid of terr.neighbors) {
-                if (!this.attackTargets.has(nid)) continue;
-                const target = map.territories[nid];
-                if (!target || target.ownerId === player.id) continue;
-                const required = target.armySize + this.minGarrison;
-                if (terr.armySize - required >= this.minGarrison) {
-                    this.game.combatSystem.attackTerritory(terr, target, required);
-                    if (this.game.createShipAnimation) {
-                        this.game.createShipAnimation(terr, target, true, required);
+            // Use range-based pathfinding for attacks
+            if (this.game.rangePathfindingManager) {
+                const reachableTerritories = this.game.rangePathfindingManager.getReachableTerritories(player.id, tid);
+                
+                // Attempt attacks first
+                for (const nid of reachableTerritories) {
+                    if (!this.attackTargets.has(nid)) continue;
+                    const target = map.territories[nid];
+                    if (!target || target.ownerId === player.id) continue;
+                    const required = target.armySize + this.minGarrison;
+                    if (terr.armySize - required >= this.minGarrison) {
+                        // Get path for multi-hop movement if needed
+                        const path = this.game.rangePathfindingManager.findRangePath(player.id, tid, nid);
+                        if (path && path.length > 0) {
+                            this.game.combatSystem.attackTerritory(terr, target, required);
+                            if (this.game.createShipAnimation) {
+                                this.game.createShipAnimation(terr, target, true, required);
+                            }
+                            break; // one action per update from this territory
+                        }
                     }
-                    break; // one action per update from this territory
                 }
-            }
-
-            // Redistribute surplus
-            if (terr.armySize > this.maxGarrison) {
-                const friends = terr.neighbors
-                    .map(nid => map.territories[nid])
-                    .filter(t => t && t.ownerId === player.id);
-                if (friends.length > 0) {
-                    friends.sort((a,b) => a.armySize - b.armySize);
-                    const dest = friends[0];
-                    const send = terr.armySize - this.maxGarrison;
-                    this.game.combatSystem.transferArmies(terr, dest, send);
-                    if (this.game.createShipAnimation) {
-                        this.game.createShipAnimation(terr, dest, false, send);
+                
+                // Redistribute surplus to friendly territories within range
+                if (terr.armySize > this.maxGarrison) {
+                    const friendlyReachable = reachableTerritories
+                        .map(nid => map.territories[nid])
+                        .filter(t => t && t.ownerId === player.id);
+                    if (friendlyReachable.length > 0) {
+                        friendlyReachable.sort((a,b) => a.armySize - b.armySize);
+                        const dest = friendlyReachable[0];
+                        const send = terr.armySize - this.maxGarrison;
+                        this.game.combatSystem.transferArmies(terr, dest, send);
+                        if (this.game.createShipAnimation) {
+                            this.game.createShipAnimation(terr, dest, false, send);
+                        }
                     }
                 }
             }
