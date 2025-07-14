@@ -3764,6 +3764,13 @@ export default class StarThrone {
     async issueFleetCommand(fromTerritory, toTerritory, fleetPercentage, isAttack = false) {
         console.log(`🚀 issueFleetCommand called: ${fromTerritory.id} -> ${toTerritory.id}, attack=${isAttack}`);
         
+        // Safety check for pathfinding service
+        if (!this.pathfindingService) {
+            console.error('❌ PathfindingService not available, using direct command');
+            this.executeFleetCommand(fromTerritory, toTerritory, fleetPercentage, isAttack ? 'attack' : 'transfer');
+            return;
+        }
+        
         // Check if territories are directly connected by warp lanes
         const isDirectlyConnected = fromTerritory.neighbors && fromTerritory.neighbors.includes(toTerritory.id);
         
@@ -3776,12 +3783,13 @@ export default class StarThrone {
             // Not directly connected - find path through warp lanes
             if (isAttack) {
                 // For attacks, find path through any territory to get to target
-                const attackPath = await this.pathfindingService.findAttackPath(
-                    fromTerritory.id, 
-                    toTerritory.id, 
-                    this.gameMap, 
-                    this.humanPlayer.id
-                );
+                try {
+                    const attackPath = await this.pathfindingService.findAttackPath(
+                        fromTerritory.id, 
+                        toTerritory.id, 
+                        this.gameMap, 
+                        this.humanPlayer.id
+                    );
                 
                 if (attackPath && attackPath.length > 1) {
                     console.log(`🛣️ Multi-hop attack path: ${attackPath.join(' -> ')}`);
@@ -3793,14 +3801,21 @@ export default class StarThrone {
                     if (this.uiManager) this.uiManager.showError('NO GO - path blocked');
                     return;
                 }
+                } catch (pathError) {
+                    console.error('❌ Attack pathfinding failed:', pathError);
+                    // Fallback to direct attack if pathfinding fails
+                    this.executeFleetCommand(fromTerritory, toTerritory, fleetPercentage, 'attack');
+                    return;
+                }
             } else {
                 // For transfers, find path through friendly territories only
-                const transferPath = await this.pathfindingService.findShortestPath(
-                    fromTerritory.id, 
-                    toTerritory.id, 
-                    this.gameMap, 
-                    this.humanPlayer.id
-                );
+                try {
+                    const transferPath = await this.pathfindingService.findShortestPath(
+                        fromTerritory.id, 
+                        toTerritory.id, 
+                        this.gameMap, 
+                        this.humanPlayer.id
+                    );
                 
                 if (transferPath && transferPath.length > 1) {
                     console.log(`🛣️ Multi-hop transfer path: ${transferPath.join(' -> ')}`);
@@ -3809,6 +3824,12 @@ export default class StarThrone {
                     console.log(`🛣️ No friendly path found for transfer ${fromTerritory.id} -> ${toTerritory.id}`);
                     if (this.uiManager) this.uiManager.showError('NO GO - path blocked');
                     // No path means territories aren't connected through friendly space
+                    return;
+                }
+                } catch (pathError) {
+                    console.error('❌ Transfer pathfinding failed:', pathError);
+                    // Fallback to direct transfer if pathfinding fails
+                    this.executeFleetCommand(fromTerritory, toTerritory, fleetPercentage, 'transfer');
                     return;
                 }
             }

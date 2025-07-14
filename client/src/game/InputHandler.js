@@ -162,10 +162,18 @@ export class InputHandler {
                 console.log('🚀 Issuing fleet command from', this.fleetSource.id, 'to', target.id, 'isAttack:', isAttack);
                 console.log('🔍 Target owner:', target.ownerId, 'Human player:', this.game.humanPlayer?.id);
                 
-                // Call async method properly
-                this.game.issueFleetCommand(this.fleetSource, target, 0.5, isAttack).catch(err => {
-                    console.error('❌ Fleet command failed:', err);
-                });
+                // Call async method with comprehensive error handling
+                try {
+                    this.game.issueFleetCommand(this.fleetSource, target, 0.5, isAttack).catch(err => {
+                        console.error('❌ Fleet command failed:', err);
+                        // Fallback to simple direct command if pathfinding fails
+                        this.game.executeFleetCommand(this.fleetSource, target, 0.5, isAttack ? 'attack' : 'transfer');
+                    });
+                } catch (syncError) {
+                    console.error('❌ Fleet command sync error:', syncError);
+                    // Fallback to simple direct command
+                    this.game.executeFleetCommand(this.fleetSource, target, 0.5, isAttack ? 'attack' : 'transfer');
+                }
             }
         }
 
