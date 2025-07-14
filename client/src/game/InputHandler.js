@@ -123,8 +123,49 @@ export class InputHandler {
         const newPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
 
         if (this.isFleetDragging) {
-            // Just update position for preview
+            // Update drag preview with path caching
             console.log('🎯 Fleet dragging - updating preview position');
+            
+            const worldPos = this.game.camera.screenToWorld(newPos.x, newPos.y);
+            const target = this.game.gameMap.findTerritoryAt(worldPos.x, worldPos.y);
+            
+            if (target && target.id !== this.fleetSource.id) {
+                // Check cache first
+                if (!this.game.dragPathPreviewCache[target.id]) {
+                    // Calculate and cache the preview data
+                    const humanPlayer = this.game.players?.find(p => p.type === 'human');
+                    const isAttack = target.ownerId !== humanPlayer?.id;
+                    
+                    // Calculate combat win odds
+                    let winOdds = 0;
+                    if (isAttack && target.armySize) {
+                        const attackingArmies = Math.floor(this.fleetSource.armySize * 0.5);
+                        const defendingArmies = target.armySize;
+                        winOdds = Math.min(0.9, Math.max(0.1, attackingArmies / (attackingArmies + defendingArmies)));
+                    }
+                    
+                    // Check if path exists
+                    const hasPath = this.game.gameMap.areTerritoriesConnected(this.fleetSource.id, target.id);
+                    
+                    this.game.dragPathPreviewCache[target.id] = {
+                        isAttack,
+                        winOdds,
+                        hasPath,
+                        targetId: target.id
+                    };
+                }
+                
+                // Store current drag preview data for rendering
+                this.game.currentDragPreview = {
+                    source: this.fleetSource,
+                    target: target,
+                    mouseX: newPos.x,
+                    mouseY: newPos.y,
+                    ...this.game.dragPathPreviewCache[target.id]
+                };
+            } else {
+                this.game.currentDragPreview = null;
+            }
         } else if (this.isDragging) {
             const dx = newPos.x - this.lastMousePos.x;
             const dy = newPos.y - this.lastMousePos.y;
@@ -159,6 +200,19 @@ export class InputHandler {
                 sourceArmies: this.fleetSource.armySize
             });
             if (target && target.id !== this.fleetSource.id) {
+                // Check cached path data
+                const cachedData = this.game.dragPathPreviewCache[target.id];
+                
+                if (cachedData && !cachedData.hasPath) {
+                    // No warp lane path exists - cancel command
+                    console.log('❌ NO GO - no warp lane path exists');
+                    if (this.game.uiManager) {
+                        this.game.uiManager.showError('NO GO - not connected');
+                    }
+                    // Don't execute the command
+                    return;
+                }
+                
                 // Determine if this is an attack or transfer
                 const humanPlayer = this.game.players?.find(p => p.type === 'human');
                 const isAttack = target.ownerId !== humanPlayer?.id;

@@ -153,6 +153,85 @@ export class GameUI {
         return false;
     }
     
+    renderDragPreview(ctx, gameData) {
+        if (!gameData.currentDragPreview) return;
+        
+        const preview = gameData.currentDragPreview;
+        const {source, target, mouseX, mouseY, isAttack, winOdds, hasPath} = preview;
+        
+        // Draw line from source to mouse position
+        ctx.save();
+        
+        if (!hasPath) {
+            // No path - draw red X
+            ctx.strokeStyle = '#ff0000';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([5, 5]);
+        } else if (isAttack) {
+            // Attack - draw red line
+            ctx.strokeStyle = '#ff4444';
+            ctx.lineWidth = 2;
+        } else {
+            // Transfer - draw green line
+            ctx.strokeStyle = '#44ff44';
+            ctx.lineWidth = 2;
+        }
+        
+        // Convert to world coordinates
+        const sourcePos = gameData.camera.worldToScreen(source.x, source.y);
+        
+        ctx.beginPath();
+        ctx.moveTo(sourcePos.x, sourcePos.y);
+        ctx.lineTo(mouseX, mouseY);
+        ctx.stroke();
+        
+        ctx.setLineDash([]);
+        
+        // Draw combat preview if attacking
+        if (isAttack && hasPath) {
+            // Background box
+            const boxWidth = 120;
+            const boxHeight = 60;
+            const boxX = mouseX + 15;
+            const boxY = mouseY - 30;
+            
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+            
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+            
+            // Text
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '14px Arial';
+            ctx.textAlign = 'left';
+            
+            const attackingFleet = Math.floor(source.armySize * 0.5);
+            ctx.fillText(`Attack: ${attackingFleet}`, boxX + 10, boxY + 20);
+            ctx.fillText(`Defend: ${target.armySize}`, boxX + 10, boxY + 35);
+            
+            // Win percentage with color coding
+            const winPercent = Math.round(winOdds * 100);
+            if (winPercent >= 70) {
+                ctx.fillStyle = '#44ff44';
+            } else if (winPercent >= 50) {
+                ctx.fillStyle = '#ffff44';
+            } else {
+                ctx.fillStyle = '#ff4444';
+            }
+            ctx.fillText(`Win: ${winPercent}%`, boxX + 10, boxY + 50);
+        } else if (!hasPath) {
+            // No path message
+            ctx.fillStyle = '#ff0000';
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('NO PATH', mouseX, mouseY - 20);
+        }
+        
+        ctx.restore();
+    }
+    
     render(ctx, gameData) {
         this.animationPhase += 0.02;
         
@@ -192,6 +271,9 @@ export class GameUI {
     }
     
     renderGameUI(ctx, gameData) {
+        // Render drag preview FIRST (behind other UI)
+        this.renderDragPreview(ctx, gameData);
+        
         // Render preview arrow if active
         if (this.previewArrow) {
             // Call async renderPreviewArrow but don't wait for it
