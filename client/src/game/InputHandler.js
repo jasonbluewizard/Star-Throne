@@ -184,8 +184,9 @@ export class InputHandler {
         return {
             mousePos: this.mousePos,
             isDragging: this.isDragging || this.isFleetDragging,
-            selectedTerritory: this.fleetSource,
+            selectedTerritory: this.isFleetDragging ? null : null, // Don't show selected territory during fleet drag
             fleetDragging: this.isFleetDragging,
+            fleetSource: this.fleetSource,
             currentState: 'idle'
         };
     }
