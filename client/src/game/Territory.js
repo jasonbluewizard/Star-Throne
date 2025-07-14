@@ -189,7 +189,7 @@ export class Territory {
             this.lastArmyGeneration = this.lastArmyGeneration % effectiveGenerationRate;
             
             // Check if this territory has an active supply route
-            if (game && game.supplySystem && game.supplySystem.isSupplySource(this.id)) {
+            if (game && game.autoMoveEnabled && game.supplySystem && game.supplySystem.isSupplySource(this.id)) {
                 const destinationId = game.supplySystem.getSupplyDestination(this.id);
                 const destinationTerritory = game.gameMap.territories[destinationId];
                 
@@ -234,7 +234,7 @@ export class Territory {
             }
             
             // Check for fleet overflow after army generation
-            if (game) {
+            if (game && game.autoMoveEnabled) {
                 this.checkFleetOverflow(game);
             }
         }
