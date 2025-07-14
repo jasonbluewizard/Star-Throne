@@ -2040,7 +2040,7 @@ export default class StarThrone {
         
         // Delegate AI updates to AIManager for performance and organization
         if (this.aiManager) {
-            this.aiManager.updateAI(deltaTime);
+            // this.aiManager.updateAI(deltaTime); // TEMPORARILY DISABLED FOR TESTING
         }
         
         // Process any pending throttled mouse events
@@ -2094,10 +2094,10 @@ export default class StarThrone {
             this.animationSystem.update(deltaTime);
         }
         
-        // Update flood mode system for automated expansion
-        if (this.floodController) {
-            this.floodController.update(deltaTime);
-        }
+        // Update flood mode system for automated expansion - TEMPORARILY DISABLED FOR TESTING
+        // if (this.floodController) {
+        //     this.floodController.update(deltaTime);
+        // }
         
         // Process event queue for event-driven architecture
         if (this.eventProcessingEnabled) {
@@ -2107,8 +2107,8 @@ export default class StarThrone {
         // Periodically update throne connectivity
         this.updateThroneConnectivity();
         
-        // Check for fleet overflow every frame
-        this.checkAllTerritoryOverflows();
+        // Check for fleet overflow every frame - TEMPORARILY DISABLED FOR TESTING
+        // this.checkAllTerritoryOverflows();
         
         // Update performance management and track frame metrics
         if (this.performanceManager) {

@@ -1,0 +1,98 @@
+diff --git a/client/src/game/StarThrone.js b/client/src/game/StarThrone.js
+index updated_hash..new_hash 100644
+--- a/client/src/game/StarThrone.js
++++ b/client/src/game/StarThrone.js
+@@ -1506,6 +1506,7 @@ export default class StarThrone {
+     
+     renderDragPreview() {
+         if (this.dragStart && this.hoveredTerritory) {
++            const sourceId = this.dragStart.id;
+             const path = this.getDragPath(this.dragStart.id, this.hoveredTerritory.id);
+             if (!path || path.length === 0) {
+                 this.addNotification('No warp-lane path available', '#ff4444');
+@@ -1510,6 +1511,25 @@ export default class StarThrone {
+                 return;
+             }
+             // Draw path preview
++            this.ctx.save();
++            this.ctx.strokeStyle = '#00ff00'; // Green highlight for lanes
++            this.ctx.lineWidth = 3;
++            this.ctx.setLineDash([5, 5]); // Dashed for preview
++            this.ctx.globalAlpha = 0.7;
++            
++            for (let i = 0; i < path.length - 1; i++) {
++                const fromTerr = path[i];
++                const toTerr = path[i + 1];
++                const fromScreen = this.camera.worldToScreen(fromTerr.x, fromTerr.y);
++                const toScreen = this.camera.worldToScreen(toTerr.x, toTerr.y);
++                
++                this.ctx.beginPath();
++                this.ctx.moveTo(fromScreen.x, fromScreen.y);
++                this.ctx.lineTo(toScreen.x, toScreen.y);
++                this.ctx.stroke();
++            }
++            
++            this.ctx.restore();
+             // If enemy, draw combat preview
+             if (this.hoveredTerritory.ownerId !== this.humanPlayer.id) {
+                 const previewArmy = Math.floor(this.dragStart.armySize / 2); // Assume half send
+@@ -1517,6 +1537,11 @@ export default class StarThrone {
+                 // Render odds text near hover
+                 this.ctx.fillText(`${odds}% win chance`, hoverX, hoverY);
+             }
++            
++            // Note: Assuming hoverX, hoverY are defined; if not, compute
++            const hoverScreen = this.camera.worldToScreen(this.hoveredTerritory.x, this.hoveredTerritory.y);
++            this.ctx.fillStyle = '#ffffff';
++            this.ctx.fillText(`${odds}% win chance`, hoverScreen.x + 20, hoverScreen.y - 20);
+         }
+     }
+     
+@@ -1025,7 +1050,39 @@ export default class StarThrone {
+     computePath(sourceId, targetId) {
+         // Implement BFS pathfinding on owned territories
+         // For simplicity, assuming territories have neighbors
+-        const source = this.gameMap.territories[sourceId];
++        // But for highlighting, search on all connected, or owned only?
++        // Assuming for drag preview, path through connected territories (warp lanes are graph)
++        // But restrict to paths where intermediate are owned, last can be enemy for attack
++        
++        const start = this.gameMap.territories[sourceId];
++        const end = this.gameMap.territories[targetId];
++        if (!start || !end) return null;
++        
++        const queue = [[start]]; // paths
++        const visited = new Set([start.id]);
++        
++        while (queue.length > 0) {
++            const path = queue.shift();
++            const current = path[path.length - 1];
++            
++            if (current.id === end.id) {
++                return path; // Return array of territory objects
++            }
++            
++            // Expand neighbors
++            for (const neighborId of current.neighbors) {
++                if (!visited.has(neighborId)) {
++                    const neighbor = this.gameMap.territories[neighborId];
++                    if (neighbor) {
++                        visited.add(neighborId);
++                        const newPath = [...path, neighbor];
++                        queue.push(newPath);
++                    }
++                }
++            }
++        }
++        
++        return null; // No path
+         const target = this.gameMap.territories[targetId];
+         // BFS code here...
+         // Return array of territories or null if no path
+@@ -2000,6 +2057,7 @@ export default class StarThrone {
+     render() {
+         // Existing render code...
+         // ...
++        this.renderDragPreview(); // Add call here if dragging
+     }
+ }

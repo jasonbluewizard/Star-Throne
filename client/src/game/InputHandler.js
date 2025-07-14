@@ -189,11 +189,25 @@ export class InputHandler {
                 const isAttack = target.ownerId !== this.game.humanPlayer?.id;
                 console.log('🚀 Issuing fleet command from', this.fleetSource.id, 'to', target.id, 'isAttack:', isAttack);
                 console.log('🔍 Target owner:', target.ownerId, 'Human player:', this.game.humanPlayer?.id);
+                console.log('🔍 Game object exists?', !!this.game);
+                console.log('🔍 issueFleetCommand exists?', typeof this.game.issueFleetCommand);
                 
-                // Call async method properly
-                this.game.issueFleetCommand(this.fleetSource, target, 0.5, isAttack).catch(err => {
-                    console.error('❌ Fleet command failed:', err);
-                });
+                try {
+                    // Call async method properly
+                    if (this.game.issueFleetCommand) {
+                        this.game.issueFleetCommand(this.fleetSource, target, 0.5, isAttack).catch(err => {
+                            console.error('❌ Fleet command failed:', err);
+                        });
+                    } else {
+                        console.error('❌ issueFleetCommand method not found on game object!');
+                        // Fallback to direct executeFleetCommand
+                        console.log('🔄 Trying direct executeFleetCommand');
+                        const commandType = isAttack ? 'attack' : 'transfer';
+                        this.game.executeFleetCommand(this.fleetSource, target, 0.5, commandType);
+                    }
+                } catch (error) {
+                    console.error('❌ Error calling fleet command:', error);
+                }
             }
         }
 
