@@ -52,6 +52,7 @@ export class InputHandler {
 
         if (territory && territory.ownerId === this.game.humanPlayer?.id) {
             // Begin fleet drag from owned territory
+            console.log('🎯 Starting fleet drag from territory', territory.id, 'with', territory.armySize, 'armies');
             this.isFleetDragging = true;
             this.fleetSource = territory;
             this.isDragging = false;
@@ -87,7 +88,13 @@ export class InputHandler {
         if (this.isFleetDragging && this.fleetSource) {
             const worldPos = this.game.camera.screenToWorld(releasePos.x, releasePos.y);
             const target = this.game.findTerritoryAt(worldPos.x, worldPos.y);
+            console.log('🎯 Fleet drag release:', {
+                source: this.fleetSource.id,
+                target: target ? target.id : 'none',
+                sourceArmies: this.fleetSource.armySize
+            });
             if (target && target.id !== this.fleetSource.id) {
+                console.log('🚀 Issuing fleet command from', this.fleetSource.id, 'to', target.id);
                 this.game.issueFleetCommand(this.fleetSource, target, 0.5);
             }
         }

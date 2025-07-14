@@ -1,0 +1,261 @@
+client/src/game/InputHandler.js
++37
+-5
+
+export class InputHandler {
+    constructor(game) {
+        this.game = game;
+        this.canvas = game.canvas;
+        this.mousePos = { x: 0, y: 0 };
+        this.lastMousePos = { x: 0, y: 0 };
+        this.isDragging = false;
+        this.isFleetDragging = false;
+        this.fleetSource = null;
+        this.hoveredTerritory = null;
+
+        this.touchState = {
+            activeTouches: new Map(),
+            lastTouchDistance: null,
+            lastPinchCenter: null
+        };
+
+        this._onMouseDown = (e) => this.handleMouseDown(e);
+        this._onMouseMove = (e) => this.handleMouseMove(e);
+        this._onMouseUp = (e) => this.handleMouseUp(e);
+        this._onWheel = (e) => this.handleWheel(e);
+        this._onContextMenu = (e) => e.preventDefault();
+        this._onTouchStart = (e) => this.handleTouchStart(e);
+        this._onTouchMove = (e) => this.handleTouchMove(e);
+        this._onTouchEnd = (e) => this.handleTouchEnd(e);
+
+        this.setupEventListeners();
+    }
+
+    setupEventListeners() {
+        if (!this.canvas) return;
+        this.canvas.addEventListener('mousedown', this._onMouseDown);
+        this.canvas.addEventListener('mousemove', this._onMouseMove);
+        this.canvas.addEventListener('mouseup', this._onMouseUp);
+        this.canvas.addEventListener('wheel', this._onWheel);
+        this.canvas.addEventListener('contextmenu', this._onContextMenu);
+
+        this.canvas.addEventListener('touchstart', this._onTouchStart, { passive: false });
+        this.canvas.addEventListener('touchmove', this._onTouchMove, { passive: false });
+        this.canvas.addEventListener('touchend', this._onTouchEnd, { passive: false });
+        this.canvas.addEventListener('touchcancel', this._onTouchEnd, { passive: false });
+    }
+
+    handleMouseDown(e) {
+        e.preventDefault();
+        const rect = this.canvas.getBoundingClientRect();
+        this.mousePos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        this.lastMousePos = { ...this.mousePos };
+        this.isDragging = true;
+
+        const worldPos = this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+        const territory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
+
+        if (territory && territory.ownerId === this.game.humanPlayer?.id) {
+            // Begin fleet drag from owned territory
+            this.isFleetDragging = true;
+            this.fleetSource = territory;
+            this.isDragging = false;
+        } else {
+            // Start panning the map
+            this.isDragging = true;
+        }
+    }
+
+    handleMouseMove(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const newPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        if (this.isDragging) {
+
+        if (this.isFleetDragging) {
+            // Just update position for preview
+        } else if (this.isDragging) {
+            const dx = newPos.x - this.lastMousePos.x;
+            const dy = newPos.y - this.lastMousePos.y;
+            this.game.camera.pan(-dx, -dy);
+        }
+
+        this.game.camera.updateEdgePanning(newPos.x, newPos.y, 16);
+        const worldPos = this.game.camera.screenToWorld(newPos.x, newPos.y);
+        this.hoveredTerritory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
+        this.lastMousePos = newPos;
+        this.mousePos = newPos;
+    }
+
+    handleMouseUp() {
+    handleMouseUp(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const releasePos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+
+        if (this.isFleetDragging && this.fleetSource) {
+            const worldPos = this.game.camera.screenToWorld(releasePos.x, releasePos.y);
+            const target = this.game.findTerritoryAt(worldPos.x, worldPos.y);
+            if (target && target.id !== this.fleetSource.id) {
+                this.game.issueFleetCommand(this.fleetSource, target, 0.5);
+            }
+        }
+
+        this.isDragging = false;
+        this.isFleetDragging = false;
+        this.fleetSource = null;
+    }
+
+    handleWheel(e) {
+        e.preventDefault();
+        const rect = this.canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+        const newZoom = Math.max(0.02, Math.min(8.0, this.game.camera.targetZoom * zoomFactor));
+        this.game.camera.zoomTo(newZoom, mouseX, mouseY);
+    }
+
+    handleTouchStart(e) {
+        e.preventDefault();
+        for (const t of e.changedTouches) {
+            this.touchState.activeTouches.set(t.identifier, { x: t.clientX, y: t.clientY });
+        }
+        if (this.touchState.activeTouches.size === 2) {
+            const [a, b] = Array.from(this.touchState.activeTouches.values());
+            this.touchState.lastTouchDistance = Math.hypot(b.x - a.x, b.y - a.y);
+            this.touchState.lastPinchCenter = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        }
+    }
+
+    handleTouchMove(e) {
+@@ -108,48 +139,49 @@ export class InputHandler {
+                const scale = dist / this.touchState.lastTouchDistance;
+                const newZoom = Math.min(3.0, this.game.camera.targetZoom * scale);
+                const centerX = (t1.clientX + t2.clientX) / 2;
+                const centerY = (t1.clientY + t2.clientY) / 2;
+                this.game.camera.zoomTo(newZoom, centerX, centerY);
+            }
+            this.touchState.lastTouchDistance = dist;
+        }
+    }
+
+    handleTouchEnd(e) {
+        e.preventDefault();
+        for (const t of e.changedTouches) {
+            this.touchState.activeTouches.delete(t.identifier);
+        }
+        if (this.touchState.activeTouches.size < 2) {
+            this.touchState.lastTouchDistance = null;
+            this.touchState.lastPinchCenter = null;
+        }
+        this.isDragging = false;
+    }
+
+    getInputState() {
+        return {
+            mousePos: this.mousePos,
+            isDragging: this.isDragging,
+            selectedTerritory: null,
+            isDragging: this.isDragging || this.isFleetDragging,
+            selectedTerritory: this.fleetSource,
+            fleetDragging: this.isFleetDragging,
+            currentState: 'idle'
+        };
+    }
+
+    update() {}
+
+    cleanup() {
+        if (!this.canvas) return;
+        this.canvas.removeEventListener('mousedown', this._onMouseDown);
+        this.canvas.removeEventListener('mousemove', this._onMouseMove);
+        this.canvas.removeEventListener('mouseup', this._onMouseUp);
+        this.canvas.removeEventListener('wheel', this._onWheel);
+        this.canvas.removeEventListener('contextmenu', this._onContextMenu);
+        this.canvas.removeEventListener('touchstart', this._onTouchStart);
+        this.canvas.removeEventListener('touchmove', this._onTouchMove);
+        this.canvas.removeEventListener('touchend', this._onTouchEnd);
+        this.canvas.removeEventListener('touchcancel', this._onTouchEnd);
+        this.canvas = null;
+        this.game = null;
+    }
+}
+client/src/game/StarThrone.js
++25
+-0
+
+@@ -2632,50 +2632,75 @@ export default class StarThrone {
+            const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+            const targetTerritory = this.findTerritoryAt(worldPos.x, worldPos.y);
+            
+            this.ctx.save();
+            
+            // Color-coded preview based on target validity
+            if (targetTerritory && targetTerritory.ownerId === this.humanPlayer?.id && 
+                targetTerritory.id !== this.dragStart.id) {
+                this.ctx.strokeStyle = '#00ff00'; // Green for valid supply route target
+                this.ctx.lineWidth = 3;
+            } else {
+                this.ctx.strokeStyle = '#ffff00'; // Yellow for neutral/unknown target
+                this.ctx.lineWidth = 2;
+            }
+            
+            this.ctx.globalAlpha = 0.8;
+            this.ctx.setLineDash([5, 5]);
+            
+            this.ctx.beginPath();
+            this.ctx.moveTo(this.dragStart.x, this.dragStart.y);
+            this.ctx.lineTo(worldPos.x, worldPos.y);
+            this.ctx.stroke();
+            
+            this.ctx.restore();
+        }
+
+        // Preview line for fleet dragging
+        if (this.inputHandler && this.inputHandler.isFleetDragging && this.inputHandler.fleetSource) {
+            const worldPos = this.camera.screenToWorld(this.inputHandler.mousePos.x, this.inputHandler.mousePos.y);
+            const targetTerritory = this.findTerritoryAt(worldPos.x, worldPos.y);
+
+            this.ctx.save();
+
+            if (targetTerritory && this.inputHandler.fleetSource.neighbors.includes(targetTerritory.id)) {
+                this.ctx.strokeStyle = targetTerritory.ownerId === this.humanPlayer?.id ? '#44ff44' : '#ff4444';
+                this.ctx.lineWidth = 3;
+            } else {
+                this.ctx.strokeStyle = '#ffffff';
+                this.ctx.lineWidth = 1;
+                this.ctx.setLineDash([5, 5]);
+            }
+
+            this.ctx.beginPath();
+            this.ctx.moveTo(this.inputHandler.fleetSource.x, this.inputHandler.fleetSource.y);
+            this.ctx.lineTo(worldPos.x, worldPos.y);
+            this.ctx.stroke();
+            this.ctx.setLineDash([]);
+
+            this.ctx.restore();
+        }
+    }
+    
+    renderProportionalDragUI() {
+        if (!this.isProportionalDrag || !this.proportionalDragStart) return;
+        
+        this.ctx.save();
+        
+        const territory = this.proportionalDragStart.territory;
+        const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+        const targetTerritory = this.findTerritoryAt(worldPos.x, worldPos.y);
+        
+        // Draw radial percentage indicator around source territory
+        const radius = territory.radius + 15;
+        const percentage = this.fleetPercentage;
+        
+        // Background circle
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        this.ctx.lineWidth = 8;
+        this.ctx.beginPath();
+        this.ctx.arc(territory.x, territory.y, radius, 0, Math.PI * 2);
+        this.ctx.stroke();
+        
+        // Percentage arc
+        const startAngle = -Math.PI / 2;
+        const endAngle = startAngle + (percentage * Math.PI * 2);
