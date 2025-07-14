@@ -110,11 +110,14 @@ export class LeftClickMover {
   };
 
   private onWheel = (e: WheelEvent) => {
+    // Only handle wheel events if we're actively dragging
     if (this.dragState?.active) {
+      e.preventDefault(); // Prevent zoom only when adjusting percent
       this.dragSendPercent = clamp(this.dragSendPercent + (e.deltaY < 0 ? 10 : -10), 10, 100);
       localStorage.setItem('st.sendPercent', String(this.dragSendPercent));
       this.game.ui?.showPercent?.(this.dragSendPercent);
     }
+    // Let the event bubble up to camera controls when not dragging
   };
 
   private rangeOverlayVisible = false;
