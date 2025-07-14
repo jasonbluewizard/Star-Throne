@@ -2664,22 +2664,33 @@ export default class StarThrone {
             const worldPos = this.camera.screenToWorld(this.inputHandler.mousePos.x, this.inputHandler.mousePos.y);
             const targetTerritory = this.findTerritoryAt(worldPos.x, worldPos.y);
 
+            const path = this.inputHandler.dragPath;
             this.ctx.save();
 
-            if (targetTerritory && this.inputHandler.fleetSource.neighbors.includes(targetTerritory.id)) {
-                this.ctx.strokeStyle = targetTerritory.ownerId === this.humanPlayer?.id ? '#44ff44' : '#ff4444';
-                this.ctx.lineWidth = 3;
+            const color = targetTerritory && targetTerritory.ownerId === this.humanPlayer?.id ? '#44ff44' : '#ff4444';
+
+            if (path && path.length > 1) {
+                this.ctx.strokeStyle = color;
+                this.ctx.lineWidth = 4;
+                this.ctx.beginPath();
+                for (let i = 0; i < path.length - 1; i++) {
+                    const a = this.gameMap.territories[path[i]];
+                    const b = this.gameMap.territories[path[i + 1]];
+                    if (!a || !b) continue;
+                    if (i === 0) this.ctx.moveTo(a.x, a.y);
+                    this.ctx.lineTo(b.x, b.y);
+                }
+                this.ctx.stroke();
             } else {
                 this.ctx.strokeStyle = '#ffffff';
                 this.ctx.lineWidth = 1;
                 this.ctx.setLineDash([5, 5]);
+                this.ctx.beginPath();
+                this.ctx.moveTo(this.inputHandler.fleetSource.x, this.inputHandler.fleetSource.y);
+                this.ctx.lineTo(worldPos.x, worldPos.y);
+                this.ctx.stroke();
+                this.ctx.setLineDash([]);
             }
-
-            this.ctx.beginPath();
-            this.ctx.moveTo(this.inputHandler.fleetSource.x, this.inputHandler.fleetSource.y);
-            this.ctx.lineTo(worldPos.x, worldPos.y);
-            this.ctx.stroke();
-            this.ctx.setLineDash([]);
 
             this.ctx.restore();
         } else if (this.inputHandler) {
