@@ -144,8 +144,8 @@ export class InputHandler {
                         winOdds = Math.min(0.9, Math.max(0.1, attackingArmies / (attackingArmies + defendingArmies)));
                     }
                     
-                    // Check if path exists (direct connection)
-                    const hasPath = this.fleetSource.neighbors.includes(target.id);
+                    // Check if path exists (direct connection) - handle type conversion
+                    const hasPath = this.fleetSource.neighbors.some(n => String(n) === String(target.id));
                     
                     this.game.dragPathPreviewCache[target.id] = {
                         isAttack,

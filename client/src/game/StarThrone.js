@@ -2637,6 +2637,77 @@ export default class StarThrone {
     }
     
     renderDragPreview() {
+        // Render new fleet drag preview from InputHandler
+        if (this.currentDragPreview) {
+            const preview = this.currentDragPreview;
+            if (!preview.source || !preview.target) return;
+            
+            this.ctx.save();
+            
+            // Draw line from source to target
+            const color = preview.isAttack ? '#ff0000' : '#00ff00';
+            const isDashed = !preview.hasPath;
+            
+            this.ctx.strokeStyle = color;
+            this.ctx.lineWidth = 3;
+            if (isDashed) {
+                this.ctx.setLineDash([10, 5]);
+            }
+            
+            this.ctx.beginPath();
+            this.ctx.moveTo(preview.source.x, preview.source.y);
+            this.ctx.lineTo(preview.target.x, preview.target.y);
+            this.ctx.stroke();
+            
+            // If no path, show "NO GO" message
+            if (!preview.hasPath) {
+                const midX = (preview.source.x + preview.target.x) / 2;
+                const midY = (preview.source.y + preview.target.y) / 2;
+                
+                this.ctx.fillStyle = 'rgba(255, 0, 0, 0.9)';
+                this.ctx.fillRect(midX - 40, midY - 15, 80, 30);
+                
+                this.ctx.fillStyle = '#ffffff';
+                this.ctx.font = 'bold 16px Arial';
+                this.ctx.textAlign = 'center';
+                this.ctx.textBaseline = 'middle';
+                this.ctx.fillText('NO PATH', midX, midY);
+            }
+            
+            // If attack, show combat preview
+            if (preview.isAttack && preview.hasPath) {
+                const attackingArmies = Math.floor(preview.source.armySize * 0.5);
+                const defendingArmies = preview.target.armySize;
+                
+                // Draw combat preview box near target
+                const boxX = preview.target.x + 40;
+                const boxY = preview.target.y - 30;
+                
+                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+                this.ctx.fillRect(boxX, boxY, 120, 60);
+                
+                this.ctx.strokeStyle = '#ff0000';
+                this.ctx.lineWidth = 2;
+                this.ctx.strokeRect(boxX, boxY, 120, 60);
+                
+                this.ctx.fillStyle = '#ffffff';
+                this.ctx.font = 'bold 14px Arial';
+                this.ctx.textAlign = 'left';
+                this.ctx.fillText(`ATK: ${attackingArmies}`, boxX + 10, boxY + 20);
+                this.ctx.fillText(`DEF: ${defendingArmies}`, boxX + 10, boxY + 40);
+                
+                // Win percentage
+                const winPercent = Math.round(preview.winOdds * 100);
+                this.ctx.fillStyle = winPercent > 60 ? '#00ff00' : winPercent > 40 ? '#ffff00' : '#ff0000';
+                this.ctx.font = 'bold 16px Arial';
+                this.ctx.textAlign = 'right';
+                this.ctx.fillText(`${winPercent}%`, boxX + 110, boxY + 30);
+            }
+            
+            this.ctx.restore();
+            return;
+        }
+        
         // Show drag preview when creating supply route
         if (this.isDraggingForSupplyRoute && this.dragStart) {
             const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
@@ -2665,85 +2736,7 @@ export default class StarThrone {
             this.ctx.restore();
         }
 
-        // Preview line for fleet dragging
-        if (this.inputHandler && this.inputHandler.isFleetDragging && this.inputHandler.fleetSource) {
-            console.log('🎨 Rendering fleet drag preview', {
-                isFleetDragging: this.inputHandler.isFleetDragging,
-                fleetSource: this.inputHandler.fleetSource.id,
-                mousePos: this.inputHandler.mousePos
-            });
-            const worldPos = this.camera.screenToWorld(this.inputHandler.mousePos.x, this.inputHandler.mousePos.y);
-            const targetTerritory = this.findTerritoryAt(worldPos.x, worldPos.y);
-
-            this.ctx.save();
-
-            let path = null;
-            if (targetTerritory) {
-                const key = targetTerritory.id;
-                if (!(key in this.dragPathPreviewCache)) {
-                    this.dragPathPreviewCache[key] = null;
-                    const fn = targetTerritory.ownerId === this.humanPlayer?.id ?
-                        this.pathfindingService.findShortestPath(
-                            this.inputHandler.fleetSource.id,
-                            targetTerritory.id,
-                            this.gameMap,
-                            this.humanPlayer.id
-                        ) : this.pathfindingService.findAttackPath(
-                            this.inputHandler.fleetSource.id,
-                            targetTerritory.id,
-                            this.gameMap,
-                            this.humanPlayer.id
-                        );
-                    fn.then(p => { this.dragPathPreviewCache[key] = p; }).catch(() => { this.dragPathPreviewCache[key] = null; });
-                }
-
-                path = this.dragPathPreviewCache[key];
-            }
-
-            if (path && path.length > 1) {
-                this.ctx.strokeStyle = targetTerritory.ownerId === this.humanPlayer?.id ? '#44ff44' : '#ff4444';
-                this.ctx.lineWidth = 4;
-                this.ctx.shadowColor = '#ffffaa';
-                this.ctx.shadowBlur = 8;
-                this.ctx.beginPath();
-                for (let i = 0; i < path.length - 1; i++) {
-                    const a = this.gameMap.territories[path[i]];
-                    const b = this.gameMap.territories[path[i + 1]];
-                    if (!a || !b) continue;
-                    if (i === 0) this.ctx.moveTo(a.x, a.y);
-                    this.ctx.lineTo(b.x, b.y);
-                }
-                this.ctx.stroke();
-                this.ctx.shadowBlur = 0;
-            } else {
-                // Fallback to direct line if no path found
-                if (targetTerritory && this.inputHandler.fleetSource.neighbors.includes(targetTerritory.id)) {
-                    this.ctx.strokeStyle = targetTerritory.ownerId === this.humanPlayer?.id ? '#44ff44' : '#ff4444';
-                    this.ctx.lineWidth = 3;
-                } else {
-                    this.ctx.strokeStyle = '#ffffff';
-                    this.ctx.lineWidth = 1;
-                    this.ctx.setLineDash([5, 5]);
-                }
-
-                this.ctx.beginPath();
-                this.ctx.moveTo(this.inputHandler.fleetSource.x, this.inputHandler.fleetSource.y);
-                this.ctx.lineTo(worldPos.x, worldPos.y);
-                this.ctx.stroke();
-                this.ctx.setLineDash([]);
-            }
-
-            this.ctx.restore();
-        } else if (this.inputHandler) {
-            // Debug when conditions aren't met
-            if (this.frameCount % 60 === 0 && (this.inputHandler.isFleetDragging || this.inputHandler.fleetSource)) {
-                console.log('🚫 Fleet drag preview NOT rendering:', {
-                    inputHandler: !!this.inputHandler,
-                    isFleetDragging: this.inputHandler.isFleetDragging,
-                    fleetSource: this.inputHandler.fleetSource
-                });
-            }
-        }
+        // Old fleet dragging code removed - using currentDragPreview system now
     }
     
     renderProportionalDragUI() {
@@ -2919,42 +2912,7 @@ export default class StarThrone {
     }
 
     renderDragCombatPreview() {
-        if (!this.inputHandler?.isFleetDragging || !this.inputHandler.fleetSource) return;
-
-        const from = this.inputHandler.fleetSource;
-        const worldPos = this.camera.screenToWorld(this.inputHandler.mousePos.x, this.inputHandler.mousePos.y);
-        const to = this.findTerritoryAt(worldPos.x, worldPos.y);
-        if (!to || to.id === from.id || to.ownerId === this.humanPlayer?.id) return;
-
-        const percentage = 0.75; // Attacks send 75% when dragging
-        const available = Math.max(0, from.armySize - 1);
-        const shipsToSend = Math.min(available, Math.max(1, Math.floor(from.armySize * percentage)));
-        const preview = this.combatSystem?.calculateCombatPreview(from, to, shipsToSend);
-        if (!preview) return;
-
-        const screenPos = this.camera.worldToScreen(to.x, to.y);
-        const padding = 6;
-        const lineHeight = 16;
-        this.ctx.save();
-        this.ctx.font = 'bold 12px Arial';
-        this.ctx.textAlign = 'center';
-
-        const bgWidth = 80;
-        const bgHeight = lineHeight * 2 + padding;
-        const bgX = screenPos.x - bgWidth / 2;
-        const bgY = screenPos.y - 50;
-
-        this.ctx.fillStyle = 'rgba(0,0,0,0.8)';
-        this.ctx.fillRect(bgX, bgY, bgWidth, bgHeight);
-        this.ctx.strokeStyle = preview.winChance >= 50 ? '#44ff44' : '#ff4444';
-        this.ctx.lineWidth = 2;
-        this.ctx.strokeRect(bgX, bgY, bgWidth, bgHeight);
-
-        this.ctx.fillStyle = '#ffffff';
-        this.ctx.fillText(`WIN ${preview.winChance}%`, screenPos.x, bgY + lineHeight);
-        this.ctx.fillText(`${shipsToSend} vs ${preview.defendingArmies}`, screenPos.x, bgY + lineHeight * 2);
-
-        this.ctx.restore();
+        // This method is now integrated into renderDragPreview() above
     }
     
     renderFloatingTexts() {
