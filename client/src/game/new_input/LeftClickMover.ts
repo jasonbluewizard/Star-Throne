@@ -21,6 +21,8 @@ export class LeftClickMover {
     this.game = game;
     this.canvas = game.canvas;
     this.dragSendPercent = opts.defaultPercent ?? 100;
+    const stored = localStorage.getItem('st.sendPercent');
+    this.dragSendPercent = stored ? parseInt(stored) : opts.defaultPercent ?? 100;
 
     this.bindHandlers();
   }
@@ -48,11 +50,15 @@ export class LeftClickMover {
     const { x, y } = this.getLocalPos(e);
     const p = this.pickTerritoryAt(x, y);
     if (p) {
-      if (e.shiftKey) this.toggleSelection(p.id);
-      else this.setSelection([p.id]);
-      this.dragState = { originIds: [...this.selected], startX: x, startY: y, active: false };
+      if (this.selected.length > 0 && !this.selected.includes(p.id) && !e.shiftKey) {
+        this.dragState = { originIds: [...this.selected], startX: x, startY: y, active: false, clickedDest: p.id };
+      } else {
+        if (e.shiftKey) this.toggleSelection(p.id);
+        else this.setSelection([p.id]);
+        this.dragState = { originIds: [...this.selected], startX: x, startY: y, active: false };
+      }
     } else {
-      this.boxSelectState = { x0: x, y0: y };
+      this.boxSelectState = { x0: x, y0: y, startTime: Date.now(), started: false };
     }
   };
 
@@ -63,6 +69,7 @@ export class LeftClickMover {
       const dy = y - this.dragState.startY;
       if (Math.hypot(dx, dy) > 8) {
         this.dragState.active = true;
+        delete this.dragState.clickedDest;
       }
     }
     if (this.dragState && this.dragState.active) {
@@ -72,35 +79,62 @@ export class LeftClickMover {
       // TODO: arrow preview drawing via game.ui
     }
     if (this.boxSelectState) {
-      this.boxSelectState.curX = x;
-      this.boxSelectState.curY = y;
-      // TODO: box select overlay
+      if (!this.boxSelectState.started) {
+        if (Date.now() - this.boxSelectState.startTime > 120) this.boxSelectState.started = true;
+      }
+      if (this.boxSelectState.started) {
+        this.boxSelectState.curX = x;
+        this.boxSelectState.curY = y;
+        this.game.ui?.drawBoxSelectOverlay?.(this.boxSelectState, { x, y });
+      }
     }
   };
 
   private onPointerUp = (e: PointerEvent) => {
     const { x, y } = this.getLocalPos(e);
     if (this.boxSelectState) {
-      this.finalizeBoxSelect(this.boxSelectState, x, y);
+      if (this.boxSelectState.started) {
+        this.finalizeBoxSelect(this.boxSelectState, x, y, e.ctrlKey);
+      }
       this.boxSelectState = null;
       return;
     }
-    if (this.dragState && this.dragState.active && this.dragState.hover) {
-      this.issueMoveOrder(this.dragState.originIds, this.dragState.hover.id, this.dragSendPercent);
+    if (this.dragState) {
+      if (this.dragState.active && this.dragState.hover) {
+        this.issueMoveOrder(this.dragState.originIds, this.dragState.hover.id, this.dragSendPercent);
+      } else if (!this.dragState.active && this.dragState.clickedDest) {
+        this.issueMoveOrder(this.dragState.originIds, this.dragState.clickedDest, this.dragSendPercent);
+      }
     }
     this.dragState = null;
   };
 
   private onWheel = (e: WheelEvent) => {
     if (this.dragState?.active) {
-      this.dragSendPercent = Math.min(100, Math.max(10, this.dragSendPercent + (e.deltaY < 0 ? 10 : -10)));
+      this.dragSendPercent = clamp(this.dragSendPercent + (e.deltaY < 0 ? 10 : -10), 10, 100);
+      localStorage.setItem('st.sendPercent', String(this.dragSendPercent));
+      this.game.ui?.showPercent?.(this.dragSendPercent);
     }
   };
 
   private rangeOverlayVisible = false;
   private onKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') this.dragState = null;
-    if (e.key === ' ') this.rangeOverlayVisible = true;
+    if (e.key === 'Escape') { this.cancelCurrentDrag(); return; }
+    if (e.key === ' ') {
+      this.rangeOverlayVisible = true;
+      return;
+    }
+    if (e.key === 'q') {
+      this.dragSendPercent = clamp(this.dragSendPercent - 10, 10, 100);
+    } else if (e.key === 'e') {
+      this.dragSendPercent = clamp(this.dragSendPercent + 10, 10, 100);
+    } else if (/^[1-9]$/.test(e.key)) {
+      this.dragSendPercent = parseInt(e.key) * 10;
+    } else {
+      return;
+    }
+    localStorage.setItem('st.sendPercent', String(this.dragSendPercent));
+    this.game.ui?.showPercent?.(this.dragSendPercent);
   };
   private onKeyUp = (e: KeyboardEvent) => {
     if (e.key === ' ') this.rangeOverlayVisible = false;
@@ -116,7 +150,7 @@ export class LeftClickMover {
     return this.game.findTerritoryAt(world.x, world.y);
   }
 
-  private finalizeBoxSelect(box: any, x: number, y: number) {
+  private finalizeBoxSelect(box: any, x: number, y: number, toggle: boolean) {
     const x1 = Math.min(box.x0, x);
     const y1 = Math.min(box.y0, y);
     const x2 = Math.max(box.x0, x);
@@ -128,7 +162,11 @@ export class LeftClickMover {
       const sy = this.game.camera.worldToScreenY(t.y);
       if (sx >= x1 && sx <= x2 && sy >= y1 && sy <= y2) ids.push(id);
     }
-    this.setSelection(ids);
+    if (toggle) {
+      for (const id of ids) this.toggleSelection(id);
+    } else {
+      this.setSelection(ids);
+    }
   }
 
   private setSelection(ids: number[]) {
@@ -143,13 +181,32 @@ export class LeftClickMover {
     if (this.game.ui?.flashSelection) this.game.ui.flashSelection(this.selected);
   }
 
+  private cancelCurrentDrag() {
+    this.dragState = null;
+    this.boxSelectState = null;
+  }
+
   private issueMoveOrder(originIds: number[], destId: number, percent: number) {
     const dest = this.game.gameMap.territories[destId];
+    const pid = this.game.humanPlayer?.id;
     for (const oId of originIds) {
       const from = this.game.gameMap.territories[oId];
+      const send = Math.max(1, Math.floor(from.armySize * percent / 100));
+      if (send <= 0) continue;
+
+      const path = this.game.rangePathfindingManager?.findRangePath(pid, oId, destId);
+      if (!path) {
+        this.game.ui?.flashError?.('Out of range');
+        continue;
+      }
+
       const pct = percent / 100;
       const attack = dest.ownerId !== this.game.humanPlayer.id;
       this.game.issueFleetCommand(from, dest, pct, attack);
+
+      from.armySize = Math.max(1, from.armySize - send);
+      this.game.launchLongRangeAttack(from, dest, send);
+      this.game.ui?.spawnOrderFx?.(oId, destId, send);
     }
   }
 
@@ -165,6 +222,10 @@ export class LeftClickMover {
   get showRangeOverlay() {
     return this.rangeOverlayVisible;
   }
+}
+
+function clamp(v: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, v));
 }
 
 export default LeftClickMover;
