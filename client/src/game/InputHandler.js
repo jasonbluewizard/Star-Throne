@@ -83,6 +83,7 @@ export class InputHandler {
 
         if (this.isFleetDragging) {
             // Just update position for preview
+            console.log('🎯 Fleet dragging - updating preview position');
         } else if (this.isDragging) {
             const dx = newPos.x - this.lastMousePos.x;
             const dy = newPos.y - this.lastMousePos.y;
@@ -117,6 +118,7 @@ export class InputHandler {
         this.isDragging = false;
         this.isFleetDragging = false;
         this.fleetSource = null;
+        console.log('🔚 Mouse up - fleet drag ended');
     }
 
     handleWheel(e) {

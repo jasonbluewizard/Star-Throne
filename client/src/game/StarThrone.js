@@ -2285,6 +2285,14 @@ export default class StarThrone {
         }
         
         this.renderDragPreview();
+        
+        // Debug: Check InputHandler state
+        if (this.inputHandler && this.frameCount % 30 === 0) {
+            const state = this.inputHandler.getInputState();
+            if (state.fleetDragging) {
+                console.log('🔍 InputHandler state:', state);
+            }
+        }
         this.renderProportionalDragUI();
         this.renderTransferPreview();
         
@@ -2653,6 +2661,11 @@ export default class StarThrone {
 
         // Preview line for fleet dragging
         if (this.inputHandler && this.inputHandler.isFleetDragging && this.inputHandler.fleetSource) {
+            console.log('🎨 Rendering fleet drag preview', {
+                isFleetDragging: this.inputHandler.isFleetDragging,
+                fleetSource: this.inputHandler.fleetSource.id,
+                mousePos: this.inputHandler.mousePos
+            });
             const worldPos = this.camera.screenToWorld(this.inputHandler.mousePos.x, this.inputHandler.mousePos.y);
             const targetTerritory = this.findTerritoryAt(worldPos.x, worldPos.y);
 
@@ -2674,6 +2687,15 @@ export default class StarThrone {
             this.ctx.setLineDash([]);
 
             this.ctx.restore();
+        } else if (this.inputHandler) {
+            // Debug when conditions aren't met
+            if (this.frameCount % 60 === 0 && (this.inputHandler.isFleetDragging || this.inputHandler.fleetSource)) {
+                console.log('🚫 Fleet drag preview NOT rendering:', {
+                    inputHandler: !!this.inputHandler,
+                    isFleetDragging: this.inputHandler.isFleetDragging,
+                    fleetSource: this.inputHandler.fleetSource
+                });
+            }
         }
     }
     
