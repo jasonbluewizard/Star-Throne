@@ -18,7 +18,6 @@ import { AnimationSystem } from './AnimationSystem';
 import { UIManager } from './UIManager';
 import { AIManager } from './AIManager';
 import FloodModeController from './FloodModeController';
-import Controls from './Controls';
 
 export default class StarThrone {
     constructor(config = {}) {
@@ -506,7 +505,6 @@ export default class StarThrone {
         this.animationSystem = new AnimationSystem(this);
         this.uiManager = new UIManager(this);
         this.aiManager = new AIManager(this);
-        this.controls = new Controls(this);
         this.floodController = new FloodModeController(this);
         
         // Flood mode buttons now integrated into GameUI instead of DOM elements
@@ -1071,13 +1069,6 @@ export default class StarThrone {
         const result = this.combatSystem.attackTerritory(tempAttackingTerritory, targetTerritory);
         console.log(`🔍 LONG-RANGE RESULT:`, result);
         
-        // Notify InputStateMachine about long-range battle outcome if there's a tracked battle
-        if (combat.battleId && this.inputHandler && this.inputHandler.inputFSM) {
-            // For long-range attacks, we need to check the battle outcome after it's resolved
-            // Since long-range uses delayed combat, check if territory ownership changed
-            const attackerWins = targetTerritory.ownerId === combat.fromOwnerId;
-            this.inputHandler.inputFSM.onBattleComplete(combat.battleId, attackerWins, sourceTerritory.id);
-        }
         
         if (result.success) {
             console.log(`🏆 Long-range attack successful! Territory ${targetTerritory.id} captured by player ${combat.fromOwnerId}`);
@@ -2110,9 +2101,6 @@ export default class StarThrone {
         }
         if (this.animationSystem) {
             this.animationSystem.update(deltaTime);
-        }
-        if (this.controls) {
-            this.controls.update(deltaTime);
         }
         
         // Update flood mode system for automated expansion
