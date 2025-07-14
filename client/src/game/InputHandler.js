@@ -258,7 +258,7 @@ export class InputHandler {
         }
         
         if (button === 0) { // Left click
-            // Toggle attack target on enemy or neutral stars
+            // Check if clicking on enemy/neutral territory to toggle "no go" status
             if (territory && territory.ownerId !== this.game.humanPlayer?.id) {
                 // Toggle no-go status for flood mode
                 if (this.game.floodController && this.game.humanPlayer) {
@@ -266,14 +266,6 @@ export class InputHandler {
                     const isNoGo = this.game.floodController.isNoGoZone(this.game.humanPlayer, territory.id);
                     this.game.showMessage(
                         `Territory ${territory.id} marked as ${isNoGo ? 'NO GO' : 'ALLOWED'}`,
-                        2000
-                    );
-                }
-                if (this.game.garrisonController && this.game.humanPlayer) {
-                    this.game.garrisonController.toggleAttackTarget(territory.id);
-                    const isTarget = this.game.garrisonController.isAttackTarget(territory.id);
-                    this.game.showMessage(
-                        `Territory ${territory.id} ${isTarget ? 'TARGETED' : 'IGNORED'}`,
                         2000
                     );
                     return;

@@ -204,12 +204,7 @@ export default class FloodModeController {
                 const t = this.game.gameMap.territories[tid];
                 if (!t) continue;
                 
-                // Use range-based pathfinding instead of neighbors
-                if (!this.game.rangePathfindingManager) continue;
-                
-                const reachableTerritories = this.game.rangePathfindingManager.getReachableTerritories(player.id, t.id);
-                
-                for (const nid of reachableTerritories) {
+                for (const nid of t.neighbors) {
                     const n = this.game.gameMap.territories[nid];
                     if (!n || n.ownerId === id) continue;
                     
@@ -237,15 +232,11 @@ export default class FloodModeController {
                                 continue; // Skip this attack
                             }
                             
-                            // Get path for multi-hop movement
-                            const path = this.game.rangePathfindingManager.findRangePath(player.id, t.id, nid);
-                            if (path && path.length > 0) {
-                                if (this.game.createShipAnimation)
-                                    this.game.createShipAnimation(t, n, true, send);
-                                this.game.combatSystem.attackTerritory(t, n, send);
-                                
-                                console.log(`🤖 FLOOD: Territory ${t.id} sent ${send} armies to ${n.id} (${originalArmies} → ${t.armySize})`);
-                            }
+                            if (this.game.createShipAnimation)
+                                this.game.createShipAnimation(t, n, true, send);
+                            this.game.combatSystem.attackTerritory(t, n, send);
+                            
+                            console.log(`🤖 FLOOD: Territory ${t.id} sent ${send} armies (${originalArmies} → ${t.armySize})`);
                         }
                     }
                 }

@@ -18,9 +18,7 @@ import { AnimationSystem } from './AnimationSystem';
 import { UIManager } from './UIManager';
 import { AIManager } from './AIManager';
 import FloodModeController from './FloodModeController';
-import GarrisonController from './GarrisonController';
 import Controls from './Controls';
-import { RangePathfindingManager } from './RangePathfindingManager';
 
 export default class StarThrone {
     constructor(config = {}) {
@@ -494,10 +492,10 @@ export default class StarThrone {
         this.camera.targetZoom = 0.25; // Zoom out further to see more territories
         this.camera.zoom = 0.25;
         
-        this.ui = new GameUI(this.canvas, this.camera, this);
+        this.ui = new GameUI(this.canvas, this.camera);
         
         // Initialize modular systems
-        // Don't initialize the old InputHandler - we'll use LeftClickMover instead
+        this.inputHandler = new InputHandler(this);
         this.renderer = new Renderer(this.canvas, this.camera, this);
         this.combatSystem = new CombatSystem(this);
         this.supplySystem = new SupplySystem(this);
@@ -510,47 +508,6 @@ export default class StarThrone {
         this.aiManager = new AIManager(this);
         this.controls = new Controls(this);
         this.floodController = new FloodModeController(this);
-        this.garrisonController = new GarrisonController(this);
-        this.garrisonController.showControls();
-        this.rangePathfindingManager = new RangePathfindingManager(this);
-        
-        // Load enhanced LeftClickMover input system  
-        try {
-            import('./new_input/LeftClickMover.ts').then(module => {
-                console.log('📦 LeftClickMover module loaded:', module);
-                
-                // The module exports as default, not named export
-                const LeftClickMoverClass = module.default || module.LeftClickMover;
-                
-                if (LeftClickMoverClass) {
-                    // Disable the old input handler if it exists
-                    if (this.inputHandler) {
-                        console.log('🔧 Cleaning up old InputHandler...');
-                        this.inputHandler.cleanup();
-                        this.inputHandler = null;
-                    }
-                    
-                    this.leftClickMover = new LeftClickMoverClass(this, { defaultPercent: 50 });
-                    console.log('✅ LeftClickMover initialized - enhanced multi-selection and drag controls active');
-                    console.log('🎮 Controls: SPACE=range overlay, Q/E=adjust %, Shift+Click=multi-select, Ctrl+Box=box select');
-                    
-                    // Add camera zoom handler since InputHandler is disabled
-                    this.setupCameraZoom();
-                } else {
-                    console.error('❌ LeftClickMover class not found in module');
-                    // Fallback to old input handler
-                    this.inputHandler = new InputHandler(this);
-                }
-            }).catch(err => {
-                console.error('⚠️ LeftClickMover failed to load:', err);
-                // Fallback to old input handler
-                this.inputHandler = new InputHandler(this);
-            });
-        } catch (err) {
-            console.error('⚠️ LeftClickMover import failed:', err);
-            // Fallback to old input handler
-            this.inputHandler = new InputHandler(this);
-        }
         
         // Flood mode buttons now integrated into GameUI instead of DOM elements
         
@@ -563,10 +520,6 @@ export default class StarThrone {
         this.gameStartTime = Date.now(); // Track when game actually starts
         this.detectLowPerformance(); // Check device capabilities
         this.startGame();
-        
-        // Initialize range pathfinding after territories are created
-        this.rangePathfindingManager.initialize();
-        
         this.gameLoop();
         
         // Create offscreen canvas for static elements (e.g., background stars/connections)
@@ -1903,7 +1856,6 @@ export default class StarThrone {
         
         // Create exactly one human player with distinctive bright cyan color
         this.humanPlayer = new Player(0, 'You', '#00ffff', 'human');
-        this.humanPlayer.setGame(this); // Give human player reference to game for range pathfinding
         this.players.push(this.humanPlayer);
         console.log(`🔍 HUMAN PLAYER CREATED: ID=${this.humanPlayer.id}, type=${this.humanPlayer.type}, total players now: ${this.players.length}`);
         // Consolidated duplicate initialization call
@@ -1933,7 +1885,6 @@ export default class StarThrone {
             // Generate human-like name with clan designation
             const aiName = AIManager.generateAIName(i - 1);
             const aiPlayer = new Player(i, aiName, playerColor, 'ai');
-            aiPlayer.setGame(this); // Give AI player reference to game for range pathfinding
             this.players.push(aiPlayer);
             // Consolidated duplicate initialization call
         }
@@ -2163,24 +2114,6 @@ export default class StarThrone {
         if (this.controls) {
             this.controls.update(deltaTime);
         }
-
-        if (this.garrisonController) {
-            this.garrisonController.update(deltaTime);
-        }
-        
-        // Update range pathfinding for players with upgraded ranges
-        if (this.rangePathfindingManager) {
-            for (const player of this.players) {
-                if (player.rangeLevel > 0) {
-                    // Range increases by 50 pixels per level
-                    const newRange = GAME_CONSTANTS.BASE_RANGE + (player.rangeLevel * 50);
-                    if (player.range !== newRange) {
-                        player.range = newRange;
-                        this.rangePathfindingManager.updatePlayerRange(player);
-                    }
-                }
-            }
-        }
         
         // Update flood mode system for automated expansion
         if (this.floodController) {
@@ -2357,10 +2290,10 @@ export default class StarThrone {
         this.renderNebulas();
         this.renderTerritories();
         
-        // No warp lanes - range-based movement only
-        // if (lodLevel >= 2) {
-        //     this.renderConnections();
-        // }
+        // Render connections based on LOD level
+        if (lodLevel >= 2) {
+            this.renderConnections();
+        }
         
         // Render supply routes for operational and tactical view
         if (lodLevel >= 2) {
@@ -4260,37 +4193,6 @@ export default class StarThrone {
         }
     }
     
-    /**
-     * Setup camera zoom handler when InputHandler is disabled
-     */
-    setupCameraZoom() {
-        if (!this.canvas || !this.camera) return;
-        
-        // Store bound handler for cleanup
-        this._cameraZoomHandler = (e) => {
-            // Only handle if LeftClickMover isn't using it
-            if (this.leftClickMover && this.leftClickMover.isDragging) {
-                return; // Let LeftClickMover handle it
-            }
-            
-            e.preventDefault();
-            
-            const rect = this.canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-            
-            const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-            const newZoom = Math.max(0.02, Math.min(8.0, this.camera.targetZoom * zoomFactor));
-            this.camera.zoomTo(newZoom, mouseX, mouseY);
-            
-            console.log('🔍 Camera zoom:', newZoom.toFixed(2));
-        };
-        
-        // Add wheel handler for camera zoom
-        this.canvas.addEventListener('wheel', this._cameraZoomHandler, { passive: false });
-        console.log('✅ Camera zoom handler added');
-    }
-    
     // Cleanup method to properly dispose of resources and prevent memory leaks
     cleanup() {
         console.log('🧹 StarThrone cleanup: Disposing of game resources...');
@@ -4310,17 +4212,6 @@ export default class StarThrone {
         // Clean up input handler (removes event listeners)
         if (this.inputHandler && typeof this.inputHandler.cleanup === 'function') {
             this.inputHandler.cleanup();
-        }
-        
-        // Clean up LeftClickMover
-        if (this.leftClickMover && typeof this.leftClickMover.cleanup === 'function') {
-            this.leftClickMover.cleanup();
-        }
-        
-        // Remove camera zoom handler
-        if (this._cameraZoomHandler && this.canvas) {
-            this.canvas.removeEventListener('wheel', this._cameraZoomHandler);
-            this._cameraZoomHandler = null;
         }
         
         // Clean up event system

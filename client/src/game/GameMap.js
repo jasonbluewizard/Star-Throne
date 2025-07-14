@@ -159,8 +159,31 @@ export class GameMap {
             attempts++;
         }
         
-        // No longer create warp lane connections - range-based movement only
-        // Each territory remains isolated, connections determined by player range
+        // Simple connection algorithm - connect nearby territories
+        territories.forEach(territory => {
+            const nearbyTerritories = territories.filter(other => {
+                if (other.id === territory.id) return false;
+                const distance = Math.hypot(other.x - territory.x, other.y - territory.y);
+                return distance <= this.connectionDistance;
+            });
+            
+            // Connect to 2-4 nearest neighbors to ensure connectivity
+            nearbyTerritories
+                .sort((a, b) => {
+                    const distA = Math.hypot(a.x - territory.x, a.y - territory.y);
+                    const distB = Math.hypot(b.x - territory.x, b.y - territory.y);
+                    return distA - distB;
+                })
+                .slice(0, 3) // Connect to 3 closest neighbors
+                .forEach(neighbor => {
+                    if (!territory.neighbors.includes(neighbor.id)) {
+                        territory.neighbors.push(neighbor.id);
+                    }
+                    if (!neighbor.neighbors.includes(territory.id)) {
+                        neighbor.neighbors.push(territory.id);
+                    }
+                });
+        });
         
         console.log(`⚡ Fast generated ${territories.length} territories in simplified layout`);
         console.log(`📐 Map dimensions: ${this.width} x ${this.height}`);

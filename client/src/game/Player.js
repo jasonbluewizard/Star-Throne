@@ -31,9 +31,6 @@ export class Player {
         this.isEliminated = false;
         this.score = 0;
         this.throneStarId = null; // ID of this player's throne star (starting planet)
-        this.range = GAME_CONSTANTS.BASE_RANGE; // Maximum jump distance for fleets
-        this.rangeLevel = 0; // Number of hyperdrive upgrades purchased
-        this.armyGenRate = 1;
         
         // Enhanced AI properties with state machine
         this.aiThinkTimer = 0;
@@ -65,10 +62,6 @@ export class Player {
     selectAIStrategy() {
         const strategies = ['aggressive', 'defensive', 'expansionist', 'opportunistic'];
         return strategies[Math.floor(Math.random() * strategies.length)];
-    }
-    
-    setGame(game) {
-        this.game = game;
     }
     
     /**
@@ -285,20 +278,13 @@ export class Player {
     }
     
     findAttackTargets(territory, gameMap) {
-        if (!territory || !gameMap || !gameMap.territories) {
+        if (!territory || !territory.neighbors || !gameMap || !gameMap.territories) {
             return [];
         }
         
-        // Use range-based pathfinding to find reachable territories
-        if (this.game && this.game.rangePathfindingManager) {
-            const reachableTerritories = this.game.rangePathfindingManager.getReachableTerritories(this.id, territory.id);
-            return reachableTerritories
-                .map(id => gameMap.territories[id])
-                .filter(neighbor => neighbor && neighbor !== null && neighbor !== undefined);
-        }
-        
-        // Fallback: if no pathfinding manager available, return empty array
-        return [];
+        return territory.neighbors
+            .map(id => gameMap.territories[id])
+            .filter(neighbor => neighbor && neighbor !== null && neighbor !== undefined);
     }
     
     calculateWinChance(attackingTerritory, defendingTerritory) {

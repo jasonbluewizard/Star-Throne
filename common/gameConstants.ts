@@ -19,8 +19,6 @@ export const GAME_CONSTANTS = {
     DEFAULT_MAP_SIZE_TERRITORIES: 200,
     INITIAL_COLONIZED_ARMY_SIZE: 1,
     INITIAL_STARTING_ARMY_SIZE: 50,
-    /** Base hyperdrive range for all players */
-    BASE_RANGE: 150,
 
     // Territory & Map Configuration
     TERRITORY_RADIUS: 25,

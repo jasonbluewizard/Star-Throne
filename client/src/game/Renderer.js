@@ -204,8 +204,66 @@ export class Renderer {
     }
     
     renderConnections(gameMap, players = []) {
-        // No warp lanes to render - range-based movement only
-        return;
+        this.ctx.save();
+        this.ctx.strokeStyle = GAME_CONSTANTS.CONNECTION_COLOR;
+        this.ctx.lineWidth = 1;
+        this.ctx.globalAlpha = 0.6;
+        
+        const renderedConnections = new Set();
+        
+        for (const territory of Object.values(gameMap.territories)) {
+            if (!territory.isVisible) continue;
+            
+            for (const neighborId of territory.neighbors) {
+                const neighbor = gameMap.territories[neighborId];
+                if (!neighbor || !neighbor.isVisible) continue;
+                
+                // Avoid duplicate rendering
+                const connectionKey = territory.id < neighborId ? 
+                    `${territory.id}-${neighborId}` : `${neighborId}-${territory.id}`;
+                
+                if (renderedConnections.has(connectionKey)) continue;
+                renderedConnections.add(connectionKey);
+                
+                // FOG OF WAR: Show star lanes if either:
+                // 1. At least one end is owned by the human player (current visibility)
+                // 2. The lane was previously discovered (permanent knowledge)
+                const humanPlayerId = this.game?.humanPlayer?.id;
+                const territoryOwnedByPlayer = territory.ownerId === humanPlayerId;
+                const neighborOwnedByPlayer = neighbor.ownerId === humanPlayerId;
+                const laneDiscovered = this.game?.discoveredLanes?.has(connectionKey);
+                
+                if (!(territoryOwnedByPlayer || neighborOwnedByPlayer || laneDiscovered)) { // Consolidated negative conditions using De Morgan's law
+                    // Neither territory is owned by player AND lane not previously discovered
+                    continue;
+                }
+                
+                // Add newly visible lanes to permanent discovery
+                if ((territoryOwnedByPlayer || neighborOwnedByPlayer) && !laneDiscovered && this.game?.discoveredLanes) {
+                    this.game.discoveredLanes.add(connectionKey);
+                    console.log(`🗺️ Star lane discovered: ${territory.id} ↔ ${neighborId}`);
+                }
+                
+                // Color connections between same-owned territories
+                if (territory.ownerId && territory.ownerId === neighbor.ownerId) {
+                    const player = this.findPlayerById(territory.ownerId);
+                    this.ctx.strokeStyle = player?.color || GAME_CONSTANTS.CONNECTION_COLOR;
+                    this.ctx.lineWidth = 2;
+                    this.ctx.globalAlpha = 0.8;
+                } else {
+                    this.ctx.strokeStyle = GAME_CONSTANTS.CONNECTION_COLOR;
+                    this.ctx.lineWidth = 1;
+                    this.ctx.globalAlpha = 0.6;
+                }
+                
+                this.ctx.beginPath();
+                this.ctx.moveTo(territory.x, territory.y);
+                this.ctx.lineTo(neighbor.x, neighbor.y);
+                this.ctx.stroke();
+            }
+        }
+        
+        this.ctx.restore();
     }
     
     renderSupplyRoutes(supplyRoutes) {
@@ -685,126 +743,7 @@ export class Renderer {
     
     renderUI(gameData) {
         // UI rendering is handled by the GameUI class
-        if (this.game.ui) {
-            this.game.ui.render(this.ctx, gameData);
-        }
-        
-        // Render LeftClickMover overlays
-        if (this.game.leftClickMover) {
-            // Render box select overlay
-            if (this.game.leftClickMover.boxSelectState && this.game.leftClickMover.boxSelectState.started) {
-                this.game.ui.drawBoxSelectOverlay(this.game.leftClickMover.boxSelectState, null);
-            }
-            
-            // Render range overlay if visible
-            if (this.game.leftClickMover.showRangeOverlay && gameData.humanPlayer) {
-                this.renderRangeOverlay(gameData.humanPlayer);
-            }
-            
-            // Render drag arrow preview
-            if (this.game.leftClickMover.dragState && this.game.leftClickMover.dragState.active) {
-                this.renderLeftClickMoverDragPreview(this.game.leftClickMover.dragState);
-            }
-        }
-    }
-    
-    renderRangeOverlay(humanPlayer) {
-        this.ctx.save();
-        
-        // Semi-transparent overlay
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // Get human player's range level
-        const baseRange = GAME_CONSTANTS.BASE_RANGE || 150;
-        const rangeBonus = (humanPlayer.rangeLevel || 0) * 50;
-        const totalRange = baseRange + rangeBonus;
-        
-        // Highlight territories in range
-        this.ctx.save();
-        this.camera.applyTransform(this.ctx);
-        
-        for (const selectedId of this.game.leftClickMover.selectedTerritories) {
-            const territory = this.game.gameMap.territories[selectedId];
-            if (!territory) continue;
-            
-            // Draw range circle
-            this.ctx.strokeStyle = '#00ff00';
-            this.ctx.lineWidth = 2;
-            this.ctx.beginPath();
-            this.ctx.arc(territory.x, territory.y, totalRange, 0, Math.PI * 2);
-            this.ctx.stroke();
-        }
-        
-        this.ctx.restore();
-        
-        // Range text
-        this.ctx.font = 'bold 24px Arial';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillStyle = '#00ff00';
-        this.ctx.fillText(`Range: ${totalRange}px`, this.canvas.width / 2, 50);
-        
-        this.ctx.restore();
-    }
-    
-    renderLeftClickMoverDragPreview(dragState) {
-        if (!dragState.curX || !dragState.curY) return;
-        
-        // Draw arrow from selected territories to mouse position
-        this.ctx.save();
-        this.camera.applyTransform(this.ctx);
-        
-        const worldPos = this.camera.screenToWorld(dragState.curX, dragState.curY);
-        
-        for (const originId of dragState.originIds) {
-            const origin = this.game.gameMap.territories[originId];
-            if (!origin) continue;
-            
-            // Determine color based on target
-            let color = '#00ff00'; // Default transfer
-            if (dragState.hover) {
-                if (dragState.hover.ownerId !== this.game.humanPlayer.id) {
-                    color = '#ff0000'; // Attack
-                }
-            }
-            
-            // Draw arrow
-            this.ctx.strokeStyle = color;
-            this.ctx.lineWidth = 3;
-            this.ctx.beginPath();
-            this.ctx.moveTo(origin.x, origin.y);
-            this.ctx.lineTo(worldPos.x, worldPos.y);
-            this.ctx.stroke();
-            
-            // Arrowhead
-            const angle = Math.atan2(worldPos.y - origin.y, worldPos.x - origin.x);
-            const arrowLength = 20;
-            const arrowAngle = Math.PI / 6;
-            
-            this.ctx.fillStyle = color;
-            this.ctx.beginPath();
-            this.ctx.moveTo(worldPos.x, worldPos.y);
-            this.ctx.lineTo(
-                worldPos.x - arrowLength * Math.cos(angle - arrowAngle),
-                worldPos.y - arrowLength * Math.sin(angle - arrowAngle)
-            );
-            this.ctx.lineTo(
-                worldPos.x - arrowLength * Math.cos(angle + arrowAngle),
-                worldPos.y - arrowLength * Math.sin(angle + arrowAngle)
-            );
-            this.ctx.closePath();
-            this.ctx.fill();
-        }
-        
-        this.ctx.restore();
-        
-        // Show percent being sent
-        if (this.game.leftClickMover.dragSendPercent) {
-            this.ctx.font = 'bold 24px Arial';
-            this.ctx.textAlign = 'center';
-            this.ctx.fillStyle = '#ffffff';
-            this.ctx.fillText(`${this.game.leftClickMover.dragSendPercent}%`, dragState.curX, dragState.curY - 20);
-        }
+        // This method exists for extensibility
     }
     
     // Helper methods

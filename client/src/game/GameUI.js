@@ -1,8 +1,7 @@
 export class GameUI {
-    constructor(canvas, camera, game) {
+    constructor(canvas, camera) {
         this.canvas = canvas;
         this.camera = camera;
-        this.game = game;
         
         // UI state
         this.showLeaderboard = true;
@@ -259,9 +258,6 @@ export class GameUI {
         if (humanPlayer && humanPlayer.territories.length === 0) {
             this.renderGameOverScreen(ctx, gameData);
         }
-        
-        // Render LeftClickMover UI elements (selection, errors, percent display)
-        this.renderLeftClickMoverUI(ctx);
     }
     
     renderEndGameUI(ctx, gameData) {
@@ -1833,108 +1829,5 @@ export class GameUI {
         ctx.fillText('CLICK TARGET STAR TO REINFORCE', this.canvas.width / 2, 75);
         
         ctx.restore();
-    }
-    
-    // Methods for LeftClickMover support
-    flashSelection(territoryIds) {
-        // Flash selected territories with a glow effect
-        if (!this.selectedFlashTime) {
-            this.selectedFlashTime = Date.now();
-        }
-        this.selectedTerritories = territoryIds || [];
-    }
-    
-    flashError(message) {
-        this.errorMessage = {
-            text: message,
-            timeout: Date.now() + 2000
-        };
-    }
-    
-    showPercent(percent) {
-        this.percentDisplay = {
-            value: percent,
-            timeout: Date.now() + 2000
-        };
-    }
-    
-    drawBoxSelectOverlay(boxState, mousePos) {
-        const ctx = this.canvas.getContext('2d');
-        if (!ctx || !boxState || !boxState.started) return;
-        
-        const x1 = Math.min(boxState.x0, boxState.curX);
-        const y1 = Math.min(boxState.y0, boxState.curY);
-        const width = Math.abs(boxState.curX - boxState.x0);
-        const height = Math.abs(boxState.curY - boxState.y0);
-        
-        ctx.save();
-        ctx.strokeStyle = '#00ff00';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([5, 5]);
-        ctx.strokeRect(x1, y1, width, height);
-        ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
-        ctx.fillRect(x1, y1, width, height);
-        ctx.restore();
-    }
-    
-    spawnOrderFx(fromId, toId, amount) {
-        // Visual effect for fleet orders
-        const from = this.game?.gameMap?.territories[fromId];
-        const to = this.game?.gameMap?.territories[toId];
-        if (!from || !to) return;
-        
-        // Add floating text at source
-        if (this.game?.floatingTexts) {
-            this.game.floatingTexts.push({
-                x: from.x,
-                y: from.y,
-                text: `-${amount}`,
-                color: '#ff0000',
-                startTime: Date.now(),
-                duration: 1000
-            });
-        }
-    }
-    
-    // Render LeftClickMover UI elements
-    renderLeftClickMoverUI(ctx) {
-        // Render selected territories flash
-        if (this.selectedTerritories && this.selectedTerritories.length > 0) {
-            const flashAlpha = 0.3 + 0.2 * Math.sin((Date.now() - (this.selectedFlashTime || 0)) * 0.01);
-            ctx.save();
-            ctx.strokeStyle = `rgba(0, 255, 255, ${flashAlpha})`;
-            ctx.lineWidth = 3;
-            
-            for (const id of this.selectedTerritories) {
-                const territory = this.game?.gameMap?.territories[id];
-                if (territory) {
-                    const screenPos = this.camera.worldToScreen(territory.x, territory.y);
-                    ctx.beginPath();
-                    ctx.arc(screenPos.x, screenPos.y, 35, 0, Math.PI * 2);
-                    ctx.stroke();
-                }
-            }
-            ctx.restore();
-        }
-        
-        // Render error message
-        if (this.errorMessage && this.errorMessage.timeout > Date.now()) {
-            ctx.save();
-            ctx.font = 'bold 24px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillStyle = '#ff0000';
-            this.renderTextWithShadow(ctx, this.errorMessage.text, this.canvas.width / 2, this.canvas.height - 100, '#ff0000');
-            ctx.restore();
-        }
-        
-        // Render percent display
-        if (this.percentDisplay && this.percentDisplay.timeout > Date.now()) {
-            ctx.save();
-            ctx.font = 'bold 36px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillStyle = '#00ff00';
-            this.renderTextWithShadow(ctx, `${this.percentDisplay.value}%`, this.canvas.width / 2, this.canvas.height / 2 - 50, '#00ff00');
-            ctx.restore();
-        }
     }
 }

@@ -7,10 +7,6 @@ export interface PlayerState {
   type: 'human' | 'ai';
   socketId?: string;
   territories: number[];
-  /** Maximum jump distance for fleets */
-  range: number;
-  /** Number of hyperdrive upgrades purchased */
-  rangeLevel: number;
   armyGenRate: number;
   totalArmies: number;
   territoriesOwned: number;
