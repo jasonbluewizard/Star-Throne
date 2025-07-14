@@ -2,6 +2,12 @@ export class InputHandler {
     constructor(game) {
         this.game = game;
         this.canvas = game.canvas;
+        console.log('🔧 InputHandler constructor:', {
+            hasGame: !!game,
+            hasCanvas: !!game.canvas,
+            canvasId: game.canvas?.id,
+            canvasWidth: game.canvas?.width
+        });
         this.mousePos = { x: 0, y: 0 };
         this.lastMousePos = { x: 0, y: 0 };
         this.isDragging = false;

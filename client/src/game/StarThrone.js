@@ -495,6 +495,7 @@ export default class StarThrone {
         
         // Initialize modular systems
         this.inputHandler = new InputHandler(this);
+        console.log('🎮 InputHandler created in StarThrone');
         this.renderer = new Renderer(this.canvas, this.camera, this);
         this.combatSystem = new CombatSystem(this);
         this.supplySystem = new SupplySystem(this);
@@ -1627,18 +1628,7 @@ export default class StarThrone {
         // Initialize canvas rect cache
         this.getCachedCanvasRect();
         
-        // Also add document-level listeners to catch events outside canvas
-        document.addEventListener('touchmove', (e) => {
-            if (e.target === this.canvas) {
-                e.preventDefault();
-            }
-        }, { passive: false });
-        
-        document.addEventListener('touchstart', (e) => {
-            if (e.target === this.canvas) {
-                e.preventDefault();
-            }
-        }, { passive: false });
+        // Document-level listeners now handled by InputHandler
         
         // Enhanced touch state tracking for better pinch-to-zoom
         this.touchStartTime = 0;
@@ -3907,8 +3897,8 @@ export default class StarThrone {
         this.players.forEach(player => player.updateStats());
     }
     
-    // Touch event handlers for mobile
-    handleTouchStart(e) {
+    // Touch event handlers for mobile - DISABLED: Now handled by InputHandler
+    handleTouchStart_DISABLED(e) {
         e.preventDefault();
         
         this.touchStartTime = Date.now();
@@ -3970,7 +3960,7 @@ export default class StarThrone {
         }
     }
     
-    handleTouchMove(e) {
+    handleTouchMove_DISABLED(e) {
         e.preventDefault();
         const rect = this.canvas.getBoundingClientRect();
         
@@ -4064,7 +4054,7 @@ export default class StarThrone {
         }
     }
     
-    handleTouchEnd(e) {
+    handleTouchEnd_DISABLED(e) {
         e.preventDefault();
         const touchDuration = Date.now() - this.touchStartTime;
         console.log('Touch end:', e.touches.length, 'remaining touches, duration:', touchDuration);
