@@ -156,8 +156,15 @@ export class InputHandler {
                 sourceArmies: this.fleetSource.armySize
             });
             if (target && target.id !== this.fleetSource.id) {
-                console.log('🚀 Issuing fleet command from', this.fleetSource.id, 'to', target.id);
-                this.game.issueFleetCommand(this.fleetSource, target, 0.5);
+                // Determine if this is an attack or transfer
+                const isAttack = target.ownerId !== this.game.humanPlayer?.id;
+                console.log('🚀 Issuing fleet command from', this.fleetSource.id, 'to', target.id, 'isAttack:', isAttack);
+                console.log('🔍 Target owner:', target.ownerId, 'Human player:', this.game.humanPlayer?.id);
+                
+                // Call async method properly
+                this.game.issueFleetCommand(this.fleetSource, target, 0.5, isAttack).catch(err => {
+                    console.error('❌ Fleet command failed:', err);
+                });
             }
         }
 

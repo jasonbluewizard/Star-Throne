@@ -2137,7 +2137,7 @@ export default class StarThrone {
         
         // MANUAL DEBUG: Run validation every 60 frames for debugging
         if (this.frameCount % 60 === 0) {
-            console.log(`🔍 DEBUG: AI players: ${this.players.filter(p => p.type === 'ai').length}, Human players: ${this.players.filter(p => p.type === 'human').length}, Total: ${this.players.length}`);
+            // console.log(`🔍 DEBUG: AI players: ${this.players.filter(p => p.type === 'ai').length}, Human players: ${this.players.filter(p => p.type === 'human').length}, Total: ${this.players.length}`);
             this.validateThroneStars();
         }
         
@@ -4164,7 +4164,7 @@ export default class StarThrone {
      * Validates throne star assignments and fixes double throne star bugs
      */
     validateThroneStars() {
-        console.log('🔍 THRONE VALIDATION: Starting validation...');
+        // console.log('🔍 THRONE VALIDATION: Starting validation...');
         
         // Count throne stars per player
         const playerThroneCount = new Map();
@@ -4185,8 +4185,8 @@ export default class StarThrone {
             }
         }
         
-        console.log(`🔍 THRONE VALIDATION: Found ${allThrones.length} throne stars:`, allThrones);
-        console.log(`🔍 THRONE VALIDATION: Player throne counts:`, Array.from(playerThroneCount.entries()));
+        // console.log(`🔍 THRONE VALIDATION: Found ${allThrones.length} throne stars:`, allThrones);
+        // console.log(`🔍 THRONE VALIDATION: Player throne counts:`, Array.from(playerThroneCount.entries()));
         
         // Fix players with multiple throne stars
         let fixed = false;
@@ -4215,7 +4215,7 @@ export default class StarThrone {
         }
         
         if (!fixed) {
-            console.log('🔍 THRONE VALIDATION: No fixes needed, all players have single throne stars');
+            // console.log('🔍 THRONE VALIDATION: No fixes needed, all players have single throne stars');
         }
     }
     

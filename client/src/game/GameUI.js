@@ -775,7 +775,7 @@ export class GameUI {
             return;
         }
         
-        console.log('🔍 DEBUG: Human player discoveries found:', discoveries);
+        // console.log('🔍 DEBUG: Human player discoveries found:', discoveries);
         
         // Count active discoveries (with safety checks)
         let discoveryCount = 0;
