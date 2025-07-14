@@ -23,6 +23,8 @@ export class InputHandler {
         this.isFleetDragging = false;
         this.fleetSource = null;
         this.hoveredTerritory = null;
+        this.dragPath = null;
+        this.lastTargetId = null;
 
         this.touchState = {
             activeTouches: new Map(),
@@ -107,6 +109,8 @@ export class InputHandler {
             this.isFleetDragging = true;
             this.fleetSource = territory;
             this.isDragging = false;
+            this.dragPath = null;
+            this.lastTargetId = null;
             console.log('🚀 Fleet drag started for player territory', territory.id);
         } else {
             // Start panning the map
@@ -120,7 +124,32 @@ export class InputHandler {
         const newPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
 
         if (this.isFleetDragging) {
-            // Just update position for preview
+            // Update path highlight when dragging fleets
+            const worldPos = this.game.camera.screenToWorld(newPos.x, newPos.y);
+            const target = this.game.findTerritoryAt(worldPos.x, worldPos.y);
+            if (target) {
+                if (target.id !== this.lastTargetId) {
+                    this.lastTargetId = target.id;
+                    const isFriendly = target.ownerId === this.game.humanPlayer?.id;
+                    const promise = isFriendly
+                        ? this.game.pathfindingService.findShortestPath(
+                            this.fleetSource.id,
+                            target.id,
+                            this.game.gameMap,
+                            this.game.humanPlayer.id
+                        )
+                        : this.game.pathfindingService.findAttackPath(
+                            this.fleetSource.id,
+                            target.id,
+                            this.game.gameMap,
+                            this.game.humanPlayer.id
+                        );
+                    promise.then(path => { this.dragPath = path; }).catch(() => { this.dragPath = null; });
+                }
+            } else {
+                this.dragPath = null;
+                this.lastTargetId = null;
+            }
             console.log('🎯 Fleet dragging - updating preview position');
         } else if (this.isDragging) {
             const dx = newPos.x - this.lastMousePos.x;
@@ -171,6 +200,8 @@ export class InputHandler {
         this.isDragging = false;
         this.isFleetDragging = false;
         this.fleetSource = null;
+        this.dragPath = null;
+        this.lastTargetId = null;
         console.log('🔚 Mouse up - fleet drag ended');
     }
 
@@ -242,6 +273,7 @@ export class InputHandler {
             selectedTerritory: this.isFleetDragging ? null : null, // Don't show selected territory during fleet drag
             fleetDragging: this.isFleetDragging,
             fleetSource: this.fleetSource,
+            dragPath: this.dragPath,
             currentState: 'idle'
         };
     }
