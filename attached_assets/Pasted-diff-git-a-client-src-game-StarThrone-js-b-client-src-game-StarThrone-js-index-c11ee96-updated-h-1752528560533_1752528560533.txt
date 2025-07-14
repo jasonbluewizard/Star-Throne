@@ -1,0 +1,111 @@
+diff --git a/client/src/game/StarThrone.js b/client/src/game/StarThrone.js
+index c11ee96..updated_hash 100644
+--- a/client/src/game/StarThrone.js
++++ b/client/src/game/StarThrone.js
+@@ -50,6 +50,9 @@ export default class StarThrone {
+         this.discoveryLog = []; // Recent discovery announcements for panel display
+         
+         // Ship funneling system
++        this.dragPathCache = new Map(); // Cache for drag preview paths: `${sourceId}-${targetId}` -> path array
++        this.automationEnabled = false; // Automation disabled by default as clarified
++
+         this.supplyRoutes = new Map(); // territoryId -> { targetId, path, delay }
+         this.dragStart = null;
+         this.dragEnd = null;
+@@ -280,6 +283,7 @@ export default class StarThrone {
+         this.supplySystem = null;
+         
+         // Legacy properties for backward compatibility
++        // Note: Automation features like auto-supply are disabled by default
+         this.hoveredTerritory = null;
+         
+         // Performance
+@@ -1020,6 +1024,7 @@ export default class StarThrone {
+     }
+     
+     handleMouseDown(e) {
++        this.dragPathCache.clear(); // Reset preview cache on drag start
+         // Existing code...
+         if (this.inputHandler) {
+             this.inputHandler.handleMouseDown(e);
+@@ -1030,6 +1035,7 @@ export default class StarThrone {
+     }
+     
+     handleMouseUp(e) {
++        // Optionally clear cache on end, but since per drag, already cleared on start
+         // Existing code...
+         if (this.inputHandler) {
+             this.inputHandler.handleMouseUp(e);
+@@ -1500,6 +1506,45 @@ export default class StarThrone {
+         // Existing render code...
+     }
+     
++    getDragPath(sourceId, targetId) {
++        const cacheKey = `${sourceId}-${targetId}`;
++        if (this.dragPathCache.has(cacheKey)) {
++            return this.dragPathCache.get(cacheKey);
++        }
++        
++        // Compute path using BFS or A* on territory graph
++        const path = this.computePath(sourceId, targetId); // Assume existing or add pathfinding method
++        if (path) {
++            this.dragPathCache.set(cacheKey, path);
++        }
++        return path;
++    }
++    
++    computePath(sourceId, targetId) {
++        // Implement BFS pathfinding on owned territories
++        // For simplicity, assuming territories have neighbors
++        const source = this.gameMap.territories[sourceId];
++        const target = this.gameMap.territories[targetId];
++        // BFS code here...
++        // Return array of territories or null if no path
++        return []; // Placeholder
++    }
++    
++    getCombatPreview(attackerArmy, defenderArmy) {
++        // Simple win odds estimation
++        const attackPower = attackerArmy * GAME_CONSTANTS.COMBAT_ATTACKER_MODIFIER;
++        const defensePower = defenderArmy * GAME_CONSTANTS.COMBAT_DEFENDER_MODIFIER;
++        const winChance = (attackPower / (attackPower + defensePower)) * 100;
++        return Math.round(winChance);
++    }
++    
++    renderDragPreview() {
++        if (this.dragStart && this.hoveredTerritory) {
++            const path = this.getDragPath(this.dragStart.id, this.hoveredTerritory.id);
++            if (!path || path.length === 0) {
++                this.addNotification('No warp-lane path available', '#ff4444');
++                return;
++            }
++            // Draw path preview
++            // If enemy, draw combat preview
++            if (this.hoveredTerritory.ownerId !== this.humanPlayer.id) {
++                const previewArmy = Math.floor(this.dragStart.armySize / 2); // Assume half send
++                const odds = this.getCombatPreview(previewArmy, this.hoveredTerritory.armySize);
++                // Render odds text near hover
++                this.ctx.fillText(`${odds}% win chance`, hoverX, hoverY);
++            }
++        }
++    }
+     
+     // In gameLoop or render
+     render() {
+@@ -2000,6 +2045,13 @@ export default class StarThrone {
+         // When sending fleet
+         sendFleet(from, to, amount) {
+             const path = this.computePath(from.id, to.id);
++            if (!path || path.length === 0) {
++                this.addNotification('Cannot launch fleet: No warp-lane path exists', '#ff4444');
++                return; // Cancel command
++            }
++            // Proceed with launch
++        }
++        
++        // Call renderDragPreview in appropriate render section
+     }
+ }
+ 
+@@ -3000,4 +3052,4 @@ export default class StarThrone {
+ // Additional methods as needed for pathfinding implementation
