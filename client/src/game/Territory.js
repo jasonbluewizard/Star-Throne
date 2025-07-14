@@ -98,14 +98,19 @@ export class Territory {
             return;
         }
         
-        // Find all adjacent friendly territories (send to them even if they're full)
-        const allNeighbors = this.neighbors.map(id => game.gameMap.territories[id]).filter(t => t);
-        const friendlyNeighbors = allNeighbors.filter(t => t.ownerId === this.ownerId);
+        // Find all range-reachable friendly territories using the pathfinding manager
+        let friendlyNeighbors = [];
+        if (game.rangePathfindingManager && owner.id !== null) {
+            const reachableIds = game.rangePathfindingManager.getReachableTerritories(owner.id, this.id);
+            friendlyNeighbors = reachableIds
+                .map(id => game.gameMap.territories[id])
+                .filter(t => t && t.ownerId === this.ownerId && t.id !== this.id);
+        }
         
-        console.log(`🔍 OVERFLOW NEIGHBORS: Territory ${this.id} has ${allNeighbors.length} total neighbors, ${friendlyNeighbors.length} friendly`);
+        console.log(`🔍 OVERFLOW REACHABLE: Territory ${this.id} has ${friendlyNeighbors.length} friendly territories within range`);
         
         if (friendlyNeighbors.length === 0) {
-            console.log(`❌ OVERFLOW BLOCKED: Territory ${this.id} has no friendly neighbors at all`);
+            console.log(`❌ OVERFLOW BLOCKED: Territory ${this.id} has no friendly territories within range`);
             return;
         }
         
