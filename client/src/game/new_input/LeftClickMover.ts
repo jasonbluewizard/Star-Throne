@@ -136,6 +136,7 @@ export class LeftClickMover {
     localStorage.setItem('st.sendPercent', String(this.dragSendPercent));
     this.game.ui?.showPercent?.(this.dragSendPercent);
   };
+  
   private onKeyUp = (e: KeyboardEvent) => {
     if (e.key === ' ') this.rangeOverlayVisible = false;
   };
@@ -150,7 +151,7 @@ export class LeftClickMover {
     return this.game.findTerritoryAt(world.x, world.y);
   }
 
-  private finalizeBoxSelect(box: any, x: number, y: number, toggle: boolean) {
+  private finalizeBoxSelect(box: any, x: number, y: number, toggle: boolean = false) {
     const x1 = Math.min(box.x0, x);
     const y1 = Math.min(box.y0, y);
     const x2 = Math.max(box.x0, x);
