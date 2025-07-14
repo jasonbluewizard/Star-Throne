@@ -10,7 +10,11 @@ export class RangePathfindingManager {
     initialize() {
         if (!this.game.gameMap || !this.game.gameMap.territories) return;
 
-        const territories = this.game.gameMap.territories;
+        // Convert territories object to array if needed
+        const territories = Array.isArray(this.game.gameMap.territories) 
+            ? this.game.gameMap.territories 
+            : Object.values(this.game.gameMap.territories);
+            
         const positions = territories.map(t => ({ x: t.x, y: t.y }));
         
         this.distanceMatrix = buildDistanceMatrix(positions);
@@ -32,7 +36,17 @@ export class RangePathfindingManager {
         const adjacencyList = this.playerAdjacencyLists.get(playerId);
         if (!adjacencyList) return null;
 
-        return findPath(adjacencyList, fromTerritoryId, toTerritoryId);
+        // Find the array indices for the territory IDs
+        const territories = Array.isArray(this.game.gameMap.territories) 
+            ? this.game.gameMap.territories 
+            : Object.values(this.game.gameMap.territories);
+            
+        const fromIndex = territories.findIndex(t => t.id === fromTerritoryId);
+        const toIndex = territories.findIndex(t => t.id === toTerritoryId);
+        
+        if (fromIndex === -1 || toIndex === -1) return null;
+
+        return findPath(adjacencyList, fromIndex, toIndex);
     }
 
     canReach(playerId, fromTerritoryId, toTerritoryId) {
@@ -42,11 +56,18 @@ export class RangePathfindingManager {
 
     getReachableTerritories(playerId, fromTerritoryId) {
         const adjacencyList = this.playerAdjacencyLists.get(playerId);
-        if (!adjacencyList || !adjacencyList[fromTerritoryId]) return [];
+        if (!adjacencyList) return [];
+
+        const territories = Array.isArray(this.game.gameMap.territories) 
+            ? this.game.gameMap.territories 
+            : Object.values(this.game.gameMap.territories);
+            
+        const fromIndex = territories.findIndex(t => t.id === fromTerritoryId);
+        if (fromIndex === -1 || !adjacencyList[fromIndex]) return [];
 
         const reachable = new Set();
-        const queue = [fromTerritoryId];
-        const visited = new Set([fromTerritoryId]);
+        const queue = [fromIndex];
+        const visited = new Set([fromIndex]);
 
         while (queue.length > 0) {
             const current = queue.shift();
@@ -61,6 +82,7 @@ export class RangePathfindingManager {
             }
         }
 
-        return Array.from(reachable);
+        // Convert indices back to territory IDs
+        return Array.from(reachable).map(index => territories[index].id);
     }
 }
