@@ -525,6 +525,7 @@ export default class StarThrone {
                 if (LeftClickMoverClass) {
                     // Disable the old input handler if it exists
                     if (this.inputHandler) {
+                        console.log('🔧 Cleaning up old InputHandler...');
                         this.inputHandler.cleanup();
                         this.inputHandler = null;
                     }
@@ -532,6 +533,9 @@ export default class StarThrone {
                     this.leftClickMover = new LeftClickMoverClass(this, { defaultPercent: 50 });
                     console.log('✅ LeftClickMover initialized - enhanced multi-selection and drag controls active');
                     console.log('🎮 Controls: SPACE=range overlay, Q/E=adjust %, Shift+Click=multi-select, Ctrl+Box=box select');
+                    
+                    // Add camera zoom handler since InputHandler is disabled
+                    this.setupCameraZoom();
                 } else {
                     console.error('❌ LeftClickMover class not found in module');
                     // Fallback to old input handler
@@ -4256,6 +4260,37 @@ export default class StarThrone {
         }
     }
     
+    /**
+     * Setup camera zoom handler when InputHandler is disabled
+     */
+    setupCameraZoom() {
+        if (!this.canvas || !this.camera) return;
+        
+        // Store bound handler for cleanup
+        this._cameraZoomHandler = (e) => {
+            // Only handle if LeftClickMover isn't using it
+            if (this.leftClickMover && this.leftClickMover.isDragging) {
+                return; // Let LeftClickMover handle it
+            }
+            
+            e.preventDefault();
+            
+            const rect = this.canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            
+            const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+            const newZoom = Math.max(0.02, Math.min(8.0, this.camera.targetZoom * zoomFactor));
+            this.camera.zoomTo(newZoom, mouseX, mouseY);
+            
+            console.log('🔍 Camera zoom:', newZoom.toFixed(2));
+        };
+        
+        // Add wheel handler for camera zoom
+        this.canvas.addEventListener('wheel', this._cameraZoomHandler, { passive: false });
+        console.log('✅ Camera zoom handler added');
+    }
+    
     // Cleanup method to properly dispose of resources and prevent memory leaks
     cleanup() {
         console.log('🧹 StarThrone cleanup: Disposing of game resources...');
@@ -4275,6 +4310,17 @@ export default class StarThrone {
         // Clean up input handler (removes event listeners)
         if (this.inputHandler && typeof this.inputHandler.cleanup === 'function') {
             this.inputHandler.cleanup();
+        }
+        
+        // Clean up LeftClickMover
+        if (this.leftClickMover && typeof this.leftClickMover.cleanup === 'function') {
+            this.leftClickMover.cleanup();
+        }
+        
+        // Remove camera zoom handler
+        if (this._cameraZoomHandler && this.canvas) {
+            this.canvas.removeEventListener('wheel', this._cameraZoomHandler);
+            this._cameraZoomHandler = null;
         }
         
         // Clean up event system
