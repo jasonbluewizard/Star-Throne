@@ -101,7 +101,9 @@ export class InputHandler {
             territoryOwner: territory?.ownerId
         });
 
-        if (territory && territory.ownerId === this.game.humanPlayer?.id) {
+        // Check if human player exists and owns this territory
+        const humanPlayer = this.game.players?.find(p => p.type === 'human');
+        if (territory && humanPlayer && territory.ownerId === humanPlayer.id) {
             // Begin fleet drag from owned territory
             console.log('🎯 Starting fleet drag from territory', territory.id, 'with', territory.armySize, 'armies');
             this.isFleetDragging = true;
@@ -158,9 +160,10 @@ export class InputHandler {
             });
             if (target && target.id !== this.fleetSource.id) {
                 // Determine if this is an attack or transfer
-                const isAttack = target.ownerId !== this.game.humanPlayer?.id;
+                const humanPlayer = this.game.players?.find(p => p.type === 'human');
+                const isAttack = target.ownerId !== humanPlayer?.id;
                 console.log('🚀 Issuing fleet command from', this.fleetSource.id, 'to', target.id, 'isAttack:', isAttack);
-                console.log('🔍 Target owner:', target.ownerId, 'Human player:', this.game.humanPlayer?.id);
+                console.log('🔍 Target owner:', target.ownerId, 'Human player:', humanPlayer?.id);
                 
                 // Call async method with comprehensive error handling
                 try {
