@@ -38,6 +38,10 @@ export default class StarThrone {
             layout: config.layout || 'organic',
             ...config
         };
+
+        // Optional automation features
+        this.autoMoveEnabled = config.autoMoveEnabled ?? false;
+        this.dragPathCache = null;
         
         // Game state
         this.gameState = 'lobby'; // lobby, playing, ended
@@ -2166,6 +2170,7 @@ export default class StarThrone {
     }
     
     checkAllTerritoryOverflows() {
+        if (!this.autoMoveEnabled) return;
         // Throttle overflow checks to avoid performance issues (check every 30 frames ~500ms)
         if (this.frameCount % 30 !== 0) return;
         
@@ -2282,6 +2287,7 @@ export default class StarThrone {
         }
         
         this.renderDragPreview();
+        this.renderDragCombatPreview();
         
         // Debug: Check InputHandler state
         if (this.inputHandler && this.frameCount % 30 === 0) {
@@ -2692,7 +2698,9 @@ export default class StarThrone {
 
             if (path && path.length > 1) {
                 this.ctx.strokeStyle = targetTerritory.ownerId === this.humanPlayer?.id ? '#44ff44' : '#ff4444';
-                this.ctx.lineWidth = 3;
+                this.ctx.lineWidth = 4;
+                this.ctx.shadowColor = '#ffffaa';
+                this.ctx.shadowBlur = 8;
                 this.ctx.beginPath();
                 for (let i = 0; i < path.length - 1; i++) {
                     const a = this.gameMap.territories[path[i]];
@@ -2702,6 +2710,7 @@ export default class StarThrone {
                     this.ctx.lineTo(b.x, b.y);
                 }
                 this.ctx.stroke();
+                this.ctx.shadowBlur = 0;
             } else {
                 // Fallback to direct line if no path found
                 if (targetTerritory && this.inputHandler.fleetSource.neighbors.includes(targetTerritory.id)) {
@@ -2809,7 +2818,34 @@ export default class StarThrone {
             this.ctx.stroke();
             this.ctx.setLineDash([]);
         }
-        
+
+        this.ctx.restore();
+    }
+
+    renderDragCombatPreview() {
+        if (!this.inputHandler || !this.inputHandler.isFleetDragging || !this.inputHandler.fleetSource) return;
+
+        const worldPos = this.camera.screenToWorld(this.inputHandler.mousePos.x, this.inputHandler.mousePos.y);
+        const targetTerritory = this.findTerritoryAt(worldPos.x, worldPos.y);
+        const from = this.inputHandler.fleetSource;
+        if (!targetTerritory || targetTerritory.ownerId === this.humanPlayer?.id) return;
+
+        const available = Math.max(0, from.armySize - 1);
+        const shipsToSend = Math.max(1, Math.floor(available * 0.5));
+        const preview = this.combatSystem?.calculateCombatPreview(from, targetTerritory, shipsToSend);
+        if (!preview) return;
+
+        const screenPos = this.camera.worldToScreen(targetTerritory.x, targetTerritory.y);
+
+        this.ctx.save();
+        this.ctx.font = 'bold 12px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.strokeStyle = '#000000';
+        this.ctx.lineWidth = 2;
+        this.ctx.fillStyle = preview.winChance >= 50 ? '#44ff44' : '#ff4444';
+        const text = `${preview.attackingArmies} vs ${preview.defendingArmies}: ${preview.winChance >= 50 ? 'VICTORY' : 'DEFEAT'}`;
+        this.ctx.strokeText(text, screenPos.x, screenPos.y - 30);
+        this.ctx.fillText(text, screenPos.x, screenPos.y - 30);
         this.ctx.restore();
     }
     
@@ -2861,7 +2897,18 @@ export default class StarThrone {
         const bgX = screenPos.x + 20;
         const bgY = screenPos.y - 25;
         const bgWidth = maxWidth + padding * 2;
-        const bgHeight = lineHeight * 2 + padding;
+        let bgHeight = lineHeight * 2 + padding;
+
+        let resultText = null;
+        let resultColor = '#ffffff';
+        if (to.ownerId !== this.humanPlayer?.id) {
+            const preview = this.combatSystem?.calculateCombatPreview(from, to, shipsToSend);
+            if (preview) {
+                resultText = `${preview.attackingArmies} vs ${preview.defendingArmies}: ${preview.winChance >= 50 ? 'VICTORY' : 'DEFEAT'}`;
+                resultColor = preview.winChance >= 50 ? '#44ff44' : '#ff4444';
+                bgHeight += lineHeight;
+            }
+        }
         
         // Background
         this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
@@ -2882,9 +2929,14 @@ export default class StarThrone {
         // Text
         this.ctx.fillStyle = '#00ff00'; // Green for send
         this.ctx.fillText(sendText, bgX + padding, bgY + lineHeight);
-        
+
         this.ctx.fillStyle = '#ffffff'; // White for keep
         this.ctx.fillText(keepText, bgX + padding, bgY + lineHeight * 2);
+
+        if (resultText) {
+            this.ctx.fillStyle = resultColor;
+            this.ctx.fillText(resultText, bgX + padding, bgY + lineHeight * 3);
+        }
         
         this.ctx.restore();
     }
@@ -3718,10 +3770,12 @@ export default class StarThrone {
                 if (attackPath && attackPath.length > 1) {
                     console.log(`🛣️ Multi-hop attack path: ${attackPath.join(' -> ')}`);
                     this.executeFleetCommand(fromTerritory, toTerritory, fleetPercentage, 'multi-hop-attack', attackPath);
-                } else {
-                    // No path found - use long-range attack as fallback
-                    console.log(`🛣️ No warp lane path found, using long-range attack`);
+                } else if (isDirectlyConnected) {
                     this.executeFleetCommand(fromTerritory, toTerritory, fleetPercentage, 'attack');
+                } else {
+                    console.log(`🛣️ No warp lane path found; attack cancelled`);
+                    this.showMessage('No warp lane path to target', 2000);
+                    return;
                 }
             } else {
                 // For transfers, find path through friendly territories only
@@ -3737,6 +3791,7 @@ export default class StarThrone {
                     this.executeFleetCommand(fromTerritory, toTerritory, fleetPercentage, 'multi-hop-transfer', transferPath);
                 } else {
                     console.log(`🛣️ No friendly path found for transfer ${fromTerritory.id} -> ${toTerritory.id}`);
+                    this.showMessage('No warp lane path to target', 2000);
                     // No path means territories aren't connected through friendly space
                     return;
                 }
