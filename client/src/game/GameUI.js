@@ -1273,8 +1273,22 @@ export class GameUI {
                     
                     if (attacker && defender) {
                         const winChance = gameData.combatSystem.calculateBattleOdds(attacker, defender);
+                        const fleetPct = gameData.inputState?.fleetPercentage || 0.5;
+                        const maxSend = Math.max(0, gameData.selectedTerritory.armySize - 1);
+                        let send = Math.floor(maxSend * fleetPct);
+                        if (send < 1 && gameData.selectedTerritory.armySize > 1) send = 1;
 
                         tooltipLines.push(`Battle Odds: ${winChance}% win`);
+                        const preview = gameData.combatSystem.calculateCombatPreview(
+                            gameData.selectedTerritory,
+                            territory,
+                            send
+                        );
+
+                        if (preview) {
+                            const result = preview.winChance >= 60 ? 'VICTORY' : preview.winChance >= 40 ? 'UNCERTAIN' : 'DEFEAT';
+                            tooltipLines.push(`${send} vs ${preview.defendingArmies}: ${result}`);
+                        }
                     }
                 }
             }

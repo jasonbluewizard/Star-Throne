@@ -107,6 +107,7 @@ export class InputHandler {
             this.isFleetDragging = true;
             this.fleetSource = territory;
             this.isDragging = false;
+            if (this.game) this.game.dragPathCache = null;
             console.log('🚀 Fleet drag started for player territory', territory.id);
         } else {
             // Start panning the map
@@ -171,6 +172,7 @@ export class InputHandler {
         this.isDragging = false;
         this.isFleetDragging = false;
         this.fleetSource = null;
+        if (this.game) this.game.dragPathCache = null;
         console.log('🔚 Mouse up - fleet drag ended');
     }
 

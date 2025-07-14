@@ -2666,20 +2666,57 @@ export default class StarThrone {
 
             this.ctx.save();
 
-            if (targetTerritory && this.inputHandler.fleetSource.neighbors.includes(targetTerritory.id)) {
-                this.ctx.strokeStyle = targetTerritory.ownerId === this.humanPlayer?.id ? '#44ff44' : '#ff4444';
-                this.ctx.lineWidth = 3;
-            } else {
-                this.ctx.strokeStyle = '#ffffff';
-                this.ctx.lineWidth = 1;
-                this.ctx.setLineDash([5, 5]);
+            let path = null;
+            if (targetTerritory) {
+                if (!this.dragPathCache || this.dragPathCache.targetId !== targetTerritory.id) {
+                    this.dragPathCache = { targetId: targetTerritory.id, path: null };
+                    const fn = targetTerritory.ownerId === this.humanPlayer?.id ?
+                        this.pathfindingService.findShortestPath(
+                            this.inputHandler.fleetSource.id,
+                            targetTerritory.id,
+                            this.gameMap,
+                            this.humanPlayer.id
+                        ) : this.pathfindingService.findAttackPath(
+                            this.inputHandler.fleetSource.id,
+                            targetTerritory.id,
+                            this.gameMap,
+                            this.humanPlayer.id
+                        );
+                    fn.then(p => { this.dragPathCache.path = p; }).catch(() => { this.dragPathCache.path = null; });
+                }
+
+                path = this.dragPathCache.path;
             }
 
-            this.ctx.beginPath();
-            this.ctx.moveTo(this.inputHandler.fleetSource.x, this.inputHandler.fleetSource.y);
-            this.ctx.lineTo(worldPos.x, worldPos.y);
-            this.ctx.stroke();
-            this.ctx.setLineDash([]);
+            if (path && path.length > 1) {
+                this.ctx.strokeStyle = targetTerritory.ownerId === this.humanPlayer?.id ? '#44ff44' : '#ff4444';
+                this.ctx.lineWidth = 3;
+                this.ctx.beginPath();
+                for (let i = 0; i < path.length - 1; i++) {
+                    const a = this.gameMap.territories[path[i]];
+                    const b = this.gameMap.territories[path[i + 1]];
+                    if (!a || !b) continue;
+                    if (i === 0) this.ctx.moveTo(a.x, a.y);
+                    this.ctx.lineTo(b.x, b.y);
+                }
+                this.ctx.stroke();
+            } else {
+                // Fallback to direct line if no path found
+                if (targetTerritory && this.inputHandler.fleetSource.neighbors.includes(targetTerritory.id)) {
+                    this.ctx.strokeStyle = targetTerritory.ownerId === this.humanPlayer?.id ? '#44ff44' : '#ff4444';
+                    this.ctx.lineWidth = 3;
+                } else {
+                    this.ctx.strokeStyle = '#ffffff';
+                    this.ctx.lineWidth = 1;
+                    this.ctx.setLineDash([5, 5]);
+                }
+
+                this.ctx.beginPath();
+                this.ctx.moveTo(this.inputHandler.fleetSource.x, this.inputHandler.fleetSource.y);
+                this.ctx.lineTo(worldPos.x, worldPos.y);
+                this.ctx.stroke();
+                this.ctx.setLineDash([]);
+            }
 
             this.ctx.restore();
         } else if (this.inputHandler) {
