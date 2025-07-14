@@ -39,8 +39,12 @@ export default class StarThrone {
             ...config
         };
 
-        // Optional automation features
+        // Optional automation features disabled by default to prevent
+        // unexpected automated army movements
         this.autoMoveEnabled = config.autoMoveEnabled ?? false;
+
+        // Cache for drag path previews to avoid repeated pathfinding
+        this.dragPathPreviewCache = {};
         
         // Game state
         this.gameState = 'lobby'; // lobby, playing, ended
@@ -2286,6 +2290,7 @@ export default class StarThrone {
         }
         
         this.renderDragPreview();
+        this.renderDragCombatPreview();
         
         // Debug: Check InputHandler state
         if (this.inputHandler && this.frameCount % 30 === 0) {
@@ -2674,8 +2679,9 @@ export default class StarThrone {
 
             let path = null;
             if (targetTerritory) {
-                if (!this.dragPathCache || this.dragPathCache.targetId !== targetTerritory.id) {
-                    this.dragPathCache = { targetId: targetTerritory.id, path: null };
+                const key = targetTerritory.id;
+                if (!(key in this.dragPathPreviewCache)) {
+                    this.dragPathPreviewCache[key] = null;
                     const fn = targetTerritory.ownerId === this.humanPlayer?.id ?
                         this.pathfindingService.findShortestPath(
                             this.inputHandler.fleetSource.id,
@@ -2688,10 +2694,10 @@ export default class StarThrone {
                             this.gameMap,
                             this.humanPlayer.id
                         );
-                    fn.then(p => { this.dragPathCache.path = p; }).catch(() => { this.dragPathCache.path = null; });
+                    fn.then(p => { this.dragPathPreviewCache[key] = p; }).catch(() => { this.dragPathPreviewCache[key] = null; });
                 }
 
-                path = this.dragPathCache.path;
+                path = this.dragPathPreviewCache[key];
             }
 
             if (path && path.length > 1) {
@@ -2909,6 +2915,45 @@ export default class StarThrone {
             this.ctx.fillText(resultText, bgX + padding, bgY + lineHeight * 3);
         }
         
+        this.ctx.restore();
+    }
+
+    renderDragCombatPreview() {
+        if (!this.inputHandler?.isFleetDragging || !this.inputHandler.fleetSource) return;
+
+        const from = this.inputHandler.fleetSource;
+        const worldPos = this.camera.screenToWorld(this.inputHandler.mousePos.x, this.inputHandler.mousePos.y);
+        const to = this.findTerritoryAt(worldPos.x, worldPos.y);
+        if (!to || to.id === from.id || to.ownerId === this.humanPlayer?.id) return;
+
+        const percentage = 0.75; // Attacks send 75% when dragging
+        const available = Math.max(0, from.armySize - 1);
+        const shipsToSend = Math.min(available, Math.max(1, Math.floor(from.armySize * percentage)));
+        const preview = this.combatSystem?.calculateCombatPreview(from, to, shipsToSend);
+        if (!preview) return;
+
+        const screenPos = this.camera.worldToScreen(to.x, to.y);
+        const padding = 6;
+        const lineHeight = 16;
+        this.ctx.save();
+        this.ctx.font = 'bold 12px Arial';
+        this.ctx.textAlign = 'center';
+
+        const bgWidth = 80;
+        const bgHeight = lineHeight * 2 + padding;
+        const bgX = screenPos.x - bgWidth / 2;
+        const bgY = screenPos.y - 50;
+
+        this.ctx.fillStyle = 'rgba(0,0,0,0.8)';
+        this.ctx.fillRect(bgX, bgY, bgWidth, bgHeight);
+        this.ctx.strokeStyle = preview.winChance >= 50 ? '#44ff44' : '#ff4444';
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeRect(bgX, bgY, bgWidth, bgHeight);
+
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.fillText(`WIN ${preview.winChance}%`, screenPos.x, bgY + lineHeight);
+        this.ctx.fillText(`${shipsToSend} vs ${preview.defendingArmies}`, screenPos.x, bgY + lineHeight * 2);
+
         this.ctx.restore();
     }
     
@@ -3745,6 +3790,7 @@ export default class StarThrone {
                     this.executeFleetCommand(fromTerritory, toTerritory, fleetPercentage, 'attack');
                 } else {
                     console.log(`🛣️ No warp lane path found; attack cancelled`);
+                    if (this.uiManager) this.uiManager.showError('NO GO - path blocked');
                     return;
                 }
             } else {
@@ -3761,6 +3807,7 @@ export default class StarThrone {
                     this.executeFleetCommand(fromTerritory, toTerritory, fleetPercentage, 'multi-hop-transfer', transferPath);
                 } else {
                     console.log(`🛣️ No friendly path found for transfer ${fromTerritory.id} -> ${toTerritory.id}`);
+                    if (this.uiManager) this.uiManager.showError('NO GO - path blocked');
                     // No path means territories aren't connected through friendly space
                     return;
                 }
