@@ -1,0 +1,102 @@
+diff --git a/client/src/game/InputHandler.js b/client/src/game/InputHandler.js
+index 5efcc85958889a26df95380453261ce914563a8c..614a9072181831c060aca18dc51572fb8cc60834 100644
+--- a/client/src/game/InputHandler.js
++++ b/client/src/game/InputHandler.js
+@@ -20,50 +20,55 @@ export class InputHandler {
+             lastTouchDistance: null,
+             lastPinchCenter: null
+         };
+ 
+         this._onMouseDown = (e) => this.handleMouseDown(e);
+         this._onMouseMove = (e) => this.handleMouseMove(e);
+         this._onMouseUp = (e) => this.handleMouseUp(e);
+         this._onWheel = (e) => this.handleWheel(e);
+         this._onContextMenu = (e) => e.preventDefault();
+         this._onTouchStart = (e) => this.handleTouchStart(e);
+         this._onTouchMove = (e) => this.handleTouchMove(e);
+         this._onTouchEnd = (e) => this.handleTouchEnd(e);
+ 
+         this.setupEventListeners();
+     }
+ 
+     setupEventListeners() {
+         if (!this.canvas) {
+             console.error('❌ InputHandler: No canvas available for event listeners');
+             return;
+         }
+         console.log('✅ InputHandler: Setting up event listeners');
+         this.canvas.addEventListener('mousedown', this._onMouseDown);
+         this.canvas.addEventListener('mousemove', this._onMouseMove);
+         this.canvas.addEventListener('mouseup', this._onMouseUp);
++        // Listen on the document as well so drag events continue even if the
++        // cursor leaves the canvas bounds. This fixes lost drag releases when
++        // the mouse is released outside of the canvas.
++        document.addEventListener('mousemove', this._onMouseMove);
++        document.addEventListener('mouseup', this._onMouseUp);
+         this.canvas.addEventListener('wheel', this._onWheel);
+         this.canvas.addEventListener('contextmenu', this._onContextMenu);
+ 
+         this.canvas.addEventListener('touchstart', this._onTouchStart, { passive: false });
+         this.canvas.addEventListener('touchmove', this._onTouchMove, { passive: false });
+         this.canvas.addEventListener('touchend', this._onTouchEnd, { passive: false });
+         this.canvas.addEventListener('touchcancel', this._onTouchEnd, { passive: false });
+     }
+ 
+     handleMouseDown(e) {
+         console.log('🐭 Mouse down event received!');
+         e.preventDefault();
+         const rect = this.canvas.getBoundingClientRect();
+         this.mousePos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+         this.lastMousePos = { ...this.mousePos };
+ 
+         const worldPos = this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+         const territory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
+         
+         console.log('🔍 Mouse down details:', {
+             screenPos: this.mousePos,
+             worldPos: worldPos,
+             territory: territory ? territory.id : 'none',
+             humanPlayerId: this.game.humanPlayer?.id,
+             territoryOwner: territory?.ownerId
+diff --git a/client/src/game/InputHandler.js b/client/src/game/InputHandler.js
+index 5efcc85958889a26df95380453261ce914563a8c..614a9072181831c060aca18dc51572fb8cc60834 100644
+--- a/client/src/game/InputHandler.js
++++ b/client/src/game/InputHandler.js
+@@ -184,35 +189,37 @@ export class InputHandler {
+         if (this.touchState.activeTouches.size < 2) {
+             this.touchState.lastTouchDistance = null;
+             this.touchState.lastPinchCenter = null;
+         }
+         this.isDragging = false;
+     }
+ 
+     getInputState() {
+         return {
+             mousePos: this.mousePos,
+             isDragging: this.isDragging || this.isFleetDragging,
+             selectedTerritory: this.isFleetDragging ? null : null, // Don't show selected territory during fleet drag
+             fleetDragging: this.isFleetDragging,
+             fleetSource: this.fleetSource,
+             currentState: 'idle'
+         };
+     }
+ 
+     update() {}
+ 
+     cleanup() {
+         if (!this.canvas) return;
+         this.canvas.removeEventListener('mousedown', this._onMouseDown);
+         this.canvas.removeEventListener('mousemove', this._onMouseMove);
+         this.canvas.removeEventListener('mouseup', this._onMouseUp);
++        document.removeEventListener('mousemove', this._onMouseMove);
++        document.removeEventListener('mouseup', this._onMouseUp);
+         this.canvas.removeEventListener('wheel', this._onWheel);
+         this.canvas.removeEventListener('contextmenu', this._onContextMenu);
+         this.canvas.removeEventListener('touchstart', this._onTouchStart);
+         this.canvas.removeEventListener('touchmove', this._onTouchMove);
+         this.canvas.removeEventListener('touchend', this._onTouchEnd);
+         this.canvas.removeEventListener('touchcancel', this._onTouchEnd);
+         this.canvas = null;
+         this.game = null;
+     }
+ }

@@ -42,6 +42,11 @@ export class InputHandler {
         this.canvas.addEventListener('mousedown', this._onMouseDown);
         this.canvas.addEventListener('mousemove', this._onMouseMove);
         this.canvas.addEventListener('mouseup', this._onMouseUp);
+        // Listen on the document as well so drag events continue even if the
+        // cursor leaves the canvas bounds. This fixes lost drag releases when
+        // the mouse is released outside of the canvas.
+        document.addEventListener('mousemove', this._onMouseMove);
+        document.addEventListener('mouseup', this._onMouseUp);
         this.canvas.addEventListener('wheel', this._onWheel);
         this.canvas.addEventListener('contextmenu', this._onContextMenu);
 
@@ -206,6 +211,8 @@ export class InputHandler {
         this.canvas.removeEventListener('mousedown', this._onMouseDown);
         this.canvas.removeEventListener('mousemove', this._onMouseMove);
         this.canvas.removeEventListener('mouseup', this._onMouseUp);
+        document.removeEventListener('mousemove', this._onMouseMove);
+        document.removeEventListener('mouseup', this._onMouseUp);
         this.canvas.removeEventListener('wheel', this._onWheel);
         this.canvas.removeEventListener('contextmenu', this._onContextMenu);
         this.canvas.removeEventListener('touchstart', this._onTouchStart);
