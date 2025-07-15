@@ -1,0 +1,21 @@
+
+You are working on a browser-based RTS game called Star Throne, with the main logic in StarThrone.js (a class that handles game state, rendering, inputs, etc.). The game involves territories (stars) connected by warp lanes, players sending fleets via drags, and supply routes for auto-reinforcement.
+Current issues: Controls are overcomplicated with a finite state machine (FSM), timing-based inputs (long presses), touch/mobile support, and modifiers. We want to simplify radically for desktop mouse-only:
+•  Remove all mobile/touch considerations: Delete touch event listeners, pinch-zoom, multi-touch tracking, touch debug, etc. No passive: false or touch-specific thresholds.
+•  Remove time-based inputs: No long-press timers, double-tap thresholds, or FSM states. Ditch InputStateMachine.js integration if present (handle inputs directly in StarThrone.js methods).
+•  Core mechanic: Drag-and-drop only for moves/attacks. Mouse down on owned territory starts potential drag. On mouse up:
+	•  If distance < 5px (click), select the territory (set this.selectedTerritory).
+	•  If dragged to another territory, compute shortest path via BFS on neighbors (all connected lanes; ensure intermediates are owned except possibly last for attack). Send X=50% of source fleet along the path (use existing sendFleetAlongPath or implement multi-hop animation/transfer).
+	•  Highlight lanes during drag: Green dashed lines along path segments in renderDragPreview().
+•  Add supply routes: While a territory is selected (from click), press ‘S’ to enter supplyMode. Then click (no drag) on target to create supply route (use existing SupplySystem.createSupplyRoute with computed path). Supply routes auto-send reinforcements periodically (keep existing SupplySystem update logic).
+•  Keep path caching (dragPathCache Map, clear on mousedown), combat preview (win odds % near hover if enemy), notifications for no path.
+•  Render: Highlight selected territory with yellow ring. Call renderDragPreview in game loop if dragging.
+•  Other: Keep keyboard listener for ‘S’ (and maybe ‘R’ for restart). No web workers. Desktop mouse only.
+The code is canvas-based with ctx for rendering, camera for world-to-screen, getTerritoryAt(x,y) to find hovered. Territories have id, x,y, neighbors, ownerId, armySize.
+Provide the updated StarThrone.js class with these changes integrated. Focus on handleMouseDown/Move/Up, setupEventListeners, renderDragPreview, and related methods. Remove commented-out touch code. Make it concise and bug-free.
+Existing snippets for reference:
+•  computePath: BFS returning array of territories.
+•  getDragPath: Cache wrapper around computePath.
+•  sendFleetAlongPath: Multi-hop fleet send with animations.
+•  SupplySystem: Handles route creation and updates.
+Generate the modified code.
