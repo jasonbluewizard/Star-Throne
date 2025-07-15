@@ -2907,17 +2907,21 @@ export default class StarThrone {
 
         // Preview line for fleet dragging
         if (this.inputHandler && this.inputHandler.isFleetDragging && this.inputHandler.fleetSource) {
-            console.log('🎨 Rendering fleet drag preview', {
-                isFleetDragging: this.inputHandler.isFleetDragging,
-                fleetSource: this.inputHandler.fleetSource.id,
-                mousePos: this.inputHandler.mousePos
-            });
+            const source = this.inputHandler.fleetSource;
             const worldPos = this.camera.screenToWorld(this.inputHandler.mousePos.x, this.inputHandler.mousePos.y);
             const targetTerritory = this.findTerritoryAt(worldPos.x, worldPos.y);
-
             const path = this.inputHandler.dragPath;
+
             this.ctx.save();
 
+            // Highlight source star
+            this.ctx.strokeStyle = '#ffff00';
+            this.ctx.lineWidth = 4;
+            this.ctx.beginPath();
+            this.ctx.arc(source.x, source.y, source.radius + 8, 0, Math.PI * 2);
+            this.ctx.stroke();
+
+            // Highlight path being considered
             const color = targetTerritory && targetTerritory.ownerId === this.humanPlayer?.id ? '#44ff44' : '#ff4444';
 
             if (path && path.length > 1) {
@@ -2937,10 +2941,36 @@ export default class StarThrone {
                 this.ctx.lineWidth = 1;
                 this.ctx.setLineDash([5, 5]);
                 this.ctx.beginPath();
-                this.ctx.moveTo(this.inputHandler.fleetSource.x, this.inputHandler.fleetSource.y);
+                this.ctx.moveTo(source.x, source.y);
                 this.ctx.lineTo(worldPos.x, worldPos.y);
                 this.ctx.stroke();
                 this.ctx.setLineDash([]);
+            }
+
+            // Display combat preview or reinforcement amount
+            if (targetTerritory && targetTerritory.id !== source.id) {
+                const sendAmount = Math.max(1, Math.floor(source.armySize * 0.5));
+                const screenPos = this.camera.worldToScreen(targetTerritory.x, targetTerritory.y);
+
+                this.ctx.font = 'bold 14px Arial';
+                this.ctx.textAlign = 'center';
+                this.ctx.strokeStyle = '#000000';
+                this.ctx.lineWidth = 2;
+
+                if (targetTerritory.ownerId === this.humanPlayer?.id) {
+                    this.ctx.fillStyle = '#44ff44';
+                    const text = `+${sendAmount}`;
+                    this.ctx.strokeText(text, screenPos.x, screenPos.y - 25);
+                    this.ctx.fillText(text, screenPos.x, screenPos.y - 25);
+                } else if (this.combatSystem) {
+                    const preview = this.combatSystem.calculateCombatPreview(source, targetTerritory, sendAmount);
+                    if (preview) {
+                        const text = `${preview.winChance}%`;
+                        this.ctx.fillStyle = preview.winChance >= 60 ? '#44ff44' : preview.winChance >= 40 ? '#ffff44' : '#ff4444';
+                        this.ctx.strokeText(text, screenPos.x, screenPos.y - 25);
+                        this.ctx.fillText(text, screenPos.x, screenPos.y - 25);
+                    }
+                }
             }
 
             this.ctx.restore();
