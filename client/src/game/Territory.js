@@ -188,43 +188,8 @@ export class Territory {
             const armiesGenerated = Math.floor(this.lastArmyGeneration / effectiveGenerationRate);
             this.lastArmyGeneration = this.lastArmyGeneration % effectiveGenerationRate;
             
-            // Check if this territory has an active supply route
-            if (game && game.supplySystem && game.supplySystem.isSupplySource(this.id)) {
-                const destinationId = game.supplySystem.getSupplyDestination(this.id);
-                const destinationTerritory = game.gameMap.territories[destinationId];
-                
-                if (destinationTerritory && destinationTerritory.ownerId === this.ownerId) {
-                    // Get the full route path for visual ship movement
-                    const route = game.supplySystem.getSupplyRoute(this.id);
-                    if (route && route.path && route.path.length > 1) {
-                        console.log(`🚢 SUPPLY SHIP: Creating ${armiesGenerated} ships from territory ${this.id} to destination ${route.destinationId}`);
-                        console.log(`🚢 SUPPLY PATH: ${route.path.join(' → ')}`);
-                        
-                        // Create visual ship animations for each generated army
-                        for (let i = 0; i < armiesGenerated; i++) {
-                            if (game.animationSystem) {
-                                const animation = game.animationSystem.createSupplyShipAnimation(route.path, player.color);
-                                if (animation) {
-                                    console.log(`🚢 SHIP CREATED: Animation ${i+1}/${armiesGenerated} from ${route.path[0]} to ${route.path[route.path.length-1]}`);
-                                } else {
-                                    console.log(`❌ SHIP FAILED: Could not create animation ${i+1}/${armiesGenerated}`);
-                                }
-                            }
-                        }
-                    } else {
-                        // Fallback to direct generation if no valid path
-                        destinationTerritory.armySize += armiesGenerated;
-                    }
-                    
-                    // Visual feedback disabled to prevent text spam on heavily reinforced territories
-                } else {
-                    // Route broken, generate locally
-                    this.armySize += armiesGenerated;
-                }
-            } else {
-                // Normal army generation with safety check
-                this.armySize = Math.max(1, this.armySize + armiesGenerated);
-            }
+            // Normal army generation only - auto supply routes disabled
+            this.armySize = Math.max(1, this.armySize + armiesGenerated);
             
             // Ensure armies never go negative due to any calculation errors
             this.armySize = Math.max(1, this.armySize);
@@ -233,10 +198,7 @@ export class Territory {
                 player.totalArmies += armiesGenerated;
             }
             
-            // Check for fleet overflow after army generation
-            if (game) {
-                this.checkFleetOverflow(game);
-            }
+            // Auto redistribution disabled; overflow will be handled manually
         }
     }
     
