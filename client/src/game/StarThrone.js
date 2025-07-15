@@ -2908,11 +2908,6 @@ export default class StarThrone {
             this.ctx.arc(this.selectedTerritory.x, this.selectedTerritory.y, this.selectedTerritory.radius + 10, 0, Math.PI * 2);
             this.ctx.stroke();
             this.ctx.restore();
-        }his.ctx.moveTo(this.dragStart.x, this.dragStart.y);
-            this.ctx.lineTo(worldPos.x, worldPos.y);
-            this.ctx.stroke();
-            
-            this.ctx.restore();
         }
 
         // Preview line for fleet dragging
@@ -4593,7 +4588,7 @@ export default class StarThrone {
     // Add pause/unpause functionality for battery saving
     togglePause() {
         this.paused = !this.paused;
-        console.log(`⏸️ Game ${this.paused ? 'paused' : 'resumed'}`);
+        console.log(`Game ${this.paused ? 'paused' : 'resumed'}`);
         return this.paused;
     }
 }
