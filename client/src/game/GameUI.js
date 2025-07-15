@@ -1830,4 +1830,20 @@ export class GameUI {
         
         ctx.restore();
     }
+
+    // Calculate win chance for combat preview
+    calculateWinChance(attackingArmies, defendingArmies) {
+        if (attackingArmies <= 0) return 0;
+        if (defendingArmies <= 0) return 100;
+        
+        // Simple win chance calculation based on army ratio
+        const ratio = attackingArmies / (attackingArmies + defendingArmies);
+        const baseWinChance = Math.floor(ratio * 100);
+        
+        // Apply some randomness to make it more interesting
+        const variance = Math.floor(Math.random() * 20) - 10; // ±10%
+        const winChance = Math.max(0, Math.min(100, baseWinChance + variance));
+        
+        return winChance;
+    }
 }

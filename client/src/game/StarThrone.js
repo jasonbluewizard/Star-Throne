@@ -130,6 +130,11 @@ export default class StarThrone {
         this.dragEnd = null;
         this.isDraggingForSupplyRoute = false;
         
+        // Input state management
+        this.inputState = {
+            isDragging: false
+        };
+        
         // Background image system
         this.backgroundImage = null;
         this.backgroundLoaded = false;
@@ -2274,6 +2279,9 @@ export default class StarThrone {
             this.renderConnections();
         }
         
+        // Render drag highlights for fleet commands
+        this.renderDragHighlights();
+        
         // Render supply routes for operational and tactical view
         if (lodLevel >= 2) {
             this.renderSupplyRoutes();
@@ -2625,6 +2633,41 @@ export default class StarThrone {
         return 0.5; // Default 50%
     }
     
+    /**
+     * Highlight **all** connections from the currently‑selected territory
+     * during a drag‑and‑drop fleet move.
+     */
+    renderDragHighlights() {
+        // Check if we have input state and are dragging
+        if (!this.inputState?.isDragging || !this.selectedTerritory || 
+            this.selectedTerritory.ownerId !== this.humanPlayer?.id) {
+            return;
+        }
+
+        const origin = this.selectedTerritory;
+        
+        this.ctx.save();
+        this.ctx.strokeStyle = '#ffea00';  // bright yellow
+        this.ctx.lineWidth = 3;
+        this.ctx.setLineDash([6, 6]);
+        this.ctx.globalAlpha = 0.8;
+
+        // Highlight all connections from selected territory
+        if (origin.neighbors) {
+            origin.neighbors.forEach(nId => {
+                const target = this.gameMap.territories[nId];
+                if (!target) return;
+                
+                this.ctx.beginPath();
+                this.ctx.moveTo(origin.x, origin.y);
+                this.ctx.lineTo(target.x, target.y);
+                this.ctx.stroke();
+            });
+        }
+
+        this.ctx.restore();
+    }
+
     renderDragPreview() {
         // Show drag preview when creating supply route
         if (this.isDraggingForSupplyRoute && this.dragStart) {

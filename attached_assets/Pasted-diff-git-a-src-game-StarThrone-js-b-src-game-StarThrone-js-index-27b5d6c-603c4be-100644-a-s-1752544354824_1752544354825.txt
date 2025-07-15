@@ -1,0 +1,88 @@
+diff --git a/src/game/StarThrone.js b/src/game/StarThrone.js
+index 27b5d6c..603c4be 100644
+--- a/src/game/StarThrone.js
++++ b/src/game/StarThrone.js
+@@
+   render(ctx) {
+       this.renderBackground(ctx);
+       this.renderConnections(ctx);
++      this.renderDragHighlights(ctx);        // << NEW (see below)
+       this.renderTerritories(ctx);
+       this.ui.render(ctx);
+   }
+ 
++  /**
++   * Highlight **all** connections from the currently‑selected territory
++   * during a drag‑and‑drop fleet move (Option B).
++   */
++  renderDragHighlights(ctx) {
++    // Require: player has started dragging from a territory they own
++    if (!this.inputState.isDragging ||
++        !this.selectedTerritory ||
++        this.selectedTerritory.ownerId !== this.humanPlayer.id) {
++      return;
++    }
++
++    const origin = this.selectedTerritory;
++
++    ctx.save();
++    ctx.strokeStyle = '#ffea00';  // bright yellow
++    ctx.lineWidth = 3;
++    ctx.setLineDash([6, 6]);
++
++    origin.neighbors.forEach(nId => {
++      const target = this.territories[nId];
++      if (!target) return;
++      ctx.beginPath();
++      ctx.moveTo(origin.x, origin.y);
++      ctx.lineTo(target.x, target.y);
++      ctx.stroke();
++    });
++
++    ctx.restore();
++  }
++
+   /* existing StarThrone methods … */
+ }
+diff --git a/src/input/InputHandler.js b/src/input/InputHandler.js
+index 9d3d8e4..b71ade0 100644
+--- a/src/input/InputHandler.js
++++ b/src/input/InputHandler.js
+@@
+   onMouseDown(evt) {
+     const t = this.game.pickTerritory(evt);
+     if (t && t.ownerId === this.game.humanPlayer.id) {
+-      this.dragging = true;
++      this.dragging = true;
++      this.game.inputState.isDragging = true;   // flag needed by renderer
+     }
+   }
+ 
+   onMouseUp(evt) {
+-    this.dragging = false;
++    this.dragging = false;
++    this.game.inputState.isDragging = false;
+     /* existing logic … */
+   }
+diff --git a/src/ui/GameUI.js b/src/ui/GameUI.js
+index 0ab4ac7..e5c33fe 100644
+--- a/src/ui/GameUI.js
++++ b/src/ui/GameUI.js
+@@   renderTooltip(ctx, territory) {
+     lines.push(ownerName);
+     lines.push(`${territory.armySize} Fleets`);
+ 
++    // --- Combat preview ---------------------------------------------------
++    const sel = this.game.selectedTerritory;
++    if (sel &&
++        sel.ownerId === this.game.humanPlayer.id &&       // we control attacker
++        territory.ownerId !== this.game.humanPlayer.id) { // unfriendly target
++
++      const atk = sel.armySize;
++      const def = territory.armySize;
++      const outcome = atk > def ? 'Victory' : 'Defeat';
++      lines.push(`${atk} v ${def}: ${outcome}`);
++    }
+ 
+     /* existing tooltip rendering that writes each line in `lines` … */
+   }
