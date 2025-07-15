@@ -58,7 +58,6 @@ export default class StarThrone {
         this.homeSystemFlashDuration = 3000; // 3 seconds
         
         // Modular systems (initialized in init())
-        this.inputHandler = null;
         this.renderer = null;
         this.combatSystem = null;
         this.supplySystem = null;
@@ -70,7 +69,17 @@ export default class StarThrone {
         this.controls = null;
         this.floodController = null;
         
-        // Legacy properties removed for cleaner architecture
+        // Simple desktop-only input state
+        this.mousePos = { x: 0, y: 0 };
+        this.mouseDownPos = null;
+        this.isDragging = false;
+        this.dragTarget = null;
+        this.selectedTerritory = null;
+        this.supplyMode = false;
+        this.hoveredTerritory = null;
+        
+        // Path caching
+        this.dragPathCache = new Map();
         
         // Performance
         this.lastFrameTime = 0;
@@ -1626,42 +1635,22 @@ export default class StarThrone {
             return;
         }
         
-        // Mouse events now handled by InputHandler.js - removed to prevent conflicts
-        // Wheel events handled by InputHandler
+        // Simple desktop mouse events
+        this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
+        this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
+        this.canvas.addEventListener('mouseup', this.handleMouseUp.bind(this));
+        this.canvas.addEventListener('wheel', this.handleWheel.bind(this));
         
-        // Touch events now handled by InputHandler.js - removed to prevent conflicts
+        // Keyboard events - only 'S' for supply mode and 'R' for restart
+        document.addEventListener('keydown', this.handleKeyDown.bind(this));
         
-        // Window events for DOM optimization
+        // Window events
         window.addEventListener('resize', this.handleResize.bind(this));
-        window.addEventListener('scroll', this.invalidateCanvasRectCache.bind(this));
-        
-        // Initialize canvas rect cache
-        this.getCachedCanvasRect();
-        
-        // Document-level listeners now handled by InputHandler
-        
-        // Enhanced touch state tracking for better pinch-to-zoom
-        this.touchStartTime = 0;
-        this.touchStartDistance = null;
-        this.lastPinchDistance = null;
-        this.isMultiTouch = false;
-        this.touchDebugInfo = '';
-        this.showTouchDebug = true;
-        this.leaderboardMinimized = false;
-        this.lastZoomTime = 0;
-        this.pinchCenter = null;
-        this.initialZoom = 1.0;
-        
-        // Long press functionality
-        this.longPressTimer = null;
-        this.longPressThreshold = 800; // 800ms for long press
-        this.longPressTarget = null;
-        this.longPressStartPos = null;
-        
-        // Keyboard events now handled by InputHandler
         
         // Prevent context menu
         this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+        
+        this.leaderboardMinimized = false;
     }
     
     /**
@@ -1694,24 +1683,215 @@ export default class StarThrone {
         console.log(`Resized canvas: ${rect.width}x${rect.height} (${this.canvas.width}x${this.canvas.height} with DPR ${dpr})`);
     }
     
-    /**
-     * Throttled mouse move handler - called via the throttling system
-     * @param {number} x - Canvas-relative X coordinate
-     * @param {number} y - Canvas-relative Y coordinate
-     * @param {MouseEvent} event - Original mouse event
-     */
-    handleMouseMoveThrottled(x, y, event) {
-        // Update mouse position for other systems
-        this.mousePos = { x, y };
+    // Simple mouse event handlers for desktop-only controls
+    handleMouseDown(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        this.mousePos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        this.mouseDownPos = { ...this.mousePos };
         
-        // Update hovered territory without expensive DOM operations
-        const worldPos = this.camera.screenToWorld(x, y);
-        this.updateHoveredTerritory(worldPos.x, worldPos.y);
+        // Clear path cache on new drag
+        this.dragPathCache.clear();
         
-        // Handle camera edge panning for desktop
-        if (!(this.isDragging || this.isMultiTouch)) { // Consolidated negative conditions using De Morgan's law
-            this.camera.updateEdgePanning(x, y, 16); // 16ms frame time approximation
+        const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+        const territory = this.findTerritoryAt(worldPos.x, worldPos.y);
+        
+        if (territory && territory.ownerId === this.humanPlayer?.id) {
+            // Start potential drag from owned territory
+            this.dragTarget = territory;
+        } else {
+            // Start camera pan
+            this.isDragging = true;
         }
+    }
+    
+    handleMouseMove(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        this.mousePos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        
+        const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
+        this.hoveredTerritory = this.findTerritoryAt(worldPos.x, worldPos.y);
+        
+        if (this.isDragging && !this.dragTarget) {
+            // Pan camera
+            const dx = this.mousePos.x - this.mouseDownPos.x;
+            const dy = this.mousePos.y - this.mouseDownPos.y;
+            this.camera.pan(-dx, -dy);
+            this.mouseDownPos = { ...this.mousePos };
+        }
+    }
+    
+    handleMouseUp(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const upPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        
+        if (this.dragTarget) {
+            const distance = Math.sqrt(
+                Math.pow(upPos.x - this.mouseDownPos.x, 2) + 
+                Math.pow(upPos.y - this.mouseDownPos.y, 2)
+            );
+            
+            if (distance < 5) {
+                // Click - select territory
+                if (this.supplyMode && this.selectedTerritory) {
+                    // Create supply route
+                    const path = this.computePath(this.selectedTerritory, this.dragTarget);
+                    if (path) {
+                        this.supplySystem.createSupplyRoute(this.selectedTerritory, this.dragTarget, path);
+                        this.showMessage(`Supply route created from ${this.selectedTerritory.id} to ${this.dragTarget.id}`, 3000);
+                    } else {
+                        this.showMessage('No path available for supply route', 2000);
+                    }
+                    this.supplyMode = false;
+                } else {
+                    // Normal selection
+                    this.selectedTerritory = this.dragTarget;
+                }
+            } else {
+                // Drag - send fleet
+                const worldPos = this.camera.screenToWorld(upPos.x, upPos.y);
+                const targetTerritory = this.findTerritoryAt(worldPos.x, worldPos.y);
+                
+                if (targetTerritory && targetTerritory.id !== this.dragTarget.id) {
+                    const path = this.getDragPath(this.dragTarget, targetTerritory);
+                    if (path) {
+                        this.sendFleetAlongPath(this.dragTarget, targetTerritory, path, 0.5);
+                    }
+                }
+            }
+        }
+        
+        this.isDragging = false;
+        this.dragTarget = null;
+    }
+    
+    handleWheel(e) {
+        e.preventDefault();
+        const rect = this.canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+        const newZoom = Math.max(0.1, Math.min(3.0, this.camera.targetZoom * zoomFactor));
+        this.camera.zoomTo(newZoom, mouseX, mouseY);
+    }
+    
+    handleKeyDown(e) {
+        if (e.key === 's' || e.key === 'S') {
+            if (this.selectedTerritory && this.selectedTerritory.ownerId === this.humanPlayer?.id) {
+                this.supplyMode = !this.supplyMode;
+                this.showMessage(this.supplyMode ? 'Supply mode: Click target territory' : 'Supply mode cancelled', 2000);
+            }
+        } else if (e.key === 'r' || e.key === 'R') {
+            if (this.gameState === 'ended') {
+                window.location.reload();
+            }
+        }
+    }
+    
+    // Simple BFS pathfinding through connected territories
+    computePath(from, to) {
+        if (!from || !to || from.id === to.id) return null;
+        
+        const visited = new Set();
+        const queue = [{ territory: from, path: [from] }];
+        visited.add(from.id);
+        
+        while (queue.length > 0) {
+            const { territory, path } = queue.shift();
+            
+            // Check neighbors
+            for (const neighborId of territory.neighbors || []) {
+                if (visited.has(neighborId)) continue;
+                
+                const neighbor = this.gameMap.territories[neighborId];
+                if (!neighbor) continue;
+                
+                const newPath = [...path, neighbor];
+                
+                // Found target
+                if (neighborId === to.id) {
+                    return newPath;
+                }
+                
+                // For supply routes and transfers, require owned intermediates
+                if (neighbor.ownerId === this.humanPlayer?.id) {
+                    visited.add(neighborId);
+                    queue.push({ territory: neighbor, path: newPath });
+                }
+            }
+        }
+        
+        return null;
+    }
+    
+    // Cache wrapper for path computation
+    getDragPath(from, to) {
+        const key = `${from.id}-${to.id}`;
+        
+        if (this.dragPathCache.has(key)) {
+            return this.dragPathCache.get(key);
+        }
+        
+        const path = this.computePath(from, to);
+        this.dragPathCache.set(key, path);
+        return path;
+    }
+    
+    // Send fleet along multi-hop path with animations
+    sendFleetAlongPath(from, to, path, percentage = 0.5) {
+        if (!path || path.length < 2) return;
+        
+        const fleetSize = Math.floor(from.armySize * percentage);
+        if (fleetSize < 1) {
+            this.showMessage('Not enough armies to send', 2000);
+            return;
+        }
+        
+        // Deduct armies immediately
+        from.armySize -= fleetSize;
+        
+        // Create multi-hop animation
+        if (this.animationSystem) {
+            this.animationSystem.createMultiHopAnimation(path, from.ownerId, fleetSize);
+        }
+        
+        // Calculate total delay based on path length
+        const hopDelay = 800; // ms per hop
+        const totalDelay = (path.length - 1) * hopDelay;
+        
+        // Execute the transfer/attack after animation completes
+        setTimeout(() => {
+            const isAttack = to.ownerId !== this.humanPlayer?.id;
+            
+            if (isAttack) {
+                // Attack target territory
+                const tempAttacker = { 
+                    ...from, 
+                    armySize: fleetSize + 1,
+                    neighbors: [to.id] 
+                };
+                this.combatSystem.attackTerritory(tempAttacker, to);
+            } else {
+                // Transfer to friendly territory
+                to.armySize += fleetSize;
+            }
+            
+            // Visual feedback
+            this.flashTerritory(to.id, isAttack ? '#ff0000' : '#00ff00', 300);
+        }, totalDelay);
+        
+        const action = to.ownerId !== this.humanPlayer?.id ? 'Attacking' : 'Transferring';
+        this.showMessage(`${action} ${fleetSize} armies to ${to.id} (${path.length - 1} hops)`, 3000);
+    }
+    
+    // Flash territory for visual feedback
+    flashTerritory(territoryId, color = '#00ff00', duration = 500) {
+        const territory = this.gameMap.territories[territoryId];
+        if (!territory) return;
+        
+        territory.flashColor = color;
+        territory.flashAlpha = 1.0;
+        territory.flashDuration = duration;
+        territory.flashStartTime = Date.now();
     }
     
     startGame() {
@@ -2669,28 +2849,66 @@ export default class StarThrone {
     }
 
     renderDragPreview() {
-        // Show drag preview when creating supply route
-        if (this.isDraggingForSupplyRoute && this.dragStart) {
+        // Show drag preview when dragging from owned territory
+        if (this.dragTarget && this.mouseDownPos) {
             const worldPos = this.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
             const targetTerritory = this.findTerritoryAt(worldPos.x, worldPos.y);
             
             this.ctx.save();
             
-            // Color-coded preview based on target validity
-            if (targetTerritory && targetTerritory.ownerId === this.humanPlayer?.id && 
-                targetTerritory.id !== this.dragStart.id) {
-                this.ctx.strokeStyle = '#00ff00'; // Green for valid supply route target
-                this.ctx.lineWidth = 3;
-            } else {
-                this.ctx.strokeStyle = '#ffff00'; // Yellow for neutral/unknown target
-                this.ctx.lineWidth = 2;
+            if (targetTerritory && targetTerritory.id !== this.dragTarget.id) {
+                // Get path and highlight it
+                const path = this.getDragPath(this.dragTarget, targetTerritory);
+                
+                if (path && path.length > 1) {
+                    // Draw path segments
+                    this.ctx.strokeStyle = '#00ff00'; // Green for valid path
+                    this.ctx.lineWidth = 3;
+                    this.ctx.setLineDash([8, 4]);
+                    this.ctx.globalAlpha = 0.8;
+                    
+                    for (let i = 0; i < path.length - 1; i++) {
+                        const from = path[i];
+                        const to = path[i + 1];
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(from.x, from.y);
+                        this.ctx.lineTo(to.x, to.y);
+                        this.ctx.stroke();
+                    }
+                    
+                    // Show fleet preview
+                    const fleetSize = Math.floor(this.dragTarget.armySize * 0.5);
+                    this.ctx.fillStyle = '#00ff00';
+                    this.ctx.font = 'bold 16px Arial';
+                    this.ctx.fillText(`Send: ${fleetSize}`, targetTerritory.x - 30, targetTerritory.y - 40);
+                } else {
+                    // No valid path - show direct line in red
+                    this.ctx.strokeStyle = '#ff0000';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.setLineDash([5, 5]);
+                    this.ctx.globalAlpha = 0.5;
+                    
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(this.dragTarget.x, this.dragTarget.y);
+                    this.ctx.lineTo(worldPos.x, worldPos.y);
+                    this.ctx.stroke();
+                }
             }
             
-            this.ctx.globalAlpha = 0.8;
-            this.ctx.setLineDash([5, 5]);
-            
+            this.ctx.restore();
+        }
+        
+        // Show supply mode indicator
+        if (this.supplyMode && this.selectedTerritory) {
+            this.ctx.save();
+            this.ctx.strokeStyle = '#00ffff';
+            this.ctx.lineWidth = 3;
+            this.ctx.setLineDash([10, 5]);
             this.ctx.beginPath();
-            this.ctx.moveTo(this.dragStart.x, this.dragStart.y);
+            this.ctx.arc(this.selectedTerritory.x, this.selectedTerritory.y, this.selectedTerritory.radius + 10, 0, Math.PI * 2);
+            this.ctx.stroke();
+            this.ctx.restore();
+        }his.ctx.moveTo(this.dragStart.x, this.dragStart.y);
             this.ctx.lineTo(worldPos.x, worldPos.y);
             this.ctx.stroke();
             
