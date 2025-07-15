@@ -19,6 +19,13 @@ export class InputHandler {
         }
         this.mousePos = { x: 0, y: 0 };
         this.lastMousePos = { x: 0, y: 0 };
+        // Initialize game-wide mouse position so edge panning doesn't trigger
+        if (this.game) {
+            this.game.mousePos = {
+                x: (this.canvas?.width || 0) / 2,
+                y: (this.canvas?.height || 0) / 2
+            };
+        }
         this.isDragging = false;
         this.isFleetDragging = false;
         this.fleetSource = null;
@@ -84,6 +91,7 @@ export class InputHandler {
         const rect = this.canvas.getBoundingClientRect();
         this.mousePos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
         this.lastMousePos = { ...this.mousePos };
+        this.game.mousePos = { ...this.mousePos };
 
         const worldPos = this.game.camera.screenToWorld(this.mousePos.x, this.mousePos.y);
         const territory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
@@ -157,11 +165,13 @@ export class InputHandler {
         this.hoveredTerritory = this.game.findTerritoryAt(worldPos.x, worldPos.y);
         this.lastMousePos = newPos;
         this.mousePos = newPos;
+        this.game.mousePos = { ...newPos };
     }
 
     handleMouseUp(e) {
         const rect = this.canvas.getBoundingClientRect();
         const releasePos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        this.game.mousePos = { ...releasePos };
 
         if (typeof e.pointerId === 'number' && this.canvas.releasePointerCapture) {
             try {
@@ -223,6 +233,7 @@ export class InputHandler {
         const mouseY = e.clientY - rect.top;
         const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
         const newZoom = Math.max(0.02, Math.min(8.0, this.game.camera.targetZoom * zoomFactor));
+        this.game.mousePos = { x: mouseX, y: mouseY };
         this.game.camera.zoomTo(newZoom, mouseX, mouseY);
     }
 
@@ -230,6 +241,9 @@ export class InputHandler {
         e.preventDefault();
         for (const t of e.changedTouches) {
             this.touchState.activeTouches.set(t.identifier, { x: t.clientX, y: t.clientY });
+        }
+        if (e.touches.length > 0) {
+            this.game.mousePos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
         }
         if (this.touchState.activeTouches.size === 2) {
             const [a, b] = Array.from(this.touchState.activeTouches.values());
@@ -249,6 +263,7 @@ export class InputHandler {
                 this.game.camera.pan(-dx * 0.5, -dy * 0.5);
                 data.x = touch.clientX;
                 data.y = touch.clientY;
+                this.game.mousePos = { x: touch.clientX, y: touch.clientY };
             }
         } else if (this.touchState.activeTouches.size === 2 && e.touches.length === 2) {
             const t1 = e.touches[0];
@@ -259,6 +274,7 @@ export class InputHandler {
                 const newZoom = Math.min(3.0, this.game.camera.targetZoom * scale);
                 const centerX = (t1.clientX + t2.clientX) / 2;
                 const centerY = (t1.clientY + t2.clientY) / 2;
+                this.game.mousePos = { x: centerX, y: centerY };
                 this.game.camera.zoomTo(newZoom, centerX, centerY);
             }
             this.touchState.lastTouchDistance = dist;
@@ -269,6 +285,10 @@ export class InputHandler {
         e.preventDefault();
         for (const t of e.changedTouches) {
             this.touchState.activeTouches.delete(t.identifier);
+        }
+        if (e.changedTouches.length > 0) {
+            const t = e.changedTouches[0];
+            this.game.mousePos = { x: t.clientX, y: t.clientY };
         }
         if (this.touchState.activeTouches.size < 2) {
             this.touchState.lastTouchDistance = null;
