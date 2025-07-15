@@ -355,9 +355,9 @@ export default class StarThrone {
     }
     
     /**
-     * Setup event listeners for event-driven architecture
+     * Setup game event listeners for event-driven architecture
      */
-    setupEventListeners() {
+    setupGameEventListeners() {
         // Listen for territory capture events to update UI
         gameEvents.on(GAME_EVENTS.TERRITORY_CAPTURED, (event) => {
             this.handleTerritoryCapture(event.data);
@@ -480,7 +480,8 @@ export default class StarThrone {
     
     init() {
         this.setupCanvas();
-        this.setupEventListeners();
+        this.setupGameEventListeners();
+        this.setupInputHandlers();
         
         // Calculate expanded map dimensions for proper territory distribution
         const baseWidth = 2000;
@@ -1628,28 +1629,22 @@ export default class StarThrone {
         });
     }
     
-    setupEventListeners() {
+    setupInputHandlers() {
         // Safety check to ensure canvas exists
         if (!this.canvas) {
-            console.error('Canvas not available for event listeners');
+            console.error('Canvas not available for input listeners');
             return;
         }
-        
-        // Simple desktop mouse events
-        this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
-        this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
-        this.canvas.addEventListener('mouseup', this.handleMouseUp.bind(this));
-        this.canvas.addEventListener('wheel', this.handleWheel.bind(this));
-        
+
         // Keyboard events - only 'S' for supply mode and 'R' for restart
         document.addEventListener('keydown', this.handleKeyDown.bind(this));
-        
+
         // Window events
         window.addEventListener('resize', this.handleResize.bind(this));
-        
+
         // Prevent context menu
         this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-        
+
         this.leaderboardMinimized = false;
     }
     
