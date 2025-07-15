@@ -59,21 +59,15 @@ export class InputHandler {
             parentNode: this.canvas.parentNode?.tagName
         });
         
-        // DISABLED: Event handlers are now managed directly in StarThrone.js for simplified controls
-        // this.canvas.addEventListener('pointerdown', this._onMouseDown);
-        // this.canvas.addEventListener('pointermove', this._onMouseMove);
-        // this.canvas.addEventListener('pointerup', this._onMouseUp);
-        // this.canvas.addEventListener('pointercancel', this._onMouseUp);
-        
-        console.log('✅ InputHandler initialized (event listeners disabled - handled by StarThrone.js)');
-        // this.canvas.addEventListener('wheel', this._onWheel);
-        // this.canvas.addEventListener('contextmenu', this._onContextMenu);
+        this.canvas.addEventListener('pointerdown', this._onMouseDown);
+        this.canvas.addEventListener('pointermove', this._onMouseMove);
+        this.canvas.addEventListener('pointerup', this._onMouseUp);
+        this.canvas.addEventListener('pointercancel', this._onMouseUp);
+
+        this.canvas.addEventListener('wheel', this._onWheel);
+        this.canvas.addEventListener('contextmenu', this._onContextMenu);
 
         // Touch events disabled - desktop only
-        // this.canvas.addEventListener('touchstart', this._onTouchStart, { passive: false });
-        // this.canvas.addEventListener('touchmove', this._onTouchMove, { passive: false });
-        // this.canvas.addEventListener('touchend', this._onTouchEnd, { passive: false });
-        // this.canvas.addEventListener('touchcancel', this._onTouchEnd, { passive: false });
     }
 
     handleMouseDown(e) {
