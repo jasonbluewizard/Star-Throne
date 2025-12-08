@@ -300,7 +300,14 @@ export class CombatSystem {
                 duration: 2000,
                 startY: battle.defendingTerritory.y
             };
-            
+
+            // Trigger territory capture feedback
+            if (this.game.feedbackSystem) {
+                const isHumanCapture = battle.attacker.id === this.game.humanPlayer?.id;
+                if (isHumanCapture) {
+                    this.game.feedbackSystem.onTerritoryCapture(battle.defendingTerritory, battle.attacker);
+                }
+            }
 
         } else {
             // Attack failed - ensure defenders have at least 1 army
@@ -338,14 +345,30 @@ export class CombatSystem {
     createCombatParticleEffect(territory, shipColor, context, battleInfo = null) {
         // Show subtle particle explosions for ALL combat
         const intensity = context === 'defender_dies' ? 1.3 : 1.0; // Moderate intensity
-        
+
         if (this.game.animationSystem && this.game.animationSystem.createCombatParticles) {
             this.game.animationSystem.createCombatParticles(
-                territory.x, 
-                territory.y, 
-                shipColor, 
+                territory.x,
+                territory.y,
+                shipColor,
                 intensity
             );
+        }
+
+        // Trigger feedback system effects for tactile feedback
+        if (this.game.feedbackSystem) {
+            const humanPlayerId = this.game.humanPlayer?.id;
+            const isPlayerInvolved = battleInfo &&
+                (battleInfo.attacker?.id === humanPlayerId ||
+                 battleInfo.defender?.id === humanPlayerId);
+
+            // Only add heavy feedback effects if human player is involved
+            if (isPlayerInvolved) {
+                // Trigger screen shake based on combat intensity
+                this.game.feedbackSystem.triggerCombatShake(1);
+                this.game.feedbackSystem.playHitSound();
+                this.game.feedbackSystem.vibrate('light');
+            }
         }
     }
     

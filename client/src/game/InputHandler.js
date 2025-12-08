@@ -115,6 +115,13 @@ export class InputHandler {
             // Set the game's inputState for visual feedback
             this.game.inputState.isDragging = true;
             console.log('🚀 Fleet drag started for player territory', territory.id);
+
+            // Trigger selection feedback
+            if (this.game.feedbackSystem) {
+                this.game.feedbackSystem.onTerritorySelect(territory);
+                // Initialize spring physics at source position
+                this.game.feedbackSystem.resetSpring(territory.x, territory.y);
+            }
         } else {
             // Start panning the map
             this.isDragging = true;
@@ -130,6 +137,12 @@ export class InputHandler {
             // Update path highlight when dragging fleets
             const worldPos = this.game.camera.screenToWorld(newPos.x, newPos.y);
             const target = this.game.findTerritoryAt(worldPos.x, worldPos.y);
+
+            // Update spring physics target for smooth drag line
+            if (this.game.feedbackSystem) {
+                this.game.feedbackSystem.setSpringTarget(worldPos.x, worldPos.y);
+            }
+
             if (target) {
                 if (target.id !== this.lastTargetId) {
                     this.lastTargetId = target.id;
@@ -148,6 +161,11 @@ export class InputHandler {
                             this.game.humanPlayer.id
                         );
                     promise.then(path => { this.dragPath = path; }).catch(() => { this.dragPath = null; });
+
+                    // Light haptic feedback when hovering over a valid target
+                    if (this.game.feedbackSystem) {
+                        this.game.feedbackSystem.vibrate('light');
+                    }
                 }
             } else {
                 this.dragPath = null;
@@ -166,6 +184,11 @@ export class InputHandler {
         this.lastMousePos = newPos;
         this.mousePos = newPos;
         this.game.mousePos = { ...newPos };
+
+        // Update hover feedback
+        if (this.game.feedbackSystem) {
+            this.game.feedbackSystem.onTerritoryHover(this.hoveredTerritory);
+        }
     }
 
     handleMouseUp(e) {
@@ -196,7 +219,12 @@ export class InputHandler {
                 console.log('🔍 Target owner:', target.ownerId, 'Human player:', this.game.humanPlayer?.id);
                 console.log('🔍 Game object exists?', !!this.game);
                 console.log('🔍 issueFleetCommand exists?', typeof this.game.issueFleetCommand);
-                
+
+                // Trigger fleet command feedback
+                if (this.game.feedbackSystem) {
+                    this.game.feedbackSystem.onFleetCommandIssued(this.fleetSource, target, isAttack);
+                }
+
                 try {
                     // Call async method properly
                     if (this.game.issueFleetCommand) {

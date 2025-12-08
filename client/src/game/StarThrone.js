@@ -18,6 +18,7 @@ import { AnimationSystem } from './AnimationSystem';
 import { UIManager } from './UIManager';
 import { AIManager } from './AIManager';
 import FloodModeController from './FloodModeController';
+import { FeedbackSystem } from './FeedbackSystem';
 
 export default class StarThrone {
     constructor(config = {}) {
@@ -68,6 +69,7 @@ export default class StarThrone {
         this.uiManager = null;
         this.controls = null;
         this.floodController = null;
+        this.feedbackSystem = null;
         
         // Simple desktop-only input state
         this.mousePos = { x: 0, y: 0 };
@@ -527,6 +529,7 @@ export default class StarThrone {
         this.uiManager = new UIManager(this);
         this.aiManager = new AIManager(this);
         this.floodController = new FloodModeController(this);
+        this.feedbackSystem = new FeedbackSystem(this);
         
         // Flood mode buttons now integrated into GameUI instead of DOM elements
         
@@ -2273,7 +2276,12 @@ export default class StarThrone {
         if (this.animationSystem) {
             this.animationSystem.update(deltaTime);
         }
-        
+
+        // Update feedback system for visual/audio/haptic effects
+        if (this.feedbackSystem) {
+            this.feedbackSystem.update(deltaTime);
+        }
+
         // Update flood mode system for automated expansion - TEMPORARILY DISABLED FOR TESTING
         // if (this.floodController) {
         //     this.floodController.update(deltaTime);
@@ -2439,7 +2447,13 @@ export default class StarThrone {
         
         // Save context for camera transform
         this.ctx.save();
-        
+
+        // Apply screen shake offset if active
+        if (this.feedbackSystem) {
+            const shakeOffset = this.feedbackSystem.getShakeOffset();
+            this.ctx.translate(shakeOffset.x, shakeOffset.y);
+        }
+
         // Apply camera transformation
         this.camera.applyTransform(this.ctx);
         
@@ -2487,7 +2501,12 @@ export default class StarThrone {
         if (this.animationSystem) {
             this.animationSystem.renderCombatParticles(this.ctx, this.camera);
         }
-        
+
+        // Render feedback visual effects (selection particles, click ripples, etc.)
+        if (this.feedbackSystem) {
+            this.feedbackSystem.render(this.ctx, this.camera);
+        }
+
         // Use DiscoverySystem for floating discovery texts
         if (this.discoverySystem) {
             this.discoverySystem.renderFloatingDiscoveries(this.ctx, this.camera);
@@ -2925,8 +2944,16 @@ export default class StarThrone {
             const color = targetTerritory && targetTerritory.ownerId === this.humanPlayer?.id ? '#44ff44' : '#ff4444';
 
             if (path && path.length > 1) {
+                // Enhanced path rendering with glow
+                this.ctx.save();
+                this.ctx.shadowColor = color;
+                this.ctx.shadowBlur = 12;
                 this.ctx.strokeStyle = color;
                 this.ctx.lineWidth = 4;
+                this.ctx.lineCap = 'round';
+                this.ctx.lineJoin = 'round';
+
+                // Draw glowing path
                 this.ctx.beginPath();
                 for (let i = 0; i < path.length - 1; i++) {
                     const a = this.gameMap.territories[path[i]];
@@ -2936,15 +2963,60 @@ export default class StarThrone {
                     this.ctx.lineTo(b.x, b.y);
                 }
                 this.ctx.stroke();
+
+                // Draw animated dots along path
+                const animOffset = (Date.now() * 0.003) % 1;
+                this.ctx.fillStyle = '#ffffff';
+                for (let i = 0; i < path.length - 1; i++) {
+                    const a = this.gameMap.territories[path[i]];
+                    const b = this.gameMap.territories[path[i + 1]];
+                    if (!a || !b) continue;
+
+                    const dotX = a.x + (b.x - a.x) * animOffset;
+                    const dotY = a.y + (b.y - a.y) * animOffset;
+                    this.ctx.beginPath();
+                    this.ctx.arc(dotX, dotY, 3, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+
+                this.ctx.restore();
             } else {
-                this.ctx.strokeStyle = '#ffffff';
-                this.ctx.lineWidth = 1;
-                this.ctx.setLineDash([5, 5]);
+                // Use spring physics for smoother drag line
+                let targetX = worldPos.x;
+                let targetY = worldPos.y;
+
+                if (this.feedbackSystem) {
+                    const springPos = this.feedbackSystem.getSpringPosition();
+                    targetX = springPos.x;
+                    targetY = springPos.y;
+                }
+
+                // Draw gradient line with glow effect
+                this.ctx.save();
+                this.ctx.shadowColor = '#ffffff';
+                this.ctx.shadowBlur = 8;
+
+                const gradient = this.ctx.createLinearGradient(source.x, source.y, targetX, targetY);
+                gradient.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+                gradient.addColorStop(1, 'rgba(255, 255, 255, 0.3)');
+
+                this.ctx.strokeStyle = gradient;
+                this.ctx.lineWidth = 2;
+                this.ctx.setLineDash([8, 4]);
+                this.ctx.lineDashOffset = -Date.now() * 0.02; // Animated dash
                 this.ctx.beginPath();
                 this.ctx.moveTo(source.x, source.y);
-                this.ctx.lineTo(worldPos.x, worldPos.y);
+                this.ctx.lineTo(targetX, targetY);
                 this.ctx.stroke();
                 this.ctx.setLineDash([]);
+
+                // Draw endpoint indicator
+                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+                this.ctx.beginPath();
+                this.ctx.arc(targetX, targetY, 4, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                this.ctx.restore();
             }
 
             // Display combat preview or reinforcement amount
