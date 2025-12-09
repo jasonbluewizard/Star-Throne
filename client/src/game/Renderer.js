@@ -346,14 +346,49 @@ export class Renderer {
         if (territory.combatFlashTime && currentTime - territory.combatFlashTime < territory.combatFlashDuration) {
             flashAlpha = 0.3 + 0.7 * Math.sin((currentTime - territory.combatFlashTime) * 0.02);
         }
-        
+
         // Base color
         let fillColor = territory.baseColor;
         if (territory.ownerId) {
             const player = this.findPlayerById(territory.ownerId);
             fillColor = player?.color || territory.baseColor;
         }
-        
+
+        // Check for hover glow effect from FeedbackSystem
+        const feedbackSystem = this.game?.feedbackSystem;
+        const isHovered = feedbackSystem?.getHoveredTerritoryId() === territory.id;
+        const hoverGlowIntensity = isHovered ? feedbackSystem?.getHoverGlowIntensity() || 0 : 0;
+
+        // Check for glow effects from FeedbackSystem
+        const glowEffect = feedbackSystem?.getGlowEffect(territory.id);
+        const pulseEffect = feedbackSystem?.getPulseEffect(territory.id);
+
+        // Render hover glow (outer ring)
+        if (hoverGlowIntensity > 0) {
+            this.ctx.save();
+            this.ctx.globalAlpha = hoverGlowIntensity * 0.4;
+            this.ctx.shadowColor = '#00ffff';
+            this.ctx.shadowBlur = 20 * hoverGlowIntensity;
+            this.ctx.fillStyle = '#00ffff';
+            this.ctx.beginPath();
+            this.ctx.arc(territory.x, territory.y, territory.radius + 6, 0, Math.PI * 2);
+            this.ctx.fill();
+            this.ctx.restore();
+        }
+
+        // Render special glow effects (selection, attack, capture, etc.)
+        if (glowEffect) {
+            this.ctx.save();
+            this.ctx.globalAlpha = glowEffect.intensity * 0.6;
+            this.ctx.shadowColor = glowEffect.color;
+            this.ctx.shadowBlur = 25 * glowEffect.intensity;
+            this.ctx.fillStyle = glowEffect.color;
+            this.ctx.beginPath();
+            this.ctx.arc(territory.x, territory.y, territory.radius + 8, 0, Math.PI * 2);
+            this.ctx.fill();
+            this.ctx.restore();
+        }
+
         // Human player pulsing effect
         if (territory.ownerId === humanPlayer?.id) {
             const pulseIntensity = 0.3 + 0.2 * Math.sin(currentTime * 0.005);
@@ -363,15 +398,19 @@ export class Renderer {
             this.ctx.arc(territory.x, territory.y, territory.radius + 3, 0, Math.PI * 2);
             this.ctx.fill();
         }
-        
+
+        // Calculate pulse scale if active
+        const pulseScale = pulseEffect ? pulseEffect.currentScale : 1.0;
+        const effectiveRadius = territory.radius * pulseScale;
+
         // Main territory circle
         this.ctx.globalAlpha = flashAlpha;
         this.ctx.fillStyle = fillColor;
         this.ctx.beginPath();
-        this.ctx.arc(territory.x, territory.y, territory.radius, 0, Math.PI * 2);
+        this.ctx.arc(territory.x, territory.y, effectiveRadius, 0, Math.PI * 2);
         this.ctx.fill();
-        
-        // Border
+
+        // Border with enhanced visibility
         this.ctx.strokeStyle = territory.strokeColor;
         this.ctx.lineWidth = territory.ownerId === humanPlayer?.id ? 3 : 2;
         this.ctx.stroke();

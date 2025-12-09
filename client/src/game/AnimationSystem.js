@@ -473,26 +473,47 @@ export class AnimationSystem {
             ctx.fillStyle = animation.color;
             ctx.strokeStyle = animation.color;
             ctx.lineWidth = 2;
-            
-            // Draw ship as circle with trail
+
+            // Draw ship as circle with trail and glow
             let size = animation.isLongRange ? 3 : (animation.isAttack ? 4 : 3); // Smaller for long-range (half size)
-            
+
+            // Enhanced glow effect for all ships
+            ctx.shadowColor = animation.color;
+            ctx.shadowBlur = animation.isAttack ? 12 : 8;
+
             // Special rendering for supply ships - make them more visible
             if (animation.isSupplyShip) {
                 size = 5; // Larger supply ships
-                ctx.shadowColor = animation.color;
-                ctx.shadowBlur = 8;
-                
+                ctx.shadowBlur = 10;
+
                 // Add pulsing effect if paused
                 if (animation.isPaused) {
                     const pulseIntensity = 0.7 + 0.3 * Math.sin(Date.now() * 0.01);
                     ctx.globalAlpha = pulseIntensity;
                 }
             }
-            
+
+            // Draw outer glow ring for attack ships
+            if (animation.isAttack) {
+                ctx.globalAlpha = 0.3;
+                ctx.beginPath();
+                ctx.arc(currentX, currentY, size + 3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1.0;
+            }
+
             ctx.beginPath();
             ctx.arc(currentX, currentY, size, 0, Math.PI * 2);
             ctx.fill();
+
+            // Add bright inner core
+            ctx.fillStyle = '#ffffff';
+            ctx.globalAlpha = 0.7;
+            ctx.beginPath();
+            ctx.arc(currentX, currentY, size * 0.4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1.0;
+            ctx.fillStyle = animation.color;
             
             // Draw army count for long-range attacks
             if (animation.isLongRange && animation.armyCount) {
@@ -503,50 +524,91 @@ export class AnimationSystem {
                 ctx.fillStyle = animation.color; // Restore original color
             }
             
-            // Draw trail
-            const trailLength = 15;
-            const trailX = currentX - (animation.to.x - animation.from.x) * 0.1;
-            const trailY = currentY - (animation.to.y - animation.from.y) * 0.1;
-            
-            ctx.globalAlpha = 0.5;
+            // Draw enhanced trail with gradient
+            const dx = animation.to.x - animation.from.x;
+            const dy = animation.to.y - animation.from.y;
+            const trailX = currentX - dx * 0.12;
+            const trailY = currentY - dy * 0.12;
+
+            // Create gradient trail
+            const gradient = ctx.createLinearGradient(trailX, trailY, currentX, currentY);
+            gradient.addColorStop(0, 'rgba(255, 255, 255, 0)');
+            gradient.addColorStop(0.5, this.hexToRgba(animation.color, 0.3));
+            gradient.addColorStop(1, this.hexToRgba(animation.color, 0.7));
+
+            ctx.strokeStyle = gradient;
+            ctx.lineWidth = size * 1.2;
+            ctx.lineCap = 'round';
+            ctx.globalAlpha = 0.8;
             ctx.beginPath();
-            ctx.moveTo(currentX, currentY);
-            ctx.lineTo(trailX, trailY);
+            ctx.moveTo(trailX, trailY);
+            ctx.lineTo(currentX, currentY);
             ctx.stroke();
-            
+
             ctx.restore();
         }
     }
 
-    // Render combat particles
+    // Render combat particles with enhanced glow and trails
     renderCombatParticles(ctx, camera) {
         ctx.save();
-        
+
         for (const particle of this.combatParticles) {
             if (!particle.isActive) continue;
-            
+
             // Particles are already in world coordinates, camera transform is already applied
             // So we render directly at particle x,y position
-            
+
             // Skip particles outside viewport (using world coordinates)
             if (!camera.isPointVisible(particle.x, particle.y, 50)) {
                 continue;
             }
-            
+
             // Calculate alpha based on particle life
             const lifeProgress = particle.life / particle.maxLife;
             const alpha = Math.max(0, 1.0 - lifeProgress); // Fade out over time
-            
-            // Set particle color with fade
+
+            // Enhanced glow effect
+            ctx.save();
+            ctx.shadowColor = particle.color;
+            ctx.shadowBlur = 8 * alpha;
+
+            // Draw particle trail (motion blur effect)
+            if (particle.vx !== 0 || particle.vy !== 0) {
+                const trailLength = Math.min(15, Math.sqrt(particle.vx * particle.vx + particle.vy * particle.vy) * 0.05);
+                const trailX = particle.x - (particle.vx * 0.02);
+                const trailY = particle.y - (particle.vy * 0.02);
+
+                const gradient = ctx.createLinearGradient(trailX, trailY, particle.x, particle.y);
+                gradient.addColorStop(0, this.hexToRgba(particle.color, 0));
+                gradient.addColorStop(1, this.hexToRgba(particle.color, alpha * 0.8));
+
+                ctx.strokeStyle = gradient;
+                ctx.lineWidth = particle.size * 1.5;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(trailX, trailY);
+                ctx.lineTo(particle.x, particle.y);
+                ctx.stroke();
+            }
+
+            // Draw main particle with glow
             const rgba = this.hexToRgba(particle.color, alpha);
             ctx.fillStyle = rgba;
-            
-            // Draw particle at world coordinates (camera transform handles conversion)
+
             ctx.beginPath();
-            ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+            ctx.arc(particle.x, particle.y, particle.size * (1 + 0.3 * (1 - lifeProgress)), 0, Math.PI * 2);
             ctx.fill();
+
+            // Inner bright core
+            ctx.fillStyle = this.hexToRgba('#ffffff', alpha * 0.6);
+            ctx.beginPath();
+            ctx.arc(particle.x, particle.y, particle.size * 0.4, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
         }
-        
+
         ctx.restore();
     }
 
